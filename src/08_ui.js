@@ -815,7 +815,10 @@ function openFinance() {
       <div>
         <h4 class="sec" style="margin-top:0">Preço do ingresso</h4>
         <div style="display:flex;align-items:center;gap:9px">
-          <input type="range" id="fTicket" min="0" max="140" value="${G.ticket}" style="flex:1">
+          <input type="range" id="fTicket" min="0" max="${
+    // o teto acompanha o zoo: sempre dá para passar bem do preço de referência
+    Math.max(140, Math.ceil(precoJusto() * 1.8 / 10) * 10, Math.ceil(G.ticket / 10) * 10)
+    }" value="${G.ticket}" style="flex:1">
           <b id="fTicketV" style="min-width:70px;text-align:right">${moneyFull(G.ticket)}</b>
         </div>
         <div id="fTicketHint" style="font-size:11.5px;opacity:.7;margin-top:4px"></div>
