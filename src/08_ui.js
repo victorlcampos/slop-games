@@ -521,7 +521,7 @@ function inspAnimal(a) {
     </div>`;
   $('#iav').appendChild(cv2);
   $('#ix').onclick = deselect;
-  $('#ivoz').onclick = () => { SFX.iniciar(); SFX._ult.delete('voz' + sp.id); SFX.voz(sp, { vol: .3 }); };
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX.voz(sp, { vol: .32, imediato: true }); };
   $('#igo').onclick = () => centerOn(a.x, a.y);
   $('#isell').onclick = () => {
     const v = valorRevenda(a);

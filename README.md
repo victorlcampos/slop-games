@@ -30,10 +30,12 @@ sem dependências externas e sem servidor. Funciona offline.
   acionável em cada linha.
 - Save/load no navegador, **exportação do save em `.json`** e de um **relatório de
   status em `.txt`**, com importação de volta.
-- **Som inteiramente sintetizado** (Web Audio, nenhum arquivo de áudio): cada bicho
-  tem voz derivada do plano corporal e do tamanho, o murmúrio da multidão usa
-  formantes de vogal com ritmo silábico e cresce com o número de visitantes, e há
-  grilos à noite. Botão 🔊 no HUD alterna cheio / baixo / mudo (atalho `S`).
+- **Som inteiramente sintetizado** (Web Audio, nenhum arquivo de áudio): 22 gestos
+  sonoros — rugido, uivo, trombeta, piado, chiado, coaxo… — atribuídos por família,
+  com exceções por espécie (zebra late, raposa late, girafa bufa). O tamanho puxa a
+  afinação e o nome semeia o timbre, então duas espécies do mesmo gesto não soam
+  iguais. Clique num bicho para ouvi-lo. Botão 🔊 no HUD alterna cheio / baixo /
+  mudo (atalho `S`).
 - Responsivo: toque, pinça para zoom, e três arranjos de layout (celular em pé,
   celular deitado, desktop).
 

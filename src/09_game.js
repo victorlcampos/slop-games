@@ -323,7 +323,7 @@ function fimPonteiro(e) {
     if (tap) {
       const p = pickAt(sx, sy);
       // tocar num bicho faz ele responder — é a graça de ter voz por espécie
-      if (p) { if (p.tipo === 'animal') SFX.voz(p.ref.sp); select(p.tipo, p.ref); }
+      if (p) { if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true }); select(p.tipo, p.ref); }
       else deselect();
     }
     return;
@@ -880,14 +880,13 @@ function loop(now) {
   somAcc += dt;
   if (somAcc > .5) {
     somAcc = 0;
-    SFX.ambiente(G.visitors.length, G.hour, G.hour >= OPEN_H && G.hour < CLOSE_H);
-    // Vozes de bicho ao fundo, abafadas (barramento "distante"). A chance sobe
-    // com o tamanho do plantel: zoo pequeno fica calmo, zoo cheio fica vivo.
+    // Vozes de bicho ao fundo, abafadas e esparsas. Sem murmúrio de multidão:
+    // o parque fica em silêncio e o que se ouve são os próprios animais.
     if (G.speed > 0 && SFX.ligado) {
       const vivos = G.animals.filter(a => !a.morto);
-      const chance = clamp(.04 + vivos.length * .011, 0, .28);
+      const chance = clamp(.02 + vivos.length * .006, 0, .13);
       if (vivos.length && Math.random() < chance)
-        SFX.voz(pick(vivos).sp, { vol: .16, distante: true });
+        SFX.voz(pick(vivos).sp, { vol: .13, distante: true });
     }
   }
   miniAcc += dt;
