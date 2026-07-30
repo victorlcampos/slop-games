@@ -71,6 +71,7 @@ function pensamentoAnimal(a) {
   if (a.gravida > 0) return P_(.34, '🤰', 'Gestante');
   if (a.idade / sp.vida > .9) return P_(.32, '👴', 'Bem velhinho');
   if (a.idade < 1) return P_(.26, '🍼', 'Filhote');
+  if (a.estado === 'brincando') return P_(.18, '⚽', 'Brincando!');
   if (a.estado === 'comendo') return P_(.2, '😋', 'Comendo');
   if (a.feliz > .82) return P_(.16, '💚', 'Muito feliz aqui');
   if (a.estado === 'parado') return P_(.12, '😴', 'Descansando');
@@ -259,6 +260,7 @@ function moveAnimal(a, dt, gh) {
       a.espera = rnd(2, 5);
     }
   } else if (e && a.espera <= 0) {
+    a.indoBrincar = 0;
     const t0 = encTileAleatorio(e);
     if (!t0) return;
     let bx = t0[0] + .5, by = t0[1] + .5;
@@ -267,13 +269,25 @@ function moveAnimal(a, dt, gh) {
         const t = encTileAleatorio(e); if (!t) break;
         if (TKEYS[world.terr[IDX(t[0], t[1])]] === 'agua') { bx = t[0] + .5; by = t[1] + .5; break; }
       }
+    } else if (Math.random() < .3) {
+      // de vez em quando o passeio é até um brinquedo (bola, tronco, piscina)
+      const brs = e.objs.filter(o => o.kind === 'brinquedo' || o.kind === 'tronco' || o.kind === 'piscina');
+      if (brs.length) {
+        const o = pick(brs);
+        bx = o.x + .5 + rnd(-.3, .3); by = o.y + .5 + rnd(-.3, .3);
+        a.indoBrincar = o.id;
+      }
     }
     a.tx = bx; a.ty = by;
     a.espera = rnd(1.5, 6) + (sp.esc > 1.3 ? 2 : 0);
     a.estado = 'andando';
   }
   const d = dist(a.x, a.y, a.tx, a.ty);
-  const vel = (a.doente ? .35 : 1) * (.5 + Math.min(sp.esc, 1.4) * .55) * (sp.plano === 'preguica' ? .25 : 1);
+  // na água anda-se devagar (aquático deslancha)
+  const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
+  const naAgua = TKEYS[world.terr[ti]] === 'agua';
+  const vel = (a.doente ? .35 : 1) * (.5 + Math.min(sp.esc, 1.4) * .55) * (sp.plano === 'preguica' ? .25 : 1)
+    * (naAgua ? (sp.aquatico ? 1.15 : sp.plano === 'pernalta' ? .8 : .55) : 1);
   if (d > .08) {
     const s = Math.min(vel * dt, d);
     const nx = a.x + (a.tx - a.x) / d * s, ny = a.y + (a.ty - a.y) / d * s;
@@ -281,7 +295,15 @@ function moveAnimal(a, dt, gh) {
     a.x = nx; a.y = ny;
     a.anim += dt * (2.2 + vel);
     a.estado = a.doente ? 'doente' : 'andando';
-  } else if (a.estado === 'andando') a.estado = 'parado';
+  } else if (a.estado === 'andando') {
+    // chegou: se o destino era um brinquedo que segue ali, fica brincando
+    const alvo = a.indoBrincar && e && e.objs.find(o => o.id === a.indoBrincar);
+    if (alvo && dist(a.x, a.y, alvo.x + .5, alvo.y + .5) < 1.3) {
+      a.estado = 'brincando';
+      a.dir = Math.sign(alvo.x - alvo.y - (a.x - a.y)) || a.dir;   // de frente para ele
+    } else a.estado = 'parado';
+    a.indoBrincar = 0;
+  }
   a.frame = Math.floor(a.anim) % FRAMES;
 }
 

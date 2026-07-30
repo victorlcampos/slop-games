@@ -25,10 +25,15 @@ sem dependências externas e sem servidor. Funciona offline.
 - **Mundo vivo**: nuvens sombreiam o chão, a água cintila e peixes pulam nos
   lagos fundos, copas de árvore balançam na brisa, borboletas rondam os
   canteiros (vagalumes à noite), pássaros cruzam o céu, o balanço do playground
-  balança, a fonte esguicha, cercas elétricas soltam faísca, fumaça sobe das
-  cozinhas e animais na água fazem ondulações. Visitantes viram de frente para
-  o recinto ou a loja que estão usando. À noite: céu estrelado, janelas acesas
-  e poças de luz quente sob postes e fachadas.
+  balança, a fonte esguicha, cercas elétricas soltam faísca e fumaça sobe das
+  cozinhas. Visitantes viram de frente para o recinto ou a loja que estão
+  usando. À noite: céu estrelado, janelas acesas e poças de luz sob os postes.
+- **Animais interagem com o recinto**: quem entra na água **nada** — corpo
+  submerso até a linha d'água, balanço, esteira em V e velocidade reduzida
+  (aquáticos deslancham; pernaltas vadeiam com as pernas de fora). De vez em
+  quando o passeio vira brincadeira: o bicho vai até a bola, o tronco ou a
+  piscina, pula de frente para o brinquedo (balão ⚽) e a bola quica frenética;
+  na piscina ele fica de molho. Quem come solta farelos do focinho.
 - **Recintos de forma livre** — arraste para criar, arraste colado para ampliar.
   Dá para fazer L, T, U e até recintos com buraco no meio. A cerca é derivada das
   bordas, então todo tile pago vira área útil.

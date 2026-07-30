@@ -939,20 +939,24 @@ function drawEncObj(c, o, z) {
       c.stroke();
     }
   } else if (o.kind === 'brinquedo') {
-    // bola de brincar quicando
-    const q = Math.abs(Math.sin(_now / 420 + o.id * 1.3));
-    const by = sy - 8.5 * s - q * 5 * s;
-    ellipse(c, sx, sy, (7 - q * 1.6) * s, (3.4 - q * .8) * s);   // sombra própria
+    // bola de brincar; fica frenética quando um bicho vem brincar com ela
+    const perto = e && e.animals.some(a2 =>
+      !a2.morto && a2.estado === 'brincando' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
+    const q = Math.abs(Math.sin(_now / (perto ? 210 : 420) + o.id * 1.3));
+    const rol = perto ? Math.sin(_now / 330 + o.id) * 6 * s : 0;
+    const bx = sx + rol;
+    const by = sy - 8.5 * s - q * (perto ? 9 : 5) * s;
+    ellipse(c, bx, sy, (7 - q * 1.6) * s, (3.4 - q * .8) * s);   // sombra própria
     c.fillStyle = 'rgba(0,0,0,.14)'; c.fill();
     c.fillStyle = '#ffc23c'; c.strokeStyle = '#8a5a1c'; c.lineWidth = 2.4 * s;
-    c.beginPath(); c.arc(sx, by, 8 * s, 0, TAU); c.fill(); c.stroke();
+    c.beginPath(); c.arc(bx, by, 8 * s, 0, TAU); c.fill(); c.stroke();
     c.save();
-    c.beginPath(); c.arc(sx, by, 8 * s, 0, TAU); c.clip();
+    c.beginPath(); c.arc(bx, by, 8 * s, 0, TAU); c.clip();
     c.fillStyle = '#e2543f';
-    c.beginPath(); c.ellipse(sx, by + 1.5 * s, 9.5 * s, 3.4 * s, -.18, 0, TAU); c.fill();
+    c.beginPath(); c.ellipse(bx, by + 1.5 * s, 9.5 * s, 3.4 * s, rol * .04 - .18, 0, TAU); c.fill();
     c.restore();
     c.fillStyle = 'rgba(255,255,255,.65)';
-    c.beginPath(); c.arc(sx - 2.8 * s, by - 3 * s, 2 * s, 0, TAU); c.fill();
+    c.beginPath(); c.arc(bx - 2.8 * s, by - 3 * s, 2 * s, 0, TAU); c.fill();
   } else if (o.kind === 'tronco') {
     // tronco caído: corpo roliço, casca, veios e broto
     c._ink = '#4a3520';
@@ -1123,9 +1127,52 @@ function drawAnimal(c, a, z) {
   const cres = clamp(.5 + .5 * a.idade / (a.sp.vida * .22), .5, 1);
   const alt = hp * z * cres;             // altura na tela
   const px = clamp(Math.round(alt / 8) * 8, 24, 240); // resolução do cache, em degraus
-  ellipse(c, sx, sy, hp * .26 * z * cres, hp * .12 * z * cres); c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
-  // pisando na água: anéis de ondulação
-  if (inB(a.x | 0, a.y | 0) && world.terr[IDX(a.x | 0, a.y | 0)] === T_AGUA && z > .45) {
+  // em que ele está pisando? (água pintada ou piscina de recinto)
+  const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
+  const oc = world.occ[ti] && objects.get(world.occ[ti]);
+  const naAgua = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
+  const nadando = naAgua && a.sp.plano !== 'pernalta';   // pernalta vadeia; o resto nada
+  const parado = a.estado === 'parado' || a.estado === 'brincando' || a.estado === 'comendo';
+  const spr = getSprite(a.sp, parado && !nadando ? 0 : a.frame, px);
+  if (nadando) {
+    // corpo afundado até a linha d'água, com balanço e esteira
+    const bob = Math.sin(_now / 430 + a.id * 1.7) * 1.4 * z;
+    const merg = alt * .32 + bob;
+    c.save();
+    c.beginPath(); c.rect(sx - alt, sy - alt * 3, alt * 2, alt * 3 + 1.2 * z);
+    c.clip();
+    blitSprite(c, spr, sx, sy + merg, alt, a.dir);
+    c.restore();
+    // linha d'água e ondulações
+    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1.5 * z;
+    ellipse(c, sx, sy, alt * .33, alt * .13); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.2 * z;
+    for (let k = 0; k < 2; k++) {
+      const t = (_now / 900 + a.id * .37 + k / 2) % 1;
+      c.globalAlpha = (1 - t) * .45;
+      ellipse(c, sx, sy, alt * (.36 + t * .3), alt * (.14 + t * .13)); c.stroke();
+    }
+    c.globalAlpha = 1;
+    if (a.estado === 'andando') {        // esteira em V atrás
+      c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1.4 * z; c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(sx - a.dir * alt * .28, sy - 2 * z);
+      c.quadraticCurveTo(sx - a.dir * alt * .55, sy - 3 * z, sx - a.dir * alt * .8, sy - 5.5 * z);
+      c.moveTo(sx - a.dir * alt * .28, sy + 2 * z);
+      c.quadraticCurveTo(sx - a.dir * alt * .55, sy + 3 * z, sx - a.dir * alt * .8, sy + 5 * z);
+      c.stroke();
+    }
+    filaBolhas(a, sx, sy + merg - alturaVisivel(a.sp) * (alt / SPR), z);
+    return;
+  }
+  // pulo da brincadeira / bocada da comida
+  let hop = 0;
+  if (a.estado === 'brincando') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
+  else if (a.estado === 'comendo') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
+  const kSombra = 1 - hop * .022 / Math.max(z, .001);
+  ellipse(c, sx, sy, hp * .26 * z * cres * Math.max(.7, kSombra), hp * .12 * z * cres * Math.max(.7, kSombra));
+  c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
+  if (naAgua && z > .45) {               // ave vadeando: anéis no espelho d'água
     c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1.2 * z;
     for (let k = 0; k < 2; k++) {
       const t = (_now / 1100 + a.id * .37 + k / 2) % 1;
@@ -1134,9 +1181,19 @@ function drawAnimal(c, a, z) {
     }
     c.globalAlpha = 1;
   }
-  const spr = getSprite(a.sp, a.estado === 'parado' ? 0 : a.frame, px);
-  blitSprite(c, spr, sx, sy, alt, a.dir);
-  filaBolhas(a, sx, sy - alturaVisivel(a.sp) * (alt / SPR), z);
+  blitSprite(c, spr, sx, sy - hop, alt, a.dir);
+  if (a.estado === 'comendo' && z > .5) { // farelos caindo do focinho
+    c.fillStyle = 'rgba(96,66,34,.75)';
+    for (let k = 0; k < 3; k++) {
+      const t = (_now / 500 + k / 3 + a.id * .21) % 1;
+      c.globalAlpha = 1 - t;
+      c.beginPath();
+      c.arc(sx + a.dir * alt * (.2 + k * .04), sy - alt * .22 + t * alt * .2, 1.1 * z, 0, TAU);
+      c.fill();
+    }
+    c.globalAlpha = 1;
+  }
+  filaBolhas(a, sx, sy - hop - alturaVisivel(a.sp) * (alt / SPR), z);
 }
 /* ---- balões de pensamento ---- */
 const bolhas = [];
