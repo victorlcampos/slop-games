@@ -1,0 +1,158 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>Real x sintetizado</title>
+<style>
+  body{background:#12131a;color:#e8e8f0;font:13px system-ui;margin:0;padding:10px;max-width:1100px}
+  h1{font-size:15px;margin:0 0 10px}
+  .g{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .par{grid-column:1/-1;border-top:1px solid #333;margin-top:6px;padding-top:4px;font-weight:600;color:#7fd}
+  .c{background:#1c1e28;border-radius:8px;padding:8px}
+  .c b{display:block;font-size:12px;margin-bottom:4px}
+  .c small{color:#9aa;font-size:10px}
+  canvas{width:100%;height:300px;display:block;border-radius:4px}
+</style></head><body>
+<h1>Esquerda = voz humana real (macOS TTS). Direita = minha síntese. Mesmo STFT, 0–5 kHz.</h1>
+<div class="g" id="g"></div>
+<script src="../src/02_util.js"></script>
+<script src="../src/03_species.js"></script>
+<script src="../src/04_sprites.js"></script>
+<script src="../src/06b_audio.js"></script>
+<script>
+/* ---- FFT radix-2 ---- */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const ur = re[i+k], ui = im[i+k];
+        const vr = re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi = re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const nc = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = nc;
+      }
+    }
+  }
+}
+const SR = 22050, N = 1024, HOP = 128, FMAX = 5000;
+
+async function renderiza(fn, dur) {
+  const oc = new OfflineAudioContext(1, Math.ceil(SR * dur), SR);
+  SFX.ctx = oc; SFX.ligado = true; SFX._ativas = 0; SFX._ult = new Map(); SFX._glote = null;
+  SFX.mestre = oc.createGain(); SFX.mestre.gain.value = 1;
+  const lim = oc.createDynamicsCompressor();
+  lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
+  SFX.mestre.connect(lim).connect(oc.destination);
+  SFX.longe = SFX.mestre;
+  fn();
+  const buf = await oc.startRendering();
+  return buf.getChannelData(0);
+}
+
+function desenha(cv, x, titulo) {
+  const cols = Math.floor((x.length - N) / HOP);
+  const bins = Math.floor(N * FMAX / SR);
+  cv.width = cols; cv.height = bins;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(cols, bins);
+  const win = new Float32Array(N);
+  for (let i = 0; i < N; i++) win[i] = .5 - .5 * Math.cos(2*Math.PI*i/(N-1));
+  let pico = 1e-9;
+  const mag = new Float32Array(cols * bins);
+  for (let c = 0; c < cols; c++) {
+    const re = new Float32Array(N), im = new Float32Array(N);
+    for (let i = 0; i < N; i++) re[i] = x[c*HOP+i] * win[i];
+    fft(re, im);
+    for (let b = 0; b < bins; b++) {
+      const m = Math.hypot(re[b], im[b]);
+      mag[c*bins+b] = m; if (m > pico) pico = m;
+    }
+  }
+  for (let c = 0; c < cols; c++) for (let b = 0; b < bins; b++) {
+    const db = 20 * Math.log10(mag[c*bins+b] / pico);
+    const v = Math.max(0, Math.min(1, (db + 62) / 62));   // -62 dB .. 0
+    const p = ((bins - 1 - b) * cols + c) * 4;
+    // colormap: preto -> azul -> vermelho -> amarelo -> branco
+    img.data[p]   = 255 * Math.min(1, Math.max(0, v*2.6 - .55));
+    img.data[p+1] = 255 * Math.min(1, Math.max(0, v*2.4 - 1.15));
+    img.data[p+2] = 255 * Math.min(1, Math.max(0, v < .5 ? v*2 : 2.2 - v*2.6));
+    img.data[p+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  // envelope de longo prazo: onde a energia realmente se concentra
+  const env = new Float32Array(bins);
+  for (let b = 0; b < bins; b++) {
+    let s = 0; for (let c = 0; c < cols; c++) s += mag[c*bins+b]*mag[c*bins+b];
+    env[b] = Math.sqrt(s / cols);
+  }
+  // suaviza para achar o envelope espectral (não os harmônicos individuais)
+  const W = Math.round(330 * N / SR), sm = new Float32Array(bins);
+  for (let b = 0; b < bins; b++) {
+    let s = 0, n = 0;
+    for (let k = -W; k <= W; k++) { const i = b+k; if (i>=0 && i<bins) { s += env[i]; n++; } }
+    sm[b] = s/n;
+  }
+  // impressão digital comparável: quanta energia mora em cada faixa
+  const FX = [[0,500],[500,1500],[1500,3000],[3000,5000]];
+  const e = FX.map(([lo,hi]) => {
+    let s = 0;
+    for (let b = Math.round(lo*N/SR); b < Math.round(hi*N/SR) && b < bins; b++) s += env[b]*env[b];
+    return s;
+  });
+  const tot = e.reduce((a,b)=>a+b,0) || 1;
+  const mx = Math.max(...e);
+  return FX.map(([lo,hi],i) =>
+    (hi/1000) + 'k:' + (100*e[i]/tot).toFixed(0) + '%/' + (10*Math.log10(e[i]/mx)).toFixed(0) + 'dB'
+  ).join('  ');
+}
+
+
+async function carrega(url) {
+  const oc = new OfflineAudioContext(1, 2, SR);
+  const buf = await oc.decodeAudioData(await (await fetch(url)).arrayBuffer());
+  let x = buf.getChannelData(0);
+  if (buf.sampleRate !== SR) {          // reamostra para o mesmo SR da síntese
+    const o2 = new OfflineAudioContext(1, Math.ceil(x.length * SR / buf.sampleRate), SR);
+    const s = o2.createBufferSource(); s.buffer = buf; s.connect(o2.destination); s.start();
+    x = (await o2.startRendering()).getChannelData(0);
+  }
+  // corta silêncio das pontas para os painéis alinharem no tempo
+  let pico = 0; for (let i = 0; i < x.length; i++) pico = Math.max(pico, Math.abs(x[i]));
+  const lim = pico * .04;
+  let a = 0, b = x.length - 1;
+  while (a < b && Math.abs(x[a]) < lim) a++;
+  while (b > a && Math.abs(x[b]) < lim) b--;
+  return x.slice(Math.max(0, a - 800), Math.min(x.length, b + 800));
+}
+
+const PARES = [
+  ['homem "ah"',   'ref/h_ah.wav',    .9, () => SFX._vogal({ f0:112, vogal:'a', dur:.45, vol:.5, tipo:'homem' })],
+  ['mulher "ah"',  'ref/m_ah.wav',    .9, () => SFX._vogal({ f0:200, vogal:'a', dur:.45, vol:.5, tipo:'mulher' })],
+  ['homem "oh"',   'ref/h_oi.wav',   1.0, () => SFX.vozHumana({ crianca:false, look:3, id:7 }, { imediato:true, vol:.5 })],
+  ['mulher "oi"',  'ref/m_oi.wav',   1.0, () => SFX.vozHumana({ crianca:false, look:11, id:2 }, { imediato:true, vol:.5 })],
+  ['mulher "uau"', 'ref/m_uau.wav',  1.0, () => SFX.vozHumana({ crianca:false, look:8, id:4 }, { imediato:true, vol:.5 })],
+  ['2 sílabas',    'ref/h_frase.wav',1.4, () => SFX.vozHumana({ crianca:false, role:'vet', look:4, id:1 }, { imediato:true, vol:.5 })],
+];
+
+(async () => {
+  const g = document.getElementById('g');
+  for (const [nome, url, dur, fn] of PARES) {
+    const h = document.createElement('div'); h.className = 'par'; h.textContent = nome; g.appendChild(h);
+    for (const [rot, prod] of [['REAL', () => carrega(url)], ['MEU', () => renderiza(fn, dur)]]) {
+      const d = document.createElement('div'); d.className = 'c';
+      d.innerHTML = `<b>${rot}</b>`;
+      const cv = document.createElement('canvas'); d.appendChild(cv); g.appendChild(d);
+      try { const i = desenha(cv, await prod(), nome);
+            const e = document.createElement('small'); e.style.color='#7fd'; e.textContent = i; d.appendChild(e); }
+      catch (e) { d.innerHTML += `<small style="color:#f88">${e.message}</small>`; }
+    }
+  }
+  document.title = 'pronto';
+})();
+</script></body></html>
