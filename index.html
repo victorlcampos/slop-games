@@ -93,9 +93,9 @@ canvas{display:block;max-width:100%}
 /* quebra linha junto com o HUD: sem isso o último botão vazava para fora da
    tela no celular, porque o grupo da direita não acompanhava o wrap do pai */
 #hudRight{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
-  gap:6px;align-items:center;flex:0 1 auto}
-.spd{width:34px;height:34px;padding:0;font-size:14px;display:grid;place-items:center}
-#clockBadge{font-size:12px;min-width:64px;text-align:center}
+  gap:4px;align-items:center;flex:0 1 auto}
+.spd{width:32px;height:32px;padding:0;font-size:13.5px;display:grid;place-items:center}
+#clockBadge{font-size:12px;min-width:58px;text-align:center}
 
 /* ---------- Dock inferior ---------- */
 #dockWrap{position:absolute;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;
@@ -257,6 +257,17 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-track{background:rgba(70,44,20,.09);border-radius:8px}
 ::-webkit-scrollbar-thumb{background:var(--tan);border:2px solid var(--ink);border-radius:8px}
+
+/* ---- barra de alertas do gerente (abaixo do HUD, à esquerda) ---- */
+#alertbar{position:absolute;left:8px;top:calc(var(--hudH,54px) + 10px);display:flex;flex-direction:column;align-items:flex-start;gap:5px;z-index:14;pointer-events:none;max-width:46vw}
+#alertbar .achip{pointer-events:auto;display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:12px;padding:3px 9px 3px 7px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 2px 0 rgba(47,33,19,.28);cursor:pointer;background:#fffdf6;font-family:inherit;transition:transform .08s}
+#alertbar .achip:active{transform:scale(.95)}
+#alertbar .achip .n{background:var(--ink);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:800}
+#alertbar .achip.sev2{background:#fff3d6}
+#alertbar .achip.sev3{background:#ffe1d9}
+#stRep,#stHappy{cursor:pointer}
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+
 /* ============================ RESPONSIVO ============================ */
 
 /* Telas médias: encolhe sem mudar a arquitetura da tela */
@@ -268,16 +279,18 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 /* Telas estreitas (celular em pé, tablet pequeno) */
 @media(max-width:700px){
+  #alertbar{max-width:64vw;gap:4px}
+  #alertbar .achip{font-size:11.5px;padding:2px 8px 2px 6px}
   /* HUD quebra em linhas e as etiquetas viram só ícone+valor */
   #hud{height:auto;flex-wrap:wrap;padding:5px 6px;gap:5px;row-gap:4px}
   .stat{padding:3px 7px;font-size:13px;border-radius:9px}
   .stat small{display:none}
   .stat .ic{font-size:14px}
-  /* 8 botões + relógio têm de caber numa linha só: a 36px estouravam por 4px
-     e o wrap jogava o HUD para 150px de altura (18% da tela do celular) */
-  #hudRight{gap:3px}
-  .spd{width:34px;height:34px;font-size:12.5px}
-  #clockBadge{min-width:auto;font-size:11px;padding:4px 6px}
+  /* 10 botões + relógio têm de caber numa linha só: acima disso o wrap
+     jogava o HUD para 150px de altura (18% da tela do celular) */
+  #hudRight{gap:2px}
+  .spd{width:28px;height:34px;font-size:12px}
+  #clockBadge{min-width:auto;font-size:10.5px;padding:4px 4px}
 
   /* Dock: tira em rolagem horizontal, alvos de toque maiores */
   /* aqui o minimapa flutua ACIMA do dock, então a tira usa a largura toda */
@@ -418,11 +431,13 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn spd" id="sp3" title="Velocidade 4x">⏭</button>
       <button class="btn spd" id="zSom" title="Som (S)">🔊</button>
       <button class="btn spd" id="zBolha" title="Balões de pensamento (B)">💭</button>
+      <button class="btn spd" id="zUndo" title="Nada para desfazer (Ctrl+Z)" disabled>↩️</button>
       <button class="btn spd soToque" id="zMap" title="Minimapa">🗺️</button>
       <button class="btn spd" id="zSave" title="Baixar save do jogo (.json)">📥</button>
       <button class="btn spd" id="zLoad" title="Abrir save de um arquivo">📤</button>
     </div>
   </div>
+  <div id="alertbar"></div>
 
   <div id="dockWrap">
     <div id="palette"><div id="palTitle"></div></div>
@@ -2219,6 +2234,9 @@ const G = {
     hist: [],
   },
   pesquisa: { marketing: 0 },
+  repLog: [],            // extrato de choques na reputação (painel ⭐)
+  nVets: 0,              // veterinários no quadro (contado no tick; acelera cria)
+  undo: [],              // últimas compras desfazíveis (não persiste no save)
   maxVis: 280,           // ajustado no boot conforme o tamanho da tela
   bolhas: 1,             // balões de pensamento: 0 off · 1 só problemas · 2 tudo
   terrVer: 0,            // versão do terreno (invalida cache de encMix)
@@ -2397,7 +2415,8 @@ function updAnimal(a, dt, gh) {
   if (a.saude <= 0 || (velho > 1 && Math.random() < gh * .02)) {
     a.morto = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
-    G.rep = clamp(G.rep - .12, 0, 5); SFX.toca('morte');
+    repEvento(-.12, a.nome + ' (' + sp.nome + ') morreu' + (velho > 1 ? ' de velhice' : ''), '💀');
+    SFX.toca('morte');
     toast('💀 ' + a.nome + ' (' + sp.nome + ') morreu' + (velho > 1 ? ' de velhice' : ''), 'bad');
     return;
   }
@@ -2411,24 +2430,33 @@ function updAnimal(a, dt, gh) {
       a.fugiu = true; G.escaped.push(a); SFX.toca('alarme');
       e.animals = e.animals.filter(z => z.id !== a.id);
       toast('🚨 ' + sp.nome + ' FUGIU do recinto!', 'bad');
-      G.rep = clamp(G.rep - .3, 0, 5);
+      repEvento(-.3, sp.nome + ' fugiu do recinto', '🚨');
     }
   }
-  // reprodução
-  if (e && !a.fugiu && a.sexo === 'F' && a.feliz > .72 && a.idade > sp.vida * .18 && a.idade < sp.vida * .72) {
+  // reprodução — precisa de casal adulto da espécie no recinto. A taxa varia
+  // por espécie (vida curta e bando grande procriam mais) e sobe com
+  // veterinários no quadro. A fórmula antiga (0.0009/h fixo, gestação de 8
+  // dias, felicidade > .72) dava ~1 cria por vida — ninguém via nascimento.
+  if (e && !a.fugiu && a.sexo === 'F' && a.feliz > .62 && a.saude > .5 &&
+    a.idade > sp.vida * .18 && a.idade < sp.vida * .72) {
     if (a.gravida > 0) {
       a.gravida -= gh;
       if (a.gravida <= 0) {
-        const irmaos = e.animals.filter(z => z.sp.id === sp.id).length;
+        const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.morto).length;
         if (encArea(e) >= sp.espaco * (irmaos + 1) && irmaos < sp.gmax + 2) {
-          const f = novoAnimal(sp, e.id, 0.05); e.animals.push(f); SFX.toca('nascimento');
+          const f = novoAnimal(sp, e.id, 0.02); e.animals.push(f); SFX.toca('nascimento');
           toast('🎉 Nasceu um filhote de ' + sp.nome + '!', 'good');
-          G.rep = clamp(G.rep + .12, 0, 5);
+          repEvento(+.12, 'Nasceu um filhote de ' + sp.nome, '🎉');
         }
       }
-    } else if (Math.random() < gh * .0009 &&
-      e.animals.some(z => z.sp.id === sp.id && z.sexo === 'M' && z.idade > sp.vida * .18)) {
-      a.gravida = 24 * 8;
+    } else {
+      const fert = 5 / (sp.vida * YEAR_DAYS * 24)          // ~2-3 crias por vida
+        * clamp(sp.gmax / 6, .6, 2)                        // bando procria mais
+        * (1 + .25 * Math.min(G.nVets, 4));                // programa de cria dos vets
+      if (Math.random() < gh * fert &&
+        e.animals.some(z => z.sp.id === sp.id && z.sexo === 'M' && !z.morto && z.idade > sp.vida * .18)) {
+        a.gravida = 24 * clamp(sp.vida * .08, 1.5, 5);     // gestação proporcional
+      }
     }
   }
   atualizaPensamento(a, dt, pensamentoAnimal);
@@ -2647,11 +2675,15 @@ function chegou(v) {
       e.visitasHoje = (e.visitasHoje || 0) + 1;
     } else v.mood = clamp(v.mood - .05, 0, 1);
     v.acao = rnd(1.2, 3);
+    // vira de frente para o recinto (eixo x da tela ∝ x−y do mundo)
+    const bb = encBBox(e);
+    v.dir = Math.sign(bb.cx - bb.cy - (v.x - v.y)) || v.dir;
   } else if (a.tipo === 'obj') {
     const o = a.ref;
     if (!objects.has(o.id)) { v.alvo = null; return; }
     o.fila.push(v.id);
     v.acao = rnd(.8, 2.2);
+    v.dir = Math.sign(o.x + o.w / 2 - (o.y + o.h / 2) - (v.x - v.y)) || v.dir;
   }
   v.path = null;
 }
@@ -2680,6 +2712,8 @@ function sairVisitante(v) {
   G.visitors = G.visitors.filter(z => z.id !== v.id);
   const delta = (v.mood - .5) * .0075;
   G.rep = clamp(G.rep + delta, 0, 5);
+  // acumula para o extrato do painel ⭐ (1 linha agregada por dia, não 1 por visitante)
+  G.stats.repVis = (G.stats.repVis || 0) + delta;
 }
 
 /* ==========================================================================
@@ -2827,7 +2861,7 @@ const gestoDe = sp => GESTO_ESPECIE[sp.nome] || GESTO_PLANO[sp.plano] ||
   (sp.esc > 1.2 ? 'grunhido' : 'guincho');
 
 const SFX = {
-  ctx: null, mestre: null, multidao: null, noite: null,
+  ctx: null, mestre: null, longe: null,
   ligado: true, vol: .65,
   _ult: new Map(),        // antisspam por evento
   _ativas: 0,             // vozes tocando agora (teto de polifonia)
@@ -2907,6 +2941,144 @@ const SFX = {
     src.start(t0); src.stop(t0 + dur + .02);
     this._ativas++; src.onended = () => this._ativas--;
   },
+  /** Vogal por síntese de formantes, seguindo Klatt (1980).
+   *  Duas coisas que eu tinha errado e a literatura corrige:
+   *  1) VOGAL É CASCATA. Ressoadores em série. Passa-bandas estreitos em
+   *     PARALELO (minha 1ª tentativa) isolam 3 faixas e descartam o resto —
+   *     vira acorde de 3 tons. A configuração paralela do Klatt existe para
+   *     fricativa e plosiva, não para vogal.
+   *  2) A FONTE É UM TREM DE IMPULSOS limitado em banda, não uma serra. É a
+   *     fonte que carrega a qualidade vocal; serra soa elétrica.
+   *  Frequências de formante: Peterson & Barney (1952), homem adulto.
+   *  F4/F5 = 3500/4500 Hz, valores usuais em síntese. */
+  _ondaGlotal() {
+    if (this._glote) return this._glote;
+    const n = 40, real = new Float32Array(n + 1), imag = new Float32Array(n + 1);
+    // queda ~12 dB/oitava: perfil do pulso glotal (serra cai só 6)
+    // Medido contra voz real: ela concentra 72–95% da energia abaixo de 1,5 kHz.
+    // Fonte com queda de só -6 dB/oitava deixa o agudo forte demais e o resultado
+    // soa sintetizador. Aqui fica perto do pulso glotal de verdade (~-12).
+    for (let k = 1; k <= n; k++) imag[k] = 1 / Math.pow(k, 1.6);
+    return this._glote = this.ctx.createPeriodicWave(real, imag);
+  },
+  _vogal({ f0 = 140, f0b, vogal = 'a', vogal2, dur = .3, vol = .22, t = 0, dest, tipo = 'homem' }) {
+    const c = this.ctx, t0 = c.currentTime + t;
+    const V = {  // Peterson & Barney (1952), homem adulto
+      i: [270, 2290, 3010], e: [530, 1840, 2480], a: [730, 1090, 2440],
+      o: [570, 840, 2410], u: [300, 870, 2240], ae: [660, 1720, 2410], er: [490, 1350, 1690],
+    };
+    const esc = tipo === 'crianca' ? 1.35 : tipo === 'mulher' ? 1.17 : 1;
+    const A = (V[vogal] || V.a).concat([3500, 4500]);
+    const B = (V[vogal2] || V[vogal] || V.a).concat([3500, 4500]);
+    const BW = [60, 90, 120, 150, 200];        // larguras de banda típicas
+    const LOCUS = [250, 1750, 2600, 3400, 4400];  // ponto de partida no ataque
+
+    // Sílaba tem forma no tempo: transição rápida no ataque, depois alvo sustentado.
+    // Rampa contínua do início ao fim (o que eu tinha) cisalha tudo em diagonal —
+    // isso é sirene, não fala. Transição de formante ocupa ~60 ms (teoria do lócus).
+    const TRANS = Math.min(.06, dur * .3);
+    const o = c.createOscillator();
+    o.setPeriodicWave(this._ondaGlotal());
+    o.frequency.setValueAtTime(f0, t0);
+    o.frequency.setValueAtTime(f0, t0 + dur * .55);   // segura, depois entoa
+    if (f0b) o.frequency.exponentialRampToValueAtTime(Math.max(40, f0b), t0 + dur);
+    // jitter: prega vocal não é oscilador. Sem esta trepidação a nota fica reta
+    // e soa órgão. Fundo mesmo (~0,3%): mais que isso vira vibrato de ópera.
+    [[5.7, 4], [12.9, 2]].forEach(([hz, cents]) => {
+      const l = c.createOscillator(), lg = c.createGain();
+      l.frequency.value = hz; l.type = 'sine'; lg.gain.value = cents;
+      l.connect(lg).connect(o.detune); l.start(t0); l.stop(t0 + dur + .05);
+    });
+
+    // Aspiração: fluxo de ar que não vira periodicidade. É ela que preenche o
+    // vão entre harmônicos — comparado com voz real, sem isso o espectro vira
+    // linhas finas com preto no meio, que é o desenho de um zumbido, não de voz.
+    const nn = Math.ceil(c.sampleRate * (dur + .05));
+    const nb = c.createBuffer(1, nn, c.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < nn; i++) nd[i] = Math.random() * 2 - 1;
+    const ns = c.createBufferSource(); ns.buffer = nb;
+    const ng = c.createGain(); ng.gain.value = .05;
+    const nlp = c.createBiquadFilter();   // acima de ~4 kHz a voz real é escura
+    nlp.type = 'lowpass'; nlp.frequency.value = 2400; nlp.Q.value = .7;
+
+    // fonte periódica e aspiração passam pelo MESMO trato vocal
+    const entrada = c.createGain();
+    o.connect(entrada); ns.connect(ng).connect(nlp).connect(entrada);
+
+    // cascata de 5 ressoadores; Q = F/BW, como no modelo
+    let no = entrada;
+    for (let i = 0; i < 5; i++) {
+      const fA = A[i] * esc, fB = B[i] * esc;
+      const r = c.createBiquadFilter();
+      r.type = 'peaking';                       // realça sem descartar o resto
+      // Q teórico (F/BW) deixa o formante mais estreito que o espaçamento entre
+      // harmônicos — ele cai no vão e não realça nada. Limitado, pega 2–3 harmônicos.
+      r.Q.value = Math.min(4.5, Math.max(1.8, fA / BW[i]));
+      r.gain.value = [23, 19, 10, 4, 2][i];
+      // lócus: de onde o formante parte no ataque (lugar da consoante)
+      r.frequency.setValueAtTime(fA + (LOCUS[i] - fA) * .55, t0);
+      r.frequency.linearRampToValueAtTime(fA, t0 + TRANS);  // chega no alvo da vogal
+      r.frequency.setValueAtTime(fA, t0 + dur * .55);       // e SEGURA
+      if (vogal2) r.frequency.linearRampToValueAtTime(fB, t0 + dur);
+      no = no.connect(r);
+    }
+    const boca = c.createBiquadFilter();   // trato vocal não irradia agudo livre
+    boca.type = 'lowpass'; boca.frequency.value = 3400; boca.Q.value = .5;
+
+    const g = c.createGain();
+    const vc = vol * .32;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vc, t0 + .035);
+    g.gain.linearRampToValueAtTime(vc * .72, t0 + dur * .62);  // shimmer: sílaba decai
+    g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    no.connect(boca).connect(g).connect(dest || this.mestre);
+    o.start(t0); o.stop(t0 + dur + .05);
+    ns.start(t0); ns.stop(t0 + dur + .05);
+    this._ativas++; o.onended = () => this._ativas--;
+  },
+
+  /** Voz de gente: visitante solta uma interjeição curta, funcionário responde
+   *  com o jeito da função. A altura e a vogal vêm da aparência da pessoa, então
+   *  o mesmo sujeito soa sempre igual. */
+  vozHumana(p, opts) {
+    if (!this.ctx || !this.ligado) return;
+    const imediato = opts && opts.imediato;
+    if (!imediato && !this._passa('humano', 200)) return;
+    const r = mulberry(hashStr(personKey(p)) + 5);
+    const crianca = !!p.crianca;
+    // f0 típico: homem 100–130, mulher 190–220, criança 250–320
+    const tipo = crianca ? 'crianca' : (r() < .5 ? 'homem' : 'mulher');
+    const f0 = crianca ? 250 + r() * 70 : tipo === 'mulher' ? 185 + r() * 45 : 100 + r() * 35;
+    const vogais = ['a', 'e', 'i', 'o', 'u'];
+    const vg = vogais[(r() * vogais.length) | 0];
+    const v = (opts && opts.vol) || .22;
+    const dest = (opts && opts.distante) ? this.longe : undefined;
+
+    if (p.role === 'trat') {            // tratador assobia, como quem chama bicho
+      this._tom({ f: 1250, f2: 1850, tipo: 'sine', dur: .16, vol: v * .5, dest });
+      this._tom({ f: 1850, f2: 1400, tipo: 'sine', dur: .2, vol: v * .45, t: .15, dest });
+      return;
+    }
+    if (p.role === 'fax') {             // faxineiro suspira
+      this._ruido({ dur: .45, vol: v * .3, tipo: 'bandpass', f: 900, f2: 500, Q: .8, lp: 1600, dest });
+      this._vogal({ f0, f0b: f0 * .82, vogal: 'u', dur: .4, vol: v * .5, tipo, dest });
+      return;
+    }
+    if (p.role) {                        // veterinário / segurança: duas sílabas firmes
+      this._vogal({ f0: f0 * .95, vogal: 'o', vogal2: 'i', dur: .17, vol: v * .8, tipo, dest });
+      this._vogal({ f0: f0 * .85, f0b: f0 * .7, vogal: 'a', vogal2: 'e', dur: .27, vol: v * .75, t: .18, tipo, dest });
+      return;
+    }
+    // visitante: interjeição de uma sílaba, com entonação (sobe = pergunta)
+    const sobe = r() < .5;
+    const vg2 = vogais[(r() * vogais.length) | 0];
+    this._vogal({ f0, f0b: sobe ? f0 * 1.28 : f0 * .78, vogal: vg, vogal2: vg2,
+                  dur: .26 + r() * .12, vol: v, tipo, dest });
+    if (r() < .35)                       // às vezes uma segunda sílaba
+      this._vogal({ f0: f0 * .92, f0b: f0 * .75, vogal: vogais[(r() * 5) | 0],
+                    dur: .24, vol: v * .8, t: .3, tipo, dest });
+  },
+
   _acorde(freqs, { tipo = 'sine', dur = .3, vol = .16, passo = .07 } = {}) {
     freqs.forEach((f, i) => this._tom({ f, tipo, dur, vol, t: i * passo }));
   },
@@ -2981,29 +3153,51 @@ const SFX = {
   },
 
   /* ---- gestos ---- */
-  _g_rugido(F, v) {          // leão, tigre, onça: grave, harmônico e áspero
-    const f0 = F(115);
-    [[1, 1], [2, .42], [3, .2]].forEach(([m, g]) =>
-      this._tom({ f: f0 * m, f2: f0 * m * .72, tipo: 'sawtooth', dur: .95, vol: v * g * .6,
-                  atk: .13, vib: f0 * m * .05, vibF: 27, lp: F(1000) }));  // vibrato = aspereza
-    this._ruido({ dur: .95, vol: v * .16, tipo: 'bandpass', f: F(500), f2: F(190), Q: .8, lp: F(900) });
+  _g_rugido(F, v, r) {       // leão, tigre, onça
+    // Rugido de verdade NÃO é um zumbido contínuo: é uma sequência de gemidos
+    // pulsados, cada um com ataque próprio e queda longa, separados por silêncio.
+    // Era isso que faltava — eu tinha acertado a faixa de frequência e errado a
+    // forma, e forma é o que o ouvido usa para reconhecer o bicho.
+    const f0 = F(140), n = 2 + (r() * 2 | 0);
+    let t = 0;
+    for (let i = 0; i < n; i++) {
+      const ult = i === n - 1;
+      const dur = ult ? .85 : .38 + r() * .12;         // o último gemido é o longo
+      const k = 1 + (r() - .5) * .12;                  // cada pulso desafina um tico
+      [[1, 1], [2, .55], [3, .3], [4, .14]].forEach(([m, g]) =>
+        this._tom({ f: f0 * m * k, f2: f0 * m * k * (ult ? .6 : .82), tipo: 'sawtooth',
+                    t, dur, vol: v * g * (ult ? .62 : .5), atk: .06,
+                    vib: f0 * m * .06, vibF: 26 + r() * 8, lp: F(1700) }));
+      this._ruido({ t, dur, vol: v * .16, tipo: 'bandpass',
+                    f: F(600), f2: F(230), Q: .8, lp: F(1400) });
+      t += dur + .1 + r() * .07;                       // o silêncio entre gemidos
+    }
   },
   _g_miado(F, v) {           // felino pequeno
     this._tom({ f: F(620), f2: F(880), tipo: 'sawtooth', dur: .18, vol: v * .8, atk: .03, vib: 24, vibF: 12 });
     this._tom({ f: F(880), f2: F(520), tipo: 'sawtooth', dur: .3, vol: v * .7, t: .16, vib: 20, vibF: 10 });
   },
-  _g_rosnado(F, v) {         // urso: mais grave e rasgado que o rugido
-    const f0 = F(85);
-    [[1, 1], [2, .4], [3, .16]].forEach(([m, g]) =>
-      this._tom({ f: f0 * m, f2: f0 * m * .8, tipo: 'sawtooth', dur: .8, vol: v * g * .65,
-                  atk: .1, vib: f0 * m * .09, vibF: 19, lp: F(750) }));
-    this._ruido({ dur: .8, vol: v * .18, tipo: 'lowpass', f: F(400), f2: F(170), lp: F(700) });
+  _g_rosnado(F, v) {         // urso: rasgado, e mais MÉDIO do que parece
+    // Medido contra gravação real: o rosnado de urso concentra ~89% da energia
+    // entre 500 e 1500 Hz. "Bicho grande = subgrave" é intuição errada.
+    const f0 = F(420);
+    [[1, .22], [2, 1], [3, .9], [4, .5], [5, .25]].forEach(([m, g]) =>
+      this._tom({ f: f0 * m, f2: f0 * m * .8, tipo: 'sawtooth', dur: .8, vol: v * g * .5,
+                  atk: .1, vib: f0 * m * .09, vibF: 19, lp: F(3000) }));
+    this._ruido({ dur: .8, vol: v * .18, tipo: 'bandpass', f: F(900), f2: F(500), Q: .9, lp: F(2400) });
   },
-  _g_uivo(F, v) {            // lobo: sobe, sustenta, desce — bem tonal
-    const a = F(360), b = F(600);
-    this._tom({ f: a, f2: b, tipo: 'triangle', dur: .45, vol: v * .85, atk: .1, vib: 7, vibF: 5 });
-    this._tom({ f: b, dur: .55, vol: v * .8, t: .43, atk: .05, vib: 9, vibF: 5.5 });
-    this._tom({ f: b, f2: a * .75, tipo: 'triangle', dur: .75, vol: v * .7, t: .96, vib: 12, vibF: 6 });
+  _g_uivo(F, v) {            // lobo: sobe, sustenta, desce
+    // O uivo real é tonal mas NÃO é uma senoide: tem pilha harmônica densa.
+    // Triângulo/senoide (o que eu usava) sai fino demais e soa apito.
+    const a = F(360), b = F(600), lp = F(3000);
+    const trecho = (f1, f2, t, dur, vol, vib, vibF) =>
+      [[1, 1], [2, .5], [3, .28], [4, .15]].forEach(([m, g]) =>
+        this._tom({ f: f1 * m, f2: f2 * m, tipo: 'sawtooth', t, dur, vol: vol * g,
+                    atk: .06, vib: vib * m, vibF, lp }));
+    trecho(a, b, 0, .45, v * .5, 7, 5);       // sobe
+    trecho(b, b, .43, .55, v * .48, 9, 5.5);  // sustenta
+    trecho(b, a * .75, .96, .75, v * .42, 12, 6);  // desce
+    this._ruido({ dur: 1.7, vol: v * .13, tipo: 'bandpass', f: b, f2: a, Q: .9, lp: F(2600) });  // sopro
   },
   _g_latido(F, v, r) {       // raposa, cão selvagem: rajadas curtas
     for (let i = 0; i < 2 + (r() * 2 | 0); i++) {
@@ -3012,9 +3206,11 @@ const SFX = {
     }
   },
   _g_trombeta(F, v) {        // elefante: metálico, sobe e cai, com ronco por baixo
-    this._tom({ f: F(300), f2: F(640), tipo: 'sawtooth', dur: .22, vol: v * 1.1, atk: .02, vib: 16, vibF: 13, lp: 2600 });
-    this._tom({ f: F(640), f2: F(360), tipo: 'sawtooth', dur: .5, vol: v, t: .2, vib: 26, vibF: 10, lp: 2600 });
-    this._tom({ f: F(78), dur: .85, vol: v * 1.1, tipo: 'sine', atk: .05 });   // ronco que dá o porte
+    // Real tem 34% da energia acima de 1,5 kHz — trombeta é metálica, não é ronco.
+    this._tom({ f: F(520), f2: F(1150), tipo: 'sawtooth', dur: .22, vol: v * 1.1, atk: .02, vib: 16, vibF: 13, lp: 6000 });
+    this._tom({ f: F(1150), f2: F(640), tipo: 'sawtooth', dur: .5, vol: v, t: .2, vib: 26, vibF: 10, lp: 6000 });
+    this._ruido({ t: .04, dur: .55, vol: v * .75, tipo: 'bandpass', f: F(4000), f2: F(2600), Q: .7 });  // sopro metálico
+    this._tom({ f: F(78), dur: .85, vol: v * .45, tipo: 'sine', atk: .05 });   // ronco que dá o porte
   },
   _g_bufo(F, v) {            // girafa e okapi: bufo + zumbido grave
     // Girafa é um bicho quase silencioso: bufa, resfolega e emite um zumbido
@@ -3030,33 +3226,43 @@ const SFX = {
     }
   },
   _g_relincho(F, v) {        // cavalo, jumento
-    this._tom({ f: F(700), f2: F(300), tipo: 'sawtooth', dur: .7, vol: v * .9, atk: .02, vib: 45, vibF: 16 });
-    this._ruido({ dur: .3, vol: v * .35, tipo: 'bandpass', f: 1600, f2: 600, Q: .8, t: .5 });
+    // real: 57% entre 1,5 e 3 kHz — o relincho é estridente
+    this._tom({ f: F(3100), f2: F(1500), tipo: 'sawtooth', dur: .7, vol: v * .8, atk: .02, vib: 60, vibF: 16 });
+    this._tom({ f: F(420), f2: F(300), tipo: 'sawtooth', dur: .5, vol: v * .22, atk: .04, t: .3, lp: F(900) });
+    this._ruido({ dur: .3, vol: v * .4, tipo: 'bandpass', f: 2400, f2: 1100, Q: .8, t: .5 });
   },
   _g_mugido(F, v) {          // bovino: longo, grave, ondulação lenta
-    this._tom({ f: F(190), f2: F(150), tipo: 'sawtooth', dur: .95, vol: v * 1.1, atk: .15, vib: 12, vibF: 5.5, lp: F(800) });
-    this._tom({ f: F(380), f2: F(300), tipo: 'sawtooth', dur: .9, vol: v * .25, atk: .18, vib: 14, vibF: 5.5, lp: F(900) });
+    // real: 77% entre 500 e 1500 Hz. Mugido é sustentado, não é subgrave.
+    this._tom({ f: F(430), f2: F(360), tipo: 'sawtooth', dur: .95, vol: v * .3, atk: .15, vib: 12, vibF: 5.5, lp: F(2600) });
+    this._tom({ f: F(860), f2: F(720), tipo: 'sawtooth', dur: .9, vol: v * .9, atk: .18, vib: 14, vibF: 5.5, lp: F(2600) });
   },
   _g_balido(F, v) {          // antílope, camelídeo: vibrato rápido de bode
-    this._tom({ f: F(430), f2: F(360), tipo: 'sawtooth', dur: .55, vol: v * .9, atk: .04, vib: 40, vibF: 21 });
+    // real: 52% entre 1,5 e 3 kHz; o vibrato rápido é a assinatura
+    this._tom({ f: F(2500), f2: F(2050), tipo: 'sawtooth', dur: .55, vol: v * .7, atk: .04, vib: 130, vibF: 21 });
+    this._tom({ f: F(700), f2: F(600), tipo: 'sawtooth', dur: .5, vol: v * .3, atk: .05, vib: 50, vibF: 21, lp: F(1100) });
   },
   _g_grito(F, v, r) {        // primata: pant-hoot que acelera e sobe
     const n = 4 + (r() * 3 | 0);
     for (let i = 0; i < n; i++) {
       const k = i / n;
-      this._tom({ f: F(480 + k * 420), f2: F(620 + k * 520), tipo: 'square',
-                  dur: .1, vol: v * (.5 + k * .5), t: i * (.17 - k * .07), atk: .01 });
+      // pant-hoot de chimpanzé real: 61% da energia abaixo de 500 Hz
+      this._tom({ f: F(175 + k * 190), f2: F(230 + k * 240), tipo: 'sawtooth',
+                  dur: .12, vol: v * (.5 + k * .5), t: i * (.17 - k * .07), atk: .01, lp: F(1600) });
+      this._ruido({ t: i * (.17 - k * .07), dur: .12, vol: v * .17, tipo: 'bandpass',
+                    f: F(700), Q: .8, lp: F(2200) });   // ar do arquejo
     }
   },
   _g_piado(F, v, r) {        // aves: varreduras curtas e agudas
     for (let i = 0; i < 3 + (r() * 3 | 0); i++) {
       const f = F(1900 + r() * 1100);
       this._tom({ f, f2: f * (1.4 + r() * .6), tipo: 'sine', dur: .06, vol: v * .55, t: i * .095, atk: .004 });
+      this._tom({ f: f * .45, f2: f * .6, tipo: 'triangle', dur: .06, vol: v * .3, t: i * .095, atk: .004 });
     }
   },
   _g_grasnado(F, v) {        // pinguim, ganso: pulsos ásperos
     for (let i = 0; i < 3; i++)
-      this._tom({ f: F(400), f2: F(280), tipo: 'sawtooth', dur: .17, vol: v * .8, t: i * .21, vib: 38, vibF: 25 });
+      // real: 73% entre 1,5 e 3 kHz — grasnado é áspero e agudo
+      this._tom({ f: F(1750), f2: F(1350), tipo: 'sawtooth', dur: .17, vol: v * .7, t: i * .21, vib: 45, vibF: 25, lp: F(2900) });
   },
   _g_chiado(F, v) {          // serpente
     this._ruido({ dur: .8, vol: v * .8, tipo: 'highpass', f: 3600, f2: 6800, Q: .5 });
@@ -3067,12 +3273,16 @@ const SFX = {
   },
   _g_coaxo(F, v, r) {        // anfíbio: pulsos secos
     const n = 4 + (r() * 3 | 0);
-    for (let i = 0; i < n; i++)
-      this._tom({ f: F(400), tipo: 'square', dur: .055, vol: v * .6, t: i * .08, atk: .004 });
+    for (let i = 0; i < n; i++) {   // real: ~92% da energia entre 1,5 e 3 kHz
+      this._tom({ f: F(1350), tipo: 'square', dur: .055, vol: v * .35, t: i * .08, atk: .004, lp: F(3600) });
+      this._ruido({ t: i * .08, dur: .05, vol: v * .5, tipo: 'bandpass', f: F(2200), Q: 2.2, lp: F(2900) });
+    }
   },
   _g_assobio(F, v) {         // golfinho, boto
-    this._tom({ f: F(2100), f2: F(3700), tipo: 'sine', dur: .15, vol: v * .5, atk: .01 });
-    this._tom({ f: F(3500), f2: F(1800), tipo: 'sine', dur: .22, vol: v * .45, t: .14 });
+    this._tom({ f: F(1600), f2: F(2700), tipo: 'sine', dur: .15, vol: v * .5, atk: .01 });
+    this._tom({ f: F(2600), f2: F(1300), tipo: 'sine', dur: .22, vol: v * .45, t: .14 });
+    this._tom({ f: F(900), f2: F(1250), tipo: 'sine', dur: .34, vol: v * .55, atk: .02 });  // corpo
+    this._ruido({ dur: .34, vol: v * .12, tipo: 'bandpass', f: F(1800), Q: .8, lp: F(3400) });  // sopro
     for (let i = 0; i < 5; i++)  // estalos de ecolocalização
       this._tom({ f: 5200, dur: .012, vol: v * .18, t: .36 + i * .035 });
   },
@@ -3091,8 +3301,10 @@ const SFX = {
   },
   _g_grunhido(F, v, r) {     // porco, hipopótamo, rinoceronte e genéricos grandes
     const n = 3 + (r() * 2 | 0);
-    for (let i = 0; i < n; i++)
-      this._tom({ f: F(230), f2: F(160), tipo: 'square', dur: .1, vol: v * .7, t: i * .13, atk: .008 });
+    for (let i = 0; i < n; i++) {
+      this._tom({ f: F(560), f2: F(390), tipo: 'square', dur: .1, vol: v * .3, t: i * .13, atk: .008 });
+      this._ruido({ t: i * .13, dur: .09, vol: v * 1.0, tipo: 'bandpass', f: F(2600), Q: .7 });
+    }
   },
 
   /* ---- barramento "distante" ----
@@ -3138,7 +3350,43 @@ function s2w(sx, sy) {
 }
 function centerOn(x, y) { cam.x = VW / 2 - (x - y) * (TW / 2) * cam.z; cam.y = VH / 2 - (x + y) * (TH / 2) * cam.z; }
 
-/* ---- terreno em cache ---- */
+/* ---- terreno em cache ----
+   Tudo aqui é redesenhado só quando G.dirty.terr liga; o frame a frame apenas
+   blita o canvas. Três camadas: base (losangos + textura), franjas orgânicas
+   entre terrenos, e a rede de trilhas com meio-fio, curvas e entradas de loja. */
+const T_GRAMA = TKEYS.indexOf('grama'), T_AGUA = TKEYS.indexOf('agua'), T_PISO = TKEYS.indexOf('piso');
+const AGUA_FUNDA = shade(TERRAIN.agua.c2, -.12);
+/* tom alternativo amaciado: o c2 puro fazia um xadrez forte demais no gramado */
+const TOM2 = {}; for (const k of TKEYS) TOM2[k] = mixc(TERRAIN[k].c, TERRAIN[k].c2, .6);
+const PISO_C = TERRAIN.piso.c, PISO_C2 = TERRAIN.piso.c2;
+const GUIA = shade(PISO_C, -.3);                 // meio-fio da trilha
+const PONTE_C = '#b08a55', PONTE_G = '#5e4326';  // trilha sobre água = ponte de madeira
+const LARG = .56;                                // largura da trilha, em fração de tile
+/* quem tem prioridade maior avança franjas sobre o vizinho (piso fica de fora:
+   calçada tem borda reta) */
+const FRANJA_PRIO = { agua: 0, areia: 1, terra: 2, rocha: 3, neve: 4, grama: 5, mata: 6 };
+const _eff = new Uint8Array(W * H);              // terreno "efetivo": trilha herda o entorno
+/* replica a escolha de tom c/c2 do tile i (mesma semente da passada base) */
+const tileAlt = i => mulberry(i * 2654435761 >>> 0)() < .5;
+const pavedAt = (x, y) => inB(x, y) && world.path[IDX(x, y)] === 1;
+const pick2 = (r, a) => a[(r() * a.length) | 0];   // pick determinístico
+
+/** terreno sob a trilha = o mais comum entre os 8 vizinhos (trilha não conta) */
+function underlayOf(x, y) {
+  const cont = {};
+  let best = T_GRAMA, bn = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const nx = x + dx, ny = y + dy;
+    if (!inB(nx, ny)) continue;
+    const t = world.terr[IDX(nx, ny)];
+    if (t === T_PISO) continue;
+    const v = (cont[t] || 0) + 1; cont[t] = v;
+    if (v > bn) { bn = v; best = t; }
+  }
+  return best;
+}
+
 function buildTerrain() {
   if (!terrCv) {
     terrCv = document.createElement('canvas');
@@ -3148,15 +3396,26 @@ function buildTerrain() {
   const c = terrCtx;
   c.clearRect(0, 0, TCW, TCH);
   c.lineJoin = 'round';
+  for (let i = 0; i < W * H; i++) _eff[i] = world.terr[i];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = IDX(x, y), tk = TKEYS[world.terr[i]], T = TERRAIN[tk];
-    const sx = (x - y) * TW / 2 + TOFF_X, sy = (x + y) * TH / 2 + 6;
+    const i = IDX(x, y);
+    if (world.path[i]) _eff[i] = underlayOf(x, y);
+  }
+  const agua = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_AGUA;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = IDX(x, y), tk = TKEYS[_eff[i]], T = TERRAIN[tk];
+    // centro do tile: w2s(x+.5, y+.5) — cercas, prédios e bichos usam a mesma
+    // convenção; centrar em w2s(x,y) deixava o terreno meio tile fora deles
+    const sx = (x - y) * TW / 2 + TOFF_X, sy = (x + y + 1) * TH / 2 + 6;
     const r = mulberry(i * 2654435761 >>> 0);
     // diamante
     c.beginPath();
     c.moveTo(sx, sy - TH / 2); c.lineTo(sx + TW / 2, sy); c.lineTo(sx, sy + TH / 2); c.lineTo(sx - TW / 2, sy); c.closePath();
     const alt = r() < .5;
-    c.fillStyle = alt ? T.c : T.c2; c.fill();
+    const funda = tk === 'agua' && agua(x, y - 1) && agua(x + 1, y) && agua(x, y + 1) && agua(x - 1, y);
+    const corBase = funda ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
+    c.fillStyle = corBase;
+    c.fill();
     // textura
     c.save(); c.clip();
     if (tk === 'grama' || tk === 'mata') {
@@ -3165,11 +3424,39 @@ function buildTerrain() {
         const px = sx - 26 + r() * 52, py = sy - 12 + r() * 24;
         c.beginPath(); c.moveTo(px, py + 4); c.lineTo(px + (r() - .5) * 4, py - 3); c.stroke();
       }
+      if (tk === 'mata') {                       // dossel: manchas de sombra
+        c.fillStyle = 'rgba(20,40,16,.10)';
+        for (let k = 0; k < 2; k++) { c.beginPath(); c.ellipse(sx - 18 + r() * 36, sy - 8 + r() * 16, 7 + r() * 5, 4 + r() * 3, r(), 0, TAU); c.fill(); }
+      } else if (r() < .1) {                     // florzinha ocasional
+        const px = sx - 20 + r() * 40, py = sy - 9 + r() * 18;
+        c.fillStyle = pick2(r, ['#fff', '#ffd95e', '#f2a8c0', '#e8e6ff']);
+        for (let p = 0; p < 4; p++) { const a = p / 4 * TAU + .6; c.beginPath(); c.arc(px + Math.cos(a) * 1.7, py + Math.sin(a) * 1.2, 1.25, 0, TAU); c.fill(); }
+        c.fillStyle = '#e8a01c'; c.beginPath(); c.arc(px, py, 1, 0, TAU); c.fill();
+      } else if (r() < .16) {                    // seixo
+        c.fillStyle = 'rgba(90,95,80,.4)';
+        c.beginPath(); c.ellipse(sx - 18 + r() * 36, sy - 8 + r() * 16, 2.2, 1.4, r(), 0, TAU); c.fill();
+      }
     } else if (tk === 'agua') {
       c.strokeStyle = 'rgba(255,255,255,.42)'; c.lineWidth = 2;
       for (let k = 0; k < 2; k++) {
         const py = sy - 6 + k * 9 + r() * 3;
         c.beginPath(); c.moveTo(sx - 16, py); c.quadraticCurveTo(sx - 4, py - 3, sx + 6, py); c.stroke();
+      }
+      if (!funda && !world.path[i] && r() < .2) { // vitórias-régias na água rasa
+        const n = 1 + (r() < .35 ? 1 : 0);
+        for (let k = 0; k < n; k++) {
+          const px = sx - 13 + r() * 26, py = sy - 6 + r() * 12;
+          const rf = 3.4 + r() * 2.2;
+          c.fillStyle = '#4d9c46';
+          c.beginPath(); c.ellipse(px, py, rf, rf * .55, 0, 0, TAU); c.fill();
+          const a = r() * TAU;                   // recorte da folha
+          c.fillStyle = corBase;
+          c.beginPath(); c.moveTo(px, py);
+          c.lineTo(px + Math.cos(a) * rf * 1.2, py + Math.sin(a) * rf * .7);
+          c.lineTo(px + Math.cos(a + .8) * rf * 1.2, py + Math.sin(a + .8) * rf * .7);
+          c.closePath(); c.fill();
+          if (r() < .3) { c.fillStyle = '#f2a8c0'; c.beginPath(); c.arc(px + 1, py - 1.4, 1.3, 0, TAU); c.fill(); }
+        }
       }
     } else if (tk === 'areia') {
       c.fillStyle = shade(T.c, -.1);
@@ -3180,9 +3467,18 @@ function buildTerrain() {
     } else if (tk === 'neve') {
       c.fillStyle = 'rgba(255,255,255,.75)';
       for (let k = 0; k < 4; k++) { c.beginPath(); c.arc(sx - 22 + r() * 44, sy - 10 + r() * 20, 1.6 + r() * 2, 0, TAU); c.fill(); }
+      if (r() < .3) {                            // cintilância
+        const px = sx - 16 + r() * 32, py = sy - 8 + r() * 16;
+        c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(px - 2.6, py); c.lineTo(px + 2.6, py); c.moveTo(px, py - 2); c.lineTo(px, py + 2); c.stroke();
+      }
     } else if (tk === 'piso') {
       c.strokeStyle = 'rgba(120,100,70,.3)'; c.lineWidth = 1.4;
       c.beginPath(); c.moveTo(sx - TW / 2, sy); c.lineTo(sx, sy - TH / 2); c.moveTo(sx, sy + TH / 2); c.lineTo(sx + TW / 2, sy); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(sx - TW / 2 + 2, sy); c.lineTo(sx, sy - TH / 2 + 1); c.lineTo(sx + TW / 2 - 2, sy); c.stroke();
+      c.strokeStyle = 'rgba(0,0,0,.1)';
+      c.beginPath(); c.moveTo(sx - TW / 2 + 2, sy); c.lineTo(sx, sy + TH / 2 - 1); c.lineTo(sx + TW / 2 - 2, sy); c.stroke();
     } else if (tk === 'terra') {
       c.fillStyle = shade(T.c, -.12);
       for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(sx - 20 + r() * 40, sy - 8 + r() * 16, 4, 2, 0, 0, TAU); c.fill(); }
@@ -3190,7 +3486,337 @@ function buildTerrain() {
     c.restore();
     c.strokeStyle = 'rgba(0,0,0,.07)'; c.lineWidth = 1; c.stroke();
   }
+  barrancoDoMapa(c);
+  /* daqui em diante o desenho é em coordenadas de MUNDO (1 unidade = 1 tile):
+     a matriz projeta para o isométrico e achata traços e elipses na proporção
+     certa — um círculo vira a elipse 2:1 do chão de graça */
+  c.save();
+  c.setTransform(TW / 2, TH / 2, -TW / 2, TH / 2, TOFF_X, 6);
+  franjasDeTerreno(c);
+  desenhaTrilhas(c);
+  medalhoesDePraca(c);
+  entradasDeLoja(c);
+  desgasteDosRecintos(c);
+  c.restore();
   G.dirty.terr = false;
+}
+
+/** medalhão de calçamento no centro de cada praça (região interna contígua) */
+function medalhoesDePraca(c) {
+  const interior = [], isInt = new Set();
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    if (!pavedAt(x, y)) continue;
+    let ok = true;
+    for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++)
+      if (!pavedAt(x + dx, y + dy)) { ok = false; break; }
+    if (ok) { interior.push(IDX(x, y)); isInt.add(IDX(x, y)); }
+  }
+  if (!interior.length) return;
+  const visto = new Set();
+  c.lineWidth = .05; c.strokeStyle = 'rgba(115,95,65,.4)'; c.fillStyle = 'rgba(115,95,65,.4)';
+  for (const inicio of interior) {
+    if (visto.has(inicio)) continue;
+    let sx = 0, sy = 0, n = 0, melhor = inicio, dm = 1e9;
+    const comp = [], q = [inicio]; visto.add(inicio);
+    while (q.length) {
+      const k = q.pop(); comp.push(k);
+      sx += k % W + .5; sy += ((k / W) | 0) + .5; n++;
+      for (const [dx, dy] of LADOS) {
+        const j = IDX(k % W + dx, ((k / W) | 0) + dy);
+        if (isInt.has(j) && !visto.has(j)) { visto.add(j); q.push(j); }
+      }
+    }
+    let cx = sx / n, cy = sy / n;
+    // em praça côncava o centroide pode cair fora: ancora no tile interno mais próximo
+    for (const k of comp) {
+      const d = dist2(k % W + .5, ((k / W) | 0) + .5, cx, cy);
+      if (d < dm) { dm = d; melhor = k; }
+    }
+    if (dm > .6) { cx = melhor % W + .5; cy = ((melhor / W) | 0) + .5; }
+    c.beginPath(); c.arc(cx, cy, .55, 0, TAU); c.stroke();
+    c.beginPath(); c.arc(cx, cy, .3, 0, TAU); c.stroke();
+    for (let k = 0; k < 4; k++) {
+      const a = k / 4 * TAU + TAU / 8;
+      c.beginPath(); c.arc(cx + Math.cos(a) * .43, cy + Math.sin(a) * .43, .05, 0, TAU); c.fill();
+    }
+  }
+}
+
+/** chão batido sob os equipamentos dos recintos */
+function desgasteDosRecintos(c) {
+  for (const o of objects.values()) {
+    if (o.cat !== 'encobj' || o.kind === 'piscina' || o.kind === 'plantaE') continue;
+    const r = mulberry(o.id * 2654435761 >>> 0);
+    c.fillStyle = 'rgba(122,90,52,.18)';
+    c.beginPath(); c.arc(o.x + .5, o.y + .5, .42 + r() * .12, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(122,90,52,.12)';
+    c.beginPath(); c.arc(o.x + .5 + (r() - .5) * .5, o.y + .5 + (r() - .5) * .5, .3, 0, TAU); c.fill();
+  }
+}
+
+/* ---- barranco sob as faces visíveis do mapa: o parque vira um planalto ---- */
+function barrancoDoMapa(c) {
+  const alt = 15;
+  const L = [1, 6 + H * TH / 2], B = [TOFF_X, 6 + (W + H) * TH / 2], R = [TCW - 1, 6 + W * TH / 2];
+  const r = mulberry(987654321);
+  for (const [A, Z, tom] of [[L, B, -.12], [B, R, .04]]) {
+    c.beginPath();
+    c.moveTo(A[0], A[1]); c.lineTo(Z[0], Z[1]);
+    c.lineTo(Z[0], Z[1] + alt); c.lineTo(A[0], A[1] + alt);
+    c.closePath();
+    c.fillStyle = shade('#8a6a42', tom); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.22)'; c.lineWidth = 1.4; c.stroke();
+    // estrias e pedrinhas da terra
+    c.strokeStyle = 'rgba(60,42,22,.25)'; c.lineWidth = 1.2;
+    for (let i = 0; i < 60; i++) {
+      const t = r();
+      const px = A[0] + (Z[0] - A[0]) * t, py = A[1] + (Z[1] - A[1]) * t;
+      c.beginPath(); c.moveTo(px, py + 2.5 + r() * 3); c.lineTo(px + (r() - .5) * 2.5, py + alt - 2.5 - r() * 4); c.stroke();
+    }
+    c.fillStyle = 'rgba(60,42,22,.3)';
+    for (let i = 0; i < 26; i++) {
+      const t = r();
+      const px = A[0] + (Z[0] - A[0]) * t, py = A[1] + (Z[1] - A[1]) * t;
+      c.beginPath(); c.ellipse(px, py + 4 + r() * (alt - 8), 1.8 + r() * 1.6, 1.2 + r(), 0, 0, TAU); c.fill();
+    }
+    // linha de relva debruçada na quina
+    c.strokeStyle = 'rgba(0,0,0,.15)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(A[0], A[1] + 1); c.lineTo(Z[0], Z[1] + 1); c.stroke();
+  }
+}
+
+/* ---- franjas orgânicas entre terrenos ---- */
+function franjasDeTerreno(c) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = IDX(x, y), a = _eff[i], ka = TKEYS[a];
+    if (a === T_PISO) continue;
+    const pa = FRANJA_PRIO[ka];
+    for (let s = 0; s < 4; s++) {
+      const [dx, dy] = LADOS[s];
+      const nx = x + dx, ny = y + dy;
+      if (!inB(nx, ny)) continue;
+      const j = IDX(nx, ny), b = _eff[j], kb = TKEYS[b];
+      if (b === a || b === T_PISO || FRANJA_PRIO[kb] <= pa) continue;
+      // aresta compartilhada; o vizinho "invade" este tile com bolotas
+      const hor = dy !== 0;                        // N/S: aresta corre no eixo x
+      const ex = dx === 1 ? x + 1 : x, ey = dy === 1 ? y + 1 : y;
+      const r = mulberry((i * 4 + s) * 2246822519 >>> 0);
+      const NB = TERRAIN[kb];
+      c.fillStyle = tileAlt(j) ? NB.c : TOM2[kb];
+      for (let k = 0; k < 3; k++) {
+        const t = .2 + k * .3 + (r() - .5) * .12;
+        const rl = .15 + r() * .12, rp = .07 + r() * .06;
+        ellipse(c, hor ? ex + t : ex, hor ? ey : ey + t, hor ? rl : rp, hor ? rp : rl);
+        c.fill();
+      }
+      if (a === T_AGUA) {                          // espuma na margem, do lado da água
+        c.strokeStyle = 'rgba(255,255,255,.38)'; c.lineWidth = .05; c.lineCap = 'round';
+        c.beginPath();
+        if (hor) {
+          const yy = ey - dy * .12;
+          c.moveTo(ex + .1, yy);
+          c.quadraticCurveTo(ex + .3, yy - dy * .06, ex + .5, yy);
+          c.quadraticCurveTo(ex + .7, yy - dy * .06, ex + .9, yy);
+        } else {
+          const xx = ex - dx * .12;
+          c.moveTo(xx, ey + .1);
+          c.quadraticCurveTo(xx - dx * .06, ey + .3, xx, ey + .5);
+          c.quadraticCurveTo(xx - dx * .06, ey + .7, xx, ey + .9);
+        }
+        c.stroke();
+      }
+    }
+  }
+}
+
+/* ---- trilhas: faixa contínua com curvas ---- */
+function conexoesTrilha(x, y) {
+  const con = [pavedAt(x, y - 1), pavedAt(x + 1, y), pavedAt(x, y + 1), pavedAt(x - 1, y)];
+  if (x === ENTRANCE.x && y === ENTRANCE.y) con[2] = true;   // a trilha sai pelo portão
+  return con;
+}
+/** o traçado de um tile: curva nas viradas, braços do centro nos cruzamentos */
+function tracaTrilha(c, x, y, con) {
+  const cx = x + .5, cy = y + .5;
+  const M = [[cx, y], [x + 1, cy], [cx, y + 1], [x, cy]];   // bocas N E S W
+  if (x === ENTRANCE.x && y === ENTRANCE.y) M[2] = [cx, y + .7]; // para sob o tapete
+  const n = con[0] + con[1] + con[2] + con[3];
+  c.beginPath();
+  if (n === 2 && !(con[0] && con[2]) && !(con[1] && con[3])) {
+    const k = [0, 1, 2, 3].filter(k => con[k]);
+    c.moveTo(M[k[0]][0], M[k[0]][1]);
+    c.quadraticCurveTo(cx, cy, M[k[1]][0], M[k[1]][1]);
+  } else if (n === 0) {
+    c.moveTo(cx - .01, cy); c.lineTo(cx + .01, cy);         // bolota isolada
+  } else {
+    for (let k = 0; k < 4; k++) if (con[k]) { c.moveTo(cx, cy); c.lineTo(M[k][0], M[k][1]); }
+  }
+}
+/** cantos internos de praça: com o diagonal pavimentado, fecha o quarto de tile */
+function cantosDePraca(c, x, y, con) {
+  const cx = x + .5, cy = y + .5;
+  for (const [a, b, kx, ky] of [[0, 1, x + 1, y], [1, 2, x + 1, y + 1], [2, 3, x, y + 1], [3, 0, x, y]]) {
+    if (!con[a] || !con[b]) continue;
+    if (!pavedAt(kx - (kx === x ? 1 : 0), ky - (ky === y ? 1 : 0))) continue;
+    c.beginPath();
+    c.moveTo(cx, cy); c.lineTo(kx, cy); c.lineTo(kx, ky); c.lineTo(cx, ky); c.closePath();
+    c.fill();
+  }
+}
+function detalhesTrilha(c, x, y, con, ponte) {
+  const cx = x + .5, cy = y + .5;
+  const r = mulberry(IDX(x, y) * 1597334677 >>> 0);
+  c.lineCap = 'butt';
+  for (let k = 0; k < 4; k++) {
+    if (!con[k]) continue;
+    const [dx, dy] = LADOS[k];
+    if (ponte) {                                  // tábuas atravessadas
+      c.strokeStyle = 'rgba(80,55,28,.4)'; c.lineWidth = .035;
+      for (const t of [.16, .34]) {
+        const px = cx + dx * t, py = cy + dy * t;
+        c.beginPath(); c.moveTo(px - dy * .24, py - dx * .24); c.lineTo(px + dy * .24, py + dx * .24); c.stroke();
+      }
+    } else {                                      // junta de calçamento
+      c.strokeStyle = 'rgba(60,45,25,.12)'; c.lineWidth = .028;
+      const t = .3 + r() * .1;
+      const px = cx + dx * t, py = cy + dy * t;
+      c.beginPath(); c.moveTo(px - dy * .2, py - dx * .2); c.lineTo(px + dy * .2, py + dx * .2); c.stroke();
+    }
+  }
+  if (!ponte && r() < .3) {
+    c.fillStyle = 'rgba(60,45,25,.1)';
+    ellipse(c, cx + (r() - .5) * .3, cy + (r() - .5) * .3, .045, .03); c.fill();
+  }
+  c.lineCap = 'round';
+}
+/** esplanada de observação: a calçada alarga até rente à cerca do recinto */
+function mirante(c, x, y, dirs, folga) {
+  for (const s of dirs) {
+    let x0, y0, x1, y1;
+    if (s === 0) { x0 = x - folga; x1 = x + 1 + folga; y0 = y + .08 - folga; y1 = y + .5; }
+    else if (s === 2) { x0 = x - folga; x1 = x + 1 + folga; y0 = y + .5; y1 = y + .92 + folga; }
+    else if (s === 3) { y0 = y - folga; y1 = y + 1 + folga; x0 = x + .08 - folga; x1 = x + .5; }
+    else { y0 = y - folga; y1 = y + 1 + folga; x0 = x + .5; x1 = x + .92 + folga; }
+    c.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+}
+function desenhaTrilhas(c) {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  const encAo = (x, y) => inB(x, y) && world.enc[IDX(x, y)] > 0;
+  const tiles = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = IDX(x, y);
+    if (!world.path[i]) continue;
+    const mir = [];
+    for (let s = 0; s < 4; s++) { const [dx, dy] = LADOS[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
+    tiles.push([x, y, conexoesTrilha(x, y), _eff[i] === T_AGUA, mir]);
+  }
+  // 1º o contorno (meio-fio) de todas, depois o recheio: os miolos cobrem as
+  // bordas internas e a rede vira uma faixa contínua
+  for (const [x, y, con, ponte, mir] of tiles) {
+    c.strokeStyle = ponte ? PONTE_G : GUIA; c.lineWidth = LARG + .1;
+    tracaTrilha(c, x, y, con); c.stroke();
+    c.fillStyle = ponte ? PONTE_G : GUIA;
+    cantosDePraca(c, x, y, con);
+    if (mir.length) mirante(c, x, y, mir, .05);
+  }
+  for (const [x, y, con, ponte, mir] of tiles) {
+    c.strokeStyle = ponte ? PONTE_C : tileAlt(IDX(x, y)) ? PISO_C : PISO_C2; c.lineWidth = LARG;
+    tracaTrilha(c, x, y, con); c.stroke();
+    c.fillStyle = c.strokeStyle;
+    cantosDePraca(c, x, y, con);
+    if (mir.length) mirante(c, x, y, mir, 0);
+  }
+  for (const [x, y, con, ponte] of tiles) detalhesTrilha(c, x, y, con, ponte);
+}
+
+/* ---- entradas: a calçada se alarga em curva até a porta ---- */
+function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, cor, corGuia) {
+  // e1→e2 = aresta da porta; (vx,vy) aponta da aresta para dentro do tile de trilha.
+  // O leque nasce na BORDA da faixa (a .5−LARG/2 da porta) e abre até a porta —
+  // ancorar no eixo da trilha fazia o meio-fio lateral cruzar a faixa inteira.
+  const mx = (e1x + e2x) / 2, my = (e1y + e2y) / 2;
+  const ux = e2x - e1x, uy = e2y - e1y;
+  const borda = .5 - LARG / 2;
+  const B1 = [mx - ux * .3 + vx * (borda + .06), my - uy * .3 + vy * (borda + .06)];
+  const B2 = [mx + ux * .3 + vx * (borda + .06), my + uy * .3 + vy * (borda + .06)];
+  const S1 = [mx - ux * .33 + vx * borda, my - uy * .33 + vy * borda];
+  const S2 = [mx + ux * .33 + vx * borda, my + uy * .33 + vy * borda];
+  const A1 = [e1x + ux * .07, e1y + uy * .07], A2 = [e2x - ux * .07, e2y - uy * .07];
+  const Q1 = [mx - ux * .38 + vx * .08, my - uy * .38 + vy * .08];
+  const Q2 = [mx + ux * .38 + vx * .08, my + uy * .38 + vy * .08];
+  c.beginPath();
+  c.moveTo(B1[0], B1[1]); c.lineTo(S1[0], S1[1]); c.quadraticCurveTo(Q1[0], Q1[1], A1[0], A1[1]);
+  c.lineTo(A2[0], A2[1]); c.quadraticCurveTo(Q2[0], Q2[1], S2[0], S2[1]); c.lineTo(B2[0], B2[1]);
+  c.closePath();
+  c.fillStyle = cor; c.fill();
+  c.strokeStyle = corGuia; c.lineWidth = .055; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(S1[0], S1[1]); c.quadraticCurveTo(Q1[0], Q1[1], A1[0], A1[1]); c.stroke();
+  c.beginPath(); c.moveTo(S2[0], S2[1]); c.quadraticCurveTo(Q2[0], Q2[1], A2[0], A2[1]); c.stroke();
+}
+function capacho(c, mx, my, ux, uy, vx, vy, cor) {
+  const cx = mx + vx * .12, cy = my + vy * .12;
+  c.fillStyle = cor;
+  c.beginPath();
+  c.moveTo(cx - ux * .24 - vx * .06, cy - uy * .24 - vy * .06);
+  c.lineTo(cx + ux * .24 - vx * .06, cy + uy * .24 - vy * .06);
+  c.lineTo(cx + ux * .24 + vx * .06, cy + uy * .24 + vy * .06);
+  c.lineTo(cx - ux * .24 + vx * .06, cy - uy * .24 + vy * .06);
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = .022;
+  c.beginPath(); c.moveTo(cx - ux * .16, cy - uy * .16); c.lineTo(cx + ux * .16, cy + uy * .16); c.stroke();
+}
+/** Vãos de porta nas faces visíveis (S/E). Fachada de largura PAR com as duas
+ *  trilhas do meio presentes ganha porta centrada no encontro dos tiles —
+ *  senão a porta de uma loja 2x2 fica descentrada. `c` é a coordenada central
+ *  do vão; `tiles` são os tiles de trilha em frente. */
+function portaSpec(o) {
+  const spec = { S: null, E: null };
+  const Y = o.y + o.h, X = o.x + o.w;
+  if (!(o.w & 1)) {
+    const m = o.x + o.w / 2;
+    if (pavedAt(m - 1, Y) && pavedAt(m, Y)) spec.S = { c: m, tiles: [m - 1, m] };
+  }
+  if (!spec.S) { const m = o.x + ((o.w - 1) >> 1); if (pavedAt(m, Y)) spec.S = { c: m + .5, tiles: [m] }; }
+  if (!(o.h & 1)) {
+    const m = o.y + o.h / 2;
+    if (pavedAt(X, m - 1) && pavedAt(X, m)) spec.E = { c: m, tiles: [m - 1, m] };
+  }
+  if (!spec.E) { const m = o.y + ((o.h - 1) >> 1); if (pavedAt(X, m)) spec.E = { c: m + .5, tiles: [m] }; }
+  return spec;
+}
+function entradasDeLoja(c) {
+  for (const o of objects.values()) {
+    if (o.cat !== 'build' || o.kind === 'lixeira' || o.kind === 'banco' || o.kind === 'bebedouro') continue;
+    const B = BUILDINGS[o.kind];
+    const spec = portaSpec(o), Y = o.y + o.h, X = o.x + o.w;
+    // só as faces S e E: são as visíveis no isométrico — atrás, o telhado cobre
+    if (spec.S) {
+      const i = IDX(spec.S.tiles[0], Y);
+      const ponte = _eff[i] === T_AGUA;             // trilha sobre água: deck de madeira
+      flareDeEntrada(c, spec.S.c - .5, Y, spec.S.c + .5, Y, 0, 1,
+        ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
+      capacho(c, spec.S.c, Y, 1, 0, 0, 1, shade(B.cor, -.18));
+    }
+    if (spec.E) {
+      const i = IDX(X, spec.E.tiles[0]);
+      const ponte = _eff[i] === T_AGUA;
+      flareDeEntrada(c, X, spec.E.c - .5, X, spec.E.c + .5, 1, 0,
+        ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
+      capacho(c, X, spec.E.c, 0, 1, 1, 0, shade(B.cor, -.18));
+    }
+  }
+  // tapete vermelho do portão
+  const ex = ENTRANCE.x, ey = ENTRANCE.y + 1;
+  c.fillStyle = '#c23b2c';
+  c.beginPath();
+  c.moveTo(ex + .22, ey - .68); c.lineTo(ex + .78, ey - .68);
+  c.lineTo(ex + .9, ey - .01); c.lineTo(ex + .1, ey - .01);
+  c.closePath(); c.fill();
+  c.strokeStyle = '#8a2f22'; c.lineWidth = .045; c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = .03;
+  c.beginPath(); c.moveTo(ex + .28, ey - .5); c.lineTo(ex + .72, ey - .5);
+  c.moveTo(ex + .26, ey - .38); c.lineTo(ex + .74, ey - .38); c.stroke();
 }
 
 /* ---- primitivas iso ---- */
@@ -3219,20 +3845,215 @@ function drawIsoBox(c, x, y, w, h, hgt, col, roofCol, z) {
 }
 
 /* ---- objetos ---- */
+function filaBadge(c, o, z, sx, sy) {
+  if (!o.fila || !o.fila.length) return;
+  c.font = Math.max(8, 10 * z) + 'px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = '#fff'; c.strokeStyle = '#2f2113'; c.lineWidth = 3;
+  c.strokeText('👥' + o.fila.length, sx, sy); c.fillText('👥' + o.fila.length, sx, sy);
+}
+/* mobiliário desenhado de verdade (caixa com emoji não faz jus) */
+function drawBanco(c, o, z) {
+  const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
+  const s = z, sh = P(.5, .5);
+  ellipse(c, sh[0], sh[1] + 2 * s, 14 * s, 6 * s); c.fillStyle = 'rgba(0,0,0,.18)'; c.fill();
+  const up = 7 * s, top = 16 * s;
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  c.strokeStyle = '#4a3520'; c.lineWidth = 3 * s;
+  for (const [ax, ay] of [[.22, .52], [.78, .52]]) {
+    const p = P(ax, ay);
+    c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(p[0], p[1] - up); c.stroke();
+  }
+  const e1 = P(.14, .38), e2 = P(.86, .38);
+  c.lineWidth = 2.6 * s;
+  c.beginPath(); c.moveTo(e1[0], e1[1] - up); c.lineTo(e1[0], e1[1] - top);
+  c.moveTo(e2[0], e2[1] - up); c.lineTo(e2[0], e2[1] - top); c.stroke();
+  isoPoly(c, [[e1[0], e1[1] - top + 5.5 * s], [e2[0], e2[1] - top + 5.5 * s], [e2[0], e2[1] - top], [e1[0], e1[1] - top]]);
+  c.fillStyle = '#b98a55'; c.fill(); c.lineWidth = 2 * s; c.stroke();
+  const A = P(.14, .36), Bq = P(.86, .36), Cq = P(.86, .68), D = P(.14, .68);
+  isoPoly(c, [[A[0], A[1] - up], [Bq[0], Bq[1] - up], [Cq[0], Cq[1] - up], [D[0], D[1] - up]]);
+  c.fillStyle = '#c9a06a'; c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(74,53,32,.45)'; c.lineWidth = 1.2 * s;
+  for (const tt of [.4, .62]) {
+    c.beginPath();
+    c.moveTo(A[0] + (D[0] - A[0]) * tt, A[1] - up + (D[1] - A[1]) * tt);
+    c.lineTo(Bq[0] + (Cq[0] - Bq[0]) * tt, Bq[1] - up + (Cq[1] - Bq[1]) * tt);
+    c.stroke();
+  }
+  filaBadge(c, o, z, sh[0], sh[1] - 26 * s);
+}
+function drawLixeira(c, o, z) {
+  const p = [w2sx(o.x + .5, o.y + .5), w2sy(o.x + .5, o.y + .5)], s = z;
+  ellipse(c, p[0], p[1] + s, 8 * s, 4 * s); c.fillStyle = 'rgba(0,0,0,.2)'; c.fill();
+  c.fillStyle = '#5e6a76'; c.strokeStyle = '#39424c'; c.lineWidth = 2 * s; c.lineJoin = 'round';
+  c.beginPath();
+  c.moveTo(p[0] - 6 * s, p[1] - 15 * s); c.lineTo(p[0] - 5 * s, p[1] - s);
+  c.quadraticCurveTo(p[0], p[1] + 2.5 * s, p[0] + 5 * s, p[1] - s);
+  c.lineTo(p[0] + 6 * s, p[1] - 15 * s);
+  c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 2 * s;
+  c.beginPath(); c.moveTo(p[0] - 5 * s, p[1] - 9 * s); c.quadraticCurveTo(p[0], p[1] - 7.5 * s, p[0] + 5 * s, p[1] - 9 * s); c.stroke();
+  ellipse(c, p[0], p[1] - 15 * s, 6.4 * s, 3 * s); c.fillStyle = '#39424c'; c.fill();
+  ellipse(c, p[0], p[1] - 16 * s, 4.6 * s, 2.1 * s); c.fillStyle = '#4a545e'; c.fill();
+  c.strokeStyle = '#39424c'; c.lineWidth = 1.4 * s; c.stroke();
+}
+function drawBebedouroPub(c, o, z) {
+  const p = [w2sx(o.x + .5, o.y + .5), w2sy(o.x + .5, o.y + .5)], s = z;
+  ellipse(c, p[0], p[1] + s, 8 * s, 4 * s); c.fillStyle = 'rgba(0,0,0,.2)'; c.fill();
+  c.fillStyle = '#8fa3ad'; c.strokeStyle = '#5a6b74'; c.lineWidth = 2 * s; c.lineJoin = 'round';
+  roundRectP(c, p[0] - 3.4 * s, p[1] - 13 * s, 6.8 * s, 13 * s, 2 * s); c.fill(); c.stroke();
+  ellipse(c, p[0], p[1] - 13 * s, 7 * s, 3.4 * s); c.fillStyle = '#c9d4da'; c.fill(); c.stroke();
+  ellipse(c, p[0], p[1] - 13 * s, 5 * s, 2.2 * s); c.fillStyle = '#4fa8db'; c.fill();
+  const h = Math.abs(Math.sin(_now / 400)) * 1.4 * s;
+  c.strokeStyle = 'rgba(170,225,250,.95)'; c.lineWidth = 1.5 * s;
+  c.beginPath(); c.moveTo(p[0] + 2 * s, p[1] - 14 * s);
+  c.quadraticCurveTo(p[0], p[1] - 18 * s - h, p[0] - 2 * s, p[1] - 14 * s); c.stroke();
+  filaBadge(c, o, z, p[0], p[1] - 24 * s);
+}
+function drawPlayground(c, o, z) {
+  const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
+  const s = z;
+  // areinha de amortecimento
+  isoPoly(c, [P(.12, .12), P(2.88, .12), P(2.88, 2.88), P(.12, 2.88)]);
+  c.fillStyle = '#ecd9a8'; c.fill();
+  c.strokeStyle = 'rgba(120,100,70,.35)'; c.lineWidth = 2 * s; c.stroke();
+  // torre com escorregador
+  drawIsoBox(c, o.x + .35, o.y + .45, .75, .75, 17, '#e2543f', shade('#e2543f', .26), z);
+  const R1 = P(1.1, .55), R2 = P(1.1, 1.1), G1 = P(2.1, .75), G2 = P(2.1, 1.2);
+  isoPoly(c, [[R1[0], R1[1] - 15 * s], [R2[0], R2[1] - 15 * s], [G2[0], G2[1]], [G1[0], G1[1]]]);
+  c.fillStyle = '#3fa5e2'; c.fill();
+  c.strokeStyle = '#20618c'; c.lineWidth = 2 * s; c.lineJoin = 'round'; c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1.4 * s;
+  c.beginPath();
+  c.moveTo((R1[0] + R2[0]) / 2, (R1[1] + R2[1]) / 2 - 15 * s);
+  c.lineTo((G1[0] + G2[0]) / 2, (G1[1] + G2[1]) / 2); c.stroke();
+  // balanço: pórtico + dois assentos oscilando
+  const E1 = P(.75, 2.35), E2 = P(2.3, 2.35), barra = 26 * s;
+  c.strokeStyle = '#8a5a2b'; c.lineCap = 'round'; c.lineWidth = 3 * s;
+  for (const [ex, ey] of [[.75, 2.35], [2.3, 2.35]]) {
+    const T = P(ex, ey);
+    const p1 = P(ex - .02, ey - .24), p2 = P(ex + .02, ey + .24);
+    c.beginPath(); c.moveTo(p1[0], p1[1]); c.lineTo(T[0], T[1] - barra); c.lineTo(p2[0], p2[1]); c.stroke();
+  }
+  c.lineWidth = 3.2 * s;
+  c.beginPath(); c.moveTo(E1[0], E1[1] - barra); c.lineTo(E2[0], E2[1] - barra); c.stroke();
+  for (let k = 0; k < 2; k++) {
+    const t = k ? .68 : .32;
+    const bx = E1[0] + (E2[0] - E1[0]) * t, by = E1[1] + (E2[1] - E1[1]) * t - barra;
+    const ang = Math.sin(_now / 680 + k * 2.4) * .38;
+    const sx2 = bx + Math.sin(ang) * 15 * s, sy2 = by + Math.cos(ang) * 15 * s;
+    c.strokeStyle = '#5a6b74'; c.lineWidth = 1.2 * s;
+    c.beginPath(); c.moveTo(bx - 2.5 * s, by); c.lineTo(sx2 - 2.5 * s, sy2);
+    c.moveTo(bx + 2.5 * s, by); c.lineTo(sx2 + 2.5 * s, sy2); c.stroke();
+    c.strokeStyle = '#6b4420'; c.lineWidth = 2.8 * s;
+    c.beginPath(); c.moveTo(sx2 - 3.5 * s, sy2); c.lineTo(sx2 + 3.5 * s, sy2); c.stroke();
+  }
+  const cM = P(1.5, 1.5);
+  filaBadge(c, o, z, cM[0], cM[1] - 44 * s);
+}
 function drawBuilding(c, o, z) {
   const B = BUILDINGS[o.kind];
-  const hgt = o.kind === 'banco' || o.kind === 'lixeira' || o.kind === 'bebedouro' ? 12 :
-    o.kind === 'playground' ? 20 : o.kind === 'pipoca' ? 22 : 30 + (o.h > 2 ? 8 : 0);
+  if (o.kind === 'banco') return drawBanco(c, o, z);
+  if (o.kind === 'lixeira') return drawLixeira(c, o, z);
+  if (o.kind === 'bebedouro') return drawBebedouroPub(c, o, z);
+  if (o.kind === 'playground') return drawPlayground(c, o, z);
+  const hgt = o.kind === 'pipoca' ? 22 : 30 + (o.h > 2 ? 8 : 0);
   const g = drawIsoBox(c, o.x, o.y, o.w, o.h, hgt, B.cor, shade(B.cor, .26), z);
-  // toldo listrado nas lojas
-  if (B.valor > 0 && o.w >= 1 && hgt > 20) {
-    const y0 = g.B[1] - g.up - 2 * z;
-    c.save();
-    isoPoly(c, [[g.R[0], g.R[1] - g.up], [g.B[0], g.B[1] - g.up], [g.B[0], g.B[1] - g.up + 11 * z], [g.R[0], g.R[1] - g.up + 11 * z]]);
-    c.clip(); c.fillStyle = '#f4f2ec'; c.fill();
-    c.fillStyle = shade(B.cor, .06);
-    for (let i = 0; i < 12; i++) c.fillRect(g.R[0] + i * 9 * z, g.R[1] - g.up, 4.5 * z, 40 * z);
-    c.restore();
+  const decorado = o.kind !== 'lixeira' && o.kind !== 'banco';
+  const spec = decorado ? portaSpec(o) : { S: null, E: null };
+  const aceso = G.hour < 6.5 || G.hour > 18;
+  // janelas nas faces visíveis (acendem à noite)
+  if (hgt >= 24 && decorado) {
+    const wLo = g.up * .32, wHi = g.up * .58;
+    const winFill = aceso ? '#ffdf8f' : shade(B.cor, -.36);
+    const janela = (ax, ay, bx, by) => {
+      const A = [w2sx(ax, ay), w2sy(ax, ay)], D = [w2sx(bx, by), w2sy(bx, by)];
+      isoPoly(c, [[A[0], A[1] - wLo], [D[0], D[1] - wLo], [D[0], D[1] - wHi], [A[0], A[1] - wHi]]);
+      c.fillStyle = winFill; c.fill();
+      c.strokeStyle = shade(B.cor, -.55); c.lineWidth = 1.3 * z; c.stroke();
+    };
+    for (let t = 0; t < o.w; t++) {
+      const tx = o.x + t;
+      if (spec.S && spec.S.tiles.includes(tx)) {              // a porta fica aqui:
+        if (spec.S.tiles.length === 2)                        // janelinhas ladeando
+          janela(tx + (tx === spec.S.tiles[0] ? .16 : .5), o.y + o.h,
+            tx + (tx === spec.S.tiles[0] ? .5 : .84), o.y + o.h);
+        continue;
+      }
+      janela(tx + .3, o.y + o.h, tx + .7, o.y + o.h);
+    }
+    for (let t = 0; t < o.h; t++) {
+      const ty = o.y + t;
+      if (spec.E && spec.E.tiles.includes(ty)) {
+        if (spec.E.tiles.length === 2)
+          janela(o.x + o.w, ty + (ty === spec.E.tiles[0] ? .16 : .5),
+            o.x + o.w, ty + (ty === spec.E.tiles[0] ? .5 : .84));
+        continue;
+      }
+      janela(o.x + o.w, ty + .3, o.x + o.w, ty + .7);
+    }
+  }
+  // porta na face que dá para a trilha (só as faces visíveis S e E)
+  if (decorado) {
+    const pAlt = Math.min(16 * z, hgt * z * .68);
+    const porta = (ax, ay, bx, by) => {
+      const A = [w2sx(ax, ay), w2sy(ax, ay)], D = [w2sx(bx, by), w2sy(bx, by)];
+      isoPoly(c, [A, D, [D[0], D[1] - pAlt], [A[0], A[1] - pAlt]]);
+      c.fillStyle = shade(B.cor, -.48); c.fill();
+      c.strokeStyle = shade(B.cor, -.62); c.lineWidth = 1.6 * z; c.stroke();
+    };
+    if (spec.S) porta(spec.S.c - .22, o.y + o.h, spec.S.c + .22, o.y + o.h);
+    if (spec.E) porta(o.x + o.w, spec.E.c - .22, o.x + o.w, spec.E.c + .22);
+  }
+  // toldo listrado nas lojas, nas duas faces da frente
+  if (B.valor > 0 && hgt > 20) {
+    const toldoFace = (P, Q) => {
+      c.save();
+      isoPoly(c, [[P[0], P[1] - g.up], [Q[0], Q[1] - g.up], [Q[0], Q[1] - g.up + 10 * z], [P[0], P[1] - g.up + 10 * z]]);
+      c.clip(); c.fillStyle = '#f6f3ea'; c.fill();
+      c.fillStyle = mixc(B.cor, '#ffffff', .35);
+      const n = Math.max(4, Math.round(Math.hypot(Q[0] - P[0], Q[1] - P[1]) / (9 * z)) & ~1);
+      for (let i = 0; i < n; i += 2) {
+        const t0 = i / n, t1 = (i + 1) / n;
+        const ax = P[0] + (Q[0] - P[0]) * t0, ay = P[1] + (Q[1] - P[1]) * t0 - g.up;
+        const bx = P[0] + (Q[0] - P[0]) * t1, by = P[1] + (Q[1] - P[1]) * t1 - g.up;
+        c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by);
+        c.lineTo(bx, by + 10 * z); c.lineTo(ax, ay + 10 * z); c.closePath(); c.fill();
+      }
+      c.restore();
+      c.strokeStyle = shade(B.cor, -.4); c.lineWidth = 1.5 * z;
+      c.beginPath(); c.moveTo(P[0], P[1] - g.up + 10 * z); c.lineTo(Q[0], Q[1] - g.up + 10 * z); c.stroke();
+    };
+    toldoFace(g.R, g.B); toldoFace(g.L, g.B);
+  }
+  // aba do telhado (beiral) por cima de tudo
+  if (hgt >= 20) {
+    const e = .08;
+    const ro = [[o.x - e, o.y - e], [o.x + o.w + e, o.y - e], [o.x + o.w + e, o.y + o.h + e], [o.x - e, o.y + o.h + e]]
+      .map(p => [w2sx(p[0], p[1]), w2sy(p[0], p[1]) - g.up]);
+    c.lineWidth = Math.max(1.2, 2.4 * z); c.strokeStyle = shade(B.cor, -.55); c.lineJoin = 'round';
+    isoPoly(c, ro); c.fillStyle = shade(B.cor, .26); c.fill(); c.stroke();
+    const ri = [[o.x + .18, o.y + .18], [o.x + o.w - .18, o.y + .18], [o.x + o.w - .18, o.y + o.h - .18], [o.x + .18, o.y + o.h - .18]]
+      .map(p => [w2sx(p[0], p[1]), w2sy(p[0], p[1]) - g.up]);
+    isoPoly(c, ri); c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1.5 * z; c.stroke();
+  }
+  // chaminé com fumaça nas cozinhas
+  if (B.supre === 'fome' && o.kind !== 'sorveteria' && hgt >= 22) {
+    const px = w2sx(o.x + .36, o.y + .36), py = w2sy(o.x + .36, o.y + .36) - g.up;
+    c.fillStyle = shade(B.cor, -.28); c.strokeStyle = shade(B.cor, -.58); c.lineWidth = 1.4 * z;
+    roundRectP(c, px - 3 * z, py - 10 * z, 6 * z, 11 * z, 1.6 * z); c.fill(); c.stroke();
+    c.fillStyle = shade(B.cor, -.45);
+    roundRectP(c, px - 3.8 * z, py - 11.6 * z, 7.6 * z, 2.6 * z, 1.2 * z); c.fill();
+    if (z > .45) {
+      for (let kf = 0; kf < 3; kf++) {
+        const t = (_now / 1500 + kf / 3 + (o.id % 10) * .1) % 1;
+        c.globalAlpha = (1 - t) * .25;
+        c.fillStyle = '#fff';
+        c.beginPath();
+        c.arc(px + Math.sin(t * 5 + o.id) * 2.6 * z, py - 12 * z - t * 20 * z, (2 + t * 3.4) * z, 0, TAU);
+        c.fill();
+      }
+      c.globalAlpha = 1;
+    }
   }
   // placa com emoji
   const cx = (g.T[0] + g.B[0]) / 2, cy = (g.T[1] + g.B[1]) / 2 - g.up - 6 * z;
@@ -3263,22 +4084,27 @@ function drawDeco(c, o, z) {
         c.beginPath(); c.moveTo(sx - ww, yy); c.lineTo(sx, yy - 20 * s); c.lineTo(sx + ww, yy); c.closePath(); c.fill(); c.stroke();
       }
     } else if (k === 'palmeira') {
+      const sw = Math.sin(_now / 1500 + o.id * 1.7) * 1.6 * s;   // brisa
       c.strokeStyle = '#2f7a4a'; c.lineWidth = 5 * s;
       for (let i = 0; i < 6; i++) {
         const a = -Math.PI * .1 - i / 5 * Math.PI * .8;
         c.beginPath(); c.moveTo(sx + 5 * s, sy - 30 * s);
-        c.quadraticCurveTo(sx + 5 * s + Math.cos(a) * 20 * s, sy - 40 * s + Math.sin(a) * 12 * s,
-          sx + 5 * s + Math.cos(a) * 30 * s, sy - 28 * s + Math.sin(a) * 8 * s);
+        c.quadraticCurveTo(sx + 5 * s + Math.cos(a) * 20 * s + sw, sy - 40 * s + Math.sin(a) * 12 * s,
+          sx + 5 * s + Math.cos(a) * 30 * s + sw * 1.6, sy - 28 * s + Math.sin(a) * 8 * s);
         c.stroke();
       }
       c.fillStyle = '#c9862c'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(sx + 3 * s + i * 4 * s, sy - 28 * s, 3 * s, 0, TAU); c.fill(); }
     } else {
+      const sw = Math.sin(_now / 1500 + o.id * 1.7) * 1.4 * s;   // brisa
       c.strokeStyle = ik; c.lineWidth = 3 * s;
       const blobs = [[0, -40, 19], [-14, -32, 14], [14, -32, 14], [0, -52, 13]];
-      c.beginPath(); for (const [dx, dy, r] of blobs) { c.moveTo(sx + dx * s + r * s, sy + dy * s); c.arc(sx + dx * s, sy + dy * s, r * s, 0, TAU); }
+      c.beginPath(); for (const [dx, dy, r] of blobs) {
+        const bx = sx + dx * s + sw * (-dy - 28) / 24;           // topo balança mais
+        c.moveTo(bx + r * s, sy + dy * s); c.arc(bx, sy + dy * s, r * s, 0, TAU);
+      }
       c.fillStyle = '#4c9a3f'; c.fill(); c.stroke();
       c.fillStyle = 'rgba(255,255,255,.2)';
-      c.beginPath(); c.arc(sx - 7 * s, sy - 48 * s, 7 * s, 0, TAU); c.fill();
+      c.beginPath(); c.arc(sx - 7 * s + sw, sy - 48 * s, 7 * s, 0, TAU); c.fill();
     }
   } else if (k === 'arbusto') {
     c.strokeStyle = ik; c.lineWidth = 2.6 * s; c.fillStyle = '#4c9a3f';
@@ -3294,6 +4120,25 @@ function drawDeco(c, o, z) {
       for (let p = 0; p < 5; p++) { const a = p / 5 * TAU; c.beginPath(); c.arc(px + Math.cos(a) * 2.6 * s, py + Math.sin(a) * 2.6 * s, 2.1 * s, 0, TAU); c.fill(); }
       c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(px, py, 1.6 * s, 0, TAU); c.fill();
     }
+    if (s > .5 && !(G.hour < 6.5 || G.hour > 19)) { // borboleta rondando o canteiro
+      const t = _now / 1000 + o.id * 2.3;
+      const bx = sx + Math.cos(t * 1.1) * 15 * s, by = sy - 15 * s - Math.sin(t * 1.9) * 6 * s;
+      const asa = Math.abs(Math.sin(t * 14)) * .8 + .2;
+      c.fillStyle = ['#e8a01c', '#7ab4e0', '#e2749f'][o.id % 3];
+      ellipse(c, bx - 2 * s * asa, by, 2.2 * s * asa, 1.5 * s, .5); c.fill();
+      ellipse(c, bx + 2 * s * asa, by, 2.2 * s * asa, 1.5 * s, -.5); c.fill();
+      c.fillStyle = '#3a2d20'; ellipse(c, bx, by, .8 * s, 1.6 * s); c.fill();
+    } else if (s > .5) {                            // vagalume à noite
+      const t = _now / 1400 + o.id;
+      const fx = sx + Math.cos(t * .9) * 16 * s, fy = sy - 12 * s - Math.sin(t * 1.7) * 8 * s;
+      const puls = .4 + .6 * Math.abs(Math.sin(_now / 480 + o.id));
+      c.globalAlpha = puls * .9;
+      c.fillStyle = '#e4f78e';
+      c.beginPath(); c.arc(fx, fy, 1.7 * s, 0, TAU); c.fill();
+      c.globalAlpha = puls * .3;
+      c.beginPath(); c.arc(fx, fy, 5.5 * s, 0, TAU); c.fill();
+      c.globalAlpha = 1;
+    }
   } else if (k === 'pedra') {
     c.strokeStyle = '#5e5b56'; c.lineWidth = 2.6 * s; c.fillStyle = '#9b9a94';
     c.beginPath(); c.moveTo(sx - 15 * s, sy); c.lineTo(sx - 9 * s, sy - 15 * s); c.lineTo(sx + 5 * s, sy - 17 * s);
@@ -3305,7 +4150,20 @@ function drawDeco(c, o, z) {
     ellipse(c, sx, sy - 4 * s, 16 * s, 7.5 * s); c.fillStyle = '#4fa8db'; c.fill();
     c.strokeStyle = '#8a8781'; ellipse(c, sx, sy - 12 * s, 6 * s, 3 * s); c.fillStyle = '#c9c4bc'; c.fill(); c.stroke();
     c.strokeStyle = 'rgba(160,220,245,.9)'; c.lineWidth = 2.4 * s;
-    for (const d of [-1, 1]) { c.beginPath(); c.moveTo(sx, sy - 16 * s); c.quadraticCurveTo(sx + d * 12 * s, sy - 26 * s, sx + d * 15 * s, sy - 6 * s); c.stroke(); }
+    for (const d of [-1, 1]) {
+      const sw = Math.sin(_now / 300 + d * 1.3) * 1.5 * s;   // jato balançando
+      c.beginPath(); c.moveTo(sx, sy - 16 * s);
+      c.quadraticCurveTo(sx + d * 12 * s + sw, sy - 26 * s, sx + d * 15 * s + sw, sy - 6 * s);
+      c.stroke();
+      for (let kd = 0; kd < 2; kd++) {                       // gotas caindo
+        const t = (_now / 620 + kd / 2 + (d + 1) / 4) % 1;
+        const qx = lerp(lerp(sx, sx + d * 12 * s + sw, t), lerp(sx + d * 12 * s + sw, sx + d * 15 * s + sw, t), t);
+        const qy = lerp(lerp(sy - 16 * s, sy - 26 * s, t), lerp(sy - 26 * s, sy - 6 * s, t), t);
+        c.globalAlpha = 1 - t * .7;
+        c.fillStyle = '#cfeafa'; c.beginPath(); c.arc(qx, qy, 1.3 * s, 0, TAU); c.fill();
+      }
+      c.globalAlpha = 1;
+    }
   } else if (k === 'estatua') {
     c.strokeStyle = '#6a6762'; c.lineWidth = 2.6 * s; c.fillStyle = '#b5b0a6';
     isoPoly(c, [[sx - 14 * s, sy], [sx, sy - 7 * s], [sx + 14 * s, sy], [sx, sy + 7 * s]]); c.fill(); c.stroke();
@@ -3323,43 +4181,167 @@ function drawDeco(c, o, z) {
     c.fillStyle = '#d9b878'; roundRectP(c, sx - 12 * s, sy - 32 * s, 24 * s, 16 * s, 3 * s); c.fill(); c.stroke();
   }
 }
+/** bacia isométrica com parede: base dos cochos (comedouro/bebedouro) */
+function baciaIso(c, sx, sy, rx, ry, alt, corParede, corBorda, corFundo, s) {
+  // parede lateral: metade de baixo da borda, extrudada até o chão
+  c.fillStyle = corParede; c.strokeStyle = shade(corParede, -.5); c.lineWidth = 2.4 * s;
+  c.beginPath();
+  c.moveTo(sx - rx, sy - alt);
+  c.lineTo(sx - rx, sy);
+  c.ellipse(sx, sy, rx, ry, 0, Math.PI, 0, true);   // arco inferior no chão
+  c.lineTo(sx + rx, sy - alt);
+  c.ellipse(sx, sy - alt, rx, ry, 0, 0, Math.PI);   // volta pela boca
+  c.closePath(); c.fill(); c.stroke();
+  // boca
+  ellipse(c, sx, sy - alt, rx, ry); c.fillStyle = corBorda; c.fill(); c.stroke();
+  ellipse(c, sx, sy - alt, rx * .78, ry * .72); c.fillStyle = corFundo; c.fill();
+}
 function drawEncObj(c, o, z) {
   const sx = w2sx(o.x + .5, o.y + .5), sy = w2sy(o.x + .5, o.y + .5), s = z;
   const e = enclosures.get(o.encId);
-  ellipse(c, sx, sy + 2 * s, 13 * s, 6 * s); c.fillStyle = 'rgba(0,0,0,.18)'; c.fill();
-  c.lineWidth = 2.6 * s; c.lineJoin = 'round';
+  if (o.kind !== 'brinquedo') {                     // a bola faz a própria sombra
+    ellipse(c, sx, sy + 2 * s, 13 * s, 6 * s); c.fillStyle = 'rgba(0,0,0,.18)'; c.fill();
+  }
+  c.lineWidth = 2.6 * s; c.lineJoin = 'round'; c.lineCap = 'round';
   if (o.kind === 'comedouro') {
-    c.strokeStyle = '#5e4a30'; c.fillStyle = '#8a6a45';
-    ellipse(c, sx, sy - 5 * s, 15 * s, 8 * s); c.fill(); c.stroke();
+    // cocho de madeira; a ração vai de verde (cheio) a vermelho (acabando)
+    baciaIso(c, sx, sy - 2 * s, 13 * s, 6.5 * s, 7 * s, '#8a6a45', '#a87f52', '#54432c', s);
     const nivel = e ? e.comida : 1;
-    if (nivel > .05) { c.fillStyle = mixc('#c94a2a', '#7ac44a', nivel); ellipse(c, sx, sy - 6 * s, 11 * s * (.4 + nivel * .6), 5 * s * (.4 + nivel * .6)); c.fill(); }
+    if (nivel > .05) {
+      c.fillStyle = mixc('#c94a2a', '#7ac44a', nivel);
+      ellipse(c, sx, sy - 9.5 * s - nivel * 1.5 * s, 9.5 * s, 4.2 * s); c.fill();
+      c.fillStyle = 'rgba(0,0,0,.18)';
+      for (let i = 0; i < 4; i++) {
+        const rr = mulberry(o.id * 31 + i);
+        c.beginPath(); c.arc(sx - 6 * s + rr() * 12 * s, sy - 10 * s + rr() * 3 * s, 1.1 * s, 0, TAU); c.fill();
+      }
+    }
   } else if (o.kind === 'bebedouro2') {
-    c.strokeStyle = '#5e6068'; c.fillStyle = '#9b9a94';
-    ellipse(c, sx, sy - 5 * s, 14 * s, 7.5 * s); c.fill(); c.stroke();
+    baciaIso(c, sx, sy - 2 * s, 12.5 * s, 6 * s, 6 * s, '#8b8a84', '#9b9a94', '#4a4e55', s);
     const nivel = e ? e.agua : 1;
-    if (nivel > .05) { c.fillStyle = '#4fa8db'; ellipse(c, sx, sy - 6 * s, 10 * s, 5 * s * (.3 + nivel * .7)); c.fill(); }
+    if (nivel > .05) {
+      c.fillStyle = '#4fa8db';
+      ellipse(c, sx, sy - 8.5 * s - nivel * 1.2 * s, 9 * s, 4 * s); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1.4 * s;
+      const g = Math.sin(_now / 700 + o.id) * 2 * s;
+      c.beginPath(); c.moveTo(sx - 4 * s + g, sy - 9.5 * s); c.quadraticCurveTo(sx + g, sy - 11 * s, sx + 4 * s + g, sy - 9.5 * s); c.stroke();
+    }
   } else if (o.kind === 'abrigo') {
-    drawIsoBox(c, o.x, o.y, 1, 1, 20, '#a87a45', '#7a5230', z);
+    // cabana: paredes de madeira, telhado de sapé em duas águas e porta escura
+    const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
+    const A = P(.08, .08), B = P(.92, .08), C = P(.92, .92), D = P(.08, .92);
+    const up = 15 * s, ap = 30 * s;
+    const cx2 = (A[0] + C[0]) / 2, cy2 = (A[1] + C[1]) / 2;
+    c.strokeStyle = '#4a3520'; c.lineWidth = 2.2 * s;
+    // paredes visíveis (S e E)
+    isoPoly(c, [D, C, [C[0], C[1] - up], [D[0], D[1] - up]]); c.fillStyle = '#8a6a45'; c.fill(); c.stroke();
+    isoPoly(c, [B, C, [C[0], C[1] - up], [B[0], B[1] - up]]); c.fillStyle = '#a87f52'; c.fill(); c.stroke();
+    // porta na face S
+    const dm = P(.5, .92);
+    c.fillStyle = '#3a2a18';
+    c.beginPath(); c.moveTo(dm[0] - 4 * s, dm[1]); c.lineTo(dm[0] - 4 * s, dm[1] - 8.5 * s);
+    c.quadraticCurveTo(dm[0], dm[1] - 12 * s, dm[0] + 4 * s, dm[1] - 8.5 * s); c.lineTo(dm[0] + 4 * s, dm[1]);
+    c.closePath(); c.fill();
+    // telhado piramidal de sapé com beiral curto (comprido engolia as paredes)
+    const topo = [cx2, cy2 - ap];
+    const beiral = .07;
+    const A2 = P(-beiral, -beiral), B2 = P(1 + beiral, -beiral), C2 = P(1 + beiral, 1 + beiral), D2 = P(-beiral, 1 + beiral);
+    c.strokeStyle = '#4a3520';
+    c.beginPath(); c.moveTo(D2[0], D2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(topo[0], topo[1]); c.closePath();
+    c.fillStyle = '#c9a558'; c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(B2[0], B2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(topo[0], topo[1]); c.closePath();
+    c.fillStyle = '#b8924a'; c.fill(); c.stroke();
+    // fiapos de sapé
+    c.strokeStyle = 'rgba(74,53,32,.4)'; c.lineWidth = 1.2 * s;
+    for (let i = 1; i < 4; i++) {
+      const t = i / 4;
+      c.beginPath();
+      c.moveTo(D2[0] + (C2[0] - D2[0]) * t, D2[1] - up + (C2[1] - D2[1]) * t);
+      c.lineTo(topo[0] + (D2[0] + (C2[0] - D2[0]) * t - topo[0]) * .25, topo[1] + (D2[1] - up + (C2[1] - D2[1]) * t - topo[1]) * .25);
+      c.stroke();
+    }
   } else if (o.kind === 'brinquedo') {
-    c.strokeStyle = '#2f6a2f'; c.fillStyle = '#ffc23c';
-    c.beginPath(); c.arc(sx, sy - 9 * s, 9 * s, 0, TAU); c.fill(); c.stroke();
-    c.beginPath(); c.arc(sx, sy - 9 * s, 9 * s, .6, 2.6); c.stroke();
+    // bola de brincar quicando
+    const q = Math.abs(Math.sin(_now / 420 + o.id * 1.3));
+    const by = sy - 8.5 * s - q * 5 * s;
+    ellipse(c, sx, sy, (7 - q * 1.6) * s, (3.4 - q * .8) * s);   // sombra própria
+    c.fillStyle = 'rgba(0,0,0,.14)'; c.fill();
+    c.fillStyle = '#ffc23c'; c.strokeStyle = '#8a5a1c'; c.lineWidth = 2.4 * s;
+    c.beginPath(); c.arc(sx, by, 8 * s, 0, TAU); c.fill(); c.stroke();
+    c.save();
+    c.beginPath(); c.arc(sx, by, 8 * s, 0, TAU); c.clip();
+    c.fillStyle = '#e2543f';
+    c.beginPath(); c.ellipse(sx, by + 1.5 * s, 9.5 * s, 3.4 * s, -.18, 0, TAU); c.fill();
+    c.restore();
+    c.fillStyle = 'rgba(255,255,255,.65)';
+    c.beginPath(); c.arc(sx - 2.8 * s, by - 3 * s, 2 * s, 0, TAU); c.fill();
   } else if (o.kind === 'tronco') {
-    c.strokeStyle = '#5e4a30'; c.fillStyle = '#a87a45';
-    roundRectP(c, sx - 18 * s, sy - 12 * s, 36 * s, 12 * s, 6 * s); c.fill(); c.stroke();
-    c.fillStyle = '#c9a06a'; ellipse(c, sx + 17 * s, sy - 6 * s, 4 * s, 6 * s); c.fill(); c.stroke();
+    // tronco caído: corpo roliço, casca, veios e broto
+    c._ink = '#4a3520';
+    limb(c, sx - 15 * s, sy - 7 * s, sx + 13 * s, sy - 3 * s, 10 * s, '#a87a45');
+    c.strokeStyle = 'rgba(74,53,32,.5)'; c.lineWidth = 1.4 * s;
+    c.beginPath(); c.moveTo(sx - 12 * s, sy - 9.5 * s); c.lineTo(sx + 8 * s, sy - 6.5 * s);
+    c.moveTo(sx - 11 * s, sy - 4.5 * s); c.lineTo(sx + 6 * s, sy - 1.5 * s); c.stroke();
+    ellipse(c, sx + 13.5 * s, sy - 3 * s, 4.6 * s, 5.6 * s, .12);
+    c.fillStyle = '#d9b878'; c.fill(); c.strokeStyle = '#4a3520'; c.lineWidth = 2 * s; c.stroke();
+    c.strokeStyle = '#a87f52'; c.lineWidth = 1.2 * s;
+    ellipse(c, sx + 13.5 * s, sy - 3 * s, 2.6 * s, 3.2 * s, .12); c.stroke();
+    c.strokeStyle = '#2f6a2f'; c.lineWidth = 2 * s;
+    c.beginPath(); c.moveTo(sx - 6 * s, sy - 11 * s); c.quadraticCurveTo(sx - 5 * s, sy - 16 * s, sx - 1.5 * s, sy - 16.5 * s); c.stroke();
+    c.fillStyle = '#4c9a3f';
+    ellipse(c, sx - .5 * s, sy - 16.5 * s, 2.6 * s, 1.7 * s, -.4); c.fill();
   } else if (o.kind === 'rochaE') {
-    c.strokeStyle = '#5e5b56'; c.fillStyle = '#9b9a94';
-    c.beginPath(); c.moveTo(sx - 20 * s, sy); c.lineTo(sx - 12 * s, sy - 22 * s); c.lineTo(sx + 6 * s, sy - 26 * s);
-    c.lineTo(sx + 20 * s, sy - 6 * s); c.closePath(); c.fill(); c.stroke();
+    // formação: pedregulho grande facetado + companheiro + seixo
+    c.strokeStyle = '#55524d'; c.lineWidth = 2.4 * s; c.fillStyle = '#9b9a94';
+    c.beginPath();
+    c.moveTo(sx - 17 * s, sy - 1 * s); c.lineTo(sx - 13 * s, sy - 14 * s); c.lineTo(sx - 4 * s, sy - 20 * s);
+    c.lineTo(sx + 7 * s, sy - 17 * s); c.lineTo(sx + 13 * s, sy - 6 * s); c.lineTo(sx + 8 * s, sy + 2 * s);
+    c.lineTo(sx - 9 * s, sy + 3 * s); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#c3bfb6';                       // face iluminada
+    c.beginPath(); c.moveTo(sx - 13 * s, sy - 14 * s); c.lineTo(sx - 4 * s, sy - 20 * s);
+    c.lineTo(sx + 1 * s, sy - 9 * s); c.lineTo(sx - 8 * s, sy - 6 * s); c.closePath(); c.fill();
+    c.fillStyle = '#7d7b75';                       // face na sombra
+    c.beginPath(); c.moveTo(sx + 1 * s, sy - 9 * s); c.lineTo(sx + 7 * s, sy - 17 * s);
+    c.lineTo(sx + 13 * s, sy - 6 * s); c.lineTo(sx + 8 * s, sy + 2 * s); c.closePath(); c.fill();
+    c.fillStyle = '#8b8a84'; c.strokeStyle = '#55524d';
+    c.beginPath(); c.moveTo(sx + 9 * s, sy + 1 * s); c.lineTo(sx + 12 * s, sy - 6 * s);
+    c.lineTo(sx + 18 * s, sy - 4 * s); c.lineTo(sx + 19 * s, sy + 2 * s); c.closePath(); c.fill(); c.stroke();
+    ellipse(c, sx - 14 * s, sy + 3 * s, 3 * s, 1.8 * s); c.fillStyle = '#8b8a84'; c.fill(); c.stroke();
   } else if (o.kind === 'plantaE') {
-    c.strokeStyle = '#2f6a2f'; c.fillStyle = '#4c9a3f';
-    for (let i = 0; i < 5; i++) { const a = -1.9 + i * .45; c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(sx + Math.cos(a) * 14 * s, sy - 20 * s, sx + Math.cos(a) * 20 * s, sy - 6 * s); c.fill(); c.stroke(); }
+    // moita frondosa: folhas em leque, dois tons, bagas
+    const rr = mulberry(o.id * 53);
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI * .92 + i / 6 * Math.PI * .84;
+      const L = (13 + rr() * 5) * s;
+      const ex = sx + Math.cos(a) * L, ey = sy - 4 * s + Math.sin(a) * L * .75;
+      c.fillStyle = i % 2 ? '#4c9a3f' : '#3c7a34';
+      c.strokeStyle = '#274d22'; c.lineWidth = 1.6 * s;
+      c.save();
+      c.translate((sx + ex) / 2, (sy - 3 * s + ey) / 2);
+      c.rotate(Math.atan2(ey - (sy - 3 * s), ex - sx));
+      ellipse(c, 0, 0, L * .52, 3.6 * s); c.fill(); c.stroke();
+      c.restore();
+    }
+    c.fillStyle = '#2f5a28'; ellipse(c, sx, sy - 3 * s, 4 * s, 2.4 * s); c.fill();
+    c.fillStyle = '#e2543f';
+    for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(sx - 4 * s + i * 4 * s, sy - 8 * s - (i % 2) * 3 * s, 1.5 * s, 0, TAU); c.fill(); }
   } else if (o.kind === 'piscina') {
-    c.strokeStyle = '#3f96c8'; c.fillStyle = '#4fa8db';
-    isoPoly(c, [[sx, sy - 16 * s], [sx + 30 * s, sy], [sx, sy + 16 * s], [sx - 30 * s, sy]]); c.fill(); c.stroke();
-    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2 * s;
-    c.beginPath(); c.moveTo(sx - 14 * s, sy - 2 * s); c.quadraticCurveTo(sx, sy - 7 * s, sx + 14 * s, sy - 2 * s); c.stroke();
+    // piscina encravada: borda de pedra, água com fundo e brilho que anda
+    c.strokeStyle = '#7a7770'; c.lineWidth = 2.2 * s;
+    isoPoly(c, [[sx, sy - 18 * s], [sx + 32 * s, sy - 2 * s], [sx, sy + 14 * s], [sx - 32 * s, sy - 2 * s]]);
+    c.fillStyle = '#c9c4bc'; c.fill(); c.stroke();
+    isoPoly(c, [[sx, sy - 14.5 * s], [sx + 25 * s, sy - 2 * s], [sx, sy + 10.5 * s], [sx - 25 * s, sy - 2 * s]]);
+    c.fillStyle = '#4fa8db'; c.fill();
+    isoPoly(c, [[sx, sy - 9 * s], [sx + 14 * s, sy - 2 * s], [sx, sy + 5 * s], [sx - 14 * s, sy - 2 * s]]);
+    c.fillStyle = '#3f96c8'; c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1.8 * s;
+    const g = Math.sin(_now / 800 + o.id) * 5 * s;
+    c.beginPath(); c.moveTo(sx - 12 * s + g, sy - 4 * s); c.quadraticCurveTo(sx + g, sy - 8 * s, sx + 12 * s + g, sy - 4 * s); c.stroke();
+    c.beginPath(); c.moveTo(sx - 8 * s - g, sy + 2 * s); c.quadraticCurveTo(sx - g, sy - 1 * s, sx + 8 * s - g, sy + 2 * s); c.stroke();
+    // degrauzinho
+    c.fillStyle = '#b5b0a6'; c.strokeStyle = '#7a7770'; c.lineWidth = 1.6 * s;
+    isoPoly(c, [[sx - 20 * s, sy - 8 * s], [sx - 14 * s, sy - 5 * s], [sx - 18 * s, sy - 3 * s], [sx - 24 * s, sy - 6 * s]]);
+    c.fill(); c.stroke();
   }
 }
 /* ---- cerca ---- */
@@ -3424,6 +4406,18 @@ function drawFenceTile(c, x, y, e, z, lados) {
           c.beginPath(); c.moveTo(px, py); c.lineTo(px, py - alt); c.stroke();
         }
       }
+      if (e.fence === 'eletrica') {              // faísca ocasional
+        const hs = (x * 73856093 ^ y * 19349663) >>> 0;
+        if (((_now / 90 | 0) + hs) % 34 < 2) {
+          const t = ((hs >> 8) % 100) / 100 * .6 + .2;
+          const px = A[0] + (B[0] - A[0]) * t, py = A[1] + (B[1] - A[1]) * t - alt * .55;
+          c.fillStyle = 'rgba(255,244,170,.45)';
+          c.beginPath(); c.arc(px, py - z, 4.5 * z, 0, TAU); c.fill();
+          c.strokeStyle = '#fff7c0'; c.lineWidth = 1.6 * z;
+          c.beginPath(); c.moveTo(px - 3 * z, py); c.lineTo(px - z, py - 3 * z);
+          c.lineTo(px + z, py + z); c.lineTo(px + 3 * z, py - 2.5 * z); c.stroke();
+        }
+      }
     }
     if (dano > .35) {
       c.strokeStyle = 'rgba(200,60,40,.8)'; c.lineWidth = 2 * z;
@@ -3447,9 +4441,21 @@ function blitSprite(c, spr, sx, sy, alt, dir) {
 function drawAnimal(c, a, z) {
   const sx = w2sx(a.x, a.y), sy = w2sy(a.x, a.y);
   const hp = spriteH(a.sp);              // altura base em px (zoom 1)
-  const alt = hp * z;                    // altura na tela
+  // filhote nasce com metade do porte e cresce até ~1/4 da vida
+  const cres = clamp(.5 + .5 * a.idade / (a.sp.vida * .22), .5, 1);
+  const alt = hp * z * cres;             // altura na tela
   const px = clamp(Math.round(alt / 8) * 8, 24, 240); // resolução do cache, em degraus
-  ellipse(c, sx, sy, hp * .26 * z, hp * .12 * z); c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
+  ellipse(c, sx, sy, hp * .26 * z * cres, hp * .12 * z * cres); c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
+  // pisando na água: anéis de ondulação
+  if (inB(a.x | 0, a.y | 0) && world.terr[IDX(a.x | 0, a.y | 0)] === T_AGUA && z > .45) {
+    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1.2 * z;
+    for (let k = 0; k < 2; k++) {
+      const t = (_now / 1100 + a.id * .37 + k / 2) % 1;
+      c.globalAlpha = (1 - t) * .5;
+      ellipse(c, sx, sy, (6 + t * 16) * z, (3 + t * 8) * z); c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
   const spr = getSprite(a.sp, a.estado === 'parado' ? 0 : a.frame, px);
   blitSprite(c, spr, sx, sy, alt, a.dir);
   filaBolhas(a, sx, sy - alturaVisivel(a.sp) * (alt / SPR), z);
@@ -3526,13 +4532,37 @@ function drawPersonEnt(c, p, z) {
 
 /* ---- render principal ---- */
 const drawList = [];
+let _now = 0;                 // relógio do frame p/ animações fora da assinatura
 function render(now) {
+  _now = now;
   if (G.dirty.terr) buildTerrain();
   ctx.clearRect(0, 0, VW, VH);
-  // céu / fundo
+  // céu: gradiente + estrelas + nuvens ao fundo (o mapa é um planalto flutuando nele)
   const noite = G.hour < 6.5 || G.hour > 19;
-  ctx.fillStyle = noite ? '#2b3d4f' : '#8ed3ad';
-  ctx.fillRect(0, 0, VW, VH);
+  const ceu = ctx.createLinearGradient(0, 0, 0, VH);
+  if (noite) { ceu.addColorStop(0, '#18263c'); ceu.addColorStop(1, '#2b3d52'); }
+  else { ceu.addColorStop(0, '#9ce0bb'); ceu.addColorStop(1, '#7bc79e'); }
+  ctx.fillStyle = ceu; ctx.fillRect(0, 0, VW, VH);
+  if (noite) {
+    for (let i = 0; i < 64; i++) {
+      const h = (i * 2654435761) >>> 0;
+      const px = (h % 9973) / 9973 * VW, py = ((h >> 12) % 9973) / 9973 * VH;
+      const tw = .35 + .65 * Math.abs(Math.sin(now / 1400 + i * 1.7));
+      ctx.globalAlpha = .5 * tw;
+      ctx.fillStyle = '#dce8f2';
+      ctx.fillRect(px, py, i % 7 ? 1.4 : 2.2, i % 7 ? 1.4 : 2.2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  for (let i = 0; i < 4; i++) {                  // nuvens do fundo
+    const cw = VW * (.16 + (i % 3) * .07);
+    const px = ((i * .29 + .07) * VW + now * (.004 + i * .0012)) % (VW + cw * 2) - cw;
+    const py = VH * (.1 + ((i * 37) % 50) / 100 * .5);
+    ctx.fillStyle = noite ? 'rgba(200,215,235,.05)' : 'rgba(255,255,255,.16)';
+    ellipse(ctx, px, py, cw * .5, cw * .14); ctx.fill();
+    ellipse(ctx, px - cw * .24, py + cw * .04, cw * .28, cw * .1); ctx.fill();
+    ellipse(ctx, px + cw * .22, py + cw * .03, cw * .3, cw * .11); ctx.fill();
+  }
 
   const z = cam.z;
   ctx.save();
@@ -3540,6 +4570,24 @@ function render(now) {
   ctx.scale(z, z);
   ctx.drawImage(terrCv, 0, 0);
   ctx.restore();
+  // sombras de nuvem passeando pelo chão (recortadas ao planalto)
+  if (!noite) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(w2sx(0, 0), w2sy(0, 0)); ctx.lineTo(w2sx(W, 0), w2sy(W, 0));
+    ctx.lineTo(w2sx(W, H), w2sy(W, H)); ctx.lineTo(w2sx(0, H), w2sy(0, H));
+    ctx.closePath(); ctx.clip();
+    ctx.fillStyle = 'rgba(25,45,35,.06)';
+    for (let i = 0; i < 4; i++) {
+      const wx = ((i * 19.3 + now * (.0011 + i * .0004)) % (W + 44)) - 22;
+      const wy = ((i * 27.7 + now * .0007) % (H + 44)) - 22;
+      const sx = w2sx(wx, wy), sy = w2sy(wx, wy), s = (110 + (i % 3) * 55) * z;
+      ellipse(ctx, sx, sy, s, s * .42); ctx.fill();
+      ellipse(ctx, sx - s * .55, sy + s * .12, s * .55, s * .25); ctx.fill();
+      ellipse(ctx, sx + s * .5, sy - s * .1, s * .6, s * .28); ctx.fill();
+    }
+    ctx.restore();
+  }
 
   // faixa de tiles visível (os 4 cantos da tela em coordenadas de mundo)
   const cs = [s2w(0, 0), s2w(VW, 0), s2w(VW, VH), s2w(0, VH)];
@@ -3549,11 +4597,49 @@ function render(now) {
   const y1 = clamp(Math.ceil(Math.max(...cs.map(p => p[1])) + 3), 0, H - 1);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const l = world.lixo[IDX(x, y)];
+    const i = IDX(x, y), l = world.lixo[i];
     if (l > .18) {
       const sx = w2sx(x + .5, y + .5), sy = w2sy(x + .5, y + .5);
       ctx.font = Math.round(11 * z) + 'px system-ui';
       ctx.globalAlpha = clamp(l, .3, 1); ctx.fillText('🗑', sx, sy); ctx.globalAlpha = 1;
+    }
+    // reflexos que acendem e apagam na água
+    if (world.terr[i] === T_AGUA && z > .5) {
+      const h = (i * 2654435761) >>> 0;
+      const tw = Math.sin(now / 800 + (h & 1023) * .006);
+      if (tw > .25) {
+        const gx = x + .25 + ((h >> 10) & 255) / 512, gy = y + .25 + ((h >> 18) & 255) / 512;
+        const sx = w2sx(gx, gy), sy = w2sy(gx, gy);
+        ctx.globalAlpha = (tw - .25) * .5;
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.3 * z; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sx - 3.5 * z, sy); ctx.lineTo(sx + 3.5 * z, sy); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      // peixe pulando, só em água funda e de vez em quando
+      if (z > .6) {
+        const ft = (now / 1000 + ((h >> 4) & 1023) * .07) % 11;
+        if (ft < .85 &&
+          (!inB(x, y - 1) || world.terr[IDX(x, y - 1)] === T_AGUA) &&
+          (!inB(x + 1, y) || world.terr[IDX(x + 1, y)] === T_AGUA) &&
+          (!inB(x, y + 1) || world.terr[IDX(x, y + 1)] === T_AGUA) &&
+          (!inB(x - 1, y) || world.terr[IDX(x - 1, y)] === T_AGUA)) {
+          const p = ft / .85;
+          const sx = w2sx(x + .5, y + .5), sy = w2sy(x + .5, y + .5);
+          const fx = sx - 9 * z + p * 18 * z, fy = sy - Math.sin(p * Math.PI) * 13 * z;
+          const ang = Math.atan2(-Math.cos(p * Math.PI) * 1.2, 1);
+          ctx.save(); ctx.translate(fx, fy); ctx.rotate(ang);
+          ctx.fillStyle = '#3e6f9e';
+          ctx.beginPath(); ctx.ellipse(0, 0, 3.4 * z, 1.5 * z, 0, 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(-3 * z, 0); ctx.lineTo(-5.4 * z, -1.6 * z); ctx.lineTo(-5.4 * z, 1.6 * z); ctx.closePath(); ctx.fill();
+          ctx.restore();
+          if (p < .22 || p > .78) {              // respingo na entrada e na saída
+            const px2 = p < .22 ? sx - 9 * z : sx + 9 * z;
+            ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 1.2 * z;
+            ctx.beginPath(); ctx.moveTo(px2 - 2.5 * z, sy - 1.5 * z); ctx.lineTo(px2 - 1 * z, sy - 3.5 * z);
+            ctx.moveTo(px2 + 2.5 * z, sy - 1.5 * z); ctx.lineTo(px2 + 1 * z, sy - 3.5 * z); ctx.stroke();
+          }
+        }
+      }
     }
   }
 
@@ -3600,7 +4686,8 @@ function render(now) {
     else if (it.t === 'animal') drawAnimal(ctx, it.r, z);
     else if (it.t === 'person') drawPersonEnt(ctx, it.r, z);
   }
-  drawEntrance(ctx, z);
+  drawEntrance(ctx, z, now);
+  passaros(ctx, now, noite);
   drawBolhas(ctx, now);       // por cima das entidades, senão some atrás delas
   drawAvisos(ctx, z);
   drawSelection(ctx, z);
@@ -3611,25 +4698,99 @@ function render(now) {
     const k = G.hour < 6.5 ? clamp((6.5 - G.hour) / 2.5, 0, 1) : clamp((G.hour - 19) / 3, 0, 1);
     ctx.fillStyle = 'rgba(24,34,66,' + (k * .46).toFixed(3) + ')';
     ctx.fillRect(0, 0, VW, VH);
+    luzesNoturnas(ctx, z, k, x0, x1, y0, y1);
   } else if (G.hour < 8.5) {
     ctx.fillStyle = 'rgba(255,170,90,' + ((8.5 - G.hour) * .12).toFixed(3) + ')';
     ctx.fillRect(0, 0, VW, VH);
   }
 }
-function drawEntrance(c, z) {
+/** poças de luz quente por cima do escurecimento — postes e fachadas acesas */
+function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
+  for (const o of objects.values()) {
+    if (o.x < x0 - 4 || o.x > x1 + 3 || o.y < y0 - 4 || o.y > y1 + 3) continue;
+    if (o.cat === 'deco' && o.kind === 'poste') {
+      const sx = w2sx(o.x + .5, o.y + .5), sy = w2sy(o.x + .5, o.y + .5);
+      const g = c.createRadialGradient(sx, sy, 2 * z, sx, sy, 40 * z);
+      g.addColorStop(0, 'rgba(255,214,120,' + (.30 * k).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,214,120,0)');
+      c.fillStyle = g;
+      ellipse(c, sx, sy, 42 * z, 21 * z); c.fill();
+    } else if (o.cat === 'build') {
+      const B = BUILDINGS[o.kind];
+      if (!B.salario && B.valor <= 0) continue;   // só o que tem gente dentro
+      const px = o.x + o.w * .82, py = o.y + o.h * .82;   // quina da frente
+      c.fillStyle = 'rgba(255,224,138,' + (.10 * k).toFixed(3) + ')';
+      ellipse(c, w2sx(px, py), w2sy(px, py) + 6 * z, (o.w + o.h) * 11 * z, (o.w + o.h) * 5 * z);
+      c.fill();
+    }
+  }
+}
+/** bando de pássaros cruzando o céu de tempos em tempos */
+function passaros(c, now, noite) {
+  if (noite) return;
+  const ciclo = Math.floor(now / 26000);
+  const t = (now % 26000) / 1000;
+  if (t > 11) return;
+  const r = mulberry(ciclo * 977 + 13);
+  const p = t / 11;
+  const y0 = VH * (.12 + r() * .35);
+  const x0 = -80 + p * (VW + 160);
+  c.strokeStyle = 'rgba(40,50,60,.55)'; c.lineWidth = 1.7; c.lineCap = 'round';
+  const nB = 3 + (ciclo % 3);
+  for (let i = 0; i < nB; i++) {
+    const bx = x0 - i * 24 - (i % 2) * 6, by = y0 + (i % 2 ? 13 : 0) + i * 2.5 + Math.sin(p * 26 + i) * 3;
+    const flap = Math.sin(now / 110 + i * 1.3) * 3;
+    c.beginPath();
+    c.moveTo(bx - 6, by - flap * .4);
+    c.quadraticCurveTo(bx - 2, by + flap, bx, by);
+    c.quadraticCurveTo(bx + 2, by + flap, bx + 6, by - flap * .4);
+    c.stroke();
+  }
+}
+function drawEntrance(c, z, now) {
   const x = ENTRANCE.x, y = ENTRANCE.y;
   const T = [w2sx(x, y), w2sy(x, y)], R = [w2sx(x + 1, y), w2sy(x + 1, y)];
-  const up = 40 * z;
-  c.strokeStyle = '#6b4420'; c.lineWidth = 6 * z; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(T[0], T[1]); c.lineTo(T[0], T[1] - up); c.stroke();
-  c.beginPath(); c.moveTo(R[0], R[1]); c.lineTo(R[0], R[1] - up); c.stroke();
-  c.fillStyle = '#e2543f'; c.strokeStyle = '#8a2f22'; c.lineWidth = 2.6 * z;
-  roundRectP(c, Math.min(T[0], R[0]) - 6 * z, Math.min(T[1], R[1]) - up - 14 * z,
-    Math.abs(R[0] - T[0]) + 12 * z, 20 * z, 5 * z);
+  const up = 46 * z;
+  // postes de madeira com base de pedra
+  c.lineCap = 'round';
+  for (const P of [T, R]) {
+    c.fillStyle = '#8b8a84';
+    ellipse(c, P[0], P[1], 5.5 * z, 2.8 * z); c.fill();
+    c.strokeStyle = '#3f2a12'; c.lineWidth = 7.4 * z;
+    c.beginPath(); c.moveTo(P[0], P[1]); c.lineTo(P[0], P[1] - up); c.stroke();
+    c.strokeStyle = '#8a5a2b'; c.lineWidth = 4.4 * z;
+    c.beginPath(); c.moveTo(P[0], P[1] - 2 * z); c.lineTo(P[0], P[1] - up + 2 * z); c.stroke();
+  }
+  // arco ligando os postes
+  const mx = (T[0] + R[0]) / 2, topo = Math.min(T[1], R[1]) - up - 20 * z;
+  const arco = () => { c.beginPath(); c.moveTo(T[0], T[1] - up); c.quadraticCurveTo(mx, topo, R[0], R[1] - up); };
+  c.strokeStyle = '#3f2a12'; c.lineWidth = 6.2 * z; arco(); c.stroke();
+  c.strokeStyle = '#a87a45'; c.lineWidth = 3.2 * z; arco(); c.stroke();
+  // bandeirinhas penduradas no arco
+  const cores = ['#e2543f', '#ffc23c', '#3fa5e2', '#4fae4a', '#f28ab0', '#9a6ad4'];
+  for (let i = 0; i < 6; i++) {
+    const t = (i + 1) / 7;
+    const qx = lerp(lerp(T[0], mx, t), lerp(mx, R[0], t), t);
+    const qy = lerp(lerp(T[1] - up, topo, t), lerp(topo, R[1] - up, t), t) + 2 * z;
+    const sw = Math.sin(now / 620 + i * 1.1) * 1.2 * z;
+    c.fillStyle = cores[i];
+    c.beginPath(); c.moveTo(qx - 3 * z, qy); c.lineTo(qx + 3 * z, qy);
+    c.lineTo(qx + sw * .5, qy + 7 * z + Math.abs(sw) * .5); c.closePath(); c.fill();
+  }
+  // placa pendurada no vão
+  const bal = Math.sin(now / 900) * .9 * z;
+  const py = Math.min(T[1], R[1]) - up + 2 * z + bal;
+  c.strokeStyle = '#3f2a12'; c.lineWidth = 1.4 * z;
+  c.beginPath();
+  c.moveTo(mx - 14 * z, py + 3 * z); c.lineTo(mx - 10 * z, py - 8 * z);
+  c.moveTo(mx + 14 * z, py + 3 * z); c.lineTo(mx + 10 * z, py - 8 * z);
+  c.stroke();
+  c.fillStyle = '#e2543f'; c.strokeStyle = '#8a2f22'; c.lineWidth = 2.4 * z;
+  roundRectP(c, mx - 21 * z, py + 2 * z, 42 * z, 16 * z, 4.5 * z);
   c.fill(); c.stroke();
-  c.fillStyle = '#fff'; c.font = 'bold ' + Math.round(9 * z) + 'px system-ui';
+  c.fillStyle = '#fff'; c.font = 'bold ' + Math.round(8.5 * z) + 'px system-ui';
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('ZOO', (T[0] + R[0]) / 2, (T[1] + R[1]) / 2 - up - 4 * z);
+  c.fillText('ZOO', mx, py + 10 * z);
 }
 /** Balão de aviso sobre recinto que tem animal mas nenhuma trilha ao lado —
  *  a causa mais comum de "zoológico cheio e nenhum visitante". */
@@ -3754,6 +4915,14 @@ function renderMini() {
   _mtmpCtx.putImageData(img, 0, 0);
   mctx.imageSmoothingEnabled = false;
   mctx.drawImage(_mtmp, 0, 0, 300, 300);
+  // prédios e portão
+  for (const o of objects.values()) {
+    if (o.cat !== 'build') continue;
+    mctx.fillStyle = BUILDINGS[o.kind].cor;
+    mctx.fillRect(o.x * S, o.y * S, Math.max(2.4, o.w * S), Math.max(2.4, o.h * S));
+  }
+  mctx.fillStyle = '#ffc23c';
+  mctx.fillRect(ENTRANCE.x * S - 2, ENTRANCE.y * S - 1, S + 4, 4);
   // viewport
   const c0 = s2w(0, 0), c1 = s2w(VW, 0), c2 = s2w(VW, VH), c3 = s2w(0, VH);
   mctx.strokeStyle = '#fff'; mctx.lineWidth = 3;
@@ -3833,6 +5002,71 @@ function updateHUD() {
   if (mostra) {
     $('#vWarn').textContent = diag.curto;
     w.querySelector('.ic').textContent = diag.em;
+  }
+  renderAlertas();
+}
+
+/* ---- barra de alertas do gerente ----
+   Os problemas que pedem ação AGORA, agrupados por tipo. Clicar no chip
+   centraliza a câmera no alvo; clicar de novo cicla entre os casos. */
+const ALERTA_DEF = {
+  fuga: { em: '🚨', n: 'Animal solto', sev: 3 },
+  doente: { em: '🤒', n: 'Animal doente', sev: 3 },
+  saude: { em: '🆘', n: 'Saúde crítica', sev: 3 },
+  fome: { em: '🍖', n: 'Recinto sem comida', sev: 2 },
+  agua: { em: '💧', n: 'Recinto sem água', sev: 2 },
+  cerca: { em: '🔧', n: 'Cerca se rompendo', sev: 2 },
+  idoso: { em: '⏳', n: 'Animal no fim da vida', sev: 1 },
+  sujo: { em: '🧹', n: 'Recinto imundo', sev: 1 },
+  vista: { em: '👀', n: 'Recinto sem trilha', sev: 1 },
+};
+let _alSig = '';
+const _alCursor = {};
+function coletarAlertas() {
+  const grupos = new Map();
+  const add = (tipo, alvo, rotulo) => {
+    let g = grupos.get(tipo);
+    if (!g) grupos.set(tipo, g = { tipo, alvos: [], rotulos: [] });
+    g.alvos.push(alvo); g.rotulos.push(rotulo);
+  };
+  for (const a of G.escaped) if (!a.morto) add('fuga', [a.x, a.y], a.sp.nome);
+  for (const a of G.animals) {
+    if (a.morto || a.fugiu) continue;
+    if (a.doente) add('doente', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+    else if (a.saude < .3) add('saude', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+    if (a.idade > a.sp.vida * .85) add('idoso', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+  }
+  for (const e of enclosures.values()) {
+    if (!e.animals.some(a => !a.morto)) continue;
+    const bb = encBBox(e), alvo = [bb.cx, bb.cy];
+    if (!encHasFeeder(e) || e.comida < .12) add('fome', alvo, e.nome);
+    if (!encHasWater(e) || e.agua < .12) add('agua', alvo, e.nome);
+    if (e.integridade < .5) add('cerca', alvo, e.nome);
+    if (e.limpeza < .3) add('sujo', alvo, e.nome);
+    if (!encViewSpots(e).length) add('vista', alvo, e.nome);
+  }
+  return [...grupos.values()]
+    .sort((a, b) => ALERTA_DEF[b.tipo].sev - ALERTA_DEF[a.tipo].sev || b.alvos.length - a.alvos.length);
+}
+function renderAlertas() {
+  const ab = $('#alertbar'); if (!ab) return;
+  const grupos = coletarAlertas().slice(0, 6);
+  const sig = grupos.map(g => g.tipo + ':' + g.alvos.length).join('|');
+  if (sig === _alSig) return;                 // sem mudança, sem reconstruir
+  _alSig = sig;
+  ab.innerHTML = '';
+  for (const g of grupos) {
+    const D = ALERTA_DEF[g.tipo];
+    const chip = el('button', 'achip sev' + D.sev,
+      `<span>${D.em}</span><span>${esc(D.n)}</span>` +
+      (g.alvos.length > 1 ? `<span class="n">${g.alvos.length}</span>` : ''));
+    chip.title = g.rotulos.slice(0, 6).join(', ') + (g.rotulos.length > 6 ? '…' : '') + ' — toque para localizar';
+    chip.onclick = () => {
+      const i = _alCursor[g.tipo] = ((_alCursor[g.tipo] ?? -1) + 1) % g.alvos.length;
+      centerOn(g.alvos[i][0], g.alvos[i][1]);
+      toast(D.em + ' ' + esc(g.rotulos[i]) + (g.alvos.length > 1 ? ` (${i + 1}/${g.alvos.length})` : ''), '');
+    };
+    ab.appendChild(chip);
   }
 }
 
@@ -3994,10 +5228,17 @@ function openShop(encId) {
      <div id="shopGrid"></div>`,
     e ? `<b style="font-size:13px">${e.nome}</b> <span style="font-size:12px;opacity:.7">— ${FENCES[e.fence].n}, ${encArea(e)} tiles livres, ${e.animals.length} animais</span>`
       : `<span style="font-size:12px;opacity:.75">Escolha uma espécie e depois toque no recinto onde ela vai morar. Verde = combina com o recinto selecionado.</span>`);
-  $('#shopQ').oninput = ev => { shopFiltro.q = ev.target.value.toLowerCase(); renderShop(); };
+  $('#shopQ').oninput = ev => { shopFiltro.q = ev.target.value; renderShop(); };
   $('#shopB').onchange = ev => { shopFiltro.bioma = ev.target.value; renderShop(); };
   $('#shopD').onchange = ev => { shopFiltro.dieta = ev.target.value; renderShop(); };
   $('#shopO').onchange = ev => { shopFiltro.ord = ev.target.value; renderShop(); };
+  // o filtro persiste entre aberturas — os controles precisam MOSTRAR isso.
+  // Reabrir com controles zerados mas filtro antigo valendo fazia a lista
+  // "minguar" a cada visita até 0 espécies sem motivo aparente.
+  $('#shopQ').value = shopFiltro.q;
+  $('#shopB').value = shopFiltro.bioma;
+  $('#shopD').value = shopFiltro.dieta;
+  $('#shopO').value = shopFiltro.ord;
   renderShop();
 }
 let shopObserver = null;
@@ -4005,8 +5246,9 @@ function renderShop() {
   const grid = $('#shopGrid'); if (!grid) return;
   grid.innerHTML = '';
   const e = shopEncId ? enclosures.get(shopEncId) : null;
+  const q = shopFiltro.q.trim().toLowerCase();
   let list = SPECIES.filter(s =>
-    (!shopFiltro.q || s.nome.toLowerCase().includes(shopFiltro.q) || s.biomaN.toLowerCase().includes(shopFiltro.q)) &&
+    (!q || s.nome.toLowerCase().includes(q) || s.biomaN.toLowerCase().includes(q)) &&
     (!shopFiltro.bioma || s.bioma === shopFiltro.bioma) &&
     (!shopFiltro.dieta || s.dieta === shopFiltro.dieta));
   const ord = { apelo: (a, b) => b.apelo - a.apelo || a.preco - b.preco, preco: (a, b) => a.preco - b.preco, precoD: (a, b) => b.preco - a.preco, nome: (a, b) => a.nome.localeCompare(b.nome), espaco: (a, b) => a.espaco - b.espaco };
@@ -4062,6 +5304,7 @@ function comprarPara(sp, e) {
   spend(sp.preco, 'compra');
   const a = novoAnimal(sp, e.id);
   e.animals.push(a);
+  undoRegistrar({ tipo: 'animal', cat: 'compra', id: a.id, custo: sp.preco, rotulo: sp.nome });
   toast(`🎉 ${sp.nome} chegou ao ${e.nome}!`, 'good');
   if (aviso.msg) toast('⚠️ ' + aviso.msg, 'bad');
   return true;
@@ -4231,7 +5474,9 @@ function trocarCerca(e) {
     const k = d.dataset.f;
     const custo = Math.max(0, encSegCount(e) * FENCES[k].cost - Math.round(custoCercaDe(e) * .4));
     if (G.money < custo) { toast('💸 Dinheiro insuficiente', 'bad'); return; }
+    const antes = e.fence;
     spend(custo, 'obra'); e.fence = k; e.integridade = 1;
+    undoRegistrar({ tipo: 'cerca', cat: 'obra', id: e.id, antes, depois: k, custo });
     closeModal(); showInspector(); toast('🚧 Cerca trocada para ' + FENCES[k].n, 'good');
   });
 }
@@ -4422,10 +5667,12 @@ function inspStaff(s) {
     <div class="kv"><span>Tarefas concluídas</span><b>${s.feitos}</b></div>
     <div class="kv"><span>Fazendo agora</span><b>${s.tarefa ? ({ enc: 'Cuidando de recinto', animal: 'Tratando animal', lixo: 'Recolhendo lixo', fuga: 'Recapturando fuga' })[s.tarefa.tipo] : 'Patrulhando'}</b></div>
     <div class="rowbtns">
+      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
       <button class="btn sm" id="igo">🎯 Centralizar</button>
       <button class="btn r sm" id="ifire">👋 Demitir</button>
     </div>`;
   $('#ix').onclick = deselect;
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX.vozHumana(s, { vol: .3, imediato: true }); };
   $('#igo').onclick = () => centerOn(s.x, s.y);
   $('#ifire').onclick = () => {
     G.staff = G.staff.filter(z => z.id !== s.id); deselect();
@@ -4684,6 +5931,71 @@ function openSatisfacao() {
      <span style="margin-left:auto;font-size:12px;opacity:.7">Reputação ${G.rep.toFixed(1)}★ — é ela que define quanta gente aparece</span>`);
 }
 
+/* ---- painel de reputação: de onde vem a nota ---- */
+function openReputacao() {
+  fecharPaleta();
+  const vivos = G.animals.filter(a => !a.morto);
+  const felAn = vivos.length ? vivos.reduce((s, a) => s + a.feliz, 0) / vivos.length : 0;
+  const felVis = G.stats.felicidade;
+  const variedade = new Set(vivos.map(a => a.sp.id)).size;
+  let lixoS = 0, lixoN = 0;
+  for (let i = 0; i < W * H; i++) if (world.path[i]) { lixoS += world.lixo[i]; lixoN++; }
+  const lixoMed = lixoN ? lixoS / lixoN : 0;
+  const alvo = qualidadeParque();
+  // os mesmos pesos de qualidadeParque(), abertos linha a linha
+  const comp = [
+    ['🐾', 'Bem-estar dos animais', felAn, felAn * 1.7],
+    ['👥', 'Satisfação dos visitantes', felVis, felVis * 1.9],
+    ['🦁', `Variedade de espécies (${variedade})`, Math.min(variedade, 30) / 30, Math.min(variedade, 30) / 30 * 1.1],
+    ['🗑️', 'Lixo nas trilhas', lixoMed, -lixoMed * 1.2],
+    ['🚨', `Animais soltos agora (${G.escaped.length})`, null, -G.escaped.length * .25],
+  ];
+  const linha = ([em, nome, frac, pts]) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="width:22px;text-align:center">${em}</span>
+      <span style="flex:1;font-size:12.5px">${nome}</span>
+      ${frac === null ? '' : `<div style="width:110px;height:8px;background:#e8e0cc;border-radius:4px;overflow:hidden">
+        <div style="width:${Math.round(clamp(frac, 0, 1) * 100)}%;height:100%;background:${pts >= 0 ? '#4fae4a' : '#e2543f'}"></div></div>`}
+      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${pts.toFixed(2)}★</b>
+    </div>`;
+  // extrato: resumo por tipo + últimos acontecimentos
+  const NOME_EV = { '💀': 'mortes', '🚨': 'fugas', '🎉': 'nascimentos', '🗳️': 'avaliações do público', '📉': 'quedas', '📈': 'subidas' };
+  const porTipo = new Map();
+  for (const r of G.repLog) {
+    const g = porTipo.get(r.em) || { em: r.em, n: 0, soma: 0 };
+    g.n++; g.soma += r.delta; porTipo.set(r.em, g);
+  }
+  const chips = [...porTipo.values()].sort((a, b) => Math.abs(b.soma) - Math.abs(a.soma))
+    .map(g => `<span class="tag ${g.soma >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${NOME_EV[g.em] || ''} (${g.soma >= 0 ? '+' : ''}${g.soma.toFixed(2)}★)</span>`)
+    .join('');
+  const lista = G.repLog.slice(-12).reverse().map(r => `
+    <div style="display:flex;gap:8px;font-size:12.5px;margin:3px 0;align-items:baseline">
+      <span style="opacity:.55;width:46px;flex:none">Dia ${r.dia}</span><span style="flex:none">${r.em}</span>
+      <span style="flex:1">${esc(r.motivo)}</span>
+      <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${r.delta.toFixed(2)}</b>
+    </div>`).join('')
+    || '<div style="font-size:12px;opacity:.6">Nada registrado ainda — mortes, fugas, nascimentos e as avaliações de quem visita entram aqui.</div>';
+  const seta = alvo > G.rep + .05 ? '📈 subindo' : alvo < G.rep - .05 ? '📉 caindo' : '➡️ estável';
+  openModal('Reputação — de onde vem a nota',
+    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
+      <span style="font-size:34px">⭐</span>
+      <div>
+        <div style="font-size:24px;line-height:1.1"><b>${G.rep.toFixed(1)}</b><span style="font-size:14px;opacity:.6">/5</span>
+          <span class="stars" style="font-size:15px">${stars(G.rep)}</span></div>
+        <div style="font-size:12px;opacity:.75">A nota caminha todo dia rumo à qualidade real do parque:
+          <b>${alvo.toFixed(1)}★</b> — ${seta}</div>
+      </div>
+    </div>
+    <h4 class="sec">Avaliação contínua (qualidade real)</h4>
+    ${comp.map(linha).join('')}
+    <div style="font-size:11.5px;opacity:.65;margin-top:2px">Soma limitada a 0–5★. Clique em 😊 Satisfação para ver as reclamações ao vivo.</div>
+    <h4 class="sec">Acontecimentos que mexeram na nota</h4>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">${chips || '<span style="font-size:12px;opacity:.6">—</span>'}</div>
+    ${lista}`,
+    `<b>⭐ ${G.rep.toFixed(1)}</b>
+     <span style="margin-left:auto;font-size:12px;opacity:.7">É a reputação que define quanta gente aparece no portão</span>`);
+}
+
 /* ---- inspetor de visitante ---- */
 const NEED_INFO = {
   fome: ['🍔', 'Fome'], sede: ['🥤', 'Sede'], banheiro: ['🚻', 'Banheiro'],
@@ -4711,8 +6023,12 @@ function inspVisitor(v) {
     <div class="kv"><span>Dinheiro no bolso</span><b id="iDin">${moneyFull(v.dinheiro)}</b></div>
     <div class="kv"><span>Recintos que já viu</span><b id="iViu">${v.vistos.size}</b></div>
     <div class="kv"><span>Levando</span><b>${v.item === 'balao' ? '🎈 Balão' : v.item === 'comida' ? '🍔 Comida' : '—'}</b></div>
-    <div class="rowbtns"><button class="btn sm" id="igo">🎯 Centralizar</button></div>`;
+    <div class="rowbtns">
+      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
+      <button class="btn sm" id="igo">🎯 Centralizar</button>
+    </div>`;
   $('#ix').onclick = deselect;
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX.vozHumana(v, { vol: .3, imediato: true }); };
   $('#igo').onclick = () => centerOn(v.x, v.y);
 }
 
@@ -4860,7 +6176,12 @@ function aplicarFerramenta(x, y, arrastando) {
   if (t.cat === 'caminho') {
     if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'venda'); SFX.toca('demolir'); } return; }
     if (G.money < t.cost) return semGrana();
-    if (addPath(x, y)) { spend(t.cost, 'obra'); SFX.toca('trilha'); }
+    if (addPath(x, y)) {
+      spend(t.cost, 'obra'); SFX.toca('trilha');
+      // uma pincelada inteira = 1 desfazer (o grupo fecha ao soltar o dedo)
+      if (!undoGrupo || undoGrupo.tipo !== 'trilha') undoGrupo = { tipo: 'trilha', cat: 'obra', tiles: [], custo: 0 };
+      undoGrupo.tiles.push([x, y]); undoGrupo.custo += t.cost;
+    }
   } else if (t.cat === 'terreno') {
     const alvo = TKEYS.indexOf(t.key);
     const raio = G.shift ? 1 : 0;
@@ -4871,25 +6192,31 @@ function aplicarFerramenta(x, y, arrastando) {
       if (world.occ[nk] || world.path[nk]) continue;
       if (world.terr[nk] === alvo) continue;
       if (G.money < t.cost) return semGrana();
+      const antes = world.terr[nk];
       world.terr[nk] = alvo; spend(t.cost, 'obra'); terrenoMudou(); SFX.toca('terreno');
+      if (!undoGrupo || undoGrupo.tipo !== 'terreno') undoGrupo = { tipo: 'terreno', cat: 'obra', mudancas: [], custo: 0 };
+      undoGrupo.mudancas.push([nk, antes, alvo]); undoGrupo.custo += t.cost;
     }
   } else if (t.cat === 'build') {
     if (arrastando) return;
     if (!rectFree(x, y, t.w, t.h)) { toast('🚫 Espaço ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'build', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const ob = placeObject(t.key, 'build', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: ob.id, custo: t.cost, rotulo: t.n });
     if (!nearestPathTile(x, y, 4)) toast('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar', 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'deco', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const od = placeObject(t.key, 'deco', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: od.id, custo: t.cost, rotulo: t.n });
   } else if (t.cat === 'encobj') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast('🚫 Objetos de recinto só vão dentro de um recinto', 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const oe = placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: oe.id, custo: t.cost, rotulo: t.n });
   } else if (t.cat === 'animal') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
@@ -4989,12 +6316,126 @@ function fecharArrasteRecinto() {
   spend(p.custo, 'obra');
   if (p.acao === 'ampliar') {
     encAddTiles(p.alvo, p.tiles); SFX.toca('ampliar');
+    undoRegistrar({ tipo: 'ampliacao', cat: 'obra', id: p.alvo.id, tiles: [...p.tiles], custo: p.custo });
     select('enc', p.alvo);
     toast(`➕ ${p.alvo.nome} ampliado para ${encArea(p.alvo)} tiles`, 'good');
   } else {
     const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.toca('construir');
+    undoRegistrar({ tipo: 'recinto', cat: 'obra', id: e2.id, custo: p.custo });
     select('enc', e2);
     toast(`🚧 ${e2.nome} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar`, 'good');
+  }
+}
+
+/* ==========================================================================
+   DESFAZER — as últimas 5 compras (botão ↩️ no HUD ou Ctrl+Z)
+   ========================================================================== */
+const UNDO_MAX = 5;
+let undoGrupo = null;          // pincelada de trilha/terreno em andamento
+function undoRegistrar(ent) {
+  G.undo.push(ent);
+  if (G.undo.length > UNDO_MAX) G.undo.shift();
+  atualizarUndoBtn();
+}
+/** fecha a pincelada atual (chamado ao soltar o ponteiro) */
+function undoFecharGrupo() {
+  if (!undoGrupo) return;
+  const g = undoGrupo; undoGrupo = null;
+  if ((g.tiles && g.tiles.length) || (g.mudancas && g.mudancas.length)) undoRegistrar(g);
+}
+function atualizarUndoBtn() {
+  const b = $('#zUndo'); if (!b) return;
+  b.disabled = !G.undo.length;
+  b.title = G.undo.length ? `Desfazer última compra — ${G.undo.length} disponíve${G.undo.length > 1 ? 'is' : 'l'} (Ctrl+Z)`
+    : 'Nada para desfazer (Ctrl+Z)';
+}
+function desfazerUltima() {
+  undoFecharGrupo();
+  const ent = G.undo.pop();
+  atualizarUndoBtn();
+  if (!ent) { SFX.toca('ui'); toast('↩️ Nada para desfazer', ''); return; }
+  const devolve = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'obra', -v); return v; };
+  let msg = '', valor = 0;
+  switch (ent.tipo) {
+    case 'trilha': {
+      let n = 0;
+      for (const [x, y] of ent.tiles) if (removePath(x, y)) n++;
+      if (n) { valor = devolve(ent.custo * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!a trilha já não existe mais';
+      break;
+    }
+    case 'terreno': {
+      let n = 0;
+      for (const [k, antes, depois] of ent.mudancas)
+        if (world.terr[k] === depois && !world.path[k] && !world.occ[k]) { world.terr[k] = antes; n++; }
+      if (n) { terrenoMudou(); valor = devolve(ent.custo * n / ent.mudancas.length); msg = `Pintura de terreno (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!o terreno já mudou de novo';
+      break;
+    }
+    case 'objeto': {
+      const o = objects.get(ent.id);
+      if (o) {
+        if (G.sel && G.sel.ref === o) deselect();
+        removeObject(ent.id); valor = devolve(ent.custo); msg = ent.rotulo;
+      } else msg = '!' + ent.rotulo + ' já foi removido';
+      break;
+    }
+    case 'animal': {
+      const a = G.animals.find(z => z.id === ent.id);
+      if (a && !a.morto) {
+        if (G.sel && G.sel.ref === a) deselect();
+        G.animals = G.animals.filter(z => z.id !== ent.id);
+        G.escaped = G.escaped.filter(z => z.id !== ent.id);
+        const e = enclosures.get(a.enc);
+        if (e) e.animals = e.animals.filter(z => z.id !== ent.id);
+        valor = devolve(ent.custo); msg = ent.rotulo + ' devolvido à loja';
+      } else msg = '!o animal já não está no plantel';
+      break;
+    }
+    case 'recinto': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      if (e.animals.some(a => !a.morto)) { msg = '!o recinto tem animais — venda ou transfira antes'; break; }
+      if (e.objs.length) { msg = '!o recinto tem objetos dentro — remova antes'; break; }
+      if (G.sel && G.sel.ref === e) deselect();
+      deleteEnclosure(ent.id); valor = devolve(ent.custo); msg = 'Recinto';
+      break;
+    }
+    case 'ampliacao': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      const set = new Set(ent.tiles.filter(k => e.tiles.has(k)));
+      if (!set.size) { msg = '!a ampliação já não existe'; break; }
+      if (set.size >= e.tiles.size) { msg = '!desfazer apagaria o recinto inteiro'; break; }
+      if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!há objetos na área ampliada — remova antes'; break; }
+      for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
+      encInvalida(e);
+      for (const a of e.animals) {   // bicho que ficou de fora volta para dentro
+        if (a.morto) continue;
+        if (!e.tiles.has(IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1)))) {
+          const tl = encTileAleatorio(e);
+          if (tl) { a.x = tl[0] + .5; a.y = tl[1] + .5; a.tx = a.x; a.ty = a.y; }
+        }
+      }
+      valor = devolve(ent.custo * set.size / ent.tiles.length);
+      msg = `Ampliação (${set.size} tile${set.size > 1 ? 's' : ''})`;
+      break;
+    }
+    case 'cerca': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      if (e.fence !== ent.depois) { msg = '!a cerca já foi trocada de novo'; break; }
+      e.fence = ent.antes; valor = devolve(ent.custo); msg = `Cerca de volta para ${FENCES[ent.antes].n}`;
+      break;
+    }
+  }
+  if (msg[0] !== '!') {
+    SFX.toca('demolir');
+    toast(`↩️ Desfeito: ${msg} — reembolso ${moneyFull(valor)}`, 'good');
+    if (typeof refreshInspector === 'function') refreshInspector();
+  } else {
+    SFX.toca('erro');
+    toast('↩️ Não deu para desfazer: ' + msg.slice(1), 'bad');
   }
 }
 
@@ -5087,7 +6528,11 @@ function fimPonteiro(e) {
     if (tap) {
       const p = pickAt(sx, sy);
       // tocar num bicho faz ele responder — é a graça de ter voz por espécie
-      if (p) { if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true }); select(p.tipo, p.ref); }
+      if (p) {
+        if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
+        else if (p.tipo === 'vis' || p.tipo === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
+        select(p.tipo, p.ref);
+      }
       else deselect();
     }
     return;
@@ -5096,6 +6541,7 @@ function fimPonteiro(e) {
   if (pendenteTool) { aplicarFerramenta(pendenteTool.x, pendenteTool.y, false); pendenteTool = null; }
   fecharArrasteRecinto();
   pintando = false;
+  undoFecharGrupo();           // a pincelada acabou: vira 1 item de desfazer
 }
 cv.addEventListener('pointerup', fimPonteiro);
 cv.addEventListener('pointercancel', fimPonteiro);
@@ -5112,6 +6558,8 @@ $('#zOut').onclick = () => zoomAt(1 / 1.3, VW / 2, VH / 2);
 $('#zMap').onclick = () => { G.miniQuer = !G.miniQuer; atualizarMini(); };
 $('#stWarn').onclick = () => openFinance();
 $('#stHappy').onclick = () => openSatisfacao();
+$('#stRep').onclick = () => openReputacao();
+$('#zUndo').onclick = () => desfazerUltima();
 const NOME_BOLHA = ['desligados', 'só quem está insatisfeito', 'todos'];
 function ciclarBolhas() {
   G.bolhas = (G.bolhas + 1) % 3;
@@ -5161,6 +6609,7 @@ addEventListener('keydown', e => {
   if (k === 'Escape') { setTool(null); G.drag = null; fecharPaleta(); closeModal(); deselect(); }
   if (k === 'm' || k === 'M') { G.miniQuer = !G.miniQuer; atualizarMini(); }
   if (k === 'b' || k === 'B') ciclarBolhas();
+  if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); desfazerUltima(); return; }
   if (k === 's' || k === 'S') ciclarSom();
   if (k === 'Delete' || k === 'Backspace') {
     if (G.sel && G.sel.tipo === 'obj') { removeObject(G.sel.ref.id); deselect(); }
@@ -5242,6 +6691,8 @@ function tick(dt) {
       else e.integridade = clamp(e.integridade + gh * .004, 0, 1);
     }
   }
+  let nv = 0; for (const s of G.staff) if (s.tipo === 'vet') nv++;
+  G.nVets = nv;
   for (const a of G.animals) updAnimal(a, dt, gh);
   // carcaça some 3s depois da morte (dá tempo de ver a notificação)
   G.animals = G.animals.filter(a => !a.morto || (a._t = (a._t || 0) + dt) < 3);
@@ -5279,9 +6730,25 @@ function fecharDia() {
     const diag = diagnosticoPublico();
     if (diag) toast(diag.em + ' ' + diag.longo.replace(/<\/?b>/g, ''), 'bad');
   }
+  // avaliações dos visitantes do dia entram como 1 linha agregada no extrato
+  const rv = G.stats.repVis || 0;
+  if (Math.abs(rv) >= .02) {
+    G.repLog.push({ dia: G.day - 1, delta: rv, motivo: `Avaliações de ${visitantesDoDia} visitantes`, em: rv > 0 ? '🗳️' : '📉' });
+    if (G.repLog.length > 60) G.repLog.shift();
+  }
+  G.stats.repVis = 0;
   // reputação decai devagar rumo à qualidade real do parque
   const alvo = qualidadeParque();
+  const antes = G.rep;
   G.rep = clamp(lerp(G.rep, alvo, .12), 0, 5);
+  if (Math.abs(G.rep - antes) >= .05) {
+    G.repLog.push({
+      dia: G.day - 1, delta: G.rep - antes,
+      motivo: G.rep > antes ? 'Qualidade do parque puxando a nota para cima' : 'Qualidade do parque puxando a nota para baixo',
+      em: G.rep > antes ? '📈' : '📉',
+    });
+    if (G.repLog.length > 60) G.repLog.shift();
+  }
   salvar(true);
 
   if (G.money < -120000 && !G.gameOver) {
@@ -5292,6 +6759,12 @@ function fecharDia() {
       `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">Recomeçar</button>
        <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">Aceitar resgate de R$ 100.000</button>`);
   }
+}
+/** choque pontual na reputação + linha no extrato (visível ao clicar em ⭐) */
+function repEvento(delta, motivo, em) {
+  G.rep = clamp(G.rep + delta, 0, 5);
+  G.repLog.push({ dia: G.day, delta, motivo, em });
+  if (G.repLog.length > 60) G.repLog.shift();
 }
 function qualidadeParque() {
   const vivos = G.animals.filter(a => !a.morto);
@@ -5313,6 +6786,7 @@ function qualidadeParque() {
 function snapshotJogo() {
   return {
       v: 1, money: G.money, ticket: G.ticket, day: G.day, hour: G.hour, rep: G.rep,
+      repLog: G.repLog,
       lastBill: G.lastBill, emprestimo: G.emprestimo, marketing: G.pesquisa.marketing,
       stats: G.stats, ledger: G.ledger, cam: { x: cam.x, y: cam.y, z: cam.z },
       terr: Array.from(world.terr), path: Array.from(world.path),
@@ -5349,6 +6823,8 @@ function aplicarSnapshot(raw, rotulo) {
     if (!s || typeof s.money !== 'number' || !Array.isArray(s.terr))
       throw new Error('não parece um save do Zoo Magnata');
     G.money = s.money; G.ticket = s.ticket; G.day = s.day; G.hour = s.hour; G.rep = s.rep;
+    G.repLog = Array.isArray(s.repLog) ? s.repLog : [];
+    G.undo = []; undoGrupo = null; atualizarUndoBtn();   // ids de outro mundo não valem aqui
     G.lastBill = s.lastBill || 1; G.emprestimo = s.emprestimo || 0;
     G.pesquisa.marketing = s.marketing || 0;
     G.stats = s.stats; G.ledger = s.ledger;

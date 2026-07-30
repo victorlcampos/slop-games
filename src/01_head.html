@@ -93,9 +93,9 @@ canvas{display:block;max-width:100%}
 /* quebra linha junto com o HUD: sem isso o último botão vazava para fora da
    tela no celular, porque o grupo da direita não acompanhava o wrap do pai */
 #hudRight{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
-  gap:6px;align-items:center;flex:0 1 auto}
-.spd{width:34px;height:34px;padding:0;font-size:14px;display:grid;place-items:center}
-#clockBadge{font-size:12px;min-width:64px;text-align:center}
+  gap:4px;align-items:center;flex:0 1 auto}
+.spd{width:32px;height:32px;padding:0;font-size:13.5px;display:grid;place-items:center}
+#clockBadge{font-size:12px;min-width:58px;text-align:center}
 
 /* ---------- Dock inferior ---------- */
 #dockWrap{position:absolute;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;
@@ -257,6 +257,17 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-track{background:rgba(70,44,20,.09);border-radius:8px}
 ::-webkit-scrollbar-thumb{background:var(--tan);border:2px solid var(--ink);border-radius:8px}
+
+/* ---- barra de alertas do gerente (abaixo do HUD, à esquerda) ---- */
+#alertbar{position:absolute;left:8px;top:calc(var(--hudH,54px) + 10px);display:flex;flex-direction:column;align-items:flex-start;gap:5px;z-index:14;pointer-events:none;max-width:46vw}
+#alertbar .achip{pointer-events:auto;display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:12px;padding:3px 9px 3px 7px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 2px 0 rgba(47,33,19,.28);cursor:pointer;background:#fffdf6;font-family:inherit;transition:transform .08s}
+#alertbar .achip:active{transform:scale(.95)}
+#alertbar .achip .n{background:var(--ink);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:800}
+#alertbar .achip.sev2{background:#fff3d6}
+#alertbar .achip.sev3{background:#ffe1d9}
+#stRep,#stHappy{cursor:pointer}
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+
 /* ============================ RESPONSIVO ============================ */
 
 /* Telas médias: encolhe sem mudar a arquitetura da tela */
@@ -268,16 +279,18 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 /* Telas estreitas (celular em pé, tablet pequeno) */
 @media(max-width:700px){
+  #alertbar{max-width:64vw;gap:4px}
+  #alertbar .achip{font-size:11.5px;padding:2px 8px 2px 6px}
   /* HUD quebra em linhas e as etiquetas viram só ícone+valor */
   #hud{height:auto;flex-wrap:wrap;padding:5px 6px;gap:5px;row-gap:4px}
   .stat{padding:3px 7px;font-size:13px;border-radius:9px}
   .stat small{display:none}
   .stat .ic{font-size:14px}
-  /* 8 botões + relógio têm de caber numa linha só: a 36px estouravam por 4px
-     e o wrap jogava o HUD para 150px de altura (18% da tela do celular) */
-  #hudRight{gap:3px}
-  .spd{width:34px;height:34px;font-size:12.5px}
-  #clockBadge{min-width:auto;font-size:11px;padding:4px 6px}
+  /* 10 botões + relógio têm de caber numa linha só: acima disso o wrap
+     jogava o HUD para 150px de altura (18% da tela do celular) */
+  #hudRight{gap:2px}
+  .spd{width:28px;height:34px;font-size:12px}
+  #clockBadge{min-width:auto;font-size:10.5px;padding:4px 4px}
 
   /* Dock: tira em rolagem horizontal, alvos de toque maiores */
   /* aqui o minimapa flutua ACIMA do dock, então a tira usa a largura toda */
@@ -418,11 +431,13 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn spd" id="sp3" title="Velocidade 4x">⏭</button>
       <button class="btn spd" id="zSom" title="Som (S)">🔊</button>
       <button class="btn spd" id="zBolha" title="Balões de pensamento (B)">💭</button>
+      <button class="btn spd" id="zUndo" title="Nada para desfazer (Ctrl+Z)" disabled>↩️</button>
       <button class="btn spd soToque" id="zMap" title="Minimapa">🗺️</button>
       <button class="btn spd" id="zSave" title="Baixar save do jogo (.json)">📥</button>
       <button class="btn spd" id="zLoad" title="Abrir save de um arquivo">📤</button>
     </div>
   </div>
+  <div id="alertbar"></div>
 
   <div id="dockWrap">
     <div id="palette"><div id="palTitle"></div></div>

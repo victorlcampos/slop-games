@@ -69,6 +69,71 @@ function updateHUD() {
     $('#vWarn').textContent = diag.curto;
     w.querySelector('.ic').textContent = diag.em;
   }
+  renderAlertas();
+}
+
+/* ---- barra de alertas do gerente ----
+   Os problemas que pedem ação AGORA, agrupados por tipo. Clicar no chip
+   centraliza a câmera no alvo; clicar de novo cicla entre os casos. */
+const ALERTA_DEF = {
+  fuga: { em: '🚨', n: 'Animal solto', sev: 3 },
+  doente: { em: '🤒', n: 'Animal doente', sev: 3 },
+  saude: { em: '🆘', n: 'Saúde crítica', sev: 3 },
+  fome: { em: '🍖', n: 'Recinto sem comida', sev: 2 },
+  agua: { em: '💧', n: 'Recinto sem água', sev: 2 },
+  cerca: { em: '🔧', n: 'Cerca se rompendo', sev: 2 },
+  idoso: { em: '⏳', n: 'Animal no fim da vida', sev: 1 },
+  sujo: { em: '🧹', n: 'Recinto imundo', sev: 1 },
+  vista: { em: '👀', n: 'Recinto sem trilha', sev: 1 },
+};
+let _alSig = '';
+const _alCursor = {};
+function coletarAlertas() {
+  const grupos = new Map();
+  const add = (tipo, alvo, rotulo) => {
+    let g = grupos.get(tipo);
+    if (!g) grupos.set(tipo, g = { tipo, alvos: [], rotulos: [] });
+    g.alvos.push(alvo); g.rotulos.push(rotulo);
+  };
+  for (const a of G.escaped) if (!a.morto) add('fuga', [a.x, a.y], a.sp.nome);
+  for (const a of G.animals) {
+    if (a.morto || a.fugiu) continue;
+    if (a.doente) add('doente', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+    else if (a.saude < .3) add('saude', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+    if (a.idade > a.sp.vida * .85) add('idoso', [a.x, a.y], a.nome + ' (' + a.sp.nome + ')');
+  }
+  for (const e of enclosures.values()) {
+    if (!e.animals.some(a => !a.morto)) continue;
+    const bb = encBBox(e), alvo = [bb.cx, bb.cy];
+    if (!encHasFeeder(e) || e.comida < .12) add('fome', alvo, e.nome);
+    if (!encHasWater(e) || e.agua < .12) add('agua', alvo, e.nome);
+    if (e.integridade < .5) add('cerca', alvo, e.nome);
+    if (e.limpeza < .3) add('sujo', alvo, e.nome);
+    if (!encViewSpots(e).length) add('vista', alvo, e.nome);
+  }
+  return [...grupos.values()]
+    .sort((a, b) => ALERTA_DEF[b.tipo].sev - ALERTA_DEF[a.tipo].sev || b.alvos.length - a.alvos.length);
+}
+function renderAlertas() {
+  const ab = $('#alertbar'); if (!ab) return;
+  const grupos = coletarAlertas().slice(0, 6);
+  const sig = grupos.map(g => g.tipo + ':' + g.alvos.length).join('|');
+  if (sig === _alSig) return;                 // sem mudança, sem reconstruir
+  _alSig = sig;
+  ab.innerHTML = '';
+  for (const g of grupos) {
+    const D = ALERTA_DEF[g.tipo];
+    const chip = el('button', 'achip sev' + D.sev,
+      `<span>${D.em}</span><span>${esc(D.n)}</span>` +
+      (g.alvos.length > 1 ? `<span class="n">${g.alvos.length}</span>` : ''));
+    chip.title = g.rotulos.slice(0, 6).join(', ') + (g.rotulos.length > 6 ? '…' : '') + ' — toque para localizar';
+    chip.onclick = () => {
+      const i = _alCursor[g.tipo] = ((_alCursor[g.tipo] ?? -1) + 1) % g.alvos.length;
+      centerOn(g.alvos[i][0], g.alvos[i][1]);
+      toast(D.em + ' ' + esc(g.rotulos[i]) + (g.alvos.length > 1 ? ` (${i + 1}/${g.alvos.length})` : ''), '');
+    };
+    ab.appendChild(chip);
+  }
 }
 
 /* ---- categorias do dock ---- */
@@ -229,10 +294,17 @@ function openShop(encId) {
      <div id="shopGrid"></div>`,
     e ? `<b style="font-size:13px">${e.nome}</b> <span style="font-size:12px;opacity:.7">— ${FENCES[e.fence].n}, ${encArea(e)} tiles livres, ${e.animals.length} animais</span>`
       : `<span style="font-size:12px;opacity:.75">Escolha uma espécie e depois toque no recinto onde ela vai morar. Verde = combina com o recinto selecionado.</span>`);
-  $('#shopQ').oninput = ev => { shopFiltro.q = ev.target.value.toLowerCase(); renderShop(); };
+  $('#shopQ').oninput = ev => { shopFiltro.q = ev.target.value; renderShop(); };
   $('#shopB').onchange = ev => { shopFiltro.bioma = ev.target.value; renderShop(); };
   $('#shopD').onchange = ev => { shopFiltro.dieta = ev.target.value; renderShop(); };
   $('#shopO').onchange = ev => { shopFiltro.ord = ev.target.value; renderShop(); };
+  // o filtro persiste entre aberturas — os controles precisam MOSTRAR isso.
+  // Reabrir com controles zerados mas filtro antigo valendo fazia a lista
+  // "minguar" a cada visita até 0 espécies sem motivo aparente.
+  $('#shopQ').value = shopFiltro.q;
+  $('#shopB').value = shopFiltro.bioma;
+  $('#shopD').value = shopFiltro.dieta;
+  $('#shopO').value = shopFiltro.ord;
   renderShop();
 }
 let shopObserver = null;
@@ -240,8 +312,9 @@ function renderShop() {
   const grid = $('#shopGrid'); if (!grid) return;
   grid.innerHTML = '';
   const e = shopEncId ? enclosures.get(shopEncId) : null;
+  const q = shopFiltro.q.trim().toLowerCase();
   let list = SPECIES.filter(s =>
-    (!shopFiltro.q || s.nome.toLowerCase().includes(shopFiltro.q) || s.biomaN.toLowerCase().includes(shopFiltro.q)) &&
+    (!q || s.nome.toLowerCase().includes(q) || s.biomaN.toLowerCase().includes(q)) &&
     (!shopFiltro.bioma || s.bioma === shopFiltro.bioma) &&
     (!shopFiltro.dieta || s.dieta === shopFiltro.dieta));
   const ord = { apelo: (a, b) => b.apelo - a.apelo || a.preco - b.preco, preco: (a, b) => a.preco - b.preco, precoD: (a, b) => b.preco - a.preco, nome: (a, b) => a.nome.localeCompare(b.nome), espaco: (a, b) => a.espaco - b.espaco };
@@ -297,6 +370,7 @@ function comprarPara(sp, e) {
   spend(sp.preco, 'compra');
   const a = novoAnimal(sp, e.id);
   e.animals.push(a);
+  undoRegistrar({ tipo: 'animal', cat: 'compra', id: a.id, custo: sp.preco, rotulo: sp.nome });
   toast(`🎉 ${sp.nome} chegou ao ${e.nome}!`, 'good');
   if (aviso.msg) toast('⚠️ ' + aviso.msg, 'bad');
   return true;
@@ -466,7 +540,9 @@ function trocarCerca(e) {
     const k = d.dataset.f;
     const custo = Math.max(0, encSegCount(e) * FENCES[k].cost - Math.round(custoCercaDe(e) * .4));
     if (G.money < custo) { toast('💸 Dinheiro insuficiente', 'bad'); return; }
+    const antes = e.fence;
     spend(custo, 'obra'); e.fence = k; e.integridade = 1;
+    undoRegistrar({ tipo: 'cerca', cat: 'obra', id: e.id, antes, depois: k, custo });
     closeModal(); showInspector(); toast('🚧 Cerca trocada para ' + FENCES[k].n, 'good');
   });
 }
@@ -657,10 +733,12 @@ function inspStaff(s) {
     <div class="kv"><span>Tarefas concluídas</span><b>${s.feitos}</b></div>
     <div class="kv"><span>Fazendo agora</span><b>${s.tarefa ? ({ enc: 'Cuidando de recinto', animal: 'Tratando animal', lixo: 'Recolhendo lixo', fuga: 'Recapturando fuga' })[s.tarefa.tipo] : 'Patrulhando'}</b></div>
     <div class="rowbtns">
+      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
       <button class="btn sm" id="igo">🎯 Centralizar</button>
       <button class="btn r sm" id="ifire">👋 Demitir</button>
     </div>`;
   $('#ix').onclick = deselect;
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX.vozHumana(s, { vol: .3, imediato: true }); };
   $('#igo').onclick = () => centerOn(s.x, s.y);
   $('#ifire').onclick = () => {
     G.staff = G.staff.filter(z => z.id !== s.id); deselect();
@@ -919,6 +997,71 @@ function openSatisfacao() {
      <span style="margin-left:auto;font-size:12px;opacity:.7">Reputação ${G.rep.toFixed(1)}★ — é ela que define quanta gente aparece</span>`);
 }
 
+/* ---- painel de reputação: de onde vem a nota ---- */
+function openReputacao() {
+  fecharPaleta();
+  const vivos = G.animals.filter(a => !a.morto);
+  const felAn = vivos.length ? vivos.reduce((s, a) => s + a.feliz, 0) / vivos.length : 0;
+  const felVis = G.stats.felicidade;
+  const variedade = new Set(vivos.map(a => a.sp.id)).size;
+  let lixoS = 0, lixoN = 0;
+  for (let i = 0; i < W * H; i++) if (world.path[i]) { lixoS += world.lixo[i]; lixoN++; }
+  const lixoMed = lixoN ? lixoS / lixoN : 0;
+  const alvo = qualidadeParque();
+  // os mesmos pesos de qualidadeParque(), abertos linha a linha
+  const comp = [
+    ['🐾', 'Bem-estar dos animais', felAn, felAn * 1.7],
+    ['👥', 'Satisfação dos visitantes', felVis, felVis * 1.9],
+    ['🦁', `Variedade de espécies (${variedade})`, Math.min(variedade, 30) / 30, Math.min(variedade, 30) / 30 * 1.1],
+    ['🗑️', 'Lixo nas trilhas', lixoMed, -lixoMed * 1.2],
+    ['🚨', `Animais soltos agora (${G.escaped.length})`, null, -G.escaped.length * .25],
+  ];
+  const linha = ([em, nome, frac, pts]) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="width:22px;text-align:center">${em}</span>
+      <span style="flex:1;font-size:12.5px">${nome}</span>
+      ${frac === null ? '' : `<div style="width:110px;height:8px;background:#e8e0cc;border-radius:4px;overflow:hidden">
+        <div style="width:${Math.round(clamp(frac, 0, 1) * 100)}%;height:100%;background:${pts >= 0 ? '#4fae4a' : '#e2543f'}"></div></div>`}
+      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${pts.toFixed(2)}★</b>
+    </div>`;
+  // extrato: resumo por tipo + últimos acontecimentos
+  const NOME_EV = { '💀': 'mortes', '🚨': 'fugas', '🎉': 'nascimentos', '🗳️': 'avaliações do público', '📉': 'quedas', '📈': 'subidas' };
+  const porTipo = new Map();
+  for (const r of G.repLog) {
+    const g = porTipo.get(r.em) || { em: r.em, n: 0, soma: 0 };
+    g.n++; g.soma += r.delta; porTipo.set(r.em, g);
+  }
+  const chips = [...porTipo.values()].sort((a, b) => Math.abs(b.soma) - Math.abs(a.soma))
+    .map(g => `<span class="tag ${g.soma >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${NOME_EV[g.em] || ''} (${g.soma >= 0 ? '+' : ''}${g.soma.toFixed(2)}★)</span>`)
+    .join('');
+  const lista = G.repLog.slice(-12).reverse().map(r => `
+    <div style="display:flex;gap:8px;font-size:12.5px;margin:3px 0;align-items:baseline">
+      <span style="opacity:.55;width:46px;flex:none">Dia ${r.dia}</span><span style="flex:none">${r.em}</span>
+      <span style="flex:1">${esc(r.motivo)}</span>
+      <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${r.delta.toFixed(2)}</b>
+    </div>`).join('')
+    || '<div style="font-size:12px;opacity:.6">Nada registrado ainda — mortes, fugas, nascimentos e as avaliações de quem visita entram aqui.</div>';
+  const seta = alvo > G.rep + .05 ? '📈 subindo' : alvo < G.rep - .05 ? '📉 caindo' : '➡️ estável';
+  openModal('Reputação — de onde vem a nota',
+    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
+      <span style="font-size:34px">⭐</span>
+      <div>
+        <div style="font-size:24px;line-height:1.1"><b>${G.rep.toFixed(1)}</b><span style="font-size:14px;opacity:.6">/5</span>
+          <span class="stars" style="font-size:15px">${stars(G.rep)}</span></div>
+        <div style="font-size:12px;opacity:.75">A nota caminha todo dia rumo à qualidade real do parque:
+          <b>${alvo.toFixed(1)}★</b> — ${seta}</div>
+      </div>
+    </div>
+    <h4 class="sec">Avaliação contínua (qualidade real)</h4>
+    ${comp.map(linha).join('')}
+    <div style="font-size:11.5px;opacity:.65;margin-top:2px">Soma limitada a 0–5★. Clique em 😊 Satisfação para ver as reclamações ao vivo.</div>
+    <h4 class="sec">Acontecimentos que mexeram na nota</h4>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">${chips || '<span style="font-size:12px;opacity:.6">—</span>'}</div>
+    ${lista}`,
+    `<b>⭐ ${G.rep.toFixed(1)}</b>
+     <span style="margin-left:auto;font-size:12px;opacity:.7">É a reputação que define quanta gente aparece no portão</span>`);
+}
+
 /* ---- inspetor de visitante ---- */
 const NEED_INFO = {
   fome: ['🍔', 'Fome'], sede: ['🥤', 'Sede'], banheiro: ['🚻', 'Banheiro'],
@@ -946,8 +1089,12 @@ function inspVisitor(v) {
     <div class="kv"><span>Dinheiro no bolso</span><b id="iDin">${moneyFull(v.dinheiro)}</b></div>
     <div class="kv"><span>Recintos que já viu</span><b id="iViu">${v.vistos.size}</b></div>
     <div class="kv"><span>Levando</span><b>${v.item === 'balao' ? '🎈 Balão' : v.item === 'comida' ? '🍔 Comida' : '—'}</b></div>
-    <div class="rowbtns"><button class="btn sm" id="igo">🎯 Centralizar</button></div>`;
+    <div class="rowbtns">
+      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
+      <button class="btn sm" id="igo">🎯 Centralizar</button>
+    </div>`;
   $('#ix').onclick = deselect;
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX.vozHumana(v, { vol: .3, imediato: true }); };
   $('#igo').onclick = () => centerOn(v.x, v.y);
 }
 

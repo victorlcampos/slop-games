@@ -20,6 +20,9 @@ const G = {
     hist: [],
   },
   pesquisa: { marketing: 0 },
+  repLog: [],            // extrato de choques na reputação (painel ⭐)
+  nVets: 0,              // veterinários no quadro (contado no tick; acelera cria)
+  undo: [],              // últimas compras desfazíveis (não persiste no save)
   maxVis: 280,           // ajustado no boot conforme o tamanho da tela
   bolhas: 1,             // balões de pensamento: 0 off · 1 só problemas · 2 tudo
   terrVer: 0,            // versão do terreno (invalida cache de encMix)
@@ -198,7 +201,8 @@ function updAnimal(a, dt, gh) {
   if (a.saude <= 0 || (velho > 1 && Math.random() < gh * .02)) {
     a.morto = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
-    G.rep = clamp(G.rep - .12, 0, 5); SFX.toca('morte');
+    repEvento(-.12, a.nome + ' (' + sp.nome + ') morreu' + (velho > 1 ? ' de velhice' : ''), '💀');
+    SFX.toca('morte');
     toast('💀 ' + a.nome + ' (' + sp.nome + ') morreu' + (velho > 1 ? ' de velhice' : ''), 'bad');
     return;
   }
@@ -212,24 +216,33 @@ function updAnimal(a, dt, gh) {
       a.fugiu = true; G.escaped.push(a); SFX.toca('alarme');
       e.animals = e.animals.filter(z => z.id !== a.id);
       toast('🚨 ' + sp.nome + ' FUGIU do recinto!', 'bad');
-      G.rep = clamp(G.rep - .3, 0, 5);
+      repEvento(-.3, sp.nome + ' fugiu do recinto', '🚨');
     }
   }
-  // reprodução
-  if (e && !a.fugiu && a.sexo === 'F' && a.feliz > .72 && a.idade > sp.vida * .18 && a.idade < sp.vida * .72) {
+  // reprodução — precisa de casal adulto da espécie no recinto. A taxa varia
+  // por espécie (vida curta e bando grande procriam mais) e sobe com
+  // veterinários no quadro. A fórmula antiga (0.0009/h fixo, gestação de 8
+  // dias, felicidade > .72) dava ~1 cria por vida — ninguém via nascimento.
+  if (e && !a.fugiu && a.sexo === 'F' && a.feliz > .62 && a.saude > .5 &&
+    a.idade > sp.vida * .18 && a.idade < sp.vida * .72) {
     if (a.gravida > 0) {
       a.gravida -= gh;
       if (a.gravida <= 0) {
-        const irmaos = e.animals.filter(z => z.sp.id === sp.id).length;
+        const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.morto).length;
         if (encArea(e) >= sp.espaco * (irmaos + 1) && irmaos < sp.gmax + 2) {
-          const f = novoAnimal(sp, e.id, 0.05); e.animals.push(f); SFX.toca('nascimento');
+          const f = novoAnimal(sp, e.id, 0.02); e.animals.push(f); SFX.toca('nascimento');
           toast('🎉 Nasceu um filhote de ' + sp.nome + '!', 'good');
-          G.rep = clamp(G.rep + .12, 0, 5);
+          repEvento(+.12, 'Nasceu um filhote de ' + sp.nome, '🎉');
         }
       }
-    } else if (Math.random() < gh * .0009 &&
-      e.animals.some(z => z.sp.id === sp.id && z.sexo === 'M' && z.idade > sp.vida * .18)) {
-      a.gravida = 24 * 8;
+    } else {
+      const fert = 5 / (sp.vida * YEAR_DAYS * 24)          // ~2-3 crias por vida
+        * clamp(sp.gmax / 6, .6, 2)                        // bando procria mais
+        * (1 + .25 * Math.min(G.nVets, 4));                // programa de cria dos vets
+      if (Math.random() < gh * fert &&
+        e.animals.some(z => z.sp.id === sp.id && z.sexo === 'M' && !z.morto && z.idade > sp.vida * .18)) {
+        a.gravida = 24 * clamp(sp.vida * .08, 1.5, 5);     // gestação proporcional
+      }
     }
   }
   atualizaPensamento(a, dt, pensamentoAnimal);
@@ -448,11 +461,15 @@ function chegou(v) {
       e.visitasHoje = (e.visitasHoje || 0) + 1;
     } else v.mood = clamp(v.mood - .05, 0, 1);
     v.acao = rnd(1.2, 3);
+    // vira de frente para o recinto (eixo x da tela ∝ x−y do mundo)
+    const bb = encBBox(e);
+    v.dir = Math.sign(bb.cx - bb.cy - (v.x - v.y)) || v.dir;
   } else if (a.tipo === 'obj') {
     const o = a.ref;
     if (!objects.has(o.id)) { v.alvo = null; return; }
     o.fila.push(v.id);
     v.acao = rnd(.8, 2.2);
+    v.dir = Math.sign(o.x + o.w / 2 - (o.y + o.h / 2) - (v.x - v.y)) || v.dir;
   }
   v.path = null;
 }
@@ -481,6 +498,8 @@ function sairVisitante(v) {
   G.visitors = G.visitors.filter(z => z.id !== v.id);
   const delta = (v.mood - .5) * .0075;
   G.rep = clamp(G.rep + delta, 0, 5);
+  // acumula para o extrato do painel ⭐ (1 linha agregada por dia, não 1 por visitante)
+  G.stats.repVis = (G.stats.repVis || 0) + delta;
 }
 
 /* ==========================================================================

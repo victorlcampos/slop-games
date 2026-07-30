@@ -96,7 +96,12 @@ function aplicarFerramenta(x, y, arrastando) {
   if (t.cat === 'caminho') {
     if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'venda'); SFX.toca('demolir'); } return; }
     if (G.money < t.cost) return semGrana();
-    if (addPath(x, y)) { spend(t.cost, 'obra'); SFX.toca('trilha'); }
+    if (addPath(x, y)) {
+      spend(t.cost, 'obra'); SFX.toca('trilha');
+      // uma pincelada inteira = 1 desfazer (o grupo fecha ao soltar o dedo)
+      if (!undoGrupo || undoGrupo.tipo !== 'trilha') undoGrupo = { tipo: 'trilha', cat: 'obra', tiles: [], custo: 0 };
+      undoGrupo.tiles.push([x, y]); undoGrupo.custo += t.cost;
+    }
   } else if (t.cat === 'terreno') {
     const alvo = TKEYS.indexOf(t.key);
     const raio = G.shift ? 1 : 0;
@@ -107,25 +112,31 @@ function aplicarFerramenta(x, y, arrastando) {
       if (world.occ[nk] || world.path[nk]) continue;
       if (world.terr[nk] === alvo) continue;
       if (G.money < t.cost) return semGrana();
+      const antes = world.terr[nk];
       world.terr[nk] = alvo; spend(t.cost, 'obra'); terrenoMudou(); SFX.toca('terreno');
+      if (!undoGrupo || undoGrupo.tipo !== 'terreno') undoGrupo = { tipo: 'terreno', cat: 'obra', mudancas: [], custo: 0 };
+      undoGrupo.mudancas.push([nk, antes, alvo]); undoGrupo.custo += t.cost;
     }
   } else if (t.cat === 'build') {
     if (arrastando) return;
     if (!rectFree(x, y, t.w, t.h)) { toast('🚫 Espaço ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'build', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const ob = placeObject(t.key, 'build', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: ob.id, custo: t.cost, rotulo: t.n });
     if (!nearestPathTile(x, y, 4)) toast('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar', 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'deco', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const od = placeObject(t.key, 'deco', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: od.id, custo: t.cost, rotulo: t.n });
   } else if (t.cat === 'encobj') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast('🚫 Objetos de recinto só vão dentro de um recinto', 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
+    spend(t.cost, 'obra'); const oe = placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
+    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: oe.id, custo: t.cost, rotulo: t.n });
   } else if (t.cat === 'animal') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
@@ -225,12 +236,126 @@ function fecharArrasteRecinto() {
   spend(p.custo, 'obra');
   if (p.acao === 'ampliar') {
     encAddTiles(p.alvo, p.tiles); SFX.toca('ampliar');
+    undoRegistrar({ tipo: 'ampliacao', cat: 'obra', id: p.alvo.id, tiles: [...p.tiles], custo: p.custo });
     select('enc', p.alvo);
     toast(`➕ ${p.alvo.nome} ampliado para ${encArea(p.alvo)} tiles`, 'good');
   } else {
     const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.toca('construir');
+    undoRegistrar({ tipo: 'recinto', cat: 'obra', id: e2.id, custo: p.custo });
     select('enc', e2);
     toast(`🚧 ${e2.nome} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar`, 'good');
+  }
+}
+
+/* ==========================================================================
+   DESFAZER — as últimas 5 compras (botão ↩️ no HUD ou Ctrl+Z)
+   ========================================================================== */
+const UNDO_MAX = 5;
+let undoGrupo = null;          // pincelada de trilha/terreno em andamento
+function undoRegistrar(ent) {
+  G.undo.push(ent);
+  if (G.undo.length > UNDO_MAX) G.undo.shift();
+  atualizarUndoBtn();
+}
+/** fecha a pincelada atual (chamado ao soltar o ponteiro) */
+function undoFecharGrupo() {
+  if (!undoGrupo) return;
+  const g = undoGrupo; undoGrupo = null;
+  if ((g.tiles && g.tiles.length) || (g.mudancas && g.mudancas.length)) undoRegistrar(g);
+}
+function atualizarUndoBtn() {
+  const b = $('#zUndo'); if (!b) return;
+  b.disabled = !G.undo.length;
+  b.title = G.undo.length ? `Desfazer última compra — ${G.undo.length} disponíve${G.undo.length > 1 ? 'is' : 'l'} (Ctrl+Z)`
+    : 'Nada para desfazer (Ctrl+Z)';
+}
+function desfazerUltima() {
+  undoFecharGrupo();
+  const ent = G.undo.pop();
+  atualizarUndoBtn();
+  if (!ent) { SFX.toca('ui'); toast('↩️ Nada para desfazer', ''); return; }
+  const devolve = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'obra', -v); return v; };
+  let msg = '', valor = 0;
+  switch (ent.tipo) {
+    case 'trilha': {
+      let n = 0;
+      for (const [x, y] of ent.tiles) if (removePath(x, y)) n++;
+      if (n) { valor = devolve(ent.custo * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!a trilha já não existe mais';
+      break;
+    }
+    case 'terreno': {
+      let n = 0;
+      for (const [k, antes, depois] of ent.mudancas)
+        if (world.terr[k] === depois && !world.path[k] && !world.occ[k]) { world.terr[k] = antes; n++; }
+      if (n) { terrenoMudou(); valor = devolve(ent.custo * n / ent.mudancas.length); msg = `Pintura de terreno (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!o terreno já mudou de novo';
+      break;
+    }
+    case 'objeto': {
+      const o = objects.get(ent.id);
+      if (o) {
+        if (G.sel && G.sel.ref === o) deselect();
+        removeObject(ent.id); valor = devolve(ent.custo); msg = ent.rotulo;
+      } else msg = '!' + ent.rotulo + ' já foi removido';
+      break;
+    }
+    case 'animal': {
+      const a = G.animals.find(z => z.id === ent.id);
+      if (a && !a.morto) {
+        if (G.sel && G.sel.ref === a) deselect();
+        G.animals = G.animals.filter(z => z.id !== ent.id);
+        G.escaped = G.escaped.filter(z => z.id !== ent.id);
+        const e = enclosures.get(a.enc);
+        if (e) e.animals = e.animals.filter(z => z.id !== ent.id);
+        valor = devolve(ent.custo); msg = ent.rotulo + ' devolvido à loja';
+      } else msg = '!o animal já não está no plantel';
+      break;
+    }
+    case 'recinto': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      if (e.animals.some(a => !a.morto)) { msg = '!o recinto tem animais — venda ou transfira antes'; break; }
+      if (e.objs.length) { msg = '!o recinto tem objetos dentro — remova antes'; break; }
+      if (G.sel && G.sel.ref === e) deselect();
+      deleteEnclosure(ent.id); valor = devolve(ent.custo); msg = 'Recinto';
+      break;
+    }
+    case 'ampliacao': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      const set = new Set(ent.tiles.filter(k => e.tiles.has(k)));
+      if (!set.size) { msg = '!a ampliação já não existe'; break; }
+      if (set.size >= e.tiles.size) { msg = '!desfazer apagaria o recinto inteiro'; break; }
+      if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!há objetos na área ampliada — remova antes'; break; }
+      for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
+      encInvalida(e);
+      for (const a of e.animals) {   // bicho que ficou de fora volta para dentro
+        if (a.morto) continue;
+        if (!e.tiles.has(IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1)))) {
+          const tl = encTileAleatorio(e);
+          if (tl) { a.x = tl[0] + .5; a.y = tl[1] + .5; a.tx = a.x; a.ty = a.y; }
+        }
+      }
+      valor = devolve(ent.custo * set.size / ent.tiles.length);
+      msg = `Ampliação (${set.size} tile${set.size > 1 ? 's' : ''})`;
+      break;
+    }
+    case 'cerca': {
+      const e = enclosures.get(ent.id);
+      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      if (e.fence !== ent.depois) { msg = '!a cerca já foi trocada de novo'; break; }
+      e.fence = ent.antes; valor = devolve(ent.custo); msg = `Cerca de volta para ${FENCES[ent.antes].n}`;
+      break;
+    }
+  }
+  if (msg[0] !== '!') {
+    SFX.toca('demolir');
+    toast(`↩️ Desfeito: ${msg} — reembolso ${moneyFull(valor)}`, 'good');
+    if (typeof refreshInspector === 'function') refreshInspector();
+  } else {
+    SFX.toca('erro');
+    toast('↩️ Não deu para desfazer: ' + msg.slice(1), 'bad');
   }
 }
 
@@ -323,7 +448,11 @@ function fimPonteiro(e) {
     if (tap) {
       const p = pickAt(sx, sy);
       // tocar num bicho faz ele responder — é a graça de ter voz por espécie
-      if (p) { if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true }); select(p.tipo, p.ref); }
+      if (p) {
+        if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
+        else if (p.tipo === 'vis' || p.tipo === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
+        select(p.tipo, p.ref);
+      }
       else deselect();
     }
     return;
@@ -332,6 +461,7 @@ function fimPonteiro(e) {
   if (pendenteTool) { aplicarFerramenta(pendenteTool.x, pendenteTool.y, false); pendenteTool = null; }
   fecharArrasteRecinto();
   pintando = false;
+  undoFecharGrupo();           // a pincelada acabou: vira 1 item de desfazer
 }
 cv.addEventListener('pointerup', fimPonteiro);
 cv.addEventListener('pointercancel', fimPonteiro);
@@ -348,6 +478,8 @@ $('#zOut').onclick = () => zoomAt(1 / 1.3, VW / 2, VH / 2);
 $('#zMap').onclick = () => { G.miniQuer = !G.miniQuer; atualizarMini(); };
 $('#stWarn').onclick = () => openFinance();
 $('#stHappy').onclick = () => openSatisfacao();
+$('#stRep').onclick = () => openReputacao();
+$('#zUndo').onclick = () => desfazerUltima();
 const NOME_BOLHA = ['desligados', 'só quem está insatisfeito', 'todos'];
 function ciclarBolhas() {
   G.bolhas = (G.bolhas + 1) % 3;
@@ -397,6 +529,7 @@ addEventListener('keydown', e => {
   if (k === 'Escape') { setTool(null); G.drag = null; fecharPaleta(); closeModal(); deselect(); }
   if (k === 'm' || k === 'M') { G.miniQuer = !G.miniQuer; atualizarMini(); }
   if (k === 'b' || k === 'B') ciclarBolhas();
+  if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); desfazerUltima(); return; }
   if (k === 's' || k === 'S') ciclarSom();
   if (k === 'Delete' || k === 'Backspace') {
     if (G.sel && G.sel.tipo === 'obj') { removeObject(G.sel.ref.id); deselect(); }
@@ -478,6 +611,8 @@ function tick(dt) {
       else e.integridade = clamp(e.integridade + gh * .004, 0, 1);
     }
   }
+  let nv = 0; for (const s of G.staff) if (s.tipo === 'vet') nv++;
+  G.nVets = nv;
   for (const a of G.animals) updAnimal(a, dt, gh);
   // carcaça some 3s depois da morte (dá tempo de ver a notificação)
   G.animals = G.animals.filter(a => !a.morto || (a._t = (a._t || 0) + dt) < 3);
@@ -515,9 +650,25 @@ function fecharDia() {
     const diag = diagnosticoPublico();
     if (diag) toast(diag.em + ' ' + diag.longo.replace(/<\/?b>/g, ''), 'bad');
   }
+  // avaliações dos visitantes do dia entram como 1 linha agregada no extrato
+  const rv = G.stats.repVis || 0;
+  if (Math.abs(rv) >= .02) {
+    G.repLog.push({ dia: G.day - 1, delta: rv, motivo: `Avaliações de ${visitantesDoDia} visitantes`, em: rv > 0 ? '🗳️' : '📉' });
+    if (G.repLog.length > 60) G.repLog.shift();
+  }
+  G.stats.repVis = 0;
   // reputação decai devagar rumo à qualidade real do parque
   const alvo = qualidadeParque();
+  const antes = G.rep;
   G.rep = clamp(lerp(G.rep, alvo, .12), 0, 5);
+  if (Math.abs(G.rep - antes) >= .05) {
+    G.repLog.push({
+      dia: G.day - 1, delta: G.rep - antes,
+      motivo: G.rep > antes ? 'Qualidade do parque puxando a nota para cima' : 'Qualidade do parque puxando a nota para baixo',
+      em: G.rep > antes ? '📈' : '📉',
+    });
+    if (G.repLog.length > 60) G.repLog.shift();
+  }
   salvar(true);
 
   if (G.money < -120000 && !G.gameOver) {
@@ -528,6 +679,12 @@ function fecharDia() {
       `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">Recomeçar</button>
        <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">Aceitar resgate de R$ 100.000</button>`);
   }
+}
+/** choque pontual na reputação + linha no extrato (visível ao clicar em ⭐) */
+function repEvento(delta, motivo, em) {
+  G.rep = clamp(G.rep + delta, 0, 5);
+  G.repLog.push({ dia: G.day, delta, motivo, em });
+  if (G.repLog.length > 60) G.repLog.shift();
 }
 function qualidadeParque() {
   const vivos = G.animals.filter(a => !a.morto);
@@ -549,6 +706,7 @@ function qualidadeParque() {
 function snapshotJogo() {
   return {
       v: 1, money: G.money, ticket: G.ticket, day: G.day, hour: G.hour, rep: G.rep,
+      repLog: G.repLog,
       lastBill: G.lastBill, emprestimo: G.emprestimo, marketing: G.pesquisa.marketing,
       stats: G.stats, ledger: G.ledger, cam: { x: cam.x, y: cam.y, z: cam.z },
       terr: Array.from(world.terr), path: Array.from(world.path),
@@ -585,6 +743,8 @@ function aplicarSnapshot(raw, rotulo) {
     if (!s || typeof s.money !== 'number' || !Array.isArray(s.terr))
       throw new Error('não parece um save do Zoo Magnata');
     G.money = s.money; G.ticket = s.ticket; G.day = s.day; G.hour = s.hour; G.rep = s.rep;
+    G.repLog = Array.isArray(s.repLog) ? s.repLog : [];
+    G.undo = []; undoGrupo = null; atualizarUndoBtn();   // ids de outro mundo não valem aqui
     G.lastBill = s.lastBill || 1; G.emprestimo = s.emprestimo || 0;
     G.pesquisa.marketing = s.marketing || 0;
     G.stats = s.stats; G.ledger = s.ledger;
