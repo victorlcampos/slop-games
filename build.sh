@@ -10,6 +10,7 @@ cat src/01_head.html \
     src/04_sprites.js \
     src/05_world.js \
     src/06_entities.js \
+    src/06b_audio.js \
     src/07_render.js \
     src/08_ui.js \
     src/09_game.js > index.html

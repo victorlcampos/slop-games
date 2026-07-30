@@ -94,9 +94,9 @@ function aplicarFerramenta(x, y, arrastando) {
   const t = G.tool; if (!t || !inB(x, y)) return;
   const k = IDX(x, y);
   if (t.cat === 'caminho') {
-    if (t.key === 'del') { if (removePath(x, y)) earn(6, 'venda'); return; }
+    if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'venda'); SFX.toca('demolir'); } return; }
     if (G.money < t.cost) return semGrana();
-    if (addPath(x, y)) spend(t.cost, 'obra');
+    if (addPath(x, y)) { spend(t.cost, 'obra'); SFX.toca('trilha'); }
   } else if (t.cat === 'terreno') {
     const alvo = TKEYS.indexOf(t.key);
     const raio = G.shift ? 1 : 0;
@@ -107,25 +107,25 @@ function aplicarFerramenta(x, y, arrastando) {
       if (world.occ[nk] || world.path[nk]) continue;
       if (world.terr[nk] === alvo) continue;
       if (G.money < t.cost) return semGrana();
-      world.terr[nk] = alvo; spend(t.cost, 'obra'); terrenoMudou();
+      world.terr[nk] = alvo; spend(t.cost, 'obra'); terrenoMudou(); SFX.toca('terreno');
     }
   } else if (t.cat === 'build') {
     if (arrastando) return;
     if (!rectFree(x, y, t.w, t.h)) { toast('🚫 Espaço ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'build', x, y);
+    spend(t.cost, 'obra'); placeObject(t.key, 'build', x, y); SFX.toca('predio');
     if (!nearestPathTile(x, y, 4)) toast('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar', 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'deco', x, y);
+    spend(t.cost, 'obra'); placeObject(t.key, 'deco', x, y); SFX.toca('predio');
   } else if (t.cat === 'encobj') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast('🚫 Objetos de recinto só vão dentro de um recinto', 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); placeObject(t.key, 'encobj', x, y);
+    spend(t.cost, 'obra'); placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
   } else if (t.cat === 'animal') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
@@ -135,14 +135,14 @@ function aplicarFerramenta(x, y, arrastando) {
     demolirEm(x, y);
   }
 }
-function semGrana() { toast('💸 Caixa insuficiente', 'bad'); }
+function semGrana() { SFX.toca('erro'); toast('💸 Caixa insuficiente', 'bad'); }
 function demolirEm(x, y) {
   const k = IDX(x, y);
   if (world.occ[k]) {
     const o = objects.get(world.occ[k]);
     if (o) {
       const def = BUILDINGS[o.kind] || DECOS[o.kind] || ENCOBJ[o.kind];
-      earn(Math.round((def.cost || 0) * .5), 'venda'); removeObject(o.id);
+      earn(Math.round((def.cost || 0) * .5), 'venda'); removeObject(o.id); SFX.toca('demolir');
     }
     return;
   }
@@ -158,7 +158,7 @@ function demolirEm(x, y) {
     if (!e) return;
     if (e.animals.length) { toast('🚫 Tire os animais antes de demolir o recinto', 'bad'); return; }
     const dev = Math.round(custoCercaDe(e) * .5);
-    deleteEnclosure(e.id); earn(dev, 'venda');
+    deleteEnclosure(e.id); earn(dev, 'venda'); SFX.toca('demolir');
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
   }
 }
@@ -224,11 +224,11 @@ function fecharArrasteRecinto() {
   if (G.money < p.custo) return semGrana();
   spend(p.custo, 'obra');
   if (p.acao === 'ampliar') {
-    encAddTiles(p.alvo, p.tiles);
+    encAddTiles(p.alvo, p.tiles); SFX.toca('ampliar');
     select('enc', p.alvo);
     toast(`➕ ${p.alvo.nome} ampliado para ${encArea(p.alvo)} tiles`, 'good');
   } else {
-    const e2 = makeEnclosure(p.tiles, G.tool.key);
+    const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.toca('construir');
     select('enc', e2);
     toast(`🚧 ${e2.nome} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar`, 'good');
   }
@@ -320,7 +320,12 @@ function fimPonteiro(e) {
     const tap = tapCand && performance.now() - tapCand.t < 500 &&
       dist(sx, sy, tapCand.x, tapCand.y) <= 11;
     tapCand = null;
-    if (tap) { const p = pickAt(sx, sy); if (p) select(p.tipo, p.ref); else deselect(); }
+    if (tap) {
+      const p = pickAt(sx, sy);
+      // tocar num bicho faz ele responder — é a graça de ter voz por espécie
+      if (p) { if (p.tipo === 'animal') SFX.voz(p.ref.sp); select(p.tipo, p.ref); }
+      else deselect();
+    }
     return;
   }
   // toque curto com ferramenta: aplica agora, no soltar
@@ -350,6 +355,21 @@ function ciclarBolhas() {
   $('#zBolha').textContent = G.bolhas === 0 ? '💤' : G.bolhas === 1 ? '💭' : '💬';
   toast('💭 Balões de pensamento: ' + NOME_BOLHA[G.bolhas], '');
 }
+function atualizarBotaoSom() {
+  $('#zSom').textContent = SFX.ligado ? (SFX.vol > .5 ? '🔊' : '🔉') : '🔇';
+  $('#zSom').classList.toggle('on', SFX.ligado);
+}
+function ciclarSom() {
+  // 3 estados: cheio -> baixo -> mudo. Preferência é do aparelho, não do save.
+  SFX.iniciar();
+  if (!SFX.ligado) { SFX.ligado = true; SFX.vol = .65; }
+  else if (SFX.vol > .5) SFX.vol = .3;
+  else SFX.ligado = false;
+  SFX.aplicarVolume(); atualizarBotaoSom();
+  try { localStorage.setItem('zoo_som', JSON.stringify({ l: SFX.ligado, v: SFX.vol })); } catch (e) {}
+  if (SFX.ligado) SFX.toca('ui');
+}
+$('#zSom').onclick = ciclarSom;
 $('#zBolha').onclick = ciclarBolhas;
 $('#zSave').onclick = () => exportarSave();
 $('#zLoad').onclick = () => $('#fileSave').click();
@@ -377,6 +397,7 @@ addEventListener('keydown', e => {
   if (k === 'Escape') { setTool(null); G.drag = null; fecharPaleta(); closeModal(); deselect(); }
   if (k === 'm' || k === 'M') { G.miniQuer = !G.miniQuer; atualizarMini(); }
   if (k === 'b' || k === 'B') ciclarBolhas();
+  if (k === 's' || k === 'S') ciclarSom();
   if (k === 'Delete' || k === 'Backspace') {
     if (G.sel && G.sel.tipo === 'obj') { removeObject(G.sel.ref.id); deselect(); }
   }
@@ -470,6 +491,7 @@ function tick(dt) {
   }
 }
 function fecharDia() {
+  SFX.toca('dia');
   const visitantesDoDia = G.stats.visHoje;   // lido antes do reset abaixo
   G.day++;
   G.ledger.hist.push({ dia: G.day - 1, vis: G.stats.visHoje, saldo: saldo(G.ledger.hoje) });
@@ -484,7 +506,7 @@ function fecharDia() {
     let folha = G.staff.reduce((s, x) => s + STAFF_TYPES[x.tipo].salario, 0);
     folha += [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].salario : 0), 0);
     const mk = [0, 1500, 5000, 14000][G.pesquisa.marketing];
-    spend(folha + mk, 'salario');
+    spend(folha + mk, 'salario'); SFX.toca('contas');
     toast(`🧾 Contas da semana: ${moneyFull(folha + mk)} (folha${mk ? ' + marketing' : ''})`, 'money');
   }
   // Se o dia fechou sem visitante, diz o motivo — 1x por dia. Ficar no escuro
@@ -499,7 +521,7 @@ function fecharDia() {
   salvar(true);
 
   if (G.money < -120000 && !G.gameOver) {
-    G.gameOver = true; setSpeed(0);
+    G.gameOver = true; setSpeed(0); SFX.toca('falencia');
     openModal('🏚️ Falência',
       `<p style="font-size:14px;line-height:1.6">O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias.
        Você recebeu ${G.stats.visTotal.toLocaleString('pt-BR')} visitantes e chegou a ter ${G.animals.filter(a => !a.morto).length} animais.</p>`,
@@ -818,13 +840,18 @@ function init() {
   contratar('trat'); contratar('fax');
   updateHUD();
   G.miniQuer = !isSmall();      // no celular o minimapa começa desligado
+  try {
+    const pref = JSON.parse(localStorage.getItem('zoo_som') || 'null');
+    if (pref) { SFX.ligado = !!pref.l; SFX.vol = +pref.v || .65; }
+  } catch (e) {}
+  atualizarBotaoSom();
   ajustarParaTela();
   // o HUD muda de altura quando as etiquetas quebram de linha
   if (window.ResizeObserver) new ResizeObserver(medirHud).observe($('#hud'));
   setSpeed(0);          // o relógio só começa quando o jogador sai do splash
   loop(performance.now());
 }
-let lastT = 0, acc = 0, hudAcc = 0, miniAcc = 0;
+let lastT = 0, acc = 0, hudAcc = 0, miniAcc = 0, somAcc = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = (now - lastT) / 1000; lastT = now;
@@ -850,6 +877,19 @@ function loop(now) {
     updateHUD();
     refreshInspector();
   }
+  somAcc += dt;
+  if (somAcc > .5) {
+    somAcc = 0;
+    SFX.ambiente(G.visitors.length, G.hour, G.hour >= OPEN_H && G.hour < CLOSE_H);
+    // Vozes de bicho ao fundo, abafadas (barramento "distante"). A chance sobe
+    // com o tamanho do plantel: zoo pequeno fica calmo, zoo cheio fica vivo.
+    if (G.speed > 0 && SFX.ligado) {
+      const vivos = G.animals.filter(a => !a.morto);
+      const chance = clamp(.04 + vivos.length * .011, 0, .28);
+      if (vivos.length && Math.random() < chance)
+        SFX.voz(pick(vivos).sp, { vol: .16, distante: true });
+    }
+  }
   miniAcc += dt;
   if (miniAcc > .5 && $('#mini').classList.contains('show')) { miniAcc = 0; renderMini(); }
 }
@@ -861,6 +901,7 @@ init();
 let temSave = false;
 try { temSave = !!localStorage.getItem('zoo_save'); } catch (e) { temSave = false; }
 const comecar = carregarSave => {
+  SFX.iniciar();       // 1º gesto do usuário: só aqui o áudio pode nascer
   $('#splash').classList.add('hidden');
   if (carregarSave) carregar();
   setSpeed(1);

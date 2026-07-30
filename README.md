@@ -30,6 +30,10 @@ sem dependências externas e sem servidor. Funciona offline.
   acionável em cada linha.
 - Save/load no navegador, **exportação do save em `.json`** e de um **relatório de
   status em `.txt`**, com importação de volta.
+- **Som inteiramente sintetizado** (Web Audio, nenhum arquivo de áudio): cada bicho
+  tem voz derivada do plano corporal e do tamanho, o murmúrio da multidão usa
+  formantes de vogal com ritmo silábico e cresce com o número de visitantes, e há
+  grilos à noite. Botão 🔊 no HUD alterna cheio / baixo / mudo (atalho `S`).
 - Responsivo: toque, pinça para zoom, e três arranjos de layout (celular em pé,
   celular deitado, desktop).
 
@@ -54,6 +58,7 @@ O jogo é entregue como **um** `index.html`, mas é editado em módulos:
 | `src/04_sprites.js` | gerador procedural de sprites |
 | `src/05_world.js` | grade, recintos, caminhos |
 | `src/06_entities.js` | animais, visitantes, funcionários |
+| `src/06b_audio.js` | síntese de áudio (vozes, efeitos, ambiente) |
 | `src/07_render.js` | renderização isométrica |
 | `src/08_ui.js` | interface |
 | `src/09_game.js` | input, simulação, economia, save |

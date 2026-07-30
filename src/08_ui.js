@@ -35,6 +35,7 @@ function medirHud() {
 }
 
 function toast(msg, kind) {
+  SFX.toca(kind === 'good' ? 'compra' : kind === 'money' ? 'moeda' : kind === 'bad' ? 'erro' : 'ui');
   const t = el('div', 'toast ' + (kind || ''), msg);
   UI.toasts.appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .4s,transform .4s'; t.style.opacity = 0; t.style.transform = 'translateX(30px)'; }, 4200);
@@ -167,6 +168,7 @@ function montarPaleta(k) {
   }
 }
 function setTool(t) {
+  if (t) SFX.toca('aba');
   G.tool = t; G.drag = null;
   if (!t) { hint(null); return; }
   const dicas = {
@@ -187,12 +189,16 @@ function setTool(t) {
 
 /* ---- modais ---- */
 function openModal(title, bodyHTML, footHTML) {
+  SFX.toca('abrir');
   UI.mTitle.textContent = title;
   UI.mBody.innerHTML = bodyHTML || '';
   UI.mFoot.innerHTML = footHTML || '';
   UI.modalBg.classList.add('show');
 }
-function closeModal() { UI.modalBg.classList.remove('show'); fecharPaleta(); }
+function closeModal() {
+  if (UI.modalBg.classList.contains('show')) SFX.toca('fechar');
+  UI.modalBg.classList.remove('show'); fecharPaleta();
+}
 $('#modalX').onclick = closeModal;
 UI.modalBg.onclick = e => { if (e.target === UI.modalBg) closeModal(); };
 
@@ -508,12 +514,14 @@ function inspAnimal(a) {
     <div class="kv"><span>Popularidade</span><b class="stars">${stars(sp.apelo / 2)}</b></div>
     <div class="kv"><span>Valor de revenda</span><b>${moneyFull(valorRevenda(a))}</b></div>
     <div class="rowbtns">
+      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
       <button class="btn sm" id="igo">🎯 Centralizar</button>
       <button class="btn sm" id="isell">💰 Vender</button>
       <button class="btn sm" id="imove">📦 Transferir</button>
     </div>`;
   $('#iav').appendChild(cv2);
   $('#ix').onclick = deselect;
+  $('#ivoz').onclick = () => { SFX.iniciar(); SFX._ult.delete('voz' + sp.id); SFX.voz(sp, { vol: .3 }); };
   $('#igo').onclick = () => centerOn(a.x, a.y);
   $('#isell').onclick = () => {
     const v = valorRevenda(a);

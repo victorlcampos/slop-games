@@ -191,14 +191,14 @@ function updAnimal(a, dt, gh) {
   a.saude = clamp(a.saude + dh * gh * .04, 0, 1);
   // doença
   if (!a.doente && Math.random() < gh * .0016 * (2 - a.saude) * (e ? (2 - e.limpeza) : 2)) {
-    a.doente = true;
+    a.doente = true; SFX.toca('doente');
     toast('🤒 ' + a.nome + ' (' + sp.nome + ') adoeceu!', 'bad');
   }
   // morte
   if (a.saude <= 0 || (velho > 1 && Math.random() < gh * .02)) {
     a.morto = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
-    G.rep = clamp(G.rep - .12, 0, 5);
+    G.rep = clamp(G.rep - .12, 0, 5); SFX.toca('morte');
     toast('💀 ' + a.nome + ' (' + sp.nome + ') morreu' + (velho > 1 ? ' de velhice' : ''), 'bad');
     return;
   }
@@ -209,7 +209,7 @@ function updAnimal(a, dt, gh) {
   if (e && !a.fugiu) {
     const F = FENCES[e.fence];
     if (sp.perigo > F.forca && Math.random() < gh * .0022 * (sp.perigo - F.forca) * (1.4 - a.feliz)) {
-      a.fugiu = true; G.escaped.push(a);
+      a.fugiu = true; G.escaped.push(a); SFX.toca('alarme');
       e.animals = e.animals.filter(z => z.id !== a.id);
       toast('🚨 ' + sp.nome + ' FUGIU do recinto!', 'bad');
       G.rep = clamp(G.rep - .3, 0, 5);
@@ -222,7 +222,7 @@ function updAnimal(a, dt, gh) {
       if (a.gravida <= 0) {
         const irmaos = e.animals.filter(z => z.sp.id === sp.id).length;
         if (encArea(e) >= sp.espaco * (irmaos + 1) && irmaos < sp.gmax + 2) {
-          const f = novoAnimal(sp, e.id, 0.05); e.animals.push(f);
+          const f = novoAnimal(sp, e.id, 0.05); e.animals.push(f); SFX.toca('nascimento');
           toast('🎉 Nasceu um filhote de ' + sp.nome + '!', 'good');
           G.rep = clamp(G.rep + .12, 0, 5);
         }
@@ -466,7 +466,7 @@ function concluirAcao(v) {
   const preco = precoDe(o);
   if (B.valor > 0) {
     if (v.dinheiro < preco) { v.mood = clamp(v.mood - .06, 0, 1); return; }
-    v.dinheiro -= preco; earn(preco, 'loja'); spend(B.custo, 'racao');
+    v.dinheiro -= preco; earn(preco, 'loja'); spend(B.custo, 'racao'); SFX.toca('moeda');
     o.receita += preco - B.custo; o.vendas++;
     // percepção de preço: caro demais irrita
     const just = clamp(1 - (preco / Math.max(1, B.valor) - 1) * .7, .1, 1.25);
