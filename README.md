@@ -1,5 +1,7 @@
 # WorldDrive 🌍🏎️
 
+### ▶️ [Jogar agora](https://victorlcampos.github.io/worlddrive/)
+
 Jogo de carro no browser: escolha **qualquer rua do mundo** e dirija nela. O mundo 3D é
 gerado na hora a partir de dados reais:
 
@@ -25,6 +27,7 @@ node build.mjs        # gera dist/index.html (bundle three.js inline no template
 ```sh
 node test/smoke.mjs               # Chrome headless: abre via file://, carrega São Francisco e dirige
 PRESET=2 node test/smoke.mjs      # 0=São Francisco 1=Mônaco 2=Rio 3=Paris 4=Tóquio 5=NY
+URL=https://victorlcampos.github.io/worlddrive/ node test/smoke.mjs   # testa o deploy publicado
 ```
 
 Obs.: o Overpass principal rejeita o fingerprint "HeadlessChrome" (406); o teste disfarça

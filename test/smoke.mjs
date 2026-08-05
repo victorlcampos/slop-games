@@ -1,9 +1,10 @@
 // Smoke test: abre dist/index.html via file://, escolhe um preset e espera o jogo carregar
+// URL=https://... testa um deploy publicado em vez do build local
 import puppeteer from 'puppeteer-core';
 import path from 'node:path';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const url = 'file://' + path.resolve('dist/index.html');
+const url = process.env.URL || 'file://' + path.resolve('dist/index.html');
 const shotDir = process.env.SHOT_DIR || 'test';
 
 const browser = await puppeteer.launch({
