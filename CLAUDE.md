@@ -440,6 +440,19 @@ só existe depois que ela desenha**, então trocar de tela e clicar no mesmo
 instante acerta uma tela sem botão nenhum. Foi assim que um teste daqui passou a
 falhar só dentro da suíte.
 
+**Mudar de estado não é a mesma coisa que estar desenhado.** Este é o erro que
+já apareceu duas vezes aqui, a segunda só no CI:
+
+```js
+await j.esperarAte((jogo) => jogo.atual().confirmando());  // o diálogo abriu…
+await j.esperarQuadros(2);                                 // …mas ainda não tem botão
+await j.tocar(...);
+```
+
+Abrir um diálogo liga uma flag na hora; os botões dele só entram na lista de
+clicáveis no desenho seguinte. Sempre que o próximo passo for clicar em algo que
+acabou de aparecer, ponha `esperarQuadros` entre as duas coisas.
+
 **`j.pontos(x, y)` não é conveniência, é a parte que mais dá errado.** Converter
 coordenada lógica em coordenada de tela "no olho" (`x / 1280 * largura`) falhou
 duas vezes durante o desenvolvimento — uma porque o canvas ficava centralizado

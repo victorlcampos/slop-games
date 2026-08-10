@@ -151,6 +151,10 @@ cenario('recomeçar apaga o progresso e volta à abertura', async () => {
   await j.esperarAte((jogo) => jogo.atual().confirmando && jogo.atual().confirmando(), {
     oQue: 'o diálogo de confirmação abrir',
   });
+  // Mudar de estado não basta: os botões clicáveis do diálogo só existem depois
+  // que ele desenha. Sem esta linha o teste passa no laptop e falha no runner,
+  // onde o WebGL por software deixa cada quadro bem mais lento.
+  await j.esperarQuadros(2);
   // "APAGAR TUDO" fica à direita no diálogo
   await j.tocar(...j.pontosMoldura(1280 / 2 + 320 - 294 + 125, 720 / 2 + 205 - 74 - 24 + 37));
   await j.esperarAte((jogo) => jogo.estado().moedas === 0, { oQue: 'o progresso ser apagado' });
