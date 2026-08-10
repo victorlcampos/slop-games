@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Animais vs Monstros</title>
+<meta name="description" content="Tower defense de bichos brasileiros contra monstros. Roda inteiro no navegador.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐆</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    /* dvh acompanha a barra do navegador no celular; vh deixaria o canvas
+       cortado atrás dela quando a barra recolhe */
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #16130f;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #palco {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* mesa de madeira escura: o "caderno" fica em cima dela */
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 45%, #2a2119 0%, #16130f 75%);
+  }
+
+  /* O canvas ocupa a janela inteira, em qualquer proporção. Quem se adapta é o
+     mundo lógico: a altura é sempre 720 e a largura acompanha o formato da
+     tela (veja src/viewport.js). Nada de barra preta, nada de esticar. */
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+    touch-action: none;
+  }
+
+  /* só existe para o "carregar save" — o resto da interface é desenhada no canvas */
+  #arquivo { display: none; }
+
+  #girando {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #d9cdb8;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+  }
+
+  /* O tabuleiro tem 9 colunas: em pé não cabe de jeito nenhum. Em vez de
+     espremer, pedimos para virar — só em aparelho de toque, porque numa janela
+     estreita de desktop o canvas ainda encolhe e continua jogável. */
+  #gire {
+    display: none;
+    position: fixed;
+    inset: 0;
+    place-items: center;
+    text-align: center;
+    padding: 2rem;
+    background: radial-gradient(ellipse 70% 55% at 50% 45%, #2a2119 0%, #16130f 75%);
+    color: #f2e2c0;
+  }
+
+  #gire .aparelho {
+    width: 84px;
+    height: 140px;
+    margin: 0 auto 1.6rem;
+    border: 5px solid #c9a165;
+    border-radius: 14px;
+    animation: virar 2.4s ease-in-out infinite;
+  }
+
+  #gire h1 { font-size: 1.5rem; margin-bottom: 0.6rem; font-weight: 800; }
+  #gire p { color: #c9b490; font-size: 1rem; max-width: 22rem; margin: 0 auto; }
+
+  @keyframes virar {
+    0%, 30% { transform: rotate(0deg); }
+    60%, 100% { transform: rotate(-90deg); }
+  }
+
+  @media (orientation: portrait) and (pointer: coarse) {
+    #palco { display: none; }
+    #gire { display: grid; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #gire .aparelho { animation: none; transform: rotate(-90deg); }
+  }
+</style>
+</head>
+<body>
+  <div id="palco">
+    <div id="girando">rabiscando o mundo…</div>
+    <canvas id="tela" hidden></canvas>
+  </div>
+
+  <div id="gire">
+    <div>
+      <div class="aparelho"></div>
+      <h1>Vire o aparelho</h1>
+      <p>O tabuleiro tem nove colunas de largura — deitado, dá para ver a fileira inteira e o que vem vindo.</p>
+    </div>
+  </div>
+  <input id="arquivo" type="file" accept="application/json,.json">
+<script>/*__APP__*/</script>
+</body>
+</html>

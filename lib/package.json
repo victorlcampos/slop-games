@@ -1,0 +1,21 @@
+{
+  "name": "slopkit",
+  "version": "1.0.0",
+  "description": "O que todo jogo do slop-games precisa: tela elástica, laço estável, save que sobrevive a versão nova.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./testes": "./testes.mjs",
+    "./*": "./src/*.js",
+    "./build": "./build.mjs"
+  },
+  "scripts": {
+    "test": "node test/kit.test.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

@@ -13,7 +13,7 @@ Todo o conteúdo — terreno, texturas, modelos, som — é gerado por código e
 Rode `npm run build` (na raiz do slop-games ou aqui) e **dê duplo clique em
 `dist/index.html`**. Só isso.
 
-É um arquivo único de ~1,6 MB com o jogo e o Three.js embutidos. Não precisa de servidor,
+É um arquivo único de ~690 KB com o jogo e o Three.js embutidos. Não precisa de servidor,
 de internet, de instalação nem de nenhum processo rodando — funciona pelo `file://` mesmo,
 inclusive offline e copiado para um pendrive.
 
@@ -25,12 +25,13 @@ Requisitos: um navegador com WebGL2 (Chrome, Firefox, Safari 15+, Edge).
 O código-fonte vive em `src/` como módulos ES. Depois de editar, regenere o arquivo único:
 
 ```bash
-node build.js        # → dist/index.html
+npm run build        # → dist/index.html
 ```
 
-O `build.js` é um empacotador de ~150 linhas sem nenhuma dependência: resolve os imports,
-converte cada módulo num registro interno e costura tudo dentro do `index.html`, que serve
-de template. Também não deixa processo nenhum rodando.
+O build é o do slop-games (`slopkit/build`): esbuild empacota `src/main.js`, injeta no
+`template.html` e minifica. O three vem de `vendor/`, apontado por alias — foi o que
+derrubou o arquivo final de 1,6 MB para 690 KB, já que o empacotador caseiro anterior
+não minificava.
 
 </details>
 
@@ -163,8 +164,8 @@ saltos, batidas, portões e o rugido do Yeti (dente de serra grave com vibrato e
 
 ```
 dist/index.html       ← o jogo: arquivo único, abre com duplo clique (gerado)
-index.html            template (interface, HUD e menus) usado pelo build
-build.js              empacotador sem dependências
+template.html         interface, HUD e menus; o bundle entra na marca /*__APP__*/
+build.mjs             três linhas chamando o build do slopkit
 jogo.json             metadados que alimentam o índice do slop-games
 src/
   main.js             bootstrap e ligação com a UI

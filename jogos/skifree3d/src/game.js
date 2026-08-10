@@ -1,6 +1,7 @@
 // Montagem da cena e o laço principal.
 
 import * as THREE from 'three';
+import { criarSave } from 'slopkit/save';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -37,7 +38,24 @@ import * as hud from './hud.js';
 // De quebra rende luz rasante, sombras longas e contraluz nos cristais.
 const SUN_DIR = new THREE.Vector3(-0.470, 0.342, 0.814).normalize();
 const CAMERA_MODES = ['chase', 'retro', 'close'];
-const BEST_KEY = 'skifree3d.best.v1';
+// Os recordes passam pelo slopkit: ganham normalização (recorde salvo com o
+// tipo errado não vira NaN na tela) e a mesma chave/validação dos outros jogos.
+const cofre = criarSave({
+  jogo: 'skifree3d',
+  versao: 1,
+  chave: 'skifree3d.best.v1',
+  inicial: () => ({ versao: 1 }),
+  normalizar: (bruto, base) => {
+    if (!bruto || typeof bruto !== 'object') return base;
+    const s = { ...base };
+    // só número finito entra: o resto é ruído de save editado à mão
+    for (const [k, v] of Object.entries(bruto)) {
+      if (k === 'versao' || k === 'atualizadoEm') continue;
+      if (Number.isFinite(v)) s[k] = v;
+    }
+    return s;
+  },
+});
 
 export function createGame(container) {
   // Precisa acontecer antes de qualquer material ser criado: mexe nos
@@ -249,12 +267,10 @@ export function createGame(container) {
 
   // ------------------------------------------------------------ helpers
   function loadBest() {
-    try {
-      return JSON.parse(localStorage.getItem(BEST_KEY)) || {};
-    } catch { return {}; }
+    return cofre.carregar();
   }
   function saveBest() {
-    try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch { /* modo privado */ }
+    cofre.salvar(best);
   }
 
   /** Posição de um ponto do mundo no espaço da cena. */

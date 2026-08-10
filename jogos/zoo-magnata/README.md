@@ -106,7 +106,7 @@ O jogo é entregue como **um** `index.html`, mas é editado em módulos:
 | `src/09_game.js` | input, simulação, economia, save |
 
 ```bash
-./build.sh      # regenera o index.html a partir de src/
+npm run build   # regenera o dist/index.html a partir de src/
 ```
 
 Não edite o `index.html` diretamente — ele é gerado.

@@ -1,8 +1,9 @@
-name: Deploy to GitHub Pages
+name: Testar e publicar
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  # ---------------------------------------------------------------------------
+  # Constrói e testa. O artefato que sobe daqui é exatamente o que foi testado —
+  # o job de publicação não rebuilda, só publica. Assim não existe a hipótese de
+  # ir ao ar um build diferente do que passou.
+  # ---------------------------------------------------------------------------
+  testar:
+    name: Testes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -28,18 +35,63 @@ jobs:
 
       - run: npm ci
 
-      - run: node build.mjs
+      # `puppeteer-core` não baixa navegador (é o que mantém o repositório leve),
+      # então o Chrome vem do runner. O `acharChrome` do slopkit encontra sozinho;
+      # este passo existe para falhar com mensagem clara se um dia sumir.
+      - name: Conferir o Chrome do runner
+        run: |
+          CAMINHO="$(command -v google-chrome || command -v chromium || true)"
+          if [ -z "$CAMINHO" ]; then
+            echo "::error::nenhum Chrome no runner — os testes de navegador não podem rodar"
+            exit 1
+          fi
+          echo "Chrome em $CAMINHO — $("$CAMINHO" --version)"
 
-      - uses: actions/upload-pages-artifact@v5
+      - name: Construir os jogos e o índice
+        run: npm run build
+
+      - name: Testes de unidade e do catálogo
+        run: npm test
+
+      - name: Testes de cada jogo
+        run: npm run test --workspace jogos/animais-vs-monstros
+
+      # Este dirige de verdade num mapa real do OpenStreetMap. É um bom teste e
+      # um péssimo portão: depende de uma API pública de terceiros, que cai e
+      # limita requisição. Roda para dar visibilidade, sem poder barrar o deploy.
+      - name: Teste de integração com rede (não bloqueia)
+        continue-on-error: true
+        run: npm run test --workspace jogos/worlddrive
+
+      # quando algo quebra, a imagem da tela vale mais que o log
+      - name: Guardar as telas em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: telas-da-falha
+          path: |
+            jogos/*/test/*.png
+            test/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Empacotar o dist testado
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-  deploy:
-    needs: build
+  # ---------------------------------------------------------------------------
+  # Só publica se os testes passaram, e só a partir da main.
+  # ---------------------------------------------------------------------------
+  publicar:
+    name: Publicar no Pages
+    needs: testar
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - id: deployment
+      - id: deploy
         uses: actions/deploy-pages@v5

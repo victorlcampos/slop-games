@@ -1,0 +1,18 @@
+{
+  "name": "animais-vs-monstros",
+  "version": "1.0.0",
+  "description": "Tower defense de bichos brasileiros contra monstros, em um único HTML.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/economia.test.mjs && node test/jogo.test.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "dependencies": {
+    "slopkit": "*"
+  }
+}

@@ -406,30 +406,7 @@
 
 <div id="boot"><div class="b"><div class="sp"></div><div class="t">Preparando a montanha…</div></div></div>
 
-<script>
-  // Este arquivo é o template modular: por file:// os módulos ES são bloqueados.
-  // Checa o resultado (o jogo subiu?) em vez da tag do importmap — assim vale
-  // tanto aqui quanto no SkiFree3D.html, onde o jogo sempre sobe.
-  addEventListener('DOMContentLoaded', function () { setTimeout(function () {
-    if (window.__ski || location.protocol !== 'file:') return;
-    document.getElementById('boot').innerHTML =
-      '<div class="b" style="max-width:520px;padding:0 24px">' +
-      '<div style="font-size:34px;margin-bottom:14px">⛷️</div>' +
-      '<div style="font-size:16px;font-weight:600;margin-bottom:10px">Abra o <code>SkiFree3D.html</code></div>' +
-      '<div style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.7">' +
-      'Este arquivo é o template de desenvolvimento e carrega módulos ES, que o navegador bloqueia por <code>file://</code>.<br>' +
-      'O jogo pronto é o <b>SkiFree3D.html</b>, na mesma pasta — ele abre com duplo clique.</div></div>';
-  }, 500); });
-</script>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "./vendor/three.module.js",
-    "three/addons/": "./vendor/addons/"
-  }
-}
-</script>
-<script type="module" src="./src/main.js"></script>
+<script>/*__APP__*/</script>
 </body>
 </html>

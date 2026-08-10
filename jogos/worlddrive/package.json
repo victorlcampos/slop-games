@@ -14,7 +14,8 @@
   "license": "ISC",
   "description": "Jogo de carro no browser: dirija em qualquer rua do mundo, com mundo 3D gerado de dados reais do OpenStreetMap",
   "dependencies": {
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "slopkit": "*"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

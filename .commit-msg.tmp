@@ -1,0 +1,60 @@
+Extrai o slopkit dos quatro jogos e adiciona Animais vs Monstros
+
+Os jogos resolviam os mesmos sete problemas — tela, laço, save, mudo, build,
+teste — cada um de um jeito. Comparando as quatro implementações e ficando com
+a melhor de cada uma saiu o `lib/` (slopkit), e o repositório passou a ter um
+build só e um jeito só de testar.
+
+O que veio de onde, medido no código e não no achismo:
+
+- tela elástica → Animais vs Monstros: altura lógica fixa, largura acompanhando
+  a proporção da janela. Preenche qualquer monitor sem barra nem distorção.
+- teto de DPR adaptativo → Zoo Magnata: 1.6 em celular pequeno, 2 no resto.
+  DPR 3 triplica a área de pintura sem ganho visível num traço cartoon.
+- laço de passo fixo → Zoo Magnata: era o único com acumulador e guarda contra
+  a espiral da morte. Com dt cru o jogo se comporta diferente a 60 e a 144 Hz.
+- save em formato único → Zoo Magnata: o mesmo retrato serve ao autosave e ao
+  arquivo exportado; dois formatos viram dois saves divergindo.
+- normalização de save → Animais vs Monstros: tudo que vem do disco passa por
+  uma função que preenche o que falta. Save velho perde um campo, nunca a
+  partida.
+- mudo persistido → três dos quatro já faziam; o Animais era o único que
+  esquecia a escolha ao recarregar.
+
+BUILD
+
+Os três formatos viraram um: `slopkit/build`, com modo `modulos` (esbuild) e
+`concatenado` (escopo global na ordem, para o Zoo). O `build.mjs` de cada jogo
+virou configuração de três linhas. Sumiram um bundler ES caseiro de 150 linhas,
+um build.sh de bash e três cópias da mesma injeção no template.
+
+  SkiFree 3D   1622 KB → 690 KB   (o bundler caseiro não minificava)
+  Zoo Magnata   377 KB → 268 KB   (o cat não minificava)
+
+As duas armadilhas que estavam duplicadas — escapar `</script>` e substituir por
+função por causa do `$&` — agora existem num lugar só, com o porquê ao lado.
+
+TESTES E CI
+
+Três camadas: unidade sem navegador (lib/test), piso do catálogo (test/) e o
+teste de cada jogo. O `slopkit/testes` dá o andaime; `j.pontos()` converte
+coordenada lendo a medida do próprio jogo, porque fazer essa conta no olho
+falhou duas vezes e acusou bug de jogo que era bug de teste.
+
+O workflow agora testa e só publica se passar, com o job de publicação usando o
+artefato que foi testado em vez de reconstruir.
+
+ANIMAIS VS MONSTROS
+
+Tower defense de bichos contra o folclore brasileiro, 10 fases, tudo desenhado
+em código. A premissa amarra a mecânica: os monstros são as lendas de cada povo,
+os humanos travam de medo porque cresceram ouvindo essas histórias, e os bichos
+são imunes porque nunca ouviram nenhuma.
+
+A economia tem duas fontes que se equilibram (gerador que você clica, monstro
+morto que entra sozinho), e entre as fases dá para recrutar cartas novas ou
+treinar as que já tem. Recrutar tudo custa 4030, treinar tudo 8512 e a campanha
+paga ~3800: ninguém leva os dois.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Rfr91gLgwrQkuRc3L44RDS

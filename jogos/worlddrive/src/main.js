@@ -1,6 +1,7 @@
 // WorldDrive — dirija em qualquer rua do mundo
 // Three.js + OpenStreetMap (Overpass) + AWS Terrain Tiles + Esri World Imagery
 import * as THREE from 'three';
+import { criarSave } from 'slopkit/save';
 import { loadWorld } from './world.js';
 import { Car } from './car.js';
 import { Input } from './input.js';
@@ -79,12 +80,27 @@ const picker = new MapPicker(document.getElementById('map'));
 const isTouch = matchMedia('(pointer: coarse)').matches;
 input.bindTouch(document.getElementById('touch'));
 
-// último local
-try {
-  const last = JSON.parse(localStorage.getItem('worlddrive:last') || 'null');
-  if (last && isFinite(last.lat)) picker.setCenter(last.lat, last.lon, last.zoom || 16);
-  audio.setMuted(localStorage.getItem('worlddrive:mute') === '1');
-} catch (e) {}
+// Preferências pelo slopkit: coordenada inválida no save (arquivo editado,
+// versão antiga) não pode mandar o jogador para o meio do oceano.
+const cofre = criarSave({
+  jogo: 'worlddrive',
+  versao: 1,
+  chave: 'worlddrive:prefs',
+  inicial: () => ({ versao: 1, lat: null, lon: null, zoom: 16, label: null, mudo: false }),
+  normalizar: (bruto, base) => {
+    if (!bruto || typeof bruto !== 'object') return base;
+    const s = { ...base, ...bruto };
+    const valido = Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
+      Math.abs(s.lat) <= 90 && Math.abs(s.lon) <= 180;
+    if (!valido) { s.lat = null; s.lon = null; }
+    s.zoom = Number.isFinite(s.zoom) ? Math.min(Math.max(3, s.zoom), 19) : 16;
+    s.mudo = !!s.mudo;
+    return s;
+  },
+});
+const prefs = cofre.carregar();
+if (prefs.lat !== null) picker.setCenter(prefs.lat, prefs.lon, prefs.zoom);
+audio.setMuted(prefs.mudo);
 
 ui.bind({ picker, onDrive: (lat, lon, label) => startDrive(lat, lon, label) });
 
@@ -107,9 +123,8 @@ async function startDrive(lat, lon, label) {
     app.state = 'driving';
     ui.showHUD(isTouch);
     ui.toast(w.spawn.name ? `Você está em ${w.spawn.name}` : 'Boa viagem!');
-    try {
-      localStorage.setItem('worlddrive:last', JSON.stringify({ lat, lon, zoom: 16, label: label || null }));
-    } catch (e) {}
+    Object.assign(prefs, { lat, lon, zoom: 16, label: label || null });
+    cofre.salvar(prefs);
   } catch (err) {
     console.error(err);
     app.state = 'loading';
@@ -143,7 +158,8 @@ input.on('reload', () => {
 });
 input.on('mute', () => {
   audio.setMuted(!audio.muted);
-  try { localStorage.setItem('worlddrive:mute', audio.muted ? '1' : '0'); } catch (e) {}
+  prefs.mudo = audio.muted;
+  cofre.salvar(prefs);
   ui.toast(audio.muted ? 'Som desligado' : 'Som ligado');
 });
 input.on('help', () => ui.toggleHelp());

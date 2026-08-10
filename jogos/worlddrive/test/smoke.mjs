@@ -2,15 +2,18 @@
 // URL=https://... testa um deploy publicado em vez do build local
 import puppeteer from 'puppeteer-core';
 import path from 'node:path';
+import { acharChrome } from 'slopkit/testes';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// caminho do Chrome vem do kit: cobre macOS, Linux do CI e Windows
+const CHROME = acharChrome();
 const url = process.env.URL || 'file://' + path.resolve('dist/index.html');
 const shotDir = process.env.SHOT_DIR || 'test';
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: 'new',
-  args: ['--window-size=1280,800', '--hide-scrollbars', '--mute-audio', '--no-first-run', '--disable-extensions'],
+  args: ['--window-size=1280,800', '--hide-scrollbars', '--mute-audio', '--no-first-run', '--disable-extensions',
+    ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [])],
   defaultViewport: { width: 1280, height: 800 },
 });
 

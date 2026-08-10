@@ -5,12 +5,14 @@
   "type": "module",
   "private": true,
   "workspaces": [
+    "lib",
     "jogos/*"
   ],
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/smoke.mjs",
-    "abrir": "node build.mjs && open dist/index.html"
+    "test": "node lib/test/kit.test.mjs && node test/jogos.test.mjs",
+    "abrir": "node build.mjs && open dist/index.html",
+    "test:jogos": "npm run test --workspaces --if-present"
   },
   "license": "MIT"
 }

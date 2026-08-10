@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#4d9c7a">
+<title>Zoo Magnata — Tycoon de Zoológico</title>
+<style>
+:root{
+  --ink:#2f2113;
+  --ink2:#5b4227;
+  --cream:#fff6e2;
+  --cream2:#ffeac4;
+  --tan:#e8c893;
+  --wood:#8a5a2b;
+  --wood2:#6b4420;
+  --green:#4fae4a;
+  --green2:#3b8c38;
+  --red:#e2543f;
+  --red2:#bd3f2d;
+  --blue:#3fa5e2;
+  --gold:#ffc23c;
+  --gold2:#e8a01c;
+  --purple:#9a6ad4;
+  --shadow:0 4px 0 rgba(70,44,20,.35), 0 8px 18px rgba(0,0,0,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;height:100dvh;overflow:hidden;background:#7ec8a0;overscroll-behavior:none}
+body{
+  font-family:"Baloo 2",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  font-weight:800;color:var(--ink);user-select:none;-webkit-user-select:none;
+  -webkit-font-smoothing:antialiased;-webkit-touch-callout:none;
+}
+button{touch-action:manipulation}
+/* Só o canvas do mundo é posicionado. Uma regra global `canvas{position:absolute}`
+   vazaria para todo retrato de espécie inserido na UI (loja, inspetor). */
+#cv{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+canvas{display:block;max-width:100%}
+#app{position:fixed;inset:0}
+
+/* ---------- primitivas cartoon ---------- */
+.panel{
+  background:linear-gradient(#fffdf6,var(--cream));
+  border:3px solid var(--ink);border-radius:16px;box-shadow:var(--shadow);
+}
+.btn{
+  font:inherit;font-size:13px;font-weight:800;color:var(--ink);
+  background:linear-gradient(var(--cream2),var(--tan));
+  border:3px solid var(--ink);border-radius:12px;
+  padding:7px 12px;cursor:pointer;box-shadow:0 3px 0 rgba(70,44,20,.45);
+  transition:transform .06s,box-shadow .06s,filter .12s;white-space:nowrap;
+}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(3px);box-shadow:0 0 0 rgba(0,0,0,0)}
+.btn.on{background:linear-gradient(#ffdf8a,var(--gold));box-shadow:0 3px 0 var(--gold2), 0 0 0 3px rgba(255,194,60,.35)}
+.btn.g{background:linear-gradient(#7fd47a,var(--green))}
+.btn.r{background:linear-gradient(#f18271,var(--red));color:#fff}
+.btn.b{background:linear-gradient(#7cc9f2,var(--blue));color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.6)}
+.btn.sm{padding:4px 8px;font-size:11px;border-width:2px;border-radius:9px}
+
+/* ---------- HUD superior ---------- */
+#hud{
+  position:absolute;top:calc(8px + env(safe-area-inset-top));left:8px;right:8px;height:52px;
+  display:flex;align-items:center;
+  gap:7px;padding:0 10px;z-index:20;
+  background:linear-gradient(#fffdf6,var(--cream));border:3px solid var(--ink);
+  border-radius:16px;box-shadow:var(--shadow);
+}
+#brand{font-size:17px;letter-spacing:-.4px;display:flex;align-items:center;gap:6px;
+  padding-right:10px;margin-right:2px;border-right:3px dotted var(--tan);flex:none}
+#brand b{color:var(--wood)}
+.stat{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:11px;
+  background:var(--cream2);border:2px solid rgba(70,44,20,.22);font-size:14px;flex:none;line-height:1}
+.stat .ic{font-size:16px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.15))}
+.stat small{display:block;font-size:9px;font-weight:800;opacity:.55;letter-spacing:.4px;text-transform:uppercase}
+.stat.money{background:#fff0c2}
+.stat.neg span{color:var(--red2)}
+#stHappy{cursor:pointer}
+#stHappy:active{transform:translateY(1px)}
+/* aviso de "por que ninguém vem" — no HUD, não escondido dentro de um painel */
+.stat.alerta{display:none;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;
+  background:linear-gradient(#ffcfc4,#ff9f8c);border:2px solid var(--red2);
+  color:#5e1a10;text-align:left;line-height:1.15;white-space:nowrap;
+  max-width:min(52vw,340px);overflow:hidden;
+  animation:pisca 1.6s ease-in-out infinite}
+.stat.alerta #vWarn{overflow:hidden;text-overflow:ellipsis}
+.stat.alerta.show{display:flex}
+.stat.alerta:active{transform:translateY(1px)}
+@keyframes pisca{0%,100%{filter:brightness(1)}50%{filter:brightness(1.13)}}
+/* quebra linha junto com o HUD: sem isso o último botão vazava para fora da
+   tela no celular, porque o grupo da direita não acompanhava o wrap do pai */
+#hudRight{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
+  gap:4px;align-items:center;flex:0 1 auto}
+.spd{width:32px;height:32px;padding:0;font-size:13.5px;display:grid;place-items:center}
+#clockBadge{font-size:12px;min-width:58px;text-align:center}
+
+/* ---------- Dock inferior ---------- */
+#dockWrap{position:absolute;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;
+  display:flex;flex-direction:column;gap:7px;align-items:flex-start;
+  /* reserva a coluna do minimapa (150px + margens): com flex-wrap o dock
+     esticaria até a borda direita e passaria por baixo dele */
+  max-width:calc(100% - 176px)}
+#palette{
+  display:none;gap:6px;padding:9px;max-width:min(880px,calc(100vw - 30px));
+  flex-wrap:wrap;background:linear-gradient(#fffdf6,var(--cream));
+  border:3px solid var(--ink);border-radius:16px;box-shadow:var(--shadow);
+  max-height:290px;overflow-y:auto;
+}
+#palette.show{display:flex}
+#palTitle{width:100%;font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.55;margin-bottom:1px}
+.pitem{
+  width:96px;padding:7px 5px;border:3px solid var(--ink);border-radius:13px;cursor:pointer;
+  background:linear-gradient(var(--cream2),var(--tan));text-align:center;font-size:11px;line-height:1.15;
+  box-shadow:0 3px 0 rgba(70,44,20,.4);transition:transform .07s,filter .1s;
+}
+.pitem:hover{filter:brightness(1.07);transform:translateY(-2px)}
+.pitem.on{background:linear-gradient(#ffdf8a,var(--gold));box-shadow:0 3px 0 var(--gold2),0 0 0 3px rgba(255,194,60,.4)}
+.pitem .em{font-size:23px;display:block;line-height:1.1;margin-bottom:2px}
+.pitem .pr{display:block;font-size:10px;opacity:.7;margin-top:2px}
+.pitem.dis{opacity:.4;filter:grayscale(.7);cursor:not-allowed}
+.swatch{width:26px;height:26px;border-radius:8px;border:2px solid var(--ink);display:inline-block;vertical-align:middle}
+#dock{display:flex;gap:6px;flex-wrap:wrap}
+#dock .btn{display:flex;flex-direction:column;align-items:center;gap:1px;width:66px;padding:6px 3px;font-size:10px}
+#dock .btn i{font-style:normal;font-size:20px;line-height:1}
+
+/* ---------- Inspector direita ---------- */
+#inspector{
+  position:absolute;right:8px;top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top));
+  /* -200px reserva o rodapé do minimapa (150) + margens: um inspetor cheio
+     descia por cima dele em telas de altura média */
+  width:302px;max-height:calc(100dvh - var(--hudH,60px) - 200px);
+  overflow-y:auto;z-index:19;padding:12px;display:none;
+  background:linear-gradient(#fffdf6,var(--cream));border:3px solid var(--ink);
+  border-radius:16px;box-shadow:var(--shadow);
+}
+#inspector.show{display:block}
+.ihead{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ihead .av{width:52px;height:52px;border-radius:13px;border:3px solid var(--ink);background:#cfe9c0;flex:none;
+  display:grid;place-items:center;overflow:hidden}
+.ihead .av canvas{max-width:100%;max-height:100%}
+.ihead h3{font-size:16px;line-height:1.1}
+.ihead .sub{font-size:11px;opacity:.6;font-weight:800}
+.closeX{margin-left:auto;width:26px;height:26px;padding:0;font-size:14px;line-height:1;display:grid;place-items:center}
+.bar{height:15px;border-radius:9px;background:rgba(70,44,20,.16);overflow:hidden;border:2px solid rgba(70,44,20,.3);position:relative}
+.bar>i{display:block;height:100%;border-radius:6px;transition:width .3s}
+.barRow{margin:5px 0}
+.barRow label{display:flex;justify-content:space-between;font-size:10.5px;opacity:.75;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.kv{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px dotted rgba(70,44,20,.2)}
+.kv b{font-weight:800}
+.tagline{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0}
+.tag{font-size:10px;padding:3px 7px;border-radius:8px;background:var(--tan);border:2px solid rgba(70,44,20,.3)}
+.tag.ok{background:#a9e2a3}.tag.bad{background:#f5a99a}.tag.warn{background:#ffd98a}
+h4.sec{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.55;margin:11px 0 5px;
+  border-top:2px dotted var(--tan);padding-top:8px}
+.rowbtns{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+
+/* ---------- Modal ---------- */
+#modalBg{position:absolute;inset:0;background:rgba(30,18,8,.55);z-index:40;display:none;
+  align-items:center;justify-content:center;padding:22px;backdrop-filter:blur(2px)}
+#modalBg.show{display:flex}
+#modal{width:min(1080px,100%);max-height:calc(100vh - 46px);display:flex;flex-direction:column;
+  background:linear-gradient(#fffdf6,var(--cream));border:4px solid var(--ink);border-radius:20px;
+  box-shadow:0 10px 0 rgba(70,44,20,.4),0 22px 50px rgba(0,0,0,.4);overflow:hidden}
+#modalHead{display:flex;align-items:center;gap:10px;padding:12px 16px;
+  background:linear-gradient(var(--gold),var(--gold2));border-bottom:4px solid var(--ink)}
+#modalHead h2{font-size:19px;flex:none}
+#modalBody{padding:14px 16px;overflow-y:auto}
+#modalFoot{padding:10px 16px;border-top:3px solid var(--ink);background:var(--cream2);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:3px;font-size:11px}
+input[type=text],input[type=number],select{
+  font:inherit;font-size:13px;padding:6px 9px;border:3px solid var(--ink);border-radius:10px;
+  background:#fff;color:var(--ink);min-width:90px}
+input[type=range]{accent-color:var(--green);width:150px}
+
+/* Loja de animais */
+#shopBar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:11px;
+  position:sticky;top:-14px;background:linear-gradient(#fffdf6 70%,rgba(255,246,226,0));padding:10px 0 8px;z-index:3}
+#shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px}
+.acard{border:3px solid var(--ink);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;
+  box-shadow:0 3px 0 rgba(70,44,20,.35);transition:transform .08s,box-shadow .08s;display:flex;flex-direction:column}
+.acard:hover{transform:translateY(-3px);box-shadow:0 7px 0 rgba(70,44,20,.35)}
+.acard.dis{opacity:.5;filter:grayscale(.55)}
+.acard .pic{height:88px;display:grid;place-items:center;position:relative;overflow:hidden}
+.acard .pic canvas{max-width:100%;max-height:100%;image-rendering:auto}
+.acard .nm{font-size:12.5px;padding:5px 7px 1px;line-height:1.15}
+.acard .mt{font-size:10px;padding:0 7px 6px;opacity:.65;font-weight:800}
+.acard .ft{margin-top:auto;display:flex;justify-content:space-between;align-items:center;
+  padding:4px 7px;background:var(--cream2);border-top:2px solid rgba(70,44,20,.25);font-size:11px}
+.stars{color:var(--gold2);letter-spacing:-1px;font-size:11px}
+
+/* Tabelas finanças */
+table.fin{width:100%;border-collapse:collapse;font-size:12.5px}
+table.fin td,table.fin th{padding:5px 8px;border-bottom:2px dotted rgba(70,44,20,.25);text-align:left}
+table.fin th{font-size:10px;text-transform:uppercase;letter-spacing:.6px;opacity:.6}
+table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--green2)}.negv{color:var(--red2)}
+
+/* ---------- Toasts ---------- */
+#toasts{position:absolute;right:8px;bottom:8px;z-index:30;display:flex;flex-direction:column;
+  gap:6px;align-items:flex-end;pointer-events:none;max-width:330px}
+.toast{
+  padding:8px 12px;border-radius:13px;border:3px solid var(--ink);font-size:12.5px;
+  background:linear-gradient(#fffdf6,var(--cream));box-shadow:var(--shadow);
+  animation:pop .3s cubic-bezier(.2,1.6,.5,1);display:flex;gap:7px;align-items:center;line-height:1.25
+}
+.toast.bad{background:linear-gradient(#ffdcd4,#ffbdae)}
+.toast.good{background:linear-gradient(#dcf5d6,#b7e9ad)}
+.toast.money{background:linear-gradient(#fff2c9,#ffe08a)}
+@keyframes pop{from{transform:translateX(30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
+
+/* ---------- Tooltip / dica de construção ---------- */
+#hint{
+  position:absolute;left:50%;top:calc(var(--hudH,60px) + 16px + env(safe-area-inset-top));
+  transform:translateX(-50%);z-index:18;
+  padding:7px 15px;border-radius:13px;border:3px solid var(--ink);font-size:13px;
+  background:linear-gradient(#fffdf6,var(--cream));box-shadow:var(--shadow);display:none;
+  align-items:center;gap:8px;max-width:min(680px,94vw);text-align:center
+}
+#hint.show{display:flex}
+#hintX{flex:none;width:26px;height:26px;padding:0;display:grid;place-items:center;font-size:13px}
+
+/* Botões de zoom / minimapa — indispensáveis no toque, onde não há roda do mouse.
+   Ficam SEMPRE no topo à direita: o rodapé é do dock e da paleta em todo layout,
+   e o canto superior é a única região livre em qualquer tamanho de tela.
+   Somem enquanto o inspetor está aberto (ele ocupa esse lado). */
+#zoomBtns{position:absolute;right:8px;z-index:18;display:none;flex-direction:column;gap:6px;
+  top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top))}
+#zoomBtns.show{display:flex}
+/* depois de .show de propósito: a gaveta do inspetor cobre esse canto no celular */
+#zoomBtns.tapado{display:none}
+#zoomBtns .btn{width:46px;height:46px;padding:0;font-size:20px;display:grid;place-items:center;border-radius:14px}
+#hint kbd{background:var(--ink);color:var(--cream);border-radius:6px;padding:1px 6px;font-size:11px;font-family:inherit}
+
+/* ---------- Minimap ---------- */
+#mini{position:absolute;right:8px;bottom:8px;width:150px;height:150px;z-index:16;padding:5px;
+  background:linear-gradient(#fffdf6,var(--cream));border:3px solid var(--ink);border-radius:14px;
+  box-shadow:var(--shadow);display:none}
+#mini.show{display:block}
+#mini canvas{width:100%;height:100%;border-radius:8px;cursor:pointer}
+
+/* ---------- Splash ---------- */
+#splash{position:absolute;inset:0;z-index:60;display:grid;place-items:center;padding:20px;
+  background:radial-gradient(circle at 50% 30%,#9fdcb8,#4d9c7a 70%,#2f6b52)}
+#splash .card{width:min(620px,100%);text-align:center;padding:26px 28px 22px}
+#splash h1{font-size:38px;letter-spacing:-1px;line-height:1;margin-bottom:2px}
+#splash h1 span{color:var(--wood)}
+#splash p.tag{background:none;border:none;font-size:14px;opacity:.75;margin-bottom:14px;padding:0}
+#splash .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;font-size:12.5px;margin:14px 0 16px}
+#splash .grid div{background:var(--cream2);border:2px solid rgba(70,44,20,.25);border-radius:10px;padding:7px 10px}
+#splash .big{font-size:17px;padding:12px 28px;border-radius:15px}
+#splashBtns{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;align-items:center}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:rgba(70,44,20,.09);border-radius:8px}
+::-webkit-scrollbar-thumb{background:var(--tan);border:2px solid var(--ink);border-radius:8px}
+
+/* ---- barra de alertas do gerente (abaixo do HUD, à esquerda) ---- */
+#alertbar{position:absolute;left:8px;top:calc(var(--hudH,54px) + 10px);display:flex;flex-direction:column;align-items:flex-start;gap:5px;z-index:14;pointer-events:none;max-width:46vw}
+#alertbar .achip{pointer-events:auto;display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:12px;padding:3px 9px 3px 7px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 2px 0 rgba(47,33,19,.28);cursor:pointer;background:#fffdf6;font-family:inherit;transition:transform .08s}
+#alertbar .achip:active{transform:scale(.95)}
+#alertbar .achip .n{background:var(--ink);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:800}
+#alertbar .achip.sev2{background:#fff3d6}
+#alertbar .achip.sev3{background:#ffe1d9}
+#stRep,#stHappy{cursor:pointer}
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+
+/* ============================ RESPONSIVO ============================ */
+
+/* Telas médias: encolhe sem mudar a arquitetura da tela */
+@media(max-width:1000px){
+  #brand{display:none}
+  .stat{padding:4px 8px;font-size:13px}
+  #inspector{width:268px}
+}
+
+/* Telas estreitas (celular em pé, tablet pequeno) */
+@media(max-width:700px){
+  #alertbar{max-width:64vw;gap:4px}
+  #alertbar .achip{font-size:11.5px;padding:2px 8px 2px 6px}
+  /* HUD quebra em linhas e as etiquetas viram só ícone+valor */
+  #hud{height:auto;flex-wrap:wrap;padding:5px 6px;gap:5px;row-gap:4px}
+  .stat{padding:3px 7px;font-size:13px;border-radius:9px}
+  .stat small{display:none}
+  .stat .ic{font-size:14px}
+  /* 10 botões + relógio têm de caber numa linha só: acima disso o wrap
+     jogava o HUD para 150px de altura (18% da tela do celular) */
+  #hudRight{gap:2px}
+  .spd{width:28px;height:34px;font-size:12px}
+  #clockBadge{min-width:auto;font-size:10.5px;padding:4px 4px}
+
+  /* Dock: tira em rolagem horizontal, alvos de toque maiores */
+  /* aqui o minimapa flutua ACIMA do dock, então a tira usa a largura toda */
+  #dockWrap{left:0;right:0;bottom:0;max-width:none;
+    padding:0 6px calc(6px + env(safe-area-inset-bottom));gap:6px}
+  #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
+    padding:3px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #dock::-webkit-scrollbar{display:none}
+  #dock .btn{flex:0 0 auto;width:60px;min-height:48px;padding:5px 3px;font-size:9.5px;line-height:1.1}
+  #dock .btn i{font-size:19px}
+
+  /* Paleta ocupa a largura toda, acima do dock */
+  #palette{max-width:none;width:100%;max-height:34dvh;padding:8px;gap:5px}
+  .pitem{width:calc(33.333% - 4px);min-width:0;padding:7px 3px;font-size:10.5px}
+  .pitem .em{font-size:21px}
+  #palTitle{font-size:10px}
+
+  /* Inspetor vira gaveta inferior — 302px fixos comeriam a tela inteira */
+  #inspector{
+    left:6px;right:6px;top:auto;width:auto;
+    bottom:calc(64px + env(safe-area-inset-bottom));
+    max-height:48dvh;border-radius:18px;padding:11px;
+  }
+  .closeX{width:34px;height:34px;font-size:16px}
+  .ihead .av{width:46px;height:46px}
+  .ihead h3{font-size:15px}
+  .btn.sm{padding:7px 10px;font-size:11.5px}
+
+  /* Modais em tela cheia */
+  #modalBg{padding:0}
+  #modal{width:100%;height:100dvh;max-height:none;border-radius:0;border-width:0}
+  #modalHead{padding:calc(9px + env(safe-area-inset-top)) 12px 9px;border-bottom-width:3px}
+  #modalHead h2{font-size:16px}
+  #modalBody{padding:11px 12px}
+  #modalFoot{padding:9px 12px calc(9px + env(safe-area-inset-bottom));font-size:12px}
+  #shopGrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px}
+  .acard .pic{height:74px}
+  .acard .nm{font-size:11.5px}
+  .acard .mt{font-size:9px}
+  #shopBar{gap:5px;padding:8px 0 6px;top:-11px}
+  #shopBar input[type=text]{min-width:120px}
+  select,input[type=text],input[type=number]{font-size:12.5px;padding:6px 7px}
+
+  /* Finanças/ajuda são grid de 2 colunas no desktop */
+  #modalBody>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+
+  /* Toasts saem de cima do dock e vão para baixo do HUD */
+  #toasts{top:calc(var(--hudH,76px) + 14px + env(safe-area-inset-top));bottom:auto;
+    right:6px;left:6px;align-items:flex-end;max-width:none}
+  .toast{font-size:12px;padding:7px 10px}
+
+  #mini{width:112px;height:112px;bottom:calc(70px + env(safe-area-inset-bottom))}
+  #hint{font-size:11.5px;padding:6px 10px}
+
+  #splash .card{padding:20px 18px 18px}
+  #splash h1{font-size:29px}
+  #splash .grid{grid-template-columns:1fr;gap:6px;font-size:12px;margin:11px 0 13px}
+  #splash .big{font-size:15px;padding:11px 20px;width:100%}
+}
+
+/* Celular bem estreito: solta o que dá para ler em outro lugar */
+@media(max-width:400px){
+  #stAni{display:none}
+  .pitem{width:calc(50% - 3px)}
+  #dock .btn{width:56px;font-size:9px}
+}
+
+/* Telas baixas (celular deitado): a gaveta inferior não cabe, volta para a lateral.
+   Aqui a restrição é ALTURA — o dock em duas linhas comeria 150px de 390px. */
+@media(max-height:520px) and (min-width:560px){
+  #inspector{
+    left:auto;right:6px;width:250px;
+    top:calc(var(--hudH,60px) + 10px + env(safe-area-inset-top));bottom:auto;
+    max-height:calc(100dvh - var(--hudH,60px) - 24px);
+  }
+  #hud{height:auto;padding:4px 6px;gap:5px}
+  .stat{padding:3px 7px;font-size:12.5px}
+  .stat small{display:none}
+  .stat .ic{font-size:14px}
+  .spd{width:33px;height:33px;font-size:13px}
+  /* dock em uma única tira rolável */
+  #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
+    padding:3px 2px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #dock::-webkit-scrollbar{display:none}
+  #dock .btn{flex:0 0 auto;width:58px;min-height:44px;padding:4px 3px;font-size:9.5px;line-height:1.1}
+  #dock .btn i{font-size:17px}
+  #dockWrap{left:6px;bottom:calc(6px + env(safe-area-inset-bottom))}
+  /* toasts saem do canto que o inspetor lateral ocupa */
+  #toasts{left:6px;right:auto;bottom:auto;align-items:flex-start;
+    top:calc(var(--hudH,48px) + 10px + env(safe-area-inset-top))}
+  #palette{max-height:42dvh}
+  /* 268px = largura do inspetor lateral (250) + margens; sem isso o dock
+     passa por baixo do painel no canto inferior direito */
+  #dockWrap{width:auto;right:auto;max-width:calc(100% - 268px)}
+  #toasts{max-width:230px}
+  /* Numa tela de ~375px de altura não cabem HUD + dica + zoom + paleta + dock.
+     Aqui o zoom sai (a pinça resolve) e o minimapa também — 150px de mapa
+     cobririam 40% da altura útil. Sobra espaço para a dica ficar legível. */
+  #zoomBtns.show{display:none}
+  #mini{display:none!important}
+  #zMap{display:none}
+  #hint{left:6px;right:262px;font-size:12px}
+}
+
+/* Sem mouse: esconde o que depende de hover e troca as instruções */
+.ctrlToque{display:none}
+.soToque{display:none}
+@media(hover:none){
+  .soToque{display:grid}
+  /* a dica cede a calha direita para a coluna de zoom, em qualquer largura */
+  #hint{left:6px;right:62px;transform:none;max-width:none;text-align:left}
+  .pitem:hover{transform:none}
+  .acard:hover{transform:none;box-shadow:0 3px 0 rgba(70,44,20,.35)}
+  .btn:hover{filter:none}
+  .ctrlMouse{display:none}
+  .ctrlToque{display:block}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div id="brand">🦁 <b>ZOO</b> MAGNATA</div>
+    <div class="stat money" id="stMoney"><span class="ic">💰</span><span><small>Caixa</small><span id="vMoney">R$ 0</span></span></div>
+    <div class="stat" id="stDay"><span class="ic">📅</span><span><small>Dia</small><span id="vDay">1</span></span></div>
+    <div class="stat" id="stVis"><span class="ic">👥</span><span><small>Visitantes</small><span id="vVis">0</span></span></div>
+    <div class="stat" id="stHappy"><span class="ic">😊</span><span><small>Satisfação</small><span id="vHappy">—</span></span></div>
+    <div class="stat" id="stRep"><span class="ic">⭐</span><span><small>Reputação</small><span id="vRep">—</span></span></div>
+    <div class="stat" id="stAni"><span class="ic">🐾</span><span><small>Animais</small><span id="vAni">0</span></span></div>
+    <button class="stat alerta" id="stWarn" title="Ver o motivo"><span class="ic">⚠️</span><span id="vWarn">—</span></button>
+    <div id="hudRight">
+      <div class="stat" id="clockBadge">08:00</div>
+      <button class="btn spd" id="sp0" title="Pausar (Espaço)">⏸</button>
+      <button class="btn spd on" id="sp1" title="Velocidade 1x">▶</button>
+      <button class="btn spd" id="sp2" title="Velocidade 2x">⏩</button>
+      <button class="btn spd" id="sp3" title="Velocidade 4x">⏭</button>
+      <button class="btn spd" id="zSom" title="Som (S)">🔊</button>
+      <button class="btn spd" id="zBolha" title="Balões de pensamento (B)">💭</button>
+      <button class="btn spd" id="zUndo" title="Nada para desfazer (Ctrl+Z)" disabled>↩️</button>
+      <button class="btn spd soToque" id="zMap" title="Minimapa">🗺️</button>
+      <button class="btn spd" id="zSave" title="Baixar save do jogo (.json)">📥</button>
+      <button class="btn spd" id="zLoad" title="Abrir save de um arquivo">📤</button>
+    </div>
+  </div>
+  <div id="alertbar"></div>
+
+  <div id="dockWrap">
+    <div id="palette"><div id="palTitle"></div></div>
+    <div id="dock"></div>
+  </div>
+
+  <div id="inspector"></div>
+  <div id="hint"></div>
+  <div id="zoomBtns">
+    <button class="btn" id="zIn" title="Aproximar">＋</button>
+    <button class="btn" id="zOut" title="Afastar">－</button>
+  </div>
+  <div id="mini"><canvas id="minicv" width="300" height="300"></canvas></div>
+  <div id="toasts"></div>
+  <!-- input de arquivo permanente: o do modal some junto com o HTML dele -->
+  <input type="file" id="fileSave" accept=".json,application/json" hidden>
+
+  <div id="modalBg">
+    <div id="modal">
+      <div id="modalHead"><h2 id="modalTitle">—</h2><button class="btn r closeX" id="modalX" style="margin-left:auto">✕</button></div>
+      <div id="modalBody"></div>
+      <div id="modalFoot"></div>
+    </div>
+  </div>
+
+  <div id="splash">
+    <div class="card panel">
+      <h1>🦁 ZOO <span>MAGNATA</span></h1>
+      <p class="tag">Construa o zoológico mais lucrativo do país</p>
+      <div class="grid">
+        <div>🐘 <b>200+ espécies</b> de animais, cada uma com bioma, dieta e temperamento próprios</div>
+        <div>🏗️ <b>Recintos</b> com cercas, terreno pintável, comedouros e enriquecimento</div>
+        <div>🍔 <b>Lanchonetes e restaurantes</b> com preço que você define</div>
+        <div>👨‍🔬 <b>Tratadores, veterinários e faxineiros</b> cuidando do parque</div>
+        <div>😊 <b>Visitantes</b> com fome, sede, cansaço e opinião sobre tudo</div>
+        <div>💸 <b>Economia real</b>: ingressos, salários, ração e contas semanais</div>
+      </div>
+      <div id="splashBtns">
+        <button class="btn g big" id="btnStart">Abrir o zoológico! 🎟️</button>
+        <button class="btn b big" id="btnUpload">📤 Abrir save do arquivo</button>
+      </div>
+      <div style="margin-top:12px;font-size:11.5px;opacity:.65;line-height:1.5">
+        <span class="ctrlMouse">
+          Arraste com o botão direito (ou espaço + arrastar) para mover a câmera • Roda do mouse dá zoom<br>
+          <b>1–9</b> alterna as abas de construção • <b>Esc</b> cancela a ferramenta • <b>Espaço</b> pausa
+        </span>
+        <span class="ctrlToque">
+          Arraste com <b>um dedo</b> para mover o mapa e <b>toque</b> para inspecionar<br>
+          <b>Pinça</b> com dois dedos dá zoom • com uma ferramenta ativa, um dedo desenha e dois movem a câmera
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/*__APP__*/
+</script>
+</body>
+</html>
