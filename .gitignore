@@ -4,3 +4,8 @@ node_modules/
 dist/
 
 .DS_Store
+
+# rascunhos de automação (script agendado, mensagem de commit em preparo)
+.agendado.sh
+.commit-msg.tmp
+*.tmp.mjs
