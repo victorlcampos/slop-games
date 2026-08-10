@@ -1,0 +1,9 @@
+node_modules/
+
+# gerado por `node build.mjs` (e pelo CI, que publica no Pages)
+dist/
+
+# saída do smoke test
+test/shot-*.png
+
+.DS_Store

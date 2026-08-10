@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0e14">
+<!-- favicon inline: mantém o entregável em um arquivo só (funciona em file:// também) -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
+<title>WorldDrive — dirija em qualquer rua do mundo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #0b0e14; color: #e8ecf2;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .hide { display: none !important; }
+
+  #gl { position: fixed; inset: 0; }
+  #gl canvas { display: block; }
+
+  /* ---------- MENU ---------- */
+  #menu { position: fixed; inset: 0; overflow-y: auto; z-index: 30;
+    background: radial-gradient(1200px 700px at 50% -10%, #17202e 0%, #0b0e14 60%);
+    display: flex; flex-direction: column; align-items: center; padding: 40px 18px 26px; }
+  #menu h1 { font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: -1.5px;
+    background: linear-gradient(92deg, #6db3ff, #7fe3c3 70%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #menu .tag { color: #93a1b5; margin: 6px 0 26px; font-size: 15px; }
+  .panel { width: min(640px, 100%); }
+  .searchwrap { position: relative; }
+  #search { width: 100%; padding: 14px 18px; font-size: 16px; border-radius: 14px;
+    border: 1px solid #2a3547; background: #131a26; color: #e8ecf2; outline: none; }
+  #search:focus { border-color: #4a90d9; }
+  #results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+    background: #161e2b; border: 1px solid #2a3547; border-radius: 12px; overflow: hidden;
+    display: none; box-shadow: 0 12px 32px rgba(0,0,0,.5); }
+  #results.show { display: block; }
+  .ritem { padding: 11px 16px; font-size: 14px; cursor: pointer; border-top: 1px solid #202a3a; }
+  .ritem:first-child { border-top: 0; }
+  .ritem:hover { background: #1e2939; }
+  .ritem.dim { color: #8a97ab; cursor: default; }
+
+  .mapwrap { position: relative; margin-top: 14px; border-radius: 16px; overflow: hidden;
+    border: 1px solid #2a3547; height: min(340px, 38vh); background: #1a1e26; }
+  #map { width: 100%; height: 100%; display: block; cursor: grab; }
+  #map:active { cursor: grabbing; }
+  .pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%);
+    pointer-events: none; filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)); }
+  .zbtns { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .zbtns button { width: 34px; height: 34px; border-radius: 9px; border: 1px solid #2a3547;
+    background: rgba(15,20,30,.85); font-size: 18px; }
+  .osmcredit { position: absolute; left: 8px; bottom: 6px; font-size: 10.5px; color: #cfd8e4;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8); pointer-events: none; }
+  .maphint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+    background: rgba(10,14,20,.72); padding: 5px 12px; border-radius: 20px; font-size: 12px;
+    color: #b6c2d4; pointer-events: none; white-space: nowrap; }
+
+  #btn-drive { width: 100%; margin-top: 14px; padding: 16px; font-size: 18px; font-weight: 700;
+    border: 0; border-radius: 14px; color: #08131f;
+    background: linear-gradient(92deg, #5aa8ff, #63e0b8); transition: transform .08s; }
+  #btn-drive:active { transform: scale(.985); }
+
+  #presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; justify-content: center; }
+  .chip { padding: 8px 13px; border-radius: 20px; border: 1px solid #2a3547; background: #141b28;
+    font-size: 13.5px; color: #c9d4e3; }
+  .chip:hover { background: #1d2839; border-color: #3b4c66; }
+
+  #menu footer { margin-top: auto; padding-top: 26px; font-size: 11.5px; color: #66738a;
+    text-align: center; line-height: 1.7; max-width: 620px; }
+  #menu footer a { color: #8fa3c0; }
+
+  /* ---------- LOADING ---------- */
+  #loading { position: fixed; inset: 0; z-index: 40; background: rgba(8,11,17,.94);
+    display: flex; align-items: center; justify-content: center; }
+  .loadcard { width: min(430px, 92vw); background: #121926; border: 1px solid #26324a;
+    border-radius: 18px; padding: 26px 28px; box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+  #load-title { font-size: 19px; font-weight: 700; margin-bottom: 18px; }
+  #load-steps { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+  #load-steps li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #7e8ba0; }
+  #load-steps li em { margin-left: auto; font-style: normal; font-size: 12px; color: #5e6b82; }
+  #load-steps li .dot { width: 9px; height: 9px; border-radius: 50%; background: #2c3950; flex: none; }
+  #load-steps li.active { color: #c8d3e4; }
+  #load-steps li.active .dot { background: #5aa8ff; box-shadow: 0 0 8px #5aa8ff88; }
+  #load-steps li.done { color: #9fb3cf; }
+  #load-steps li.done .dot { background: #63e0b8; box-shadow: none; }
+  .barwrap { margin-top: 20px; height: 6px; background: #1c2536; border-radius: 4px; overflow: hidden; }
+  #load-bar { height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, #5aa8ff, #63e0b8); transition: width .25s; }
+  .loadtip { margin-top: 14px; font-size: 12px; color: #66738a; }
+  #load-err { margin-top: 4px; }
+  #load-err p { font-size: 14px; color: #f0a9a9; line-height: 1.5; margin-bottom: 14px; }
+  #load-err button { padding: 10px 16px; border-radius: 10px; border: 1px solid #2a3547;
+    background: #1a2434; margin-right: 8px; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+  #streetbox { position: absolute; top: 14px; left: 14px; padding: 10px 16px;
+    background: rgba(10,14,20,.66); border-radius: 12px; backdrop-filter: blur(8px);
+    max-width: min(46vw, 380px); }
+  #street { font-size: 16.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #place { font-size: 12px; color: #94a2b8; margin-top: 1px; }
+  #speedbox { position: absolute; right: 16px; bottom: 16px; text-align: right;
+    background: rgba(10,14,20,.66); border-radius: 14px; padding: 10px 18px 12px;
+    backdrop-filter: blur(8px); }
+  #speed { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  #speedbox small { font-size: 12px; color: #94a2b8; letter-spacing: 2px; }
+  #minimap { position: absolute; left: 16px; bottom: 16px; border-radius: 50%; }
+  #hudbtns { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; pointer-events: auto; }
+  #hudbtns button { width: 40px; height: 40px; border-radius: 11px; border: 1px solid rgba(255,255,255,.14);
+    background: rgba(10,14,20,.66); backdrop-filter: blur(8px); font-size: 17px; }
+  #hudbtns button:hover { background: rgba(30,40,56,.8); }
+  #edge { position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(120,60,10,.82); padding: 8px 18px; border-radius: 22px; font-size: 13.5px;
+    opacity: 0; transition: opacity .3s; }
+  #edge.show { opacity: 1; }
+  #toast { position: absolute; bottom: 108px; left: 50%; transform: translateX(-50%);
+    background: rgba(12,17,26,.85); border: 1px solid rgba(255,255,255,.12);
+    padding: 9px 20px; border-radius: 24px; font-size: 14px; opacity: 0; transition: opacity .3s;
+    white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #credit-hud { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+    font-size: 9.5px; color: rgba(255,255,255,.4); white-space: nowrap; }
+
+  /* ---------- AJUDA ---------- */
+  #help { position: fixed; inset: 0; z-index: 50; background: rgba(5,8,12,.8);
+    display: flex; align-items: center; justify-content: center; }
+  .helpcard { background: #121926; border: 1px solid #26324a; border-radius: 16px;
+    padding: 24px 30px; font-size: 14.5px; line-height: 2.1; }
+  .helpcard h2 { font-size: 17px; margin-bottom: 10px; }
+  .helpcard b { display: inline-block; min-width: 88px; color: #7fc0ff; font-weight: 600; }
+
+  /* ---------- TOUCH ---------- */
+  #touch { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+  #touch button { position: absolute; pointer-events: auto; width: 64px; height: 64px;
+    border-radius: 50%; border: 1.5px solid rgba(255,255,255,.25);
+    background: rgba(20,26,38,.55); font-size: 24px; color: #dfe7f2;
+    touch-action: none; -webkit-user-select: none; user-select: none; }
+  #touch button.on { background: rgba(90,168,255,.45); }
+  #t-left { left: 18px; bottom: 120px; }
+  #t-right { left: 100px; bottom: 120px; }
+  #t-gas { right: 18px; bottom: 176px; }
+  #t-brake { right: 18px; bottom: 96px; }
+  #t-hb { right: 100px; bottom: 96px; width: 56px; height: 56px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="gl"></div>
+
+<div id="menu" class="hide">
+  <h1>WORLDDRIVE</h1>
+  <div class="tag">Dirija em qualquer rua do mundo — mapa real, relevo real 🌍</div>
+  <div class="panel">
+    <div class="searchwrap">
+      <input id="search" type="text" placeholder="🔍 Busque uma cidade, rua ou lugar…" autocomplete="off" spellcheck="false">
+      <div id="results"></div>
+    </div>
+    <div class="mapwrap">
+      <canvas id="map"></canvas>
+      <div class="pin">
+        <svg width="34" height="44" viewBox="0 0 34 44">
+          <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 27 17 27s17-14.3 17-27C34 7.6 26.4 0 17 0z" fill="#ff5a4e"/>
+          <circle cx="17" cy="16.5" r="6.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="zbtns"><button id="zin">＋</button><button id="zout">－</button></div>
+      <div class="maphint">Arraste o mapa e deixe o pin sobre uma rua</div>
+      <div class="osmcredit">© OpenStreetMap</div>
+    </div>
+    <button id="btn-drive">🏁&nbsp; DIRIGIR AQUI</button>
+    <div id="presets"></div>
+  </div>
+  <footer>
+    Ao carregar, o jogo baixa dados abertos da área escolhida; depois tudo roda no seu navegador.<br>
+    Mapa © colaboradores do <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> ·
+    Imagens de satélite: Esri World Imagery · Elevação: AWS Terrain Tiles (Mapzen/USGS/SRTM) · Busca: Photon/Nominatim
+  </footer>
+</div>
+
+<div id="loading" class="hide">
+  <div class="loadcard">
+    <div id="load-title">Preparando o mundo…</div>
+    <ul id="load-steps"></ul>
+    <div id="load-err" class="hide">
+      <p id="load-err-msg"></p>
+      <button id="btn-retry">🔄 Tentar novamente</button>
+      <button id="btn-load-back">← Voltar</button>
+    </div>
+    <div class="barwrap"><div id="load-bar"></div></div>
+    <div class="loadtip">Dirija com <b>WASD</b> ou setas · Freio de mão: <b>espaço</b> · Ajuda: <b>H</b></div>
+  </div>
+</div>
+
+<div id="hud" class="hide">
+  <div id="streetbox">
+    <div id="street">—</div>
+    <div id="place"></div>
+  </div>
+  <div id="hudbtns">
+    <button id="b-reload" title="Recarregar o mundo aqui (N)">🌐</button>
+    <button id="b-cam" title="Câmera (C)">📷</button>
+    <button id="b-snd" title="Som (M)">🔊</button>
+    <button id="b-help" title="Ajuda (H)">❓</button>
+    <button id="b-map" title="Trocar de lugar (Esc)">🗺️</button>
+  </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="speedbox"><div id="speed">0</div><small>KM/H</small></div>
+  <div id="edge">⚠️ Fim da área carregada — pressione <b>N</b> para recarregar o mundo aqui</div>
+  <div id="toast"></div>
+  <div id="credit-hud">© OpenStreetMap contributors · Esri · AWS Terrain Tiles</div>
+</div>
+
+<div id="help" class="hide">
+  <div class="helpcard">
+    <h2>🎮 Controles</h2>
+    <b>W / ↑</b> acelerar<br>
+    <b>S / ↓</b> frear / ré<br>
+    <b>A D / ← →</b> virar<br>
+    <b>Espaço</b> freio de mão (drift!)<br>
+    <b>R</b> voltar para a rua mais próxima<br>
+    <b>N</b> recarregar o mundo onde você está<br>
+    <b>C</b> trocar a câmera · <b>M</b> som · <b>Esc</b> menu
+  </div>
+</div>
+
+<div id="touch" class="hide">
+  <button id="t-left" data-t="left">◀</button>
+  <button id="t-right" data-t="right">▶</button>
+  <button id="t-gas" data-t="gas">▲</button>
+  <button id="t-brake" data-t="brake">▼</button>
+  <button id="t-hb" data-t="hb">DRIFT</button>
+</div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>
