@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SkiFree 3D — Descida da Montanha</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛷️</text></svg>" />
+<style>
+  :root {
+    --ink: #0d1b2a;
+    --snow: #f7fbff;
+    --ice: #9fd3ff;
+    --sky1: #7fb8ea;
+    --danger: #ff3b30;
+    --gold: #ffcf3f;
+    --ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #0b1622; color: var(--snow);
+    font-family: var(--ui);
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+  }
+
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------------------------------------------------------------- HUD */
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    opacity: 0; transition: opacity .4s ease;
+  }
+  #hud.on { opacity: 1; }
+
+  .panel {
+    position: absolute;
+    background: rgba(9, 22, 36, .42);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.28);
+  }
+
+  #stats {
+    top: 18px; left: 18px; padding: 12px 16px;
+    display: grid; grid-template-columns: auto auto; gap: 2px 18px;
+    align-items: baseline;
+  }
+  #stats .k {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(255,255,255,.55); font-weight: 600;
+  }
+  #stats .v { font-family: var(--mono); font-size: 22px; font-weight: 600; line-height: 1.15; }
+  #stats .v small { font-size: 11px; opacity: .55; font-weight: 400; margin-left: 2px; }
+
+  /* velocímetro */
+  #speedo {
+    bottom: 24px; right: 24px; width: 132px; height: 132px;
+    display: grid; place-items: center; border-radius: 50%;
+  }
+  #speedo svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(135deg); }
+  #speedo .track { fill: none; stroke: rgba(255,255,255,.13); stroke-width: 7; stroke-linecap: round; }
+  #speedo .bar   { fill: none; stroke: url(#spdgrad); stroke-width: 7; stroke-linecap: round;
+                   transition: stroke-dashoffset .08s linear; }
+  #speedo .num { position: relative; text-align: center; }
+  #speedo .num b { display: block; font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1; }
+  #speedo .num span { font-size: 9px; letter-spacing: .18em; color: rgba(255,255,255,.5); }
+
+  /* aviso do yeti */
+  #yeti-warn {
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    padding: 14px 28px; border-radius: 999px;
+    background: rgba(180,20,16,.28); border-color: rgba(255,80,70,.5);
+    font-weight: 800; letter-spacing: .22em; font-size: 15px; text-transform: uppercase;
+    color: #ffd9d6; text-shadow: 0 0 18px rgba(255,60,50,.85);
+    opacity: 0; transition: opacity .25s;
+  }
+  #yeti-warn.on { opacity: 1; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: translate(-50%,-50%) scale(1.06); opacity: .72; } }
+
+  /* barra de perigo do yeti */
+  #yeti-bar {
+    top: 18px; left: 50%; transform: translateX(-50%);
+    width: 260px; padding: 9px 14px; opacity: 0; transition: opacity .3s;
+  }
+  #yeti-bar.on { opacity: 1; }
+  #yeti-bar .lbl {
+    font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+    color: #ffb3ad; font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between;
+  }
+  #yeti-bar .rail { height: 6px; border-radius: 99px; background: rgba(255,255,255,.13); overflow: hidden; }
+  #yeti-bar .fill {
+    height: 100%; width: 0%; border-radius: 99px;
+    background: linear-gradient(90deg, #ffcf3f, #ff6a3d 55%, #ff2d20);
+    transition: width .12s linear;
+    box-shadow: 0 0 12px rgba(255,60,40,.7);
+  }
+
+  /* mensagens de truque / eventos */
+  #toasts {
+    position: absolute; left: 50%; bottom: 28%; transform: translateX(-50%);
+    display: flex; flex-direction: column-reverse; align-items: center; gap: 6px;
+  }
+  .toast {
+    font-weight: 800; letter-spacing: .06em; font-size: 19px;
+    text-shadow: 0 2px 14px rgba(0,0,0,.6);
+    animation: toastUp 1.35s cubic-bezier(.2,.7,.3,1) forwards;
+    white-space: nowrap;
+  }
+  .toast .pts { color: var(--gold); font-family: var(--mono); }
+  @keyframes toastUp {
+    0%   { opacity: 0; transform: translateY(14px) scale(.9); }
+    16%  { opacity: 1; transform: translateY(0) scale(1); }
+    72%  { opacity: 1; transform: translateY(-14px); }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+
+  /* gates de slalom */
+  #gates { top: 18px; right: 18px; padding: 11px 15px; text-align: right; }
+  #gates .k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
+  #gates .v { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  #gates .miss { color: #ff6b60; }
+
+  /* dica de controles */
+  #hint {
+    bottom: 24px; left: 24px; padding: 10px 14px;
+    font-size: 11px; color: rgba(255,255,255,.62); line-height: 1.9;
+  }
+  #hint kbd {
+    display: inline-block; min-width: 20px; text-align: center;
+    padding: 1px 6px; margin: 0 1px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+    border-bottom-width: 2px; border-radius: 5px;
+    font-family: var(--mono); font-size: 10px; color: #fff;
+  }
+
+  /* --------------------------------------------------------- OVERLAYS */
+  #overlay {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(12,28,48,.55), rgba(6,14,24,.92));
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    z-index: 10; transition: opacity .45s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .card {
+    width: min(760px, 92vw); max-height: 92vh; overflow-y: auto;
+    padding: 34px 40px 30px; text-align: center;
+    background: rgba(10,24,40,.62);
+    backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255,255,255,.16); border-radius: 22px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+
+  .logo {
+    font-size: clamp(38px, 7vw, 68px); font-weight: 900; letter-spacing: -.03em;
+    line-height: .95; margin: 0 0 4px;
+    background: linear-gradient(178deg, #ffffff 8%, #b9e0ff 52%, #5aa9e6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 20px rgba(90,169,230,.35));
+  }
+  .logo em { font-style: italic; color: transparent; }
+  .tagline {
+    font-size: 12px; letter-spacing: .3em; text-transform: uppercase;
+    color: rgba(255,255,255,.45); margin: 0 0 26px; font-weight: 600;
+  }
+
+  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; margin-bottom: 22px; }
+  .mode {
+    pointer-events: auto; cursor: pointer; text-align: left;
+    padding: 14px 15px; border-radius: 14px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    transition: transform .16s ease, background .16s ease, border-color .16s ease;
+    color: inherit; font: inherit;
+  }
+  .mode:hover { transform: translateY(-3px); background: rgba(255,255,255,.11); border-color: rgba(159,211,255,.5); }
+  .mode.sel { background: rgba(90,169,230,.22); border-color: #7fc4ff; box-shadow: 0 0 0 1px rgba(127,196,255,.4), 0 10px 30px rgba(20,90,150,.35); }
+  .mode .ico { font-size: 22px; line-height: 1; }
+  .mode .nm { font-weight: 700; font-size: 15px; margin: 7px 0 3px; }
+  .mode .ds { font-size: 11.5px; color: rgba(255,255,255,.55); line-height: 1.45; }
+
+  .keys {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(178px,1fr));
+    gap: 7px 22px; margin: 0 0 24px; text-align: left;
+    font-size: 12px; color: rgba(255,255,255,.66);
+  }
+  .keys div { display: flex; align-items: center; gap: 9px; }
+  .keys kbd {
+    flex: none; min-width: 22px; text-align: center; padding: 2px 7px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+    border-bottom-width: 2px; border-radius: 6px;
+    font-family: var(--mono); font-size: 10.5px; color: #fff;
+  }
+
+  .btn {
+    pointer-events: auto; cursor: pointer; font: inherit;
+    padding: 14px 42px; border-radius: 999px; border: none;
+    font-size: 16px; font-weight: 800; letter-spacing: .06em;
+    color: #06263f;
+    background: linear-gradient(180deg, #ffffff, #b6dcff);
+    box-shadow: 0 10px 30px rgba(120,190,255,.35), inset 0 -2px 0 rgba(0,60,110,.18);
+    transition: transform .14s ease, box-shadow .14s ease, filter .14s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(120,190,255,.45); }
+  .btn:active { transform: translateY(0); filter: brightness(.95); }
+  .btn.ghost {
+    background: rgba(255,255,255,.08); color: #dcefff;
+    border: 1px solid rgba(255,255,255,.2); box-shadow: none;
+    padding: 12px 26px; font-size: 14px;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,.15); }
+
+  .btnrow { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .foot { margin-top: 20px; font-size: 11px; color: rgba(255,255,255,.34); line-height: 1.7; }
+
+  /* game over */
+  #over .title { font-size: clamp(30px,6vw,52px); font-weight: 900; margin: 0 0 6px; letter-spacing: -.02em; }
+  #over .sub { font-size: 13px; color: rgba(255,255,255,.6); margin: 0 0 26px; letter-spacing: .04em; }
+  .scoregrid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(112px,1fr));
+    gap: 12px; margin-bottom: 26px;
+  }
+  .scoregrid .cell {
+    padding: 14px 10px; border-radius: 14px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  }
+  .scoregrid .cell .k { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.5); font-weight: 700; }
+  .scoregrid .cell .v { font-family: var(--mono); font-size: 25px; font-weight: 700; margin-top: 5px; }
+  .scoregrid .cell .v small { font-size: 11px; opacity: .5; }
+  .best { color: var(--gold); font-size: 12px; margin: -14px 0 20px; letter-spacing: .08em; font-weight: 600; }
+
+  /* loading */
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; background: #0b1622; z-index: 20; transition: opacity .5s; }
+  #boot.hidden { opacity: 0; pointer-events: none; }
+  #boot .b { text-align: center; }
+  #boot .sp {
+    width: 34px; height: 34px; margin: 0 auto 16px;
+    border: 3px solid rgba(255,255,255,.14); border-top-color: #9fd3ff;
+    border-radius: 50%; animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #boot .t { font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: rgba(255,255,255,.4); }
+
+  /* pause */
+  #paused {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 9;
+    background: rgba(6,14,24,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #paused.on { display: grid; }
+  #paused .p {
+    font-size: 13px; letter-spacing: .3em; text-transform: uppercase;
+    color: rgba(255,255,255,.75); font-weight: 700;
+  }
+
+  /* controles touch */
+  #touch { position: fixed; inset: auto 0 0 0; height: 42%; display: none; z-index: 5; }
+  #touch.on { display: block; }
+  #touch .zone { position: absolute; bottom: 0; height: 100%; width: 34%; }
+  #touch .zone.l { left: 0; }
+  #touch .zone.r { right: 0; }
+  #touch .zone.j { left: 34%; width: 32%; }
+
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #speedo { width: 104px; height: 104px; bottom: 16px; right: 16px; }
+    #speedo .num b { font-size: 24px; }
+    #stats { padding: 9px 12px; }
+    #stats .v { font-size: 18px; }
+    .card { padding: 26px 22px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ============================== HUD ============================== -->
+<div id="hud">
+  <div id="stats" class="panel">
+    <span class="k">Distância</span><span class="k">Tempo</span>
+    <span class="v" id="s-dist">0<small>m</small></span>
+    <span class="v" id="s-time">0.0<small>s</small></span>
+    <span class="k" style="margin-top:6px">Pontos</span><span class="k" style="margin-top:6px">Estilo</span>
+    <span class="v" id="s-score">0</span>
+    <span class="v" id="s-style">×1.0</span>
+  </div>
+
+  <div id="gates" class="panel">
+    <div class="k">Portões</div>
+    <div class="v"><span id="g-hit">0</span><span style="opacity:.4">/</span><span id="g-tot">0</span></div>
+    <div class="k miss" id="g-missline" style="margin-top:4px">Perdidos <span id="g-miss">0</span></div>
+  </div>
+
+  <div id="yeti-bar" class="panel">
+    <div class="lbl"><span>⚠ Yeti</span><span id="y-dist">—</span></div>
+    <div class="rail"><div class="fill" id="y-fill"></div></div>
+  </div>
+
+  <div id="yeti-warn" class="panel">O Yeti acordou</div>
+
+  <div id="toasts"></div>
+
+  <div id="speedo" class="panel">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="spdgrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stop-color="#9fd3ff"/>
+          <stop offset="55%"  stop-color="#7ee8c5"/>
+          <stop offset="100%" stop-color="#ffcf3f"/>
+        </linearGradient>
+      </defs>
+      <circle class="track" cx="50" cy="50" r="41" stroke-dasharray="193 258"/>
+      <circle class="bar"   cx="50" cy="50" r="41" stroke-dasharray="193 258" stroke-dashoffset="193" id="spd-bar"/>
+    </svg>
+    <div class="num"><b id="s-speed">0</b><span>km/h</span></div>
+  </div>
+
+  <div id="hint" class="panel">
+    <kbd>←</kbd><kbd>→</kbd> virar &nbsp; <kbd>↑</kbd> agachar &nbsp; <kbd>↓</kbd> frear &nbsp; <kbd>espaço</kbd> pular<br>
+    no ar: <kbd>←</kbd><kbd>→</kbd> giro &nbsp; <kbd>↑</kbd><kbd>↓</kbd> mortal &nbsp;·&nbsp;
+    <kbd>C</kbd> câmera &nbsp; <kbd>P</kbd> pausa &nbsp; <kbd>M</kbd> som
+  </div>
+</div>
+
+<div id="paused"><div class="p">Pausado — <kbd>P</kbd> para continuar</div></div>
+
+<div id="touch">
+  <div class="zone l" data-act="left"></div>
+  <div class="zone j" data-act="jump"></div>
+  <div class="zone r" data-act="right"></div>
+</div>
+
+<!-- ============================ OVERLAY ============================ -->
+<div id="overlay">
+  <!-- MENU -->
+  <div class="card" id="menu">
+    <h1 class="logo">SkiFree<em>3D</em></h1>
+    <p class="tagline">Lembra desse jogo?</p>
+
+    <div class="modes" id="modes">
+      <button class="mode sel" data-mode="free">
+        <div class="ico">🏔️</div>
+        <div class="nm">Descida Livre</div>
+        <div class="ds">Sem regras. Desça o máximo que aguentar — até o Yeti acordar.</div>
+      </button>
+      <button class="mode" data-mode="slalom">
+        <div class="ico">🚩</div>
+        <div class="nm">Slalom</div>
+        <div class="ds">Passe entre as bandeiras vermelha e azul. Errar custa caro.</div>
+      </button>
+      <button class="mode" data-mode="trees">
+        <div class="ico">🌲</div>
+        <div class="nm">Slalom na Floresta</div>
+        <div class="ds">Mata fechada, corredor estreito e zero perdão.</div>
+      </button>
+      <button class="mode" data-mode="freestyle">
+        <div class="ico">🤸</div>
+        <div class="nm">Estilo Livre</div>
+        <div class="ds">Rampas por toda parte. Gire, dê mortais e pontue no ar.</div>
+      </button>
+    </div>
+
+    <div class="keys">
+      <div><kbd>←</kbd><kbd>→</kbd> virar / girar no ar</div>
+      <div><kbd>↑</kbd> agachar (mais rápido)</div>
+      <div><kbd>↓</kbd> frear em cunha</div>
+      <div><kbd>espaço</kbd> pular da neve</div>
+      <div><kbd>↑</kbd><kbd>↓</kbd> mortal no ar</div>
+      <div><kbd>C</kbd> trocar câmera</div>
+      <div><kbd>P</kbd> pausar &nbsp; <kbd>M</kbd> som</div>
+      <div><kbd>R</kbd> recomeçar</div>
+    </div>
+
+    <button class="btn" id="btn-start">Descer a montanha</button>
+    <p class="foot">
+      Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores.<br>
+      Depois de <b>2 000 m</b> o Abominável Homem das Neves entra na pista. Ele não cansa.
+    </p>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="card" id="over" style="display:none">
+    <h2 class="title" id="over-title">Você foi devorado</h2>
+    <p class="sub" id="over-sub">O Yeti sempre vence. Mas você chegou longe.</p>
+    <div class="scoregrid">
+      <div class="cell"><div class="k">Distância</div><div class="v"><span id="o-dist">0</span><small>m</small></div></div>
+      <div class="cell"><div class="k">Pontos</div><div class="v" id="o-score">0</div></div>
+      <div class="cell"><div class="k">Vel. máx</div><div class="v"><span id="o-speed">0</span><small>km/h</small></div></div>
+      <div class="cell"><div class="k">Tempo</div><div class="v"><span id="o-time">0</span><small>s</small></div></div>
+      <div class="cell" id="o-gatecell"><div class="k">Portões</div><div class="v" id="o-gates">0</div></div>
+    </div>
+    <div class="best" id="o-best"></div>
+    <div class="btnrow">
+      <button class="btn" id="btn-again">Tentar de novo</button>
+      <button class="btn ghost" id="btn-menu">Trocar de modo</button>
+    </div>
+  </div>
+</div>
+
+<div id="boot"><div class="b"><div class="sp"></div><div class="t">Preparando a montanha…</div></div></div>
+
+<script>
+  // Este arquivo é o template modular: por file:// os módulos ES são bloqueados.
+  // Checa o resultado (o jogo subiu?) em vez da tag do importmap — assim vale
+  // tanto aqui quanto no SkiFree3D.html, onde o jogo sempre sobe.
+  addEventListener('DOMContentLoaded', function () { setTimeout(function () {
+    if (window.__ski || location.protocol !== 'file:') return;
+    document.getElementById('boot').innerHTML =
+      '<div class="b" style="max-width:520px;padding:0 24px">' +
+      '<div style="font-size:34px;margin-bottom:14px">⛷️</div>' +
+      '<div style="font-size:16px;font-weight:600;margin-bottom:10px">Abra o <code>SkiFree3D.html</code></div>' +
+      '<div style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.7">' +
+      'Este arquivo é o template de desenvolvimento e carrega módulos ES, que o navegador bloqueia por <code>file://</code>.<br>' +
+      'O jogo pronto é o <b>SkiFree3D.html</b>, na mesma pasta — ele abre com duplo clique.</div></div>';
+  }, 500); });
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

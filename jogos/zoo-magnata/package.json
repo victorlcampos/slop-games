@@ -1,0 +1,11 @@
+{
+  "name": "zoo-magnata",
+  "version": "1.0.0",
+  "description": "Tycoon de zoológico em um único HTML: 219 espécies desenhadas proceduralmente, recintos de forma livre, economia completa. Sem dependências, roda offline.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "license": "MIT"
+}

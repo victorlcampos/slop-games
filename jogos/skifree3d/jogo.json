@@ -1,0 +1,10 @@
+{
+  "slug": "skifree3d",
+  "nome": "SkiFree 3D",
+  "emoji": "⛷️",
+  "descricao": "Releitura em 3D do SkiFree de 1991. Desça a montanha desviando das árvores até o Abominável aparecer.",
+  "tags": ["3d", "arcade", "remake"],
+  "libs": ["three.js"],
+  "offline": true,
+  "ano": 2026
+}

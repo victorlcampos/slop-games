@@ -6,12 +6,13 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.mjs",
+    "test": "node test/smoke.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Jogo de carro no browser: dirija em qualquer rua do mundo, com mundo 3D gerado de dados reais do OpenStreetMap",
   "dependencies": {
     "three": "^0.185.1"
   },

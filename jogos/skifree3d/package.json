@@ -1,0 +1,19 @@
+{
+  "name": "skifree3d",
+  "version": "1.0.0",
+  "description": "Remake 3D do SkiFree (1991) em Three.js — um único HTML que roda offline, sem servidor e sem dependências.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.js"
+  },
+  "keywords": [
+    "threejs",
+    "webgl",
+    "game",
+    "skifree",
+    "ski"
+  ],
+  "license": "MIT",
+  "main": "dist/index.html"
+}

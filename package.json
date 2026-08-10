@@ -1,0 +1,16 @@
+{
+  "name": "slop-games",
+  "version": "1.0.0",
+  "description": "Jogos que rodam inteiros no navegador, cada um em um único arquivo HTML.",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "jogos/*"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/smoke.mjs",
+    "abrir": "node build.mjs && open dist/index.html"
+  },
+  "license": "MIT"
+}

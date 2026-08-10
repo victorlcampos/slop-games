@@ -1,0 +1,6 @@
+node_modules/
+
+# gerado por `npm run build` (e pelo CI, que publica no Pages)
+dist/
+
+.DS_Store

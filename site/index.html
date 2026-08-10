@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>slop-games</title>
+<meta name="description" content="Jogos que rodam inteiros no navegador, cada um em um único arquivo HTML.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕹️</text></svg>">
+<style>
+  :root {
+    --fundo: #0c0d12;
+    --fundo-card: #16181f;
+    --fundo-card-hover: #1c1f28;
+    --borda: #262a36;
+    --borda-hover: #3f4557;
+    --texto: #e7e9ee;
+    --texto-fraco: #949aab;
+    --texto-fraquinho: #6b7183;
+    --destaque: #7dd3a8;
+    --destaque-fraco: #2a4a3b;
+    --alerta: #e0b170;
+    --alerta-fraco: #4a3a22;
+    --raio: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 5vw, 3rem) 4rem;
+    background: var(--fundo);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, #1b2340 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 90% 10%, #2a1d33 0%, transparent 70%);
+    background-repeat: no-repeat;
+    color: var(--texto);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .capa {
+    max-width: 1100px;
+    margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+  }
+
+  .capa__titulo {
+    margin: 0;
+    font-size: clamp(2.6rem, 9vw, 4.5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    background: linear-gradient(100deg, #fff 20%, #8fb4ff 60%, #c79bff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .capa__sub {
+    margin: 1rem 0 0;
+    max-width: 46ch;
+    color: var(--texto-fraco);
+    font-size: clamp(1rem, 2.2vw, 1.15rem);
+  }
+
+  .capa__meta {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    color: var(--texto-fraquinho);
+    font-size: 0.85rem;
+  }
+
+  .capa__meta strong { color: var(--texto-fraco); font-weight: 600; }
+
+  .grade {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    background: var(--fundo-card);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    color: inherit;
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  }
+
+  .card:hover,
+  .card:focus-visible {
+    background: var(--fundo-card-hover);
+    border-color: var(--borda-hover);
+    transform: translateY(-3px);
+    outline: none;
+  }
+
+  .card:focus-visible { box-shadow: 0 0 0 2px var(--destaque); }
+
+  .card__emoji {
+    font-size: 2.5rem;
+    line-height: 1;
+    margin-bottom: 0.9rem;
+  }
+
+  .card__nome {
+    margin: 0 0 0.5rem;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .card__desc {
+    margin: 0 0 1.1rem;
+    color: var(--texto-fraco);
+    font-size: 0.92rem;
+    flex-grow: 1;
+  }
+
+  .card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 1.1rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .card__tags li {
+    padding: 0.15rem 0.55rem;
+    background: #21252f;
+    border-radius: 100px;
+    color: var(--texto-fraquinho);
+    font-size: 0.73rem;
+    letter-spacing: 0.02em;
+  }
+
+  .card__pe {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--borda);
+  }
+
+  .card__libs {
+    color: var(--texto-fraquinho);
+    font-size: 0.78rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .selo {
+    flex-shrink: 0;
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .selo--offline { background: var(--destaque-fraco); color: var(--destaque); }
+  .selo--online { background: var(--alerta-fraco); color: var(--alerta); }
+
+  .rodape {
+    max-width: 1100px;
+    margin: clamp(3rem, 8vw, 5rem) auto 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--borda);
+    color: var(--texto-fraquinho);
+    font-size: 0.85rem;
+  }
+
+  .rodape a { color: var(--texto-fraco); }
+  .rodape a:hover { color: var(--destaque); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+    .card:hover, .card:focus-visible { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="capa">
+    <h1 class="capa__titulo">slop&#8209;games</h1>
+    <p class="capa__sub">
+      Jogos que rodam inteiros no navegador. Cada um é um único arquivo HTML —
+      sem servidor, sem instalação, sem conta.
+    </p>
+    <div class="capa__meta">
+      <span><strong><!--__TOTAL__--></strong> jogos no catálogo</span>
+      <span>clique e jogue</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="grade">
+<!--__JOGOS__-->
+    </div>
+  </main>
+
+  <footer class="rodape">
+    <p>
+      Código em <a href="https://github.com/victorlcampos/slop-games">github.com/victorlcampos/slop-games</a>.
+      Quer adicionar um jogo? As regras da casa estão no <code>CLAUDE.md</code>.
+    </p>
+  </footer>
+
+</body>
+</html>
