@@ -276,6 +276,13 @@
     #stats .v { font-size: 18px; }
     .card { padding: 26px 22px; }
   }
+
+/* saída para o catálogo — só aparece quando o jogo roda dentro dele */
+.voltar-jogos{display:inline-flex;align-items:center;gap:6px;margin-top:14px;
+  padding:9px 16px;border-radius:999px;text-decoration:none;font-size:13px;
+  border:1px solid currentColor;opacity:.6;transition:opacity .15s}
+.voltar-jogos:hover,.voltar-jogos:active{opacity:1}
+.voltar-jogos[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -383,6 +390,7 @@
       Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores.<br>
       Depois de <b>2 000 m</b> o Abominável Homem das Neves entra na pista. Ele não cansa.
     </p>
+    <a class="voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
   </div>
 
   <!-- GAME OVER -->

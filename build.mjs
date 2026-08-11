@@ -82,43 +82,32 @@ for (const jogo of aBuildar) {
 }
 
 /**
- * Botão de volta ao catálogo, injetado só na cópia publicada.
+ * Liga a volta ao catálogo na cópia publicada.
  *
- * O catálogo é o app instalável, e os jogos vivem dentro do escopo dele. Em
- * modo app não existe barra de navegador: sem isto, quem entra num jogo fica
- * preso — no Android ainda há o botão voltar do sistema, no iOS não há nada.
+ * O catálogo é o app instalável e os jogos rodam dentro do escopo dele. Em modo
+ * app não existe barra de navegador: sem uma saída, quem entra num jogo fica
+ * preso — no Android ainda há o botão do sistema, no iOS não há nada.
  *
- * Por isso a media query: fora do modo app o botão nem aparece, porque lá o
- * navegador já tem o "voltar" dele e um botão a mais só rouba canto de tela.
+ * O contrato é o inverso de injetar um botão por cima do jogo: **cada jogo diz
+ * onde quer a saída**, na tela inicial dele e com a cara dele, e o catálogo só
+ * ativa. Quem baixa o HTML do jogo sozinho não recebe este script, o elemento
+ * continua escondido e não sobra link para um catálogo que não existe.
+ *
+ *   DOM:    <a data-voltar-catalogo hidden>← todos os jogos</a>
+ *   canvas: leia `window.__catalogo` e desenhe do seu jeito
  */
 function comVoltaAoCatalogo(html) {
-  const estilo = `<style>
-  #voltar-catalogo { display: none; }
-  @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
-    #voltar-catalogo {
-      display: grid;
-      place-items: center;
-      position: fixed;
-      left: calc(env(safe-area-inset-left) + 6px);
-      top: calc(env(safe-area-inset-top) + 6px);
-      width: 34px; height: 34px;
-      z-index: 99;
-      border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,.35);
-      background: rgba(20,18,16,.5);
-      color: #fff;
-      font: 16px/1 system-ui, sans-serif;
-      text-decoration: none;
-      opacity: .35;
-      -webkit-backdrop-filter: blur(3px);
-      backdrop-filter: blur(3px);
-      transition: opacity .15s;
-    }
-    #voltar-catalogo:active { opacity: 1; }
+  const script = `<script>
+window.__catalogo = '../index.html';
+addEventListener('DOMContentLoaded', function () {
+  var links = document.querySelectorAll('[data-voltar-catalogo]');
+  for (var i = 0; i < links.length; i++) {
+    links[i].href = window.__catalogo;
+    links[i].hidden = false;
   }
-</style>`;
-  const botao = '<a id="voltar-catalogo" href="../index.html" aria-label="Voltar ao catálogo">←</a>';
-  return html.replace('</head>', estilo + '\n</head>').replace('</body>', botao + '\n</body>');
+});
+<\/script>`;
+  return html.replace('</head>', script + '\n</head>');
 }
 
 // -------------------------------------------------------------------- índice

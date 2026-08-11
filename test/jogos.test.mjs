@@ -130,28 +130,67 @@ cenario('o catálogo é instalável e o escopo cobre os jogos', async () => {
   await j.fechar();
 });
 
-cenario('cada jogo tem volta para o catálogo quando roda como app', async () => {
+cenario('todo jogo tem saída para o catálogo na tela inicial', async () => {
   for (const jogo of catalogo) {
     const html = readFileSync(path.join(DIST, jogo.slug, 'index.html'), 'utf8');
+    const temDom = html.includes('data-voltar-catalogo');
+    const temCanvas = html.includes('__catalogo');
     conferir(
-      html.includes('id="voltar-catalogo"'),
-      `${jogo.slug}: sem botão de voltar — em modo app não há barra de navegador e o jogador fica preso`
+      temDom || temCanvas,
+      `${jogo.slug}: nenhuma saída para o catálogo — em modo app não há barra de navegador e o jogador fica preso`
     );
+    // a definição, não a leitura: o Animais lê `window.__catalogo` no código
+    // dele, e isso não é o mesmo que o catálogo ter ativado a volta
     conferir(
-      html.includes('display-mode: standalone'),
-      `${jogo.slug}: o botão precisa aparecer só no modo app`
-    );
-    conferir(
-      html.includes('href="../index.html"'),
-      `${jogo.slug}: o botão precisa apontar para o índice`
+      html.includes("window.__catalogo = '../index.html'"),
+      `${jogo.slug}: o build do catálogo não ativou a volta`
     );
   }
-  // e o arquivo solto do jogo continua sem ele
+
+  // o arquivo do jogo fora do catálogo não recebe o ativador, então nada aparece
   const solto = readFileSync(path.join(RAIZ, 'jogos', catalogo[0].slug, 'dist/index.html'), 'utf8');
   conferir(
-    !solto.includes('voltar-catalogo'),
-    'o arquivo do jogo fora do catálogo não deve ganhar botão de voltar para lugar nenhum'
+    !solto.includes("window.__catalogo = '../index.html'"),
+    'quem baixa só o jogo não pode receber link para um catálogo que não tem'
   );
+});
+
+cenario('a saída aparece e leva de volta', async () => {
+  // um de DOM e o de canvas: os dois caminhos do contrato
+  const j = await abrir(navegador, path.join(DIST, 'skifree3d/index.html'), APARELHOS.desktop, {
+    esperaBoot: 3200,
+  });
+  const m = await j.pagina.evaluate(() => {
+    const l = document.querySelector('[data-voltar-catalogo]');
+    if (!l) return { erro: 'sem link' };
+    const r = l.getBoundingClientRect();
+    return {
+      erro: null,
+      visivel: !l.hidden && r.width > 0,
+      naTela: r.y >= 0 && r.y + r.height <= innerHeight,
+      href: l.getAttribute('href'),
+    };
+  });
+  conferir(!m.erro, String(m.erro));
+  conferir(m.visivel, 'skifree3d: a saída devia estar visível dentro do catálogo');
+  conferir(m.naTela, 'skifree3d: a saída está fora da área visível');
+  conferir(m.href === '../index.html', `skifree3d: aponta para "${m.href}"`);
+  await j.fechar();
+
+  // no Animais a saída é desenhada em canvas: confere que ela existe na barra
+  const a = await abrir(navegador, path.join(DIST, 'animais-vs-monstros/index.html'), APARELHOS.desktop, {
+    esperaBoot: 900,
+  });
+  await a.executar((jogo) => {
+    jogo.estado().viuAbertura = true;
+    jogo.irParaMapa();
+  });
+  await a.esperarQuadros(3);
+  const temBotao = await a.executar(
+    (jogo) => !!window.__catalogo && typeof jogo.atual().clique === 'function'
+  );
+  conferir(temBotao, 'animais-vs-monstros: a barra do mapa devia oferecer a volta');
+  await a.fechar();
 });
 
 cenario('o índice lista todos os jogos e cada link existe', async () => {

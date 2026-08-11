@@ -352,32 +352,55 @@ await construir({
 ### Instalável no celular (PWA)
 
 **O app é o catálogo, não cada jogo.** Um ícone na tela inicial abre o índice, e
-dali se entra em qualquer jogo — quatro ícones separados seria só poluição, e
-cada jogo instalado sozinho perderia o caminho de volta.
+dali se entra em qualquer jogo — quatro ícones separados seria só poluição.
 
 O manifesto vive no `build.mjs` da raiz, embutido no índice como `data:` URI
 junto de um ícone SVG. `scope: './'` faz os jogos rodarem dentro do app, e
 `display: standalone` mantém a barra de status do sistema — quem joga quer ver
 as horas e a bateria.
 
-Isso cria um problema que a solução precisa resolver: **em modo app não existe
-barra de navegador**. Quem entra num jogo fica preso; no Android ainda há o
-botão voltar do sistema, no iOS não há nada. Por isso o build da raiz injeta um
-botão `←` discreto na cópia publicada de cada jogo, dentro de uma media query
-`(display-mode: standalone)`:
-
-- fora do modo app o botão nem existe, porque lá o navegador já tem o "voltar"
-  dele e um botão a mais só rouba canto de tela;
-- o arquivo em `jogos/<slug>/dist/index.html` continua puro — quem baixa só o
-  jogo não leva um link para um catálogo que não tem.
-
 **Não há service worker, e não faz falta.** Tudo aqui já é HTML único, sem nada
-para buscar na rede; um SW existiria para cachear o que já está cacheado. (O
-prompt automático de instalação do Chrome exige SW; "Adicionar à tela inicial"
-pelo menu funciona sem, e é assim que se instala no iOS de qualquer forma.)
+para buscar na rede. (O prompt automático de instalação do Chrome exige SW;
+"Adicionar à tela inicial" pelo menu funciona sem, e no iOS é assim de qualquer
+jeito.)
 
 `orientacao` no `jogo.json` é opcional, padrão `any`. Declare `landscape` só se
 o jogo realmente não funciona em pé.
+
+### A saída para o catálogo (obrigatória)
+
+Em modo app **não existe barra de navegador**. Quem entra num jogo fica preso:
+no Android ainda há o botão voltar do sistema, no iOS não há nada. Por isso todo
+jogo daqui precisa oferecer a volta.
+
+Ela vai **na tela inicial do jogo** — o menu, o splash, o mapa —, com a cara do
+jogo, e não como um `←` flutuante por cima da partida. Botão sobreposto atrapalha
+quem está jogando e não pertence a lugar nenhum; na tela inicial ele é só mais
+uma opção do menu, que é onde o jogador procura por "sair".
+
+O contrato é de duas pontas: **o jogo diz onde quer a saída, o catálogo a ativa.**
+
+**Jogo com menu em DOM** — declare o elemento escondido:
+
+```html
+<a class="voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
+```
+
+**Jogo que desenha em canvas** — leia `window.__catalogo` e desenhe do seu jeito:
+
+```js
+...(window.__catalogo ? [{ rot: '🕹️ todos os jogos', acao: 'catalogo' }] : []),
+// e no clique:
+window.location.href = window.__catalogo;
+```
+
+Nos dois casos o build da raiz injeta, **só na cópia publicada**, um script que
+define `window.__catalogo` e revela os elementos marcados. Quem baixa o HTML do
+jogo sozinho não recebe esse script: o elemento continua escondido e não sobra
+link para um catálogo que não existe. O `jogos/<slug>/dist/index.html` fica puro.
+
+O teste do catálogo cobra os dois lados — que o jogo ofereça a saída e que o
+arquivo solto não a mostre.
 
 ### O contrato
 

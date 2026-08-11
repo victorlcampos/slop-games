@@ -141,6 +141,13 @@
   #t-gas { right: 18px; bottom: 176px; }
   #t-brake { right: 18px; bottom: 96px; }
   #t-hb { right: 100px; bottom: 96px; width: 56px; height: 56px; font-size: 15px; }
+
+/* saída para o catálogo — só aparece quando o jogo roda dentro dele */
+.voltar-jogos{display:inline-flex;align-items:center;gap:6px;margin-top:14px;
+  padding:9px 16px;border-radius:999px;text-decoration:none;font-size:13px;
+  border:1px solid currentColor;opacity:.6;transition:opacity .15s}
+.voltar-jogos:hover,.voltar-jogos:active{opacity:1}
+.voltar-jogos[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -149,6 +156,7 @@
 <div id="menu" class="hide">
   <h1>WORLDDRIVE</h1>
   <div class="tag">Dirija em qualquer rua do mundo — mapa real, relevo real 🌍</div>
+  <a class="voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
   <div class="panel">
     <div class="searchwrap">
       <input id="search" type="text" placeholder="🔍 Busque uma cidade, rua ou lugar…" autocomplete="off" spellcheck="false">

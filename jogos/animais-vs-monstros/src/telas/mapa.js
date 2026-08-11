@@ -192,6 +192,9 @@ export function criarMapa(estado, acoes) {
     const alt = 56;
     const y = ALTURA - alt - 14;
     const itens = [
+      // Só existe quando o jogo roda dentro do catálogo — quem abriu o HTML
+      // solto não deve ver link para um índice que não está lá.
+      ...(window.__catalogo ? [{ rot: '🕹️ todos os jogos', acao: 'catalogo', larg: 190 }] : []),
       { rot: '💾 baixar save', acao: 'baixar', larg: 186 },
       { rot: '📂 carregar', acao: 'carregar', larg: 158 },
       { rot: acoes.somLigado() ? '🔊 som' : '🔇 som', acao: 'som', larg: 118 },
@@ -324,6 +327,9 @@ export function criarMapa(estado, acoes) {
             return;
           case 'abertura':
             acoes.abertura();
+            return;
+          case 'catalogo':
+            window.location.href = window.__catalogo;
             return;
           case 'recomecar':
             confirmando = true;
