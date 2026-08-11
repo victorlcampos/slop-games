@@ -231,6 +231,11 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
    * por fileira alagada, e bicho de rio **só** entra por ela. Sem a segunda
    * metade a Iara aparecia no meio do pasto, onde ninguém a espera.
    *
+   * Quem voa conta como bicho de terra aqui, e isso é de propósito: sobre a
+   * fileira alagada só dá para plantar bicho aquático, e nenhum deles é
+   * `aereo` — um voador ali seria intocável, que é o buraco da Iara entrando
+   * por outra porta.
+   *
    * Devolve `null` quando não existe fileira possível — só acontece se uma fase
    * sem água chamar um monstro aquático, o que o elenco das fases não faz (e o
    * teste de dados cobra).
@@ -239,7 +244,6 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
     const sortear = (filas) => (filas.length ? filas[Math.floor(Math.random() * filas.length)] : null);
     const todas = [...Array(FILEIRAS).keys()];
     if (def.aquatico) return ehAgua(sugerida) ? sugerida : sortear(todas.filter((f) => ehAgua(f)));
-    if (def.voa) return sugerida; // quem voa passa por cima de qualquer terreno
     if (!ehAgua(sugerida)) return sugerida;
     return sortear(todas.filter((f) => !ehAgua(f))) ?? sugerida;
   }

@@ -180,6 +180,78 @@ cenario('a Iara só desce pela água — e lá o Jacaré alcança ela', async ()
   await j.fechar();
 });
 
+/**
+ * A Mãe-de-Ouro é o outro lado da mesma regra: ela passa por cima da defesa
+ * inteira e só cai para quem alcança o alto. O cenário roda no Pantanal de
+ * propósito — é a fase com água, e voador sobre fileira alagada seria intocável
+ * do mesmo jeito que a Iara era.
+ */
+cenario('a Mãe-de-Ouro voa por cima da defesa e só cai para quem alcança o alto', async () => {
+  const j = await comJogoAberto(APARELHOS.desktop, async (jj) => {
+    await jj.executar((jogo) => {
+      jogo.estado().baralho = ['macaco', 'abelha']; // um de chão, um aéreo
+      jogo.irParaBatalha(4);
+    });
+    await espera(500);
+    await jj.executar((jogo) => {
+      const e = jogo.atual().est;
+      e.sementes = 9999;
+      e.aviso = null;
+      e.monstros.length = 0;
+      e.naFila.length = 0;
+      e.proximaOnda = 999;
+      for (let f = 0; f < 5; f++) e.naFila.push({ tipo: 'maedeouro', quando: 0, fila: f });
+    });
+  });
+
+  await j.esperarAte((jogo) => jogo.atual().est.monstros.length === 5, { oQue: 'as cinco entrarem' });
+  const entrada = await j.executar((jogo) => {
+    const e = jogo.atual().est;
+    return { filas: e.monstros.map((m) => m.fila), agua: e.fase.agua };
+  });
+  conferir(
+    entrada.filas.every((f) => !entrada.agua.includes(f)),
+    `voador não pode entrar por fileira alagada (${entrada.agua}); entrou em ${entrada.filas}`
+  );
+
+  // sobra uma, parada no meio do campo, e o Macaco vai plantado na fileira dela
+  const alvo = await j.executar((jogo) => {
+    const e = jogo.atual().est;
+    const m = e.monstros[0];
+    m.x = 800;
+    e.monstros = [m];
+    return { id: m.id, y: m.y, vidaMax: m.vidaMax };
+  });
+  await j.tocar(...j.pontos(240, 50)); // Macaco
+  await j.tocar(...j.pontos(300, alvo.y));
+  await j.esperarQuadros(30);
+
+  const chao = await j.executar((jogo, id) => {
+    const e = jogo.atual().est;
+    const p = e.plantados[0];
+    const m = e.monstros.find((mm) => mm.id === id);
+    return { carta: p.def.id, atirou: p.atirouEm !== undefined, vidaDele: p.vida, vidaDela: m.vida };
+  }, alvo.id);
+  conferirIgual(chao.carta, 'macaco', 'o Macaco devia estar plantado');
+  conferirIgual(chao.atirou, false, 'o Macaco nem mira em quem voa');
+  conferirIgual(chao.vidaDela, alvo.vidaMax, 'e não tira um ponto de vida dela');
+  conferirIgual(chao.vidaDele, 80, 'ela também não morde o Macaco: passa por cima e segue');
+
+  // agora a Abelha, na mesma fileira
+  await j.tocar(...j.pontos(370, 50));
+  await j.tocar(...j.pontos(500, alvo.y));
+  await j.esperarAte(
+    (jogo, id) => {
+      const m = jogo.atual().est.monstros.find((mm) => mm.id === id);
+      return !m || m.vida < m.vidaMax;
+    },
+    { args: [alvo.id], oQue: 'a Abelha acertar a Mãe-de-Ouro' }
+  );
+
+  j.exigirSemErros('mãe-de-ouro');
+  await j.fechar();
+});
+
 cenario('o save persiste entre recarregamentos', async () => {
   const j = await comJogoAberto(APARELHOS.desktop);
   // este cenário depende do storage sobreviver ao reload — o `abrir` limpa

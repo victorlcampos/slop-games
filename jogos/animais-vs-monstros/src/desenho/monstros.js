@@ -155,6 +155,49 @@ const desenhos = {
     }
   },
 
+  // ------------------------------------------------------------- mãe-de-ouro
+  maedeouro(ctx, s) {
+    // Ela não pisa no chão, então o desenho todo mora na metade de cima do
+    // quadro. O rastro sai para a direita — o lado de onde ela veio — e é ele
+    // que faz a bola virar cometa em vez de sol.
+    //
+    // O rastro é `forma` e não `cauda`: três linhas quase retas dão um cabo de
+    // vassoura. Triângulo que afina até a ponta dá um risco no céu.
+    forma(ctx, [[76, 20], [128, 74], [76, 80]], { cor: null, preenche: 'rgba(232, 112, 58, 0.3)', semente: s + 1 });
+    forma(ctx, [[78, 32], [124, 73], [78, 72]], { cor: null, preenche: 'rgba(247, 212, 81, 0.45)', semente: s + 2 });
+    forma(ctx, [[80, 42], [114, 72], [80, 62]], { cor: null, preenche: 'rgba(253, 240, 192, 0.5)', semente: s + 3 });
+
+    // a bola: casca de fogo, miolo claro, brasa branca no centro. Ela ocupa o
+    // quadro inteiro como os outros monstros — bola pequena num quadro grande
+    // some no meio da horda.
+    circulo(ctx, 52, 52, 37, { cor: tom(CORES.fogo, -0.25), largura: 2.6, preenche: CORES.fogo, semente: s + 4 });
+    circulo(ctx, 50, 49, 25, { cor: null, preenche: CORES.fogoClaro, semente: s + 5 });
+    circulo(ctx, 48, 46, 12, { cor: null, preenche: '#fdf0c0', semente: s + 6 });
+
+    // labaredas lambendo só a borda de trás: fogo em volta do círculo inteiro
+    // vira coroa de sol, e por cima vira chifre
+    chama(ctx, 80, 36, 17, s + 20, '#e8703a', '#f7d451');
+    chama(ctx, 88, 60, 16, s + 21, '#e8703a', '#f7d451');
+    chama(ctx, 70, 84, 14, s + 22, '#e8703a', '#f7d451');
+
+    // dentro do fogo, a mulher da lenda: um vulto fino, de cabelo puxado para
+    // trás pelo voo. Fino é o que importa — massa escura no meio da bola vira
+    // borrão marrom e engole o fogo todo.
+    const vulto = 'rgba(96, 34, 14, 0.55)';
+    forma(ctx, [[48, 18], [78, 26], [66, 42], [50, 33]], { cor: null, preenche: vulto, semente: s + 7 });
+    forma(ctx, [[41, 30], [50, 30], [53, 72], [39, 65]], { cor: null, preenche: vulto, semente: s + 8 });
+    circulo(ctx, 45, 26, 8.5, { cor: null, preenche: vulto, semente: s + 9 });
+    circulo(ctx, 41, 26, 2.6, { cor: null, preenche: '#fdf0c0', semente: s + 10 });
+    circulo(ctx, 50, 25, 2.6, { cor: null, preenche: '#fdf0c0', semente: s + 11 });
+
+    // fagulhas caindo — o que sobra dela no caminho
+    for (let i = 0; i < 5; i++) {
+      circulo(ctx, 30 + i * 18, 96 + (i % 3) * 10, 2 + (i % 2), {
+        cor: null, preenche: `rgba(247, 212, 81, ${0.7 - i * 0.1})`, semente: s + 40 + i,
+      });
+    }
+  },
+
   // ------------------------------------------------------------------ boitatá
   boitata(ctx, s) {
     // corpo serpenteante em chamas

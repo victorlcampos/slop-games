@@ -85,6 +85,27 @@ cenario('quem vem pela água não é imune a quem defende a água', () => {
   }
 });
 
+cenario('quem voa tem resposta comprável antes de aparecer', () => {
+  // um voador ignora defesa de chão inteira: só as cartas `aereo` respondem.
+  // Se ele estreia antes de o jogador ter podido comprar uma, a fase não é
+  // difícil — é impossível.
+  const aereos = ANIMAIS.filter((a) => a.aereo);
+  conferir(aereos.length > 0, 'sem carta aérea, monstro voador não tem resposta');
+  const maisBarata = Math.min(...aereos.map((a) => a.preco));
+
+  for (const fase of FASES) {
+    const voa = fase.ondas.some((o) => o.monstros.some(([id]) => MONSTRO_POR_ID[id].voa));
+    if (!voa) continue;
+    // o que a campanha já pagou até o começo desta fase, sem contar troco
+    const rendaAte = FASES.filter((f) => f.n < fase.n).reduce((s, f) => s + f.moedas, 0);
+    conferir(
+      rendaAte >= maisBarata,
+      `fase ${fase.n} tem voador, mas até ela a campanha só pagou ${rendaAte} e a carta aérea mais barata custa ${maisBarata}`
+    );
+    conferir(!(fase.agua && fase.agua.length), `fase ${fase.n} mistura voador e água: sobre o rio ninguém alcança ele`);
+  }
+});
+
 cenario('a vitrine garante bicho aquático antes da fase da água', () => {
   const pantanal = FASES.find((f) => f.n === 4);
   const semAquatico = ['esquilo', 'macaco', 'tartaruga'];

@@ -179,13 +179,13 @@ export const FASES = [
     humanos: 45,
     moedas: 470,
     sementesIniciais: 200,
-    novidade: { monstro: 'mapinguari', aviso: 'Névoa de novo, e agora o Mapinguari vem em bando. Ele aguenta mais pancada que qualquer coisa que você viu.' },
+    novidade: { monstro: 'maedeouro', aviso: 'A Mãe-de-Ouro cruza o céu da serra e não olha para o chão: parede nenhuma segura ela. Só quem alcança o alto — Abelha, Morcego, Coruja, Águia — tira ela do ar. E o Mapinguari agora vem em bando.' },
     ondas: [
       { espera: 10, monstros: [['mula', 3], ['curupira', 4]] },
       { espera: 16, monstros: [['mapinguari', 2], ['boitata', 3]] },
-      // a Iara só entra por fileira alagada e na serra não tem rio: quem faz a
-      // pressão desta onda é o Cabeça de Cuia, que cospe de longe
-      { espera: 18, monstros: [['lobisomem', 4], ['cabecadecuia', 4]] },
+      // a serra não tem rio, então a Iara não entra aqui: quem faz a pressão
+      // desta onda é a Mãe-de-Ouro, que passa por cima da defesa inteira
+      { espera: 18, monstros: [['lobisomem', 4], ['maedeouro', 3]] },
       { espera: 20, monstros: [['mapinguari', 3], ['saci', 5], ['cabecadecuia', 4]] },
       { espera: 24, monstros: [['mapinguari', 4], ['lobisomem', 5], ['mula', 4]] },
     ],
@@ -204,7 +204,7 @@ export const FASES = [
     novidade: { monstro: 'cuca', aviso: 'A Cuca não vem sozinha e não vem depressa. Ela chama reforço enquanto anda — e quanto mais apanha, mais brava fica.' },
     ondas: [
       { espera: 10, monstros: [['corposeco', 6], ['curupira', 4]] },
-      { espera: 16, monstros: [['mula', 4], ['boitata', 3]] },
+      { espera: 16, monstros: [['mula', 4], ['boitata', 3], ['maedeouro', 2]] },
       { espera: 18, monstros: [['lobisomem', 4], ['mapinguari', 2]] },
       { espera: 22, monstros: [['cuca', 1]] },
       { espera: 30, monstros: [['mapinguari', 3], ['lobisomem', 4], ['mula', 4]] },

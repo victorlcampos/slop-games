@@ -83,6 +83,19 @@ export const MONSTROS = [
     valor: 28,
   },
   {
+    id: 'maedeouro',
+    nome: 'Mãe-de-Ouro',
+    lenda: 'Bola de fogo que risca o céu de Minas mostrando onde tem ouro. Passa por cima de tudo e de todos.',
+    // Voador não morde defesa nenhuma: o `passoMonstros` faz quem tem `voa`
+    // ignorar quem está no chão e seguir andando. A ameaça dela não é dano, é
+    // a cerca — por isso vida baixa e velocidade alta. Quem tem a resposta
+    // derruba rápido; quem não tem, vê ela atravessar o campo inteiro.
+    vida: 300,
+    velocidade: 40,
+    voa: true,
+    valor: 32,
+  },
+  {
     id: 'boitata',
     nome: 'Boitatá',
     lenda: 'Cobra de fogo que guarda a mata. Não distingue mais quem queima.',
