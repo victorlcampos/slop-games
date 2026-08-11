@@ -651,7 +651,7 @@ function runTask(s) {
     if (e && enclosures.has(e.id)) {
       e.animals.push(a);
       const t = encRandomTile(e); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; }
-      toast(BI`🔒 ${LN(a.LN(sp.name))} foi recapturado|🔒 The ${LN(a.LN(sp.name))} was recaptured`, 'good');
-    } else { a.dead = true; toast(BI`💀 ${LN(a.LN(sp.name))} se perdeu — o recinto não existe mais|💀 The ${LN(a.LN(sp.name))} was lost — its enclosure is gone`, 'bad'); }
+      toast(BI`🔒 ${LN(a.sp.name)} foi recapturado|🔒 The ${LN(a.sp.name)} was recaptured`, 'good');
+    } else { a.dead = true; toast(BI`💀 ${LN(a.sp.name)} se perdeu — o recinto não existe mais|💀 The ${LN(a.sp.name)} was lost — its enclosure is gone`, 'bad'); }
   }
 }

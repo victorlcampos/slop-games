@@ -266,6 +266,52 @@ scenario('every game offers the two flags and really switches', async () => {
   }
 });
 
+/* Counts the little words that only one of the two languages uses. Content
+   words are no good — a game's own vocabulary drags them either way — but
+   articles and prepositions track the language reliably at this length. */
+const PT_MARKERS = /\b(de|da|do|dos|das|que|para|com|não|uma|você|seu|sua|mais|pelo|ao|na|no|os|as|é)\b/gi;
+const EN_MARKERS = /\b(the|and|with|your|you|for|from|into|are|its|has|this|that|of|to|on|at|is)\b/gi;
+const score = (text) => ({
+  pt: (text.match(PT_MARKERS) || []).length,
+  en: (text.match(EN_MARKERS) || []).length,
+});
+
+scenario('the flag actually changes which language is on screen', async () => {
+  for (const game of catalog) {
+    const g = await open(browser, path.join(DIST, game.slug, 'index.html'), DEVICES.desktop, { bootWait: 2600 });
+
+    // Whatever the game draws on its home screen: the DOM for the games with a
+    // DOM menu, and `screenText()` from the bridge for the ones that draw their
+    // menu on canvas. A game that offers neither is skipped, not failed.
+    const read = () => g.exec((gm) => {
+      const canvasText = gm && typeof gm.screenText === 'function' ? gm.screenText() : '';
+      return (document.body.innerText || '') + ' ' + canvasText;
+    });
+
+    await g.setLang('en');
+    await g.waitFrames(3);
+    const en = score(await read());
+    await g.setLang('pt');
+    await g.waitFrames(3);
+    const pt = score(await read());
+
+    // too little text to judge (a canvas-only menu with no bridge for it)
+    if (en.en + en.pt < 6 || pt.en + pt.pt < 6) {
+      await g.close();
+      continue;
+    }
+    // This is the check that was missing while LN() was inverted: the language
+    // tag flipped and the *text* flipped with it — to the wrong side.
+    check(en.en > en.pt,
+      `${game.slug}: on "en" the screen reads more Portuguese than English (pt=${en.pt} en=${en.en})`);
+    check(pt.pt > pt.en,
+      `${game.slug}: on "pt" the screen reads more English than Portuguese (pt=${pt.pt} en=${pt.en})`);
+
+    g.expectNoErrors(`${game.slug} language content`);
+    await g.close();
+  }
+});
+
 scenario('the index ships in both languages and remembers the choice', async () => {
   const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.desktop, { bootWait: 800 });
   // the picker is built in JavaScript: wait for it instead of betting on bootWait,

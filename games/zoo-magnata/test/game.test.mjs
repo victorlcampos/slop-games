@@ -82,6 +82,17 @@ scenario('a day in the park: visitors come in, the books add up, every panel ope
   await g.close();
 });
 
+/* The little words only one of the two languages uses. Content words are no
+   good — "zoo", "safari" and every species name drag either way — but articles
+   and prepositions track the language reliably over a panel's worth of text. */
+const PT_MARKERS = /\b(de|da|do|dos|das|que|para|com|não|uma|você|seu|sua|mais|pelo|ao|na|no|os|as|é|em)\b/gi;
+const EN_MARKERS = /\b(the|and|with|your|you|for|from|into|are|its|has|this|that|of|to|on|at|is|a|it)\b/gi;
+const langOf = (text) => {
+  const pt = (text.match(PT_MARKERS) || []).length;
+  const en = (text.match(EN_MARKERS) || []).length;
+  return { pt, en, guess: pt === en ? null : pt > en ? 'pt' : 'en' };
+};
+
 scenario('every panel says something, in both languages', async () => {
   const g = await open(browser, GAME);
   await g.waitFrames(3);
@@ -102,9 +113,16 @@ scenario('every panel says something, in both languages', async () => {
         closeModal();
         // a panel that still shows the bar has an untranslated `pt|en` in it
         if (text.includes('|')) return 'raw pipe: ' + text.slice(text.indexOf('|') - 40, text.indexOf('|') + 20);
-        return text.length > 40 ? 'ok' : 'empty (' + text.length + ')';
+        return text.length > 40 ? text : 'empty (' + text.length + ')';
       }, name);
-      check(got === 'ok', `${lang} ${name} -> ${got}`);
+      check(!got.startsWith('missing') && !got.startsWith('empty') && !got.startsWith('raw pipe'),
+        `${lang} ${name} -> ${got.slice(0, 90)}`);
+
+      // The panels are where LN() lives, so this is where an inverted LN shows
+      // up: the language tag says "en" and the text comes out Portuguese.
+      const seen = langOf(got);
+      check(seen.guess === lang,
+        `${lang} ${name}: the text reads as ${seen.guess || 'neither'} (pt=${seen.pt} en=${seen.en})`);
     }
 
     const insp = await g.exec(() => {

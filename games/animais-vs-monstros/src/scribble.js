@@ -218,11 +218,26 @@ export function hatch(ctx, x, y, w, h, opts = {}) {
 
 // --------------------------------------------------------------------- text
 
+/* Every string this game shows goes through text(), because the whole UI is
+   drawn on the canvas — there is no DOM to read. The last frame's strings are
+   kept here so the test bridge can answer "what is on the screen right now",
+   which is how the language check knows the menu really switched. */
+const drawn = [];
+/** Called once at the top of each frame's drawing. */
+export function resetScreenText() {
+  drawn.length = 0;
+}
+/** Everything text() wrote this frame, joined — what is on the screen now. */
+export function screenText() {
+  return drawn.join(' ');
+}
+
 /**
  * Text in the game's style. `outline` draws a light stroke underneath so the
  * text survives any background.
  */
 export function text(ctx, txt, x, y, opts = {}) {
+  if (drawn.length < 400) drawn.push(String(txt));
   const {
     size = 20,
     color = '#2b2622',

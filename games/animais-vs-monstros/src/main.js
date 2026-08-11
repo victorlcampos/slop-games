@@ -2,7 +2,7 @@
 //
 //   intro -> map -> battle -> (shop | defeat) -> map -> ...
 
-import { paper, text, box, wrapText, putSprite, measureText } from './scribble.js';
+import { paper, text, box, wrapText, putSprite, measureText, resetScreenText, screenText } from './scribble.js';
 import { INK, INK_SOFT, COLORS, PAPER_DARK } from './palette.js';
 import { createCutscene } from './screens/cutscene.js';
 import { createMap } from './screens/map.js';
@@ -372,6 +372,7 @@ const loop = createLoop({
     if (!current) return;
     // the transform takes the logical world (720 tall) to the physical pixel
     begin(ctx);
+    resetScreenText();
     current.draw(ctx);
     frames++;
   },
@@ -396,6 +397,9 @@ window.__game = {
   loop,
   // the test uses this to wait for the screen to draw, instead of sleeping
   frames: () => frames,
+  // this game has no DOM to read: its whole UI is drawn on the canvas, so the
+  // bridge hands back the strings the last frame actually wrote
+  screenText,
 };
 
 // old name, kept so loose scripts don't break

@@ -244,7 +244,7 @@ function setTool(t) {
     encobj: LN('Coloque dentro de um recinto já construído.|Place it inside an enclosure you already built.'),
     build: LN('Posicione junto a uma trilha para os visitantes conseguirem chegar.|Put it next to a path so visitors can reach it.'),
     deco: LN('Espalhe pelo parque — quanto mais bonito, mais felizes os visitantes.|Scatter it around the park — the prettier it is, the happier the visitors.'),
-    animal: BI`Toque num recinto para soltar <b>${t.sp ? LN(t.LN(sp.name)) : ''}</b> lá dentro.|Tap an enclosure to release <b>${t.sp ? LN(t.LN(sp.name)) : ''}</b> into it.`,
+    animal: BI`Toque num recinto para soltar <b>${t.sp ? LN(t.sp.name) : ''}</b> lá dentro.|Tap an enclosure to release <b>${t.sp ? LN(t.sp.name) : ''}</b> into it.`,
     demolir: LN('Toque no que quiser remover. Recintos devolvem metade do valor da cerca.|Tap whatever you want removed. Enclosures refund half the fence value.'),
   };
   hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${LN(t.n || '')}</b> — ${tips[t.cat] || ''}` +
