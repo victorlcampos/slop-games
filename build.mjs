@@ -100,7 +100,42 @@ const cards = catalogo
 const template = readFileSync(join(ROOT, 'site/index.html'), 'utf8');
 if (!template.includes('<!--__JOGOS__-->')) throw new Error('site/index.html: placeholder <!--__JOGOS__--> ausente');
 
+// o índice também é instalável: quem adiciona à tela inicial ganha o catálogo
+// inteiro num ícone, e de lá abre qualquer jogo
+const manifestoIndice = {
+  name: 'slop-games',
+  short_name: 'slop-games',
+  description: 'Jogos que rodam inteiros no navegador.',
+  start_url: './',
+  scope: './',
+  display: 'standalone',
+  background_color: '#0c0d12',
+  theme_color: '#0c0d12',
+  icons: [192, 512].map((t) => ({
+    src:
+      'data:image/svg+xml,' +
+      encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${t} ${t}">` +
+          `<rect width="${t}" height="${t}" fill="#0c0d12"/>` +
+          `<text x="50%" y="50%" dy=".1em" font-size="${Math.round(t * 0.62)}" ` +
+          `text-anchor="middle" dominant-baseline="middle">🕹️</text></svg>`
+      ),
+    sizes: `${t}x${t}`,
+    type: 'image/svg+xml',
+    purpose: t === 512 ? 'maskable' : 'any',
+  })),
+};
+
+const tagsPWA = [
+  `<link rel="manifest" href="data:application/manifest+json,${encodeURIComponent(JSON.stringify(manifestoIndice))}">`,
+  '<meta name="theme-color" content="#0c0d12">',
+  '<meta name="apple-mobile-web-app-capable" content="yes">',
+  '<meta name="apple-mobile-web-app-title" content="slop-games">',
+  `<link rel="apple-touch-icon" href="${manifestoIndice.icons[0].src}">`,
+].join('\n');
+
 const indice = template
+  .replace('</head>', () => tagsPWA + '\n</head>')
   .replace('<!--__JOGOS__-->', () => cards)
   .replace('<!--__TOTAL__-->', () => String(catalogo.length));
 

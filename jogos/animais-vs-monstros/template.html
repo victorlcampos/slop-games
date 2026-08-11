@@ -68,6 +68,11 @@
     display: none;
     position: fixed;
     inset: 0;
+    /* Um `fixed; inset: 0` sem isto engole todo toque da tela se um dia ficar
+       visível quando não devia — e a media query de orientação demora a
+       reavaliar em alguns navegadores de celular, justamente depois de girar.
+       Aqui não há nada clicável, então ignorar ponteiro não custa nada. */
+    pointer-events: none;
     place-items: center;
     text-align: center;
     padding: 2rem;

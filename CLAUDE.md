@@ -349,6 +349,29 @@ await construir({
 });
 ```
 
+### Instalável no celular (PWA)
+
+`pwa: true` no `construir()` torna o jogo instalável na tela inicial, sem
+quebrar a regra do arquivo único: o **manifesto vai embutido como `data:` URI**
+e o ícone é um SVG com o emoji do jogo, também embutido. Nome, emoji e descrição
+saem do `jogo.json` — um lugar só dizendo como o jogo se chama.
+
+```json
+{ "slug": "meu-jogo", "nome": "Meu Jogo", "emoji": "🎮",
+  "orientacao": "landscape" }
+```
+
+`orientacao` é opcional e o padrão é `any`. Declare `landscape` só se o jogo
+realmente não funciona em pé — travar o aparelho de quem está deitado no sofá
+por nada é pior que a tela apertada.
+
+**Não há service worker, e não faz falta.** O jogo inteiro já é um HTML só, sem
+nada para buscar na rede; um SW aqui existiria para cachear o que já está
+cacheado. O efeito prático do que fica: quem adiciona à tela inicial abre em
+tela cheia, sem barra de navegador, com ícone e nome próprios. (O prompt
+automático de instalação do Chrome exige SW; "Adicionar à tela inicial" pelo
+menu funciona sem.)
+
 ### O contrato
 
 - **`template.html`** com a marca `/*__APP__*/` onde o bundle entra.

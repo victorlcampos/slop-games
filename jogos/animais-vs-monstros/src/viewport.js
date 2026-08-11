@@ -28,6 +28,25 @@ export function ajustar(canvas) {
 
 export function preparar(ctx) {
   kit.preparar();
+  // o kit pode ter reajustado sozinho ao detectar rotação; reflete aqui
+  vp.L = kit.L;
+  vp.escala = kit.escala;
+  vp.dpr = kit.dpr;
+  vp.toque = kit.toque;
+}
+
+/**
+ * Avisa quando a largura lógica muda — inclusive quando quem detecta é o
+ * `preparar` do kit, e não o evento de resize.
+ */
+export function observar(aoMudar) {
+  return kit.observar(() => {
+    vp.L = kit.L;
+    vp.escala = kit.escala;
+    vp.dpr = kit.dpr;
+    vp.toque = kit.toque;
+    aoMudar();
+  });
 }
 
 export function pontoLogico(canvas, clientX, clientY) {

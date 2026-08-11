@@ -1,3 +1,3 @@
 import { construir } from 'slopkit/build';
 
-await construir({ raiz: import.meta.dirname });
+await construir({ raiz: import.meta.dirname, pwa: true });

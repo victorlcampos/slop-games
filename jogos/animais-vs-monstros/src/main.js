@@ -12,7 +12,7 @@ import { spriteMonstro } from './desenho/monstros.js';
 import { FASES } from './dados/fases.js';
 import { cartasExigidas, sortearCartas } from './dados/animais.js';
 import { calcularRecompensa } from './dados/economia.js';
-import { vp, ALTURA, ajustar, preparar, pontoLogico, aplicarMoldura, pontoNaMoldura, larguraMenu } from './viewport.js';
+import { vp, ALTURA, ajustar, preparar, observar, pontoLogico, aplicarMoldura, pontoNaMoldura, larguraMenu } from './viewport.js';
 import { criarLaco } from 'slopkit/laco';
 import * as Save from './save.js';
 import { som, acordarAudio, alternarSom, somLigado, pararMusica, tocarMusica } from './audio.js';
@@ -25,14 +25,11 @@ if (girando) girando.remove();
 const ctx = tela.getContext('2d');
 ajustar(tela);
 
-// A janela mudou: recalcula o mundo lógico e avisa a tela ativa. `orientationchange`
-// no celular chega antes de o tamanho novo valer, daí o atraso.
-function aoRedimensionar() {
-  const mudouLargura = ajustar(tela);
-  if (atual && atual.redimensionar && mudouLargura) atual.redimensionar();
-}
-window.addEventListener('resize', aoRedimensionar);
-window.addEventListener('orientationchange', () => setTimeout(aoRedimensionar, 250));
+// A janela mudou de tamanho: reposiciona quem estiver em campo. O kit cuida de
+// escutar os eventos e também de perceber a rotação que o evento não entregou.
+observar(() => {
+  if (atual && atual.redimensionar) atual.redimensionar();
+});
 let estado = Save.carregar();
 let atual = null;
 
@@ -273,6 +270,9 @@ tela.addEventListener('pointermove', (ev) => {
 
 tela.addEventListener('pointerup', (ev) => {
   ev.preventDefault();
+  // devolve a captura: um ponteiro que ficou preso (gesto interrompido por
+  // rotação, chamada, troca de app) faz o toque seguinte ir para o lugar errado
+  tela.releasePointerCapture?.(ev.pointerId);
   const p = pontoNoCanvas(ev);
   if (!atual) return;
   if (atual.soltar) atual.soltar(p.x, p.y);
@@ -280,8 +280,9 @@ tela.addEventListener('pointerup', (ev) => {
 });
 
 // dedo saiu da tela ou o sistema roubou o toque: cancela sem executar a ação
-tela.addEventListener('pointercancel', () => {
-  if (atual && atual.soltar) atual.cancelar?.();
+tela.addEventListener('pointercancel', (ev) => {
+  tela.releasePointerCapture?.(ev.pointerId);
+  if (atual) atual.cancelar?.();
 });
 
 window.addEventListener('keydown', (ev) => {

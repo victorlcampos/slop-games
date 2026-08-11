@@ -70,7 +70,61 @@ for (const jogo of catalogo) {
       await j.fechar();
     }
   });
+
+  cenario(`${jogo.emoji} ${jogo.nome}: dá para instalar na tela inicial`, async () => {
+    const j = await abrir(navegador, arquivo, APARELHOS.celular, { esperaBoot: 1200 });
+    const m = await j.pagina.evaluate(async () => {
+      const link = document.querySelector('link[rel="manifest"]');
+      if (!link) return { erro: 'sem <link rel=manifest>' };
+      let man;
+      try {
+        man = await (await fetch(link.href)).json();
+      } catch (e) {
+        return { erro: 'manifesto ilegível: ' + e.message };
+      }
+      return {
+        erro: null,
+        nome: man.name,
+        icones: (man.icons || []).length,
+        temas: document.querySelectorAll('meta[name="theme-color"]').length,
+        ios: !!document.querySelector('meta[name="apple-mobile-web-app-capable"]'),
+      };
+    });
+    conferir(!m.erro, `${jogo.slug}: ${m.erro}`);
+    conferir(m.nome === jogo.nome, `${jogo.slug}: manifesto diz "${m.nome}", jogo.json diz "${jogo.nome}"`);
+    conferir(m.icones >= 2, `${jogo.slug}: precisa de ícone 192 e 512`);
+    conferir(m.temas === 1, `${jogo.slug}: ${m.temas} tags theme-color — devia ser exatamente uma`);
+    conferir(m.ios, `${jogo.slug}: falta a meta que o Safari do iOS usa`);
+    await j.fechar();
+  });
 }
+
+cenario('girar o aparelho não quebra o toque', async () => {
+  // O sintoma que motivou este teste: abrir em pé, girar, e o jogo parar de
+  // responder ao dedo — enquanto quem abria já deitado jogava normalmente.
+  const j = await abrir(navegador, path.join(DIST, 'animais-vs-monstros/index.html'), APARELHOS.celularEmPe, {
+    esperaBoot: 900,
+  });
+  await j.pagina.setViewport({
+    width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true,
+  });
+  await espera(700);
+
+  const m = await j.pagina.evaluate(() => {
+    const t = window.__jogo.tela;
+    return {
+      escala: +t.escala.toFixed(3),
+      esperada: +(window.innerHeight / 720).toFixed(3),
+      overlay: getComputedStyle(document.getElementById('gire')).pointerEvents,
+    };
+  });
+  conferir(
+    m.escala === m.esperada,
+    `depois de girar a escala ficou ${m.escala}, devia ser ${m.esperada} — o toque cairia no lugar errado`
+  );
+  conferir(m.overlay === 'none', 'o aviso de girar não pode interceptar toque quando some');
+  await j.fechar();
+});
 
 cenario('o índice lista todos os jogos e cada link existe', async () => {
   const j = await abrir(navegador, path.join(DIST, 'index.html'), APARELHOS.desktop, { esperaBoot: 800 });
