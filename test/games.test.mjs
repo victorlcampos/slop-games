@@ -5,6 +5,7 @@
 // broken for whoever opened the file, whatever else it does.
 
 import { launchBrowser, open, DEVICES, scenario, check, run, wait } from 'slopkit/testing';
+import { missingKeys } from 'slopkit';
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -332,8 +333,11 @@ scenario('no game shows a raw pt|en string or a missing dictionary key', async (
       check(!raw.length, `${game.slug} (${lang}): raw pt|en on screen — ${JSON.stringify(raw)}`);
 
       // A one-sided dictionary entry never shows a raw key: t() falls back to
-      // the other language and the player silently gets the wrong one.
-      const holes = await g.exec((gm) => (gm && gm.dictHoles ? gm.dictHoles() : []));
+      // the other language and the player silently gets the wrong one, so
+      // missingKeys over the shipped dictionary is the only thing that sees it.
+      const dict = await g.exec((gm) => (gm && gm.i18n ? gm.i18n.dict : null));
+      check(dict, `${game.slug}: the bridge exposes no dictionary to check`);
+      const holes = missingKeys(dict || {});
       check(!holes.length, `${game.slug}: dictionary entries missing a language — ${JSON.stringify(holes.slice(0, 5))}`);
     }
 

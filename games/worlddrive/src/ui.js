@@ -95,7 +95,8 @@ export class UI {
     res.classList.add('show');
     let items = [];
     try {
-      const r = await fetchWithTimeout('https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(q), {}, 9000);
+      // lang= so the place names come back in the language the flag asks for
+      const r = await fetchWithTimeout('https://photon.komoot.io/api/?limit=6&lang=' + (i18n.lang === 'pt' ? 'default' : 'en') + '&q=' + encodeURIComponent(q), {}, 9000);
       const j = await r.json();
       items = (j.features || []).map((f) => ({
         lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
@@ -105,7 +106,7 @@ export class UI {
     } catch (e) { /* try nominatim */ }
     if (!items.length) {
       try {
-        const r = await fetchWithTimeout('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=' + encodeURIComponent(q), {}, 9000);
+        const r = await fetchWithTimeout('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=' + (i18n.lang === 'pt' ? 'pt-BR' : 'en') + '&q=' + encodeURIComponent(q), {}, 9000);
         const j = await r.json();
         items = j.map((f) => ({ lat: +f.lat, lon: +f.lon, label: f.display_name }));
       } catch (e) { /* nothing */ }

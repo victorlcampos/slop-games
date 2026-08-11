@@ -19,6 +19,12 @@ import * as Save from './save.js';
 import { sfx, wakeAudio, toggleSound, soundOn, stopMusic } from './audio.js';
 import { i18n, pick } from './i18n.js';
 
+// Before the boot notice is taken down, not after: it carries data-pt/data-en
+// like the rest of the DOM, and removing it first left that pair unreachable.
+// The DOM outside the canvas is otherwise only the "turn your device" overlay,
+// but it is still copy the player reads.
+bindText(i18n);
+
 const canvas = document.getElementById('canvas');
 canvas.hidden = false;
 const booting = document.getElementById('booting');
@@ -26,10 +32,6 @@ if (booting) booting.remove();
 
 const ctx = canvas.getContext('2d');
 resize(canvas);
-
-// The DOM outside the canvas is only the "turn your device" overlay, but it is
-// still copy the player reads — bindText keeps it in step with the flags.
-bindText(i18n);
 
 const TITLE = { pt: 'Animais vs Monstros', en: 'Animals vs Monsters' };
 const applyTitle = () => {

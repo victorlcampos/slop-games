@@ -17,7 +17,7 @@ bindText(i18n);
 // the tab title is the one string HTML can't carry twice
 const TITLE = { pt: 'slop-games — jogos que abrem com dois cliques', en: 'slop-games — games that open on a double click' };
 const applyTitle = () => {
-  document.title = TITLE[i18n.lang] || TITLE.pt;
+  document.title = TITLE[i18n.lang] || TITLE.en;
 };
 applyTitle();
 i18n.onChange(applyTitle);

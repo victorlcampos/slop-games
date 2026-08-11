@@ -139,7 +139,9 @@ async function startDrive(lat, lon, label) {
   } catch (err) {
     console.error(err);
     app.state = 'loading';
-    ui.showLoadError((err && err.message) || t('load.error'), () => {
+    // the translated sentence first: err.message is an engine string, in English
+    // only, and it is what the player was seeing on every failure
+    ui.showLoadError(t('load.error') + (err && err.message ? ` (${err.message})` : ''), () => {
       app.state = 'menu';
       startDrive(lat, lon, label);
     });

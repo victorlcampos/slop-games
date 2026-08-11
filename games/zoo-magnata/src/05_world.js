@@ -281,7 +281,7 @@ function placeObject(kind, cat, x, y) {
   const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
   const w = def.w || 1, h = def.h || 1;
   const id = uid();
-  const o = { id, kind, cat, x, y, w, h, queue: [], revenue: 0, sales: 0, estoque: 1, dirty: 0, hp: 1 };
+  const o = { id, kind, cat, x, y, w, h, queue: [], revenue: 0, sales: 0, dirty: 0, hp: 1 };
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) world.occ[IDX(x + i, y + j)] = id;
   objects.set(id, o);
   if (cat === 'deco') applyBeauty(o, +1);

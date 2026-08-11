@@ -73,7 +73,8 @@ export const t = (id, values) => i18n.t(id, values);
 /** Reads a bilingual field written next to the data it names. */
 export function pick(field) {
   if (field && typeof field === 'object' && !Array.isArray(field)) {
-    return field[i18n.lang] !== undefined ? field[i18n.lang] : field.pt;
+    if (field[i18n.lang] !== undefined) return field[i18n.lang];
+    return field.en !== undefined ? field.en : field.pt;   // English is the default
   }
   return field;
 }

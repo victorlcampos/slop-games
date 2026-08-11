@@ -820,7 +820,7 @@ function applySnapshot(raw, label) {
       const kind = modernKey(o.kind), cat = modernKey(o.cat);
       const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
       if (!def) { console.warn('save has an unknown object:', o.cat, o.kind); continue; }
-      const ob = { ...o, kind, cat, w: def.w || 1, h: def.h || 1, queue: [], estoque: 1, dirty: 0, hp: 1, revenue: o.revenue || 0, sales: o.sales || 0 };
+      const ob = { ...o, kind, cat, w: def.w || 1, h: def.h || 1, queue: [], dirty: 0, hp: 1, revenue: o.revenue || 0, sales: o.sales || 0 };
       for (let j = 0; j < ob.h; j++) for (let i = 0; i < ob.w; i++) world.occ[IDX(ob.x + i, ob.y + j)] = ob.id;
       objects.set(ob.id, ob);
       if (ob.cat === 'deco') applyBeauty(ob, +1);

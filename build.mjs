@@ -80,6 +80,10 @@ const catalog = readdirSync(GAMES)
         throw new Error(`games/${slug}/game.json: "${field}" needs both a "pt" and an "en" — the catalog ships in two languages`);
       }
     }
+    // `note` is optional, but a half-translated one reaches the card's tooltip
+    if (meta.note && (!meta.note.pt || !meta.note.en)) {
+      throw new Error(`games/${slug}/game.json: "note" needs both a "pt" and an "en" — it is shown on the card`);
+    }
     for (const tag of meta.tags || []) {
       if (!TAGS[tag]) throw new Error(`games/${slug}/game.json: unknown tag "${tag}" — add it to TAGS in build.mjs`);
     }
@@ -165,9 +169,12 @@ addEventListener('DOMContentLoaded', function () {
 // -------------------------------------------------------------------- index
 const cards = catalog
   .map((game) => {
-    const [text, hint, kind] = game.offline
+    const [text, generic, kind] = game.offline
       ? [UI.offline, UI.offlineHint, 'offline']
       : [UI.online, UI.onlineHint, 'online'];
+    // a game that explains itself in `note` says that instead of the generic
+    // line — it is the whole reason the field exists
+    const hint = game.note || generic;
     const badge =
       `<span class="badge badge--${kind}" title="${esc(hint.en)}" ` +
       `${both(hint, 'title')} ${both(text)}>${esc(text.en)}</span>`;
