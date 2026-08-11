@@ -156,26 +156,40 @@ cenario('todo jogo tem saída para o catálogo na tela inicial', async () => {
 });
 
 cenario('a saída aparece e leva de volta', async () => {
-  // um de DOM e o de canvas: os dois caminhos do contrato
-  const j = await abrir(navegador, path.join(DIST, 'skifree3d/index.html'), APARELHOS.desktop, {
-    esperaBoot: 3200,
-  });
-  const m = await j.pagina.evaluate(() => {
-    const l = document.querySelector('[data-voltar-catalogo]');
-    if (!l) return { erro: 'sem link' };
-    const r = l.getBoundingClientRect();
-    return {
-      erro: null,
-      visivel: !l.hidden && r.width > 0,
-      naTela: r.y >= 0 && r.y + r.height <= innerHeight,
-      href: l.getAttribute('href'),
-    };
-  });
-  conferir(!m.erro, String(m.erro));
-  conferir(m.visivel, 'skifree3d: a saída devia estar visível dentro do catálogo');
-  conferir(m.naTela, 'skifree3d: a saída está fora da área visível');
-  conferir(m.href === '../index.html', `skifree3d: aponta para "${m.href}"`);
-  await j.fechar();
+  // os dois caminhos do contrato: link em DOM (todo jogo que tem menu em HTML)
+  // e botão desenhado em canvas
+  for (const jogo of catalogo) {
+    const arquivo = path.join(DIST, jogo.slug, 'index.html');
+    // o elemento declarado, não o seletor do script que o build injeta — esse
+    // aparece em todo jogo, inclusive nos que desenham a saída em canvas
+    if (!/<a\b[^>]*\bdata-voltar-catalogo\b/.test(readFileSync(arquivo, 'utf8'))) continue;
+
+    const j = await abrir(navegador, arquivo, APARELHOS.desktop, { esperaBoot: 3200 });
+    const m = await j.pagina.evaluate(() => {
+      const l = document.querySelector('[data-voltar-catalogo]');
+      if (!l) return { erro: 'sem link' };
+      const r = l.getBoundingClientRect();
+      return {
+        erro: null,
+        visivel: !l.hidden && r.width > 0,
+        naTela: r.y >= 0 && r.y + r.height <= innerHeight,
+        href: l.getAttribute('href'),
+        cor: getComputedStyle(l).color,
+      };
+    });
+    conferir(!m.erro, `${jogo.slug}: ${m.erro}`);
+    conferir(m.visivel, `${jogo.slug}: a saída devia estar visível dentro do catálogo`);
+    conferir(m.naTela, `${jogo.slug}: a saída está fora da área visível`);
+    conferir(m.href === '../index.html', `${jogo.slug}: aponta para "${m.href}"`);
+    // Um <a> sem `color` no CSS herda o azul de link do navegador. Aqui isso
+    // já aconteceu nos três jogos de uma vez: sobre fundo escuro, ilegível.
+    // A saída tem que vestir o botão do próprio jogo.
+    conferir(
+      m.cor !== 'rgb(0, 0, 238)',
+      `${jogo.slug}: a saída ficou com o azul padrão de link — falta dar a ela o estilo do jogo`
+    );
+    await j.fechar();
+  }
 
   // no Animais a saída é desenhada em canvas: confere que ela existe na barra
   const a = await abrir(navegador, path.join(DIST, 'animais-vs-monstros/index.html'), APARELHOS.desktop, {

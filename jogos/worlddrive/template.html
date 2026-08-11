@@ -25,7 +25,7 @@
   #menu h1 { font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: -1.5px;
     background: linear-gradient(92deg, #6db3ff, #7fe3c3 70%);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
-  #menu .tag { color: #93a1b5; margin: 6px 0 26px; font-size: 15px; }
+  #menu .tag { color: #93a1b5; margin: 6px 0 20px; font-size: 15px; }
   .panel { width: min(640px, 100%); }
   .searchwrap { position: relative; }
   #search { width: 100%; padding: 14px 18px; font-size: 16px; border-radius: 14px;
@@ -142,12 +142,12 @@
   #t-brake { right: 18px; bottom: 96px; }
   #t-hb { right: 100px; bottom: 96px; width: 56px; height: 56px; font-size: 15px; }
 
-/* saída para o catálogo — só aparece quando o jogo roda dentro dele */
-.voltar-jogos{display:inline-flex;align-items:center;gap:6px;margin-top:14px;
-  padding:9px 16px;border-radius:999px;text-decoration:none;font-size:13px;
-  border:1px solid currentColor;opacity:.6;transition:opacity .15s}
-.voltar-jogos:hover,.voltar-jogos:active{opacity:1}
-.voltar-jogos[hidden]{display:none}
+  /* Saída para o catálogo — só aparece quando o jogo roda dentro dele.
+     O visual vem de .chip, a mesma pílula dos atalhos de cidade: um <a> sem
+     `color` próprio herda o azul de link do navegador, ilegível neste fundo. */
+  .voltar-jogos { display: inline-flex; align-items: center; gap: 7px;
+    text-decoration: none; margin-bottom: 24px; }
+  .voltar-jogos[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -156,7 +156,7 @@
 <div id="menu" class="hide">
   <h1>WORLDDRIVE</h1>
   <div class="tag">Dirija em qualquer rua do mundo — mapa real, relevo real 🌍</div>
-  <a class="voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
+  <a class="chip voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
   <div class="panel">
     <div class="searchwrap">
       <input id="search" type="text" placeholder="🔍 Busque uma cidade, rua ou lugar…" autocomplete="off" spellcheck="false">

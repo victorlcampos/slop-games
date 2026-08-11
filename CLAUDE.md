@@ -380,11 +380,23 @@ uma opção do menu, que é onde o jogador procura por "sair".
 
 O contrato é de duas pontas: **o jogo diz onde quer a saída, o catálogo a ativa.**
 
-**Jogo com menu em DOM** — declare o elemento escondido:
+**Jogo com menu em DOM** — declare o elemento escondido, vestindo **a classe de
+botão que o jogo já tem**, e não um estilo novo:
 
 ```html
-<a class="voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
+<!-- SkiFree: .btn.ghost, o secundário ao lado do "Descer a montanha" -->
+<a class="btn ghost voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
+<!-- World Drive: .chip, a mesma pílula dos atalhos de cidade -->
+<!-- Zoo Magnata: .btn, o botão cartoon da casa                -->
 ```
+
+A classe `.voltar-jogos` cuida só do que não é visual (`inline-flex`, o `gap` do
+emoji, tirar o sublinhado, esconder). **Nunca deixe o `<a>` sem `color`**: sem
+isso ele herda o azul de link do navegador (`#0000EE`) — e, se a borda for
+`currentColor`, ela vai junto. Já aconteceu nos três jogos de uma vez: sobre os
+fundos escuros do SkiFree e do World Drive o botão ficou ilegível. Herdar a
+classe do jogo resolve isso de graça, e é o que faz a saída parecer parte do
+menu em vez de um enxerto. O teste do catálogo cobra a cor.
 
 **Jogo que desenha em canvas** — leia `window.__catalogo` e desenhe do seu jeito:
 
