@@ -1,11 +1,11 @@
-// Smoke test: abre dist/index.html via file://, escolhe um preset e espera o jogo carregar
+// Smoke test: opens dist/index.html over file://, picks a preset and waits for the world to load
 // URL=https://... tests a published deploy instead of the local build
 import puppeteer from 'puppeteer-core';
 import path from 'node:path';
-import { acharChrome } from 'slopkit/testing';
+import { findChrome } from 'slopkit/testing';
 
 // the Chrome path comes from the kit: covers macOS, CI Linux and Windows
-const CHROME = acharChrome();
+const CHROME = findChrome();
 const url = process.env.URL || 'file://' + path.resolve('dist/index.html');
 const shotDir = process.env.SHOT_DIR || 'test';
 
@@ -55,7 +55,7 @@ try {
   console.log('… loading world (real network, may take a while)');
 
   await page.waitForFunction(() => window.WD && window.WD.state === 'driving', { timeout: 180000, polling: 500 });
-  console.log('✓ estado driving');
+  console.log('✓ state: driving');
   const stats = await page.evaluate(() => window.WD.world.stats);
   console.log('  stats:', JSON.stringify(stats));
 
@@ -76,10 +76,10 @@ try {
 
   const relevant = errors.filter(e => !e.includes('favicon'));
   if (relevant.length) {
-    console.log('⚠ erros de console:');
+    console.log('⚠ console errors:');
     for (const e of relevant.slice(0, 10)) console.log('  ' + e);
   } else {
-    console.log('✓ zero erros de console');
+    console.log('✓ no console errors');
   }
   console.log('SMOKE OK');
 } catch (e) {

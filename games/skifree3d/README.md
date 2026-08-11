@@ -166,7 +166,7 @@ saltos, batidas, portões e o rugido do Yeti (dente de serra grave com vibrato e
 dist/index.html       ← o jogo: arquivo único, abre com duplo clique (gerado)
 template.html         interface, HUD e menus; o bundle entra na marca /*__APP__*/
 build.mjs             três linhas chamando o build do slopkit
-jogo.json             metadados que alimentam o índice do slop-games
+game.json             metadados que alimentam o índice do slop-games
 src/
   main.js             bootstrap e ligação com a UI
   game.js             cena, luz, pós-processamento, laço principal

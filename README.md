@@ -11,19 +11,23 @@ sem servidor, sem instalação, sem conta.
 
 | | Jogo | O que é | Libs | Rede |
 |---|---|---|---|---|
-| 🐆 | **[Animais vs Monstros](jogos/animais-vs-monstros)** | Defesa de fileiras. As lendas ganharam corpo e paralisaram a humanidade de medo; os bichos nunca ouviram essas histórias e por isso são imunes. 10 fases no Brasil contra o folclore. | nenhuma | offline |
-| ⛷️ | **[SkiFree 3D](jogos/skifree3d)** | Releitura em 3D do SkiFree de 1991. Desça a montanha desviando das árvores até o Abominável aparecer. | three.js | offline |
-| 🚗 | **[World Drive](jogos/worlddrive)** | Dirija por qualquer rua do mundo. O cenário 3D é montado ao vivo com dados reais do OpenStreetMap. | three.js | precisa de rede |
-| 🦁 | **[Zoo Magnata](jogos/zoo-magnata)** | Tycoon de zoológico com 219 espécies desenhadas em código, recintos de forma livre e economia completa. | nenhuma | offline |
+| 🐆 | **[Animais vs Monstros](games/animais-vs-monstros)** | Defesa de fileiras. As lendas ganharam corpo e paralisaram a humanidade de medo; os bichos nunca ouviram essas histórias e por isso são imunes. 10 fases no Brasil contra o folclore. | nenhuma | offline |
+| ⛷️ | **[SkiFree 3D](games/skifree3d)** | Releitura em 3D do SkiFree de 1991. Desça a montanha desviando das árvores até o Abominável aparecer. | three.js | offline |
+| 🚗 | **[World Drive](games/worlddrive)** | Dirija por qualquer rua do mundo. O cenário 3D é montado ao vivo com dados reais do OpenStreetMap. | three.js | precisa de rede |
+| 🦁 | **[Zoo Magnata](games/zoo-magnata)** | Tycoon de zoológico com 219 espécies desenhadas em código, recintos de forma livre e economia completa. | nenhuma | offline |
 
 Nenhum deles tem uma única imagem: sprites, terreno, texturas e som são gerados
-por código em tempo de carga.
+por código em tempo de carga. Até as bandeirinhas 🇧🇷/🇺🇸 do seletor de idioma —
+o emoji não tem glifo no Windows, então elas são desenhadas em canvas.
+
+**Todos falam português e inglês.** A escolha vale para o catálogo inteiro:
+trocar a bandeira no índice troca também no jogo que você abrir em seguida.
 
 ## Rodando local
 
 ```bash
 npm install       # uma vez
-npm run abrir     # builda tudo e abre o índice no navegador
+npm run open      # builda tudo e abre o índice no navegador
 ```
 
 O build gera `dist/index.html` (o índice) e `dist/<slug>/index.html` (cada jogo).
@@ -41,7 +45,7 @@ As regras da casa — tecnologias, contrato de build, o que não se negocia — 
 em **[CLAUDE.md](CLAUDE.md)**. O resumo: um `index.html` autossuficiente, zero
 CDN, assets gerados por código, esbuild como bundler.
 
-O índice é gerado a partir dos `jogos/*/jogo.json`, então um jogo novo aparece
+O índice é gerado a partir dos `games/*/game.json`, então um jogo novo aparece
 sozinho depois do build.
 
 ## No celular

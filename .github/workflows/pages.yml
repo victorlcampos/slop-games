@@ -54,14 +54,14 @@ jobs:
         run: npm test
 
       - name: Testes de cada jogo
-        run: npm run test --workspace jogos/animais-vs-monstros
+        run: npm run test --workspace games/animais-vs-monstros
 
       # Este dirige de verdade num mapa real do OpenStreetMap. É um bom teste e
       # um péssimo portão: depende de uma API pública de terceiros, que cai e
       # limita requisição. Roda para dar visibilidade, sem poder barrar o deploy.
       - name: Teste de integração com rede (não bloqueia)
         continue-on-error: true
-        run: npm run test --workspace jogos/worlddrive
+        run: npm run test --workspace games/worlddrive
 
       # quando algo quebra, a imagem da tela vale mais que o log
       - name: Guardar as telas em caso de falha
@@ -70,7 +70,7 @@ jobs:
         with:
           name: telas-da-falha
           path: |
-            jogos/*/test/*.png
+            games/*/test/*.png
             test/*.png
           if-no-files-found: ignore
           retention-days: 7
