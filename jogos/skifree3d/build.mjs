@@ -5,7 +5,6 @@ import { construir } from 'slopkit/build';
 // aponta os imports para lá.
 await construir({
   raiz: import.meta.dirname,
-  pwa: true,
   alias: {
     'three/addons': 'vendor/addons',
     three: 'vendor/three.module.js',

@@ -351,26 +351,33 @@ await construir({
 
 ### Instalável no celular (PWA)
 
-`pwa: true` no `construir()` torna o jogo instalável na tela inicial, sem
-quebrar a regra do arquivo único: o **manifesto vai embutido como `data:` URI**
-e o ícone é um SVG com o emoji do jogo, também embutido. Nome, emoji e descrição
-saem do `jogo.json` — um lugar só dizendo como o jogo se chama.
+**O app é o catálogo, não cada jogo.** Um ícone na tela inicial abre o índice, e
+dali se entra em qualquer jogo — quatro ícones separados seria só poluição, e
+cada jogo instalado sozinho perderia o caminho de volta.
 
-```json
-{ "slug": "meu-jogo", "nome": "Meu Jogo", "emoji": "🎮",
-  "orientacao": "landscape" }
-```
+O manifesto vive no `build.mjs` da raiz, embutido no índice como `data:` URI
+junto de um ícone SVG. `scope: './'` faz os jogos rodarem dentro do app, e
+`display: standalone` mantém a barra de status do sistema — quem joga quer ver
+as horas e a bateria.
 
-`orientacao` é opcional e o padrão é `any`. Declare `landscape` só se o jogo
-realmente não funciona em pé — travar o aparelho de quem está deitado no sofá
-por nada é pior que a tela apertada.
+Isso cria um problema que a solução precisa resolver: **em modo app não existe
+barra de navegador**. Quem entra num jogo fica preso; no Android ainda há o
+botão voltar do sistema, no iOS não há nada. Por isso o build da raiz injeta um
+botão `←` discreto na cópia publicada de cada jogo, dentro de uma media query
+`(display-mode: standalone)`:
 
-**Não há service worker, e não faz falta.** O jogo inteiro já é um HTML só, sem
-nada para buscar na rede; um SW aqui existiria para cachear o que já está
-cacheado. O efeito prático do que fica: quem adiciona à tela inicial abre em
-tela cheia, sem barra de navegador, com ícone e nome próprios. (O prompt
-automático de instalação do Chrome exige SW; "Adicionar à tela inicial" pelo
-menu funciona sem.)
+- fora do modo app o botão nem existe, porque lá o navegador já tem o "voltar"
+  dele e um botão a mais só rouba canto de tela;
+- o arquivo em `jogos/<slug>/dist/index.html` continua puro — quem baixa só o
+  jogo não leva um link para um catálogo que não tem.
+
+**Não há service worker, e não faz falta.** Tudo aqui já é HTML único, sem nada
+para buscar na rede; um SW existiria para cachear o que já está cacheado. (O
+prompt automático de instalação do Chrome exige SW; "Adicionar à tela inicial"
+pelo menu funciona sem, e é assim que se instala no iOS de qualquer forma.)
+
+`orientacao` no `jogo.json` é opcional, padrão `any`. Declare `landscape` só se
+o jogo realmente não funciona em pé.
 
 ### O contrato
 

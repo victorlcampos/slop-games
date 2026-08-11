@@ -71,32 +71,6 @@ for (const jogo of catalogo) {
     }
   });
 
-  cenario(`${jogo.emoji} ${jogo.nome}: dá para instalar na tela inicial`, async () => {
-    const j = await abrir(navegador, arquivo, APARELHOS.celular, { esperaBoot: 1200 });
-    const m = await j.pagina.evaluate(async () => {
-      const link = document.querySelector('link[rel="manifest"]');
-      if (!link) return { erro: 'sem <link rel=manifest>' };
-      let man;
-      try {
-        man = await (await fetch(link.href)).json();
-      } catch (e) {
-        return { erro: 'manifesto ilegível: ' + e.message };
-      }
-      return {
-        erro: null,
-        nome: man.name,
-        icones: (man.icons || []).length,
-        temas: document.querySelectorAll('meta[name="theme-color"]').length,
-        ios: !!document.querySelector('meta[name="apple-mobile-web-app-capable"]'),
-      };
-    });
-    conferir(!m.erro, `${jogo.slug}: ${m.erro}`);
-    conferir(m.nome === jogo.nome, `${jogo.slug}: manifesto diz "${m.nome}", jogo.json diz "${jogo.nome}"`);
-    conferir(m.icones >= 2, `${jogo.slug}: precisa de ícone 192 e 512`);
-    conferir(m.temas === 1, `${jogo.slug}: ${m.temas} tags theme-color — devia ser exatamente uma`);
-    conferir(m.ios, `${jogo.slug}: falta a meta que o Safari do iOS usa`);
-    await j.fechar();
-  });
 }
 
 cenario('girar o aparelho não quebra o toque', async () => {
@@ -124,6 +98,60 @@ cenario('girar o aparelho não quebra o toque', async () => {
   );
   conferir(m.overlay === 'none', 'o aviso de girar não pode interceptar toque quando some');
   await j.fechar();
+});
+
+cenario('o catálogo é instalável e o escopo cobre os jogos', async () => {
+  const j = await abrir(navegador, path.join(DIST, 'index.html'), APARELHOS.celular, { esperaBoot: 900 });
+  const m = await j.pagina.evaluate(async () => {
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) return { erro: 'o índice não tem manifesto' };
+    let man;
+    try {
+      man = await (await fetch(link.href)).json();
+    } catch (e) {
+      return { erro: 'manifesto ilegível: ' + e.message };
+    }
+    return {
+      erro: null,
+      nome: man.name,
+      escopo: man.scope,
+      inicio: man.start_url,
+      display: man.display,
+      icones: (man.icons || []).length,
+      ios: !!document.querySelector('meta[name="apple-mobile-web-app-capable"]'),
+    };
+  });
+  conferir(!m.erro, String(m.erro));
+  conferir(m.escopo === './', `escopo "${m.escopo}" precisa cobrir as subpastas dos jogos`);
+  conferir(m.display === 'standalone', `display é "${m.display}"`);
+  conferir(m.icones >= 2, 'precisa de ícone 192 e 512');
+  conferir(m.ios, 'falta a meta que o Safari do iOS usa');
+  j.exigirSemErros('catálogo');
+  await j.fechar();
+});
+
+cenario('cada jogo tem volta para o catálogo quando roda como app', async () => {
+  for (const jogo of catalogo) {
+    const html = readFileSync(path.join(DIST, jogo.slug, 'index.html'), 'utf8');
+    conferir(
+      html.includes('id="voltar-catalogo"'),
+      `${jogo.slug}: sem botão de voltar — em modo app não há barra de navegador e o jogador fica preso`
+    );
+    conferir(
+      html.includes('display-mode: standalone'),
+      `${jogo.slug}: o botão precisa aparecer só no modo app`
+    );
+    conferir(
+      html.includes('href="../index.html"'),
+      `${jogo.slug}: o botão precisa apontar para o índice`
+    );
+  }
+  // e o arquivo solto do jogo continua sem ele
+  const solto = readFileSync(path.join(RAIZ, 'jogos', catalogo[0].slug, 'dist/index.html'), 'utf8');
+  conferir(
+    !solto.includes('voltar-catalogo'),
+    'o arquivo do jogo fora do catálogo não deve ganhar botão de voltar para lugar nenhum'
+  );
 });
 
 cenario('o índice lista todos os jogos e cada link existe', async () => {

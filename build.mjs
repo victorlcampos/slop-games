@@ -75,8 +75,50 @@ for (const jogo of aBuildar) {
   }
 
   mkdirSync(join(DIST, jogo.slug), { recursive: true });
-  cpSync(gerado, join(DIST, jogo.slug, 'index.html'), { force: true });
+  // A cópia do catálogo ganha o caminho de volta; o arquivo do jogo em
+  // jogos/<slug>/dist continua puro, para quem baixa só ele.
+  writeFileSync(join(DIST, jogo.slug, 'index.html'), comVoltaAoCatalogo(html), 'utf8');
   console.log(`${kb(tamanho)} KB`);
+}
+
+/**
+ * Botão de volta ao catálogo, injetado só na cópia publicada.
+ *
+ * O catálogo é o app instalável, e os jogos vivem dentro do escopo dele. Em
+ * modo app não existe barra de navegador: sem isto, quem entra num jogo fica
+ * preso — no Android ainda há o botão voltar do sistema, no iOS não há nada.
+ *
+ * Por isso a media query: fora do modo app o botão nem aparece, porque lá o
+ * navegador já tem o "voltar" dele e um botão a mais só rouba canto de tela.
+ */
+function comVoltaAoCatalogo(html) {
+  const estilo = `<style>
+  #voltar-catalogo { display: none; }
+  @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+    #voltar-catalogo {
+      display: grid;
+      place-items: center;
+      position: fixed;
+      left: calc(env(safe-area-inset-left) + 6px);
+      top: calc(env(safe-area-inset-top) + 6px);
+      width: 34px; height: 34px;
+      z-index: 99;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.35);
+      background: rgba(20,18,16,.5);
+      color: #fff;
+      font: 16px/1 system-ui, sans-serif;
+      text-decoration: none;
+      opacity: .35;
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+      transition: opacity .15s;
+    }
+    #voltar-catalogo:active { opacity: 1; }
+  }
+</style>`;
+  const botao = '<a id="voltar-catalogo" href="../index.html" aria-label="Voltar ao catálogo">←</a>';
+  return html.replace('</head>', estilo + '\n</head>').replace('</body>', botao + '\n</body>');
 }
 
 // -------------------------------------------------------------------- índice
@@ -108,6 +150,8 @@ const manifestoIndice = {
   description: 'Jogos que rodam inteiros no navegador.',
   start_url: './',
   scope: './',
+  // standalone (e não fullscreen): mantém a barra de status do sistema, que é
+  // onde o usuário vê horas e bateria enquanto joga
   display: 'standalone',
   background_color: '#0c0d12',
   theme_color: '#0c0d12',

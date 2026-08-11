@@ -6,7 +6,6 @@ import { construir } from 'slopkit/build';
 // ao kit sem reescrever o escopo inteiro.
 await construir({
   raiz: import.meta.dirname,
-  pwa: true,
   modo: 'concatenado',
   globais: { Slop: 'slopkit' },
   arquivos: [

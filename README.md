@@ -44,6 +44,12 @@ CDN, assets gerados por código, esbuild como bundler.
 O índice é gerado a partir dos `jogos/*/jogo.json`, então um jogo novo aparece
 sozinho depois do build.
 
+## No celular
+
+Abra **[o catálogo](https://victorlcampos.github.io/slop-games/)** e use "Adicionar
+à tela de início" (iOS) ou "Instalar app" (Android). Vira um ícone só, com todos
+os jogos dentro — de dentro de um jogo, o `←` no canto volta para a lista.
+
 ## Publicação
 
 Push na `main` → o GitHub Actions **roda os testes e só publica se passarem**. O
