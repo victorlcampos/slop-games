@@ -5,7 +5,7 @@
    sai do PLANO CORPORAL e do TAMANHO (esc), do mesmo jeito que o desenho, e um
    PRNG semeado pelo name dá individualidade estável a cada espécie.
    ========================================================================== */
-/* Gesto sonoro por família, com exceções por espécie onde o bicho foge do
+/* A vocal gesture per family, with per-species exceptions where the animal
    padrão do grupo (zebra late em vez de relinchar; raposa late em vez de uivar). */
 const GESTO_PLANO = {
   feline: 'rugido', bear: 'rosnado', canine: 'uivo', elephant: 'trombeta',
@@ -35,7 +35,7 @@ const SFX = {
   _ativas: 0,             // vozes tocando agora (teto de polifonia)
   _proxBicho: 0,
 
-  /** O contexto só pode nascer num gesto do usuário (política de autoplay). */
+  /** The context can only be born in a user gesture (the autoplay policy). */
   iniciar() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -43,7 +43,7 @@ const SFX = {
     try { this.ctx = new AC(); } catch (e) { return; }
     this.mestre = this.ctx.createGain();
     this.mestre.gain.value = this.on ? this.vol : 0;
-    // teto suave: evita estouro quando muitos sons coincidem
+    // a soft ceiling: stops clipping when many sounds land together
     const lim = this.ctx.createDynamicsCompressor();
     lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
     this.mestre.connect(lim).connect(this.ctx.destination);
@@ -54,7 +54,7 @@ const SFX = {
     const g = this.on ? this.vol : 0;
     this.mestre.gain.setTargetAtTime(g, this.ctx.currentTime, .05);
   },
-  /** true se pode tocar `nome` agora (respeitando o intervalo mínimo) */
+  /** true if `name` can play right now (respecting the minimum interval) */
   _passa(name, msMin) {
     if (!this.ctx || !this.on) return false;
     if (this._ativas > 14) return false;
@@ -64,8 +64,8 @@ const SFX = {
     return true;
   },
 
-  /* ---- blocos de síntese ---- */
-  /** oscilador com envelope; f2 faz varredura de frequência */
+  /* ---- synthesis blocks ---- */
+  /** an oscillator with an envelope; f2 sweeps the frequency */
   _tom({ f = 440, f2, kind = 'sine', t = 0, dur = .18, vol = .3, atk = .006, vib, vibF = 6, dest, lp }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const o = c.createOscillator(), g = c.createGain();
@@ -87,7 +87,7 @@ const SFX = {
     o.start(t0); o.stop(t0 + dur + .05);
     this._ativas++; o.onended = () => this._ativas--;
   },
-  /** rajada de ruído filtrado: baque, pincelada, chiado, sopro */
+  /** a burst of filtered noise: a thud, a brush, a hiss, a puff */
   _ruido({ t = 0, dur = .18, vol = .3, kind = 'lowpass', f = 900, f2, Q = 1, dest, lp }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const n = Math.max(1, Math.floor(c.sampleRate * dur));
@@ -109,23 +109,24 @@ const SFX = {
     src.start(t0); src.stop(t0 + dur + .02);
     this._ativas++; src.onended = () => this._ativas--;
   },
-  /** Vogal por síntese de formantes, seguindo Klatt (1980).
-   *  Duas coisas que eu tinha errado e a literatura corrige:
-   *  1) VOGAL É CASCATA. Ressoadores em série. Passa-bandas estreitos em
-   *     PARALELO (minha 1ª tentativa) isolam 3 faixas e descartam o resto —
-   *     vira acorde de 3 tons. A configuração paralela do Klatt existe para
-   *     fricativa e plosiva, não para vogal.
-   *  2) A FONTE É UM TREM DE IMPULSOS limitado em banda, não uma serra. É a
-   *     fonte que carrega a qualidade vocal; serra soa elétrica.
-   *  Frequências de formante: Peterson & Barney (1952), homem adulto.
-   *  F4/F5 = 3500/4500 Hz, valores usuais em síntese. */
+  /** A vowel by formant synthesis, following Klatt (1980).
+   *  Two things I had wrong and the literature corrects:
+   *  1) A VOWEL IS A CASCADE. Resonators in series. Narrow band-passes in
+   *     PARALLEL (my first attempt) isolate 3 bands and throw the rest away —
+   *     it becomes a 3-tone chord. Klatt's parallel configuration exists for
+   *     fricatives and plosives, not for vowels.
+   *  2) THE SOURCE IS A PULSE TRAIN, band-limited, not a sawtooth. It is the
+   *     source that carries the vocal quality; a sawtooth sounds electric.
+   *  Formant frequencies: Peterson & Barney (1952), adult male.
+   *  F4/F5 = 3500/4500 Hz, the usual values in synthesis. */
   _ondaGlotal() {
     if (this._glote) return this._glote;
     const n = 40, real = new Float32Array(n + 1), imag = new Float32Array(n + 1);
-    // queda ~12 dB/oitava: perfil do pulso glotal (serra cai só 6)
-    // Medido contra voz real: ela concentra 72–95% da energia abaixo de 1,5 kHz.
-    // Fonte com queda de só -6 dB/oitava deixa o agudo forte demais e o resultado
-    // soa sintetizador. Aqui fica perto do pulso glotal de verdade (~-12).
+    // a ~12 dB/octave roll-off: the glottal pulse's profile (a sawtooth drops only 6)
+    // Measured against a real voice: it concentrates 72–95% of its energy below
+    // 1.5 kHz. A source rolling off at only -6 dB/octave leaves the top too
+    // strong and the result sounds like a synthesiser. This is close to a real
+    // glottal pulse (~-12).
     for (let k = 1; k <= n; k++) imag[k] = 1 / Math.pow(k, 1.6);
     return this._glote = this.ctx.createPeriodicWave(real, imag);
   },
@@ -141,26 +142,28 @@ const SFX = {
     const BW = [60, 90, 120, 150, 200];        // larguras de banda típicas
     const LOCUS = [250, 1750, 2600, 3400, 4400];  // ponto de partida no ataque
 
-    // Sílaba tem forma no tempo: transição rápida no ataque, depois alvo sustentado.
-    // Rampa contínua do início ao fim (o que eu tinha) cisalha tudo em diagonal —
-    // isso é sirene, não fala. Transição de formante ocupa ~60 ms (teoria do lócus).
+    // A syllable has a shape in time: a quick transition on the attack, then a
+    // sustained target. A continuous ramp from start to end (what I had) shears
+    // everything diagonally — that is a siren, not speech. A formant transition
+    // takes ~60 ms (locus theory).
     const TRANS = Math.min(.06, dur * .3);
     const o = c.createOscillator();
     o.setPeriodicWave(this._ondaGlotal());
     o.frequency.setValueAtTime(f0, t0);
     o.frequency.setValueAtTime(f0, t0 + dur * .55);   // segura, depois entoa
     if (f0b) o.frequency.exponentialRampToValueAtTime(Math.max(40, f0b), t0 + dur);
-    // jitter: prega vocal não é oscilador. Sem esta trepidação a nota fica reta
-    // e soa órgão. Fundo mesmo (~0,3%): mais que isso vira vibrato de ópera.
+    // jitter: a vocal fold is not an oscillator. Without this tremor the note is
+    // straight and sounds like an organ. Keep it low (~0.3%): more than that and
+    // it becomes operatic vibrato.
     [[5.7, 4], [12.9, 2]].forEach(([hz, cents]) => {
       const l = c.createOscillator(), lg = c.createGain();
       l.frequency.value = hz; l.type = 'sine'; lg.gain.value = cents;
       l.connect(lg).connect(o.detune); l.start(t0); l.stop(t0 + dur + .05);
     });
 
-    // Aspiração: fluxo de ar que não vira periodicidade. É ela que preenche o
-    // vão entre harmônicos — comparado com voz real, sem isso o espectro vira
-    // linhas finas com preto no meio, que é o desenho de um zumbido, não de voz.
+    // Aspiration: airflow that never becomes periodic. It is what fills the gap
+    // between harmonics — compared with a real voice, without it the spectrum is
+    // thin lines with black in between, which is the picture of a buzz, not a voice.
     const nn = Math.ceil(c.sampleRate * (dur + .05));
     const nb = c.createBuffer(1, nn, c.sampleRate), nd = nb.getChannelData(0);
     for (let i = 0; i < nn; i++) nd[i] = Math.random() * 2 - 1;
@@ -169,21 +172,22 @@ const SFX = {
     const nlp = c.createBiquadFilter();   // acima de ~4 kHz a voz real é escura
     nlp.type = 'lowpass'; nlp.frequency.value = 2400; nlp.Q.value = .7;
 
-    // fonte periódica e aspiração passam pelo MESMO trato vocal
+    // the periodic source and the aspiration go through the SAME vocal tract
     const entrada = c.createGain();
     o.connect(entrada); ns.connect(ng).connect(nlp).connect(entrada);
 
-    // cascata de 5 ressoadores; Q = F/BW, como no modelo
+    // a cascade of 5 resonators; Q = F/BW, as in the model
     let no = entrada;
     for (let i = 0; i < 5; i++) {
       const fA = A[i] * esc, fB = B[i] * esc;
       const r = c.createBiquadFilter();
       r.type = 'peaking';                       // realça sem descartar o resto
-      // Q teórico (F/BW) deixa o formante mais estreito que o espaçamento entre
-      // harmônicos — ele cai no vão e não realça nada. Limitado, pega 2–3 harmônicos.
+      // The theoretical Q (F/BW) makes the formant narrower than the spacing
+      // between harmonics — it falls in the gap and boosts nothing. Clamped, it
+      // catches 2–3 harmonics.
       r.Q.value = Math.min(4.5, Math.max(1.8, fA / BW[i]));
       r.gain.value = [23, 19, 10, 4, 2][i];
-      // lócus: de onde o formante parte no ataque (lugar da consoante)
+      // the locus: where the formant starts on the attack (the consonant's place)
       r.frequency.setValueAtTime(fA + (LOCUS[i] - fA) * .55, t0);
       r.frequency.linearRampToValueAtTime(fA, t0 + TRANS);  // chega no alvo da vogal
       r.frequency.setValueAtTime(fA, t0 + dur * .55);       // e SEGURA
@@ -205,8 +209,9 @@ const SFX = {
     this._ativas++; o.onended = () => this._ativas--;
   },
 
-  /** Voz de gente: visitante solta uma interjeição curta, funcionário responde
-   *  com o jeito da função. A altura e a vogal vêm da aparência da pessoa, então
+  /** A human voice: a visitor lets out a short interjection, a staff member
+   *  answers in the manner of their role. Pitch and vowel come from the person's
+   *  appearance, so
    *  o mesmo sujeito soa sempre igual. */
   vozHumana(p, opts) {
     if (!this.ctx || !this.on) return;
@@ -214,7 +219,7 @@ const SFX = {
     if (!imediato && !this._passa('humano', 200)) return;
     const r = mulberry(hashStr(personKey(p)) + 5);
     const child = !!p.child;
-    // f0 típico: homem 100–130, mulher 190–220, criança 250–320
+    // typical f0: man 100–130, woman 190–220, child 250–320
     const kind = child ? 'crianca' : (r() < .5 ? 'homem' : 'mulher');
     const f0 = child ? 250 + r() * 70 : kind === 'mulher' ? 185 + r() * 45 : 100 + r() * 35;
     const vogais = ['a', 'e', 'i', 'o', 'u'];
@@ -237,7 +242,7 @@ const SFX = {
       this._vogal({ f0: f0 * .85, f0b: f0 * .7, vogal: 'a', vogal2: 'e', dur: .27, vol: v * .75, t: .18, kind, dest });
       return;
     }
-    // visitante: interjeição de uma sílaba, com entonação (sobe = pergunta)
+    // visitor: a one-syllable interjection, with intonation (rising = a question)
     const sobe = r() < .5;
     const vg2 = vogais[(r() * vogais.length) | 0];
     this._vogal({ f0, f0b: sobe ? f0 * 1.28 : f0 * .78, vogal: vg, vogal2: vg2,
@@ -251,7 +256,7 @@ const SFX = {
     freqs.forEach((f, i) => this._tom({ f, kind, dur, vol, t: i * passo }));
   },
 
-  /* ---- eventos do jogo ---- */
+  /* ---- game events ---- */
   play(name) {
     switch (name) {
       case 'ui':        if (!this._passa(name, 35)) return; this._tom({ f: 880, f2: 1180, dur: .05, vol: .12 }); break;
@@ -322,10 +327,10 @@ const SFX = {
 
   /* ---- gestos ---- */
   _g_rugido(F, v, r) {       // leão, tigre, onça
-    // Rugido de verdade NÃO é um zumbido contínuo: é uma sequência de gemidos
-    // pulsados, cada um com ataque próprio e queda longa, separados por silêncio.
-    // Era isso que faltava — eu tinha acertado a faixa de frequência e errado a
-    // forma, e forma é o que o ouvido usa para reconhecer o bicho.
+    // A real roar is NOT a continuous buzz: it is a sequence of pulsed groans,
+    // each with its own attack and a long decay, separated by silence. That was
+    // what was missing — I had the frequency range right and the shape wrong, and
+    // shape is what the ear uses to recognise the animal.
     const f0 = F(140), n = 2 + (r() * 2 | 0);
     let t = 0;
     for (let i = 0; i < n; i++) {
@@ -346,8 +351,8 @@ const SFX = {
     this._tom({ f: F(880), f2: F(520), kind: 'sawtooth', dur: .3, vol: v * .7, t: .16, vib: 20, vibF: 10 });
   },
   _g_rosnado(F, v) {         // urso: rasgado, e mais MÉDIO do que parece
-    // Medido contra gravação real: o rosnado de urso concentra ~89% da energia
-    // entre 500 e 1500 Hz. "Bicho grande = subgrave" é intuição errada.
+    // Measured against a real recording: a bear's growl concentrates ~89% of its
+    // energy between 500 and 1500 Hz. "Big animal = sub-bass" is a wrong hunch.
     const f0 = F(420);
     [[1, .22], [2, 1], [3, .9], [4, .5], [5, .25]].forEach(([m, g]) =>
       this._tom({ f: f0 * m, f2: f0 * m * .8, kind: 'sawtooth', dur: .8, vol: v * g * .5,
@@ -355,8 +360,8 @@ const SFX = {
     this._ruido({ dur: .8, vol: v * .18, kind: 'bandpass', f: F(900), f2: F(500), Q: .9, lp: F(2400) });
   },
   _g_uivo(F, v) {            // lobo: sobe, sustenta, desce
-    // O uivo real é tonal mas NÃO é uma senoide: tem pilha harmônica densa.
-    // Triângulo/senoide (o que eu usava) sai fino demais e soa apito.
+    // A real howl is tonal but NOT a sine: it has a dense harmonic stack.
+    // A triangle/sine (what I used) comes out too thin and sounds like a whistle.
     const a = F(360), b = F(600), lp = F(3000);
     const trecho = (f1, f2, t, dur, vol, vib, vibF) =>
       [[1, 1], [2, .5], [3, .28], [4, .15]].forEach(([m, g]) =>
@@ -374,15 +379,15 @@ const SFX = {
     }
   },
   _g_trombeta(F, v) {        // elefante: metálico, sobe e cai, com ronco por baixo
-    // Real tem 34% da energia acima de 1,5 kHz — trombeta é metálica, não é ronco.
+    // The real thing has 34% of its energy above 1.5 kHz — a trumpet is metallic, not a rumble.
     this._tom({ f: F(520), f2: F(1150), kind: 'sawtooth', dur: .22, vol: v * 1.1, atk: .02, vib: 16, vibF: 13, lp: 6000 });
     this._tom({ f: F(1150), f2: F(640), kind: 'sawtooth', dur: .5, vol: v, t: .2, vib: 26, vibF: 10, lp: 6000 });
     this._ruido({ t: .04, dur: .55, vol: v * .75, kind: 'bandpass', f: F(4000), f2: F(2600), Q: .7 });  // sopro metálico
     this._tom({ f: F(78), dur: .85, vol: v * .45, kind: 'sine', atk: .05 });   // ronco que dá o porte
   },
   _g_bufo(F, v) {            // girafa e okapi: bufo + zumbido grave
-    // Girafa é um bicho quase silencioso: bufa, resfolega e emite um zumbido
-    // de ~92 Hz. Nada de rugido — o "certo" aqui é ser discreto.
+    // A giraffe is a near-silent animal: it snorts, it huffs and it emits a ~92 Hz
+    // hum. No roar — the "right" answer here is to be discreet.
     this._ruido({ dur: .38, vol: v * .8, kind: 'bandpass', f: 1100, f2: 300, Q: .6, lp: 1800 });
     this._tom({ f: F(150), f2: F(96), kind: 'triangle', dur: .34, vol: v * .5, atk: .02, lp: 700 });
     this._tom({ f: 92, dur: 1.3, vol: v * .7, kind: 'sine', atk: .18, t: .16 });  // 92 Hz é fato do bicho
@@ -394,18 +399,18 @@ const SFX = {
     }
   },
   _g_relincho(F, v) {        // cavalo, jumento
-    // real: 57% entre 1,5 e 3 kHz — o relincho é estridente
+    // real: 57% between 1.5 and 3 kHz — a whinny is shrill
     this._tom({ f: F(3100), f2: F(1500), kind: 'sawtooth', dur: .7, vol: v * .8, atk: .02, vib: 60, vibF: 16 });
     this._tom({ f: F(420), f2: F(300), kind: 'sawtooth', dur: .5, vol: v * .22, atk: .04, t: .3, lp: F(900) });
     this._ruido({ dur: .3, vol: v * .4, kind: 'bandpass', f: 2400, f2: 1100, Q: .8, t: .5 });
   },
   _g_mugido(F, v) {          // bovino: longo, grave, ondulação lenta
-    // real: 77% entre 500 e 1500 Hz. Mugido é sustentado, não é subgrave.
+    // real: 77% between 500 and 1500 Hz. A moo is sustained, not sub-bass.
     this._tom({ f: F(430), f2: F(360), kind: 'sawtooth', dur: .95, vol: v * .3, atk: .15, vib: 12, vibF: 5.5, lp: F(2600) });
     this._tom({ f: F(860), f2: F(720), kind: 'sawtooth', dur: .9, vol: v * .9, atk: .18, vib: 14, vibF: 5.5, lp: F(2600) });
   },
   _g_balido(F, v) {          // antílope, camelídeo: vibrato rápido de bode
-    // real: 52% entre 1,5 e 3 kHz; o vibrato rápido é a assinatura
+    // real: 52% between 1.5 and 3 kHz; the fast vibrato is the signature
     this._tom({ f: F(2500), f2: F(2050), kind: 'sawtooth', dur: .55, vol: v * .7, atk: .04, vib: 130, vibF: 21 });
     this._tom({ f: F(700), f2: F(600), kind: 'sawtooth', dur: .5, vol: v * .3, atk: .05, vib: 50, vibF: 21, lp: F(1100) });
   },
@@ -413,7 +418,7 @@ const SFX = {
     const n = 4 + (r() * 3 | 0);
     for (let i = 0; i < n; i++) {
       const k = i / n;
-      // pant-hoot de chimpanzé real: 61% da energia abaixo de 500 Hz
+      // a real chimpanzee pant-hoot: 61% of its energy below 500 Hz
       this._tom({ f: F(175 + k * 190), f2: F(230 + k * 240), kind: 'sawtooth',
                   dur: .12, vol: v * (.5 + k * .5), t: i * (.17 - k * .07), atk: .01, lp: F(1600) });
       this._ruido({ t: i * (.17 - k * .07), dur: .12, vol: v * .17, kind: 'bandpass',
@@ -429,7 +434,7 @@ const SFX = {
   },
   _g_grasnado(F, v) {        // pinguim, ganso: pulsos ásperos
     for (let i = 0; i < 3; i++)
-      // real: 73% entre 1,5 e 3 kHz — grasnado é áspero e agudo
+      // real: 73% between 1.5 and 3 kHz — a squawk is harsh and high
       this._tom({ f: F(1750), f2: F(1350), kind: 'sawtooth', dur: .17, vol: v * .7, t: i * .21, vib: 45, vibF: 25, lp: F(2900) });
   },
   _g_chiado(F, v) {          // serpente

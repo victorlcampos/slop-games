@@ -34,7 +34,7 @@ body{
   -webkit-font-smoothing:antialiased;-webkit-touch-callout:none;
 }
 button{touch-action:manipulation}
-/* Só o canvas do mundo é posicionado. Uma regra global `canvas{position:absolute}`
+/* Only the world canvas is positioned. A global `canvas{position:absolute}` rule
    vazaria para todo retrato de espécie inserido na UI (loja, inspetor). */
 #cv{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
 canvas{display:block;max-width:100%}
@@ -80,7 +80,7 @@ canvas{display:block;max-width:100%}
 .stat.neg span{color:var(--red2)}
 #stHappy{cursor:pointer}
 #stHappy:active{transform:translateY(1px)}
-/* aviso de "por que ninguém vem" — no HUD, não escondido dentro de um painel */
+/* the "why is nobody coming" warning — in the HUD, not hidden inside a panel */
 .stat.alerta{display:none;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;
   background:linear-gradient(#ffcfc4,#ff9f8c);border:2px solid var(--red2);
   color:#5e1a10;text-align:left;line-height:1.15;white-space:nowrap;
@@ -90,7 +90,7 @@ canvas{display:block;max-width:100%}
 .stat.alerta.show{display:flex}
 .stat.alerta:active{transform:translateY(1px)}
 @keyframes pisca{0%,100%{filter:brightness(1)}50%{filter:brightness(1.13)}}
-/* quebra linha junto com o HUD: sem isso o último botão vazava para fora da
+/* wraps along with the HUD: without this the last button spilled out of the
    tela no celular, porque o grupo da direita não acompanhava o wrap do pai */
 #hudRight{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
   gap:4px;align-items:center;flex:0 1 auto}
@@ -129,7 +129,7 @@ canvas{display:block;max-width:100%}
 /* ---------- Inspector direita ---------- */
 #inspector{
   position:absolute;right:8px;top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top));
-  /* -200px reserva o rodapé do minimapa (150) + margens: um inspetor cheio
+  /* -200px reserves the minimap's footer (150) + margins: a full inspector
      descia por cima dele em telas de altura média */
   width:302px;max-height:calc(100dvh - var(--hudH,60px) - 200px);
   overflow-y:auto;z-index:19;padding:12px;display:none;
@@ -192,7 +192,7 @@ input[type=range]{accent-color:var(--green);width:150px}
   padding:4px 7px;background:var(--cream2);border-top:2px solid rgba(70,44,20,.25);font-size:11px}
 .stars{color:var(--gold2);letter-spacing:-1px;font-size:11px}
 
-/* Tabelas finanças */
+/* Finance tables */
 table.fin{width:100%;border-collapse:collapse;font-size:12.5px}
 table.fin td,table.fin th{padding:5px 8px;border-bottom:2px dotted rgba(70,44,20,.25);text-align:left}
 table.fin th{font-size:10px;text-transform:uppercase;letter-spacing:.6px;opacity:.6}
@@ -212,7 +212,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 .toast.money{background:linear-gradient(#fff2c9,#ffe08a)}
 @keyframes pop{from{transform:translateX(30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
 
-/* ---------- Tooltip / dica de construção ---------- */
+/* ---------- Tooltip / building hint ---------- */
 #hint{
   position:absolute;left:50%;top:calc(var(--hudH,60px) + 16px + env(safe-area-inset-top));
   transform:translateX(-50%);z-index:18;
@@ -223,14 +223,14 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 #hint.show{display:flex}
 #hintX{flex:none;width:26px;height:26px;padding:0;display:grid;place-items:center;font-size:13px}
 
-/* Botões de zoom / minimapa — indispensáveis no toque, onde não há roda do mouse.
+/* Zoom buttons / minimap — indispensable on touch, where there is no mouse wheel.
    Ficam SEMPRE no topo à direita: o rodapé é do dock e da paleta em todo layout,
    e o canto superior é a única região livre em qualquer tamanho de tela.
    Somem enquanto o inspetor está aberto (ele ocupa esse lado). */
 #zoomBtns{position:absolute;right:8px;z-index:18;display:none;flex-direction:column;gap:6px;
   top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top))}
 #zoomBtns.show{display:flex}
-/* depois de .show de propósito: a gaveta do inspetor cobre esse canto no celular */
+/* after .show on purpose: the inspector drawer covers this corner on a phone */
 #zoomBtns.tapado{display:none}
 #zoomBtns .btn{width:46px;height:46px;padding:0;font-size:20px;display:grid;place-items:center;border-radius:14px}
 #hint kbd{background:var(--ink);color:var(--cream);border-radius:6px;padding:1px 6px;font-size:11px;font-family:inherit}
@@ -243,7 +243,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 #mini canvas{width:100%;height:100%;border-radius:8px;cursor:pointer}
 
 /* ---------- Splash ---------- */
-/* Saída para o catálogo — só aparece quando o jogo roda dentro dele.
+/* The exit to the catalog — it only appears when the game runs inside it.
    O visual vem de .btn, o botão desta casa: um <a> sem `color` próprio herda
    o azul de link do navegador, que destoa de tudo aqui. */
 .back-to-games{display:inline-flex;align-items:center;gap:7px;text-decoration:none;margin-top:14px}
@@ -264,7 +264,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 ::-webkit-scrollbar-track{background:rgba(70,44,20,.09);border-radius:8px}
 ::-webkit-scrollbar-thumb{background:var(--tan);border:2px solid var(--ink);border-radius:8px}
 
-/* ---- barra de alertas do gerente (abaixo do HUD, à esquerda) ---- */
+/* ---- the manager's alert bar (below the HUD, on the left) ---- */
 #alertbar{position:absolute;left:8px;top:calc(var(--hudH,54px) + 10px);display:flex;flex-direction:column;align-items:flex-start;gap:5px;z-index:14;pointer-events:none;max-width:46vw}
 #alertbar .achip{pointer-events:auto;display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:12px;padding:3px 9px 3px 7px;font-size:12.5px;font-weight:800;color:var(--ink);box-shadow:0 2px 0 rgba(47,33,19,.28);cursor:pointer;background:#fffdf6;font-family:inherit;transition:transform .08s}
 #alertbar .achip:active{transform:scale(.95)}
@@ -276,30 +276,30 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ============================ RESPONSIVO ============================ */
 
-/* Telas médias: encolhe sem mudar a arquitetura da tela */
+/* Medium screens: shrink without changing the screen's architecture */
 @media(max-width:1000px){
   #brand{display:none}
   .stat{padding:4px 8px;font-size:13px}
   #inspector{width:268px}
 }
 
-/* Telas estreitas (celular em pé, tablet pequeno) */
+/* Narrow screens (phone upright, small tablet) */
 @media(max-width:700px){
   #alertbar{max-width:64vw;gap:4px}
   #alertbar .achip{font-size:11.5px;padding:2px 8px 2px 6px}
-  /* HUD quebra em linhas e as etiquetas viram só ícone+valor */
+  /* the HUD wraps and the labels become just icon+value */
   #hud{height:auto;flex-wrap:wrap;padding:5px 6px;gap:5px;row-gap:4px}
   .stat{padding:3px 7px;font-size:13px;border-radius:9px}
   .stat small{display:none}
   .stat .ic{font-size:14px}
-  /* 10 botões + relógio têm de caber numa linha só: acima disso o wrap
+  /* 10 buttons + the clock have to fit on one line: past that the wrap
      jogava o HUD para 150px de altura (18% da tela do celular) */
   #hudRight{gap:2px}
   .spd{width:28px;height:34px;font-size:12px}
   #clockBadge{min-width:auto;font-size:10.5px;padding:4px 4px}
 
   /* Dock: tira em rolagem horizontal, alvos de toque maiores */
-  /* aqui o minimapa flutua ACIMA do dock, então a tira usa a largura toda */
+  /* here the minimap floats ABOVE the dock, so the strip uses the full width */
   #dockWrap{left:0;right:0;bottom:0;max-width:none;
     padding:0 6px calc(6px + env(safe-area-inset-bottom));gap:6px}
   #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
@@ -314,7 +314,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   .pitem .em{font-size:21px}
   #palTitle{font-size:10px}
 
-  /* Inspetor vira gaveta inferior — 302px fixos comeriam a tela inteira */
+  /* The inspector becomes a bottom drawer — a fixed 302px would eat the whole screen */
   #inspector{
     left:6px;right:6px;top:auto;width:auto;
     bottom:calc(64px + env(safe-area-inset-bottom));
@@ -340,10 +340,10 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #shopBar input[type=text]{min-width:120px}
   select,input[type=text],input[type=number]{font-size:12.5px;padding:6px 7px}
 
-  /* Finanças/ajuda são grid de 2 colunas no desktop */
+  /* Finance/help are a 2-column grid on desktop */
   #modalBody>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
 
-  /* Toasts saem de cima do dock e vão para baixo do HUD */
+  /* Toasts move off the dock and down below the HUD */
   #toasts{top:calc(var(--hudH,76px) + 14px + env(safe-area-inset-top));bottom:auto;
     right:6px;left:6px;align-items:flex-end;max-width:none}
   .toast{font-size:12px;padding:7px 10px}
@@ -357,14 +357,14 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #splash .big{font-size:15px;padding:11px 20px;width:100%}
 }
 
-/* Celular bem estreito: solta o que dá para ler em outro lugar */
+/* Very narrow phone: drop whatever can be read somewhere else */
 @media(max-width:400px){
   #stAni{display:none}
   .pitem{width:calc(50% - 3px)}
   #dock .btn{width:56px;font-size:9px}
 }
 
-/* Telas baixas (celular deitado): a gaveta inferior não cabe, volta para a lateral.
+/* Short screens (phone in landscape): the bottom drawer doesn't fit, so it goes back to the side.
    Aqui a restrição é ALTURA — o dock em duas linhas comeria 150px de 390px. */
 @media(max-height:520px) and (min-width:560px){
   #inspector{
@@ -377,7 +377,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   .stat small{display:none}
   .stat .ic{font-size:14px}
   .spd{width:33px;height:33px;font-size:13px}
-  /* dock em uma única tira rolável */
+  /* the dock as a single scrollable strip */
   #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
     padding:3px 2px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #dock::-webkit-scrollbar{display:none}
@@ -392,7 +392,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
      passa por baixo do painel no canto inferior direito */
   #dockWrap{width:auto;right:auto;max-width:calc(100% - 268px)}
   #toasts{max-width:230px}
-  /* Numa tela de ~375px de altura não cabem HUD + dica + zoom + paleta + dock.
+  /* On a ~375px-tall screen, HUD + hint + zoom + palette + dock do not fit.
      Aqui o zoom sai (a pinça resolve) e o minimapa também — 150px de mapa
      cobririam 40% da altura útil. Sobra espaço para a dica ficar legível. */
   #zoomBtns.show{display:none}
@@ -401,7 +401,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #hint{left:6px;right:262px;font-size:12px}
 }
 
-/* Sem mouse: esconde o que depende de hover e troca as instruções */
+/* No mouse: hide what depends on hover and swap the instructions */
 .ctrlToque{display:none}
 .soToque{display:none}
 @media(hover:none){

@@ -90,7 +90,7 @@ function genTerrain() {
         if (d < b.r * (.6 + Math.random() * .5)) world.terr[IDX(x, y)] = b.t;
       }
   }
-  // praça de entrada limpa
+  // a clear entrance plaza
   for (let y = H - 7; y < H; y++) for (let x = ENTRANCE.x - 4; x <= ENTRANCE.x + 4; x++)
     if (inB(x, y)) world.terr[IDX(x, y)] = TKEYS.indexOf('grass');
 }
@@ -121,9 +121,9 @@ function addPath(x, y) {
 function removePath(x, y) {
   const i = IDX(x, y);
   if (!world.path[i]) return false;
-  // O tile do portão é o "tapete" da entrada: rebuildNet() semeia a busca nele.
-  // Sem trilha ali a malha inteira fica desconectada e o zoo trava em 0 visitante
-  // sem nenhum sinal visível. Não deixa apagar.
+  // The gate tile is the entrance's "doormat": rebuildNet() seeds its search
+  // there. With no path on it the whole network is disconnected and the zoo
+  // sits at 0 visitors with no visible sign why. Don't let it be erased.
   if (x === ENTRANCE.x && y === ENTRANCE.y) return false;
   world.path[i] = 0; world.lixo[i] = 0;
   world.terr[i] = TKEYS.indexOf('grass');
@@ -159,7 +159,7 @@ function encAddTiles(e, tiles) {
   }
   encInvalida(e);
 }
-/** derruba os caches derivados da forma */
+/** drops the caches derived from the shape */
 function encInvalida(e) {
   e._seg = e._segTile = e._bb = e._arr = e._vs = e._mix = null;
   G.dirty.net = true; terrainChanged();
@@ -173,7 +173,7 @@ function deleteEnclosure(id) {
 }
 const encArea = e => e.tiles.size;
 const encTilesArr = e => e._arr || (e._arr = [...e.tiles]);
-/** caixa envolvente + centro, para mira de funcionário e ícones */
+/** bounding box + centre, for staff aiming and icons */
 function encBBox(e) {
   if (e._bb) return e._bb;
   let x0 = W, y0 = H, x1 = -1, y1 = -1;
@@ -185,7 +185,7 @@ function encBBox(e) {
   if (x1 < 0) { x0 = y0 = 0; x1 = y1 = 0; }
   return e._bb = { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
 }
-/** quantas arestas de um conjunto de tiles dão para fora (= tamanho da cerca) */
+/** how many edges of a tile set face outwards (= the fence's size) */
 function countSegments(set) {
   let n = 0;
   for (const k of set) {
@@ -197,7 +197,7 @@ function countSegments(set) {
   }
   return n;
 }
-/** arestas externas agrupadas por tile: Map(idx -> ['N','E',...]) */
+/** outward edges grouped by tile: Map(idx -> ['N','E',...]) */
 function encSegPorTile(e) {
   if (e._segTile) return e._segTile;
   const m = new Map();
@@ -214,7 +214,7 @@ function encSegPorTile(e) {
   return e._segTile = m;
 }
 const encSegCount = e => (encSegPorTile(e), e._seg);
-/** um tile qualquer do recinto, como [x, y] */
+/** any tile of the enclosure, as [x, y] */
 function encTileAleatorio(e) {
   const a = encTilesArr(e);
   if (!a.length) return null;
@@ -222,10 +222,10 @@ function encTileAleatorio(e) {
   return [k % W, (k / W) | 0];
 }
 
-/** Composição de terreno do interior. Cacheada: terrainScore() é chamado por
- *  animal a cada tick (e agora também pelos balões de pensamento), e cada
+/** Terrain composition of the interior. Cached: terrainScore() is called per
+ *  animal every tick (and now by the thought bubbles as well), and each call
  *  chamada varria o recinto inteiro. O carimbo de tempo cobre qualquer escrita
- *  em world.terr que não tenha passado por terrenoMudou(). */
+ *  in world.terr that has not been through terrainChanged(). */
 function encMix(e) {
   const agora = performance.now();
   if (e._mix && e._mixVer === G.terrVer && agora - e._mixT < 1500) return e._mix;
@@ -235,9 +235,9 @@ function encMix(e) {
   e._mix = m; e._mixVer = G.terrVer; e._mixT = agora;
   return m;
 }
-/** marca que o terreno mudou (invalida caches derivados dele) */
+/** marks the terrain as changed (invalidating the caches derived from it) */
 function terrainChanged() { G.terrVer++; G.dirty.terr = true; }
-/** 0..1 — quão bem o terreno atende o bioma da espécie */
+/** 0..1 — how well the terrain suits the species' biome */
 function terrainScore(e, sp) {
   const m = encMix(e); let s = 0, tot = 0;
   for (const k in sp.mix) { const want = sp.mix[k], has = m[k] || 0; s += Math.min(has, want); tot += want; }
@@ -254,10 +254,11 @@ const encHasFeeder = e => e.objs.some(o => ENCOBJ[o.kind].role === 'food');
 const encHasWater = e => e.objs.some(o => ENCOBJ[o.kind].role === 'water');
 const encHasShelter = e => e.objs.some(o => ENCOBJ[o.kind].role === 'shelter');
 
-/** Posições de trilha de onde se vê o recinto.
- *  Só vale trilha que o visitante consegue ALCANÇAR a partir do portão: uma
- *  trilha vizinha porém desligada da malha não é ponto de observação nenhum,
- *  e contá-la fazia o recinto aparecer como atração sem nunca receber ninguém. */
+/** Path positions from which the enclosure can be seen.
+ *  Only a path the visitor can actually REACH from the gate counts: a
+ *  neighbouring path disconnected from the network is no viewing spot at all,
+ *  and counting it made the enclosure show up as an attraction that never
+ *  received anyone. */
 function encViewSpots(e) {
   if (e._vs && e._vsNet === G.netVer) return e._vs;
   const out = [], visto = new Set();
@@ -305,7 +306,7 @@ function applyBeauty(o, sign) {
     }
 }
 
-/* ---- rede de caminhos: BFS a partir da entrada ---- */
+/* ---- path network: BFS from the entrance ---- */
 const netDist = new Int32Array(W * H);
 function rebuildNet() {
   G.dirty.net = false;
@@ -355,7 +356,7 @@ function findPath(sx, sy, tx, ty) {
   out.push([sx, sy]); out.reverse();
   return out;
 }
-/** tile de trilha livre mais próximo de (x,y) */
+/** the nearest free path tile to (x,y) */
 function nearestPathTile(x, y, maxR = 14) {
   for (let r = 0; r <= maxR; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {

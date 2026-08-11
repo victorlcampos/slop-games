@@ -12,7 +12,7 @@ const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
 const dist2 = (x1, y1, x2, y2) => (x2 - x1) ** 2 + (y2 - y1) ** 2;
 let _uid = 1; const uid = () => _uid++;
 
-// PRNG determinístico (para gerar sprites idênticos por espécie)
+// A deterministic PRNG (so a species' sprites come out identical every time)
 function mulberry(seed) {
   let a = seed >>> 0;
   return function () {
@@ -49,7 +49,7 @@ function mixc(a, b, t) {
 }
 const outlineOf = c => shade(c, -0.62);
 
-/* ---- formatação ---- */
+/* ---- formatting ---- */
 function money(v) {
   const neg = v < 0; v = Math.abs(Math.round(v));
   let s;
@@ -91,7 +91,7 @@ function roundRectP(c, x, y, w, h, r) {
   c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
   c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
 }
-/** desenha forma com preenchimento + contorno cartoon */
+/** draws a shape with a fill plus a cartoon outline */
 function ink(c, fill, lw) {
   if (lw !== 0) { c.lineWidth = lw || 4.5; c.strokeStyle = c._ink || '#000'; c.stroke(); }
   c.fillStyle = fill; c.fill();
@@ -103,7 +103,7 @@ function limb(c, x1, y1, x2, y2, w, fill) {
   c.lineWidth = w + 4.4; c.strokeStyle = c._ink; c.stroke();
   c.lineWidth = w; c.strokeStyle = fill; c.stroke();
 }
-/** membro em 2 segmentos (joelho) */
+/** a limb in 2 segments (with a knee) */
 function limb2(c, x1, y1, xk, yk, x2, y2, w, fill) {
   c.lineCap = 'round'; c.lineJoin = 'round';
   c.beginPath(); c.moveTo(x1, y1); c.lineTo(xk, yk); c.lineTo(x2, y2);

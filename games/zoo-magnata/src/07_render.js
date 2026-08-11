@@ -10,8 +10,8 @@ const TCW = (W + H) * TW / 2, TCH = (W + H) * TH / 2 + 40;
 let terrCv = null, terrCtx = null;
 
 function resize() {
-  // Celulares reportam DPR 3: renderizar nisso triplica a área de pintura de
-  // centenas de sprites por frame sem ganho visível num traço cartoon.
+  // Phones report DPR 3: rendering at that triples the fill area of hundreds of
+  // sprites per frame with no visible gain on a cartoon outline.
   const tetoDPR = (IS_TOUCH && window.innerWidth <= 900) ? 1.6 : 2;
   DPR = Math.min(window.devicePixelRatio || 1, tetoDPR);
   VW = cv.clientWidth; VH = cv.clientHeight;
@@ -28,28 +28,29 @@ function s2w(sx, sy) {
 }
 function centerOn(x, y) { cam.x = VW / 2 - (x - y) * (TW / 2) * cam.z; cam.y = VH / 2 - (x + y) * (TH / 2) * cam.z; }
 
-/* ---- terreno em cache ----
+/* ---- cached terrain ----
    Tudo aqui é redesenhado só quando G.dirty.terr liga; o frame a frame apenas
    blita o canvas. Três camadas: base (losangos + textura), franjas orgânicas
    entre terrenos, e a rede de trilhas com meio-fio, curvas e entradas de loja. */
 const T_GRAMA = TKEYS.indexOf('grass'), T_AGUA = TKEYS.indexOf('water'), T_PISO = TKEYS.indexOf('piso');
 const AGUA_FUNDA = shade(TERRAIN.water.c2, -.12);
-/* tom alternativo amaciado: o c2 puro fazia um xadrez forte demais no gramado */
+/* a softened alternate tone: pure c2 made too strong a checkerboard on the lawn */
 const TOM2 = {}; for (const k of TKEYS) TOM2[k] = mixc(TERRAIN[k].c, TERRAIN[k].c2, .6);
 const PISO_C = TERRAIN.piso.c, PISO_C2 = TERRAIN.piso.c2;
 const GUIA = shade(PISO_C, -.3);                 // meio-fio da trilha
 const PONTE_C = '#b08a55', PONTE_G = '#5e4326';  // trilha sobre água = ponte de madeira
 const LARG = .56;                                // largura da trilha, em fração de tile
-/* quem tem prioridade maior avança franjas sobre o vizinho (piso fica de fora:
+/* whoever has the higher priority pushes fringes over its neighbour (paving is
+   left out:
    calçada tem borda reta) */
 const FRANJA_PRIO = { water: 0, sand: 1, dirt: 2, rock: 3, snow: 4, grass: 5, woods: 6 };
 const _eff = new Uint8Array(W * H);              // terreno "efetivo": trilha herda o entorno
-/* replica a escolha de tom c/c2 do tile i (mesma semente da passada base) */
+/* replays tile i's c/c2 tone choice (the same seed as the base pass) */
 const tileAlt = i => mulberry(i * 2654435761 >>> 0)() < .5;
 const pavedAt = (x, y) => inB(x, y) && world.path[IDX(x, y)] === 1;
 const pick2 = (r, a) => a[(r() * a.length) | 0];   // pick determinístico
 
-/** terreno sob a trilha = o mais comum entre os 8 vizinhos (trilha não conta) */
+/** the terrain under a path = the commonest of the 8 neighbours (paths don't count) */
 function underlayOf(x, y) {
   const cont = {};
   let best = T_GRAMA, bn = 0;
@@ -82,8 +83,8 @@ function buildTerrain() {
   const water = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_AGUA;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), tk = TKEYS[_eff[i]], T = TERRAIN[tk];
-    // centro do tile: w2s(x+.5, y+.5) — cercas, prédios e bichos usam a mesma
-    // convenção; centrar em w2s(x,y) deixava o terreno meio tile fora deles
+    // the tile's centre: w2s(x+.5, y+.5) — fences, buildings and animals use the
+    // same convention; centring on w2s(x,y) left the terrain half a tile off them
     const sx = (x - y) * TW / 2 + TOFF_X, sy = (x + y + 1) * TH / 2 + 6;
     const r = mulberry(i * 2654435761 >>> 0);
     // diamante
@@ -165,7 +166,7 @@ function buildTerrain() {
     c.strokeStyle = 'rgba(0,0,0,.07)'; c.lineWidth = 1; c.stroke();
   }
   mapEmbankment(c);
-  /* daqui em diante o desenho é em coordenadas de MUNDO (1 unidade = 1 tile):
+  /* from here on the drawing is in WORLD coordinates (1 unit = 1 tile):
      a matriz projeta para o isométrico e achata traços e elipses na proporção
      certa — um círculo vira a elipse 2:1 do chão de graça */
   c.save();
@@ -179,7 +180,7 @@ function buildTerrain() {
   G.dirty.terr = false;
 }
 
-/** medalhão de calçamento no centro de cada praça (região interna contígua) */
+/** a paved medallion at the centre of each plaza (a contiguous interior region) */
 function medalhoesDePraca(c) {
   const interior = [], isInt = new Set();
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
@@ -205,7 +206,7 @@ function medalhoesDePraca(c) {
       }
     }
     let cx = sx / n, cy = sy / n;
-    // em praça côncava o centroide pode cair fora: ancora no tile interno mais próximo
+    // in a concave plaza the centroid can fall outside: anchor on the nearest interior tile
     for (const k of comp) {
       const d = dist2(k % W + .5, ((k / W) | 0) + .5, cx, cy);
       if (d < dm) { dm = d; best = k; }
@@ -220,7 +221,7 @@ function medalhoesDePraca(c) {
   }
 }
 
-/** chão batido sob os equipamentos dos recintos */
+/** packed dirt under the enclosure equipment */
 function enclosureWear(c) {
   for (const o of objects.values()) {
     if (o.cat !== 'encobj' || o.kind === 'piscina' || o.kind === 'plantaE') continue;
@@ -232,7 +233,7 @@ function enclosureWear(c) {
   }
 }
 
-/* ---- barranco sob as faces visíveis do mapa: o parque vira um planalto ---- */
+/* ---- an embankment under the map's visible faces: the park becomes a plateau ---- */
 function mapEmbankment(c) {
   const alt = 15;
   const L = [1, 6 + H * TH / 2], B = [TOFF_X, 6 + (W + H) * TH / 2], R = [TCW - 1, 6 + W * TH / 2];
@@ -244,7 +245,7 @@ function mapEmbankment(c) {
     c.closePath();
     c.fillStyle = shade('#8a6a42', tom); c.fill();
     c.strokeStyle = 'rgba(0,0,0,.22)'; c.lineWidth = 1.4; c.stroke();
-    // estrias e pedrinhas da terra
+    // striations and pebbles in the earth
     c.strokeStyle = 'rgba(60,42,22,.25)'; c.lineWidth = 1.2;
     for (let i = 0; i < 60; i++) {
       const t = r();
@@ -257,13 +258,13 @@ function mapEmbankment(c) {
       const px = A[0] + (Z[0] - A[0]) * t, py = A[1] + (Z[1] - A[1]) * t;
       c.beginPath(); c.ellipse(px, py + 4 + r() * (alt - 8), 1.8 + r() * 1.6, 1.2 + r(), 0, 0, TAU); c.fill();
     }
-    // linha de relva debruçada na quina
+    // a line of grass leaning over the corner
     c.strokeStyle = 'rgba(0,0,0,.15)'; c.lineWidth = 2;
     c.beginPath(); c.moveTo(A[0], A[1] + 1); c.lineTo(Z[0], Z[1] + 1); c.stroke();
   }
 }
 
-/* ---- franjas orgânicas entre terrenos ---- */
+/* ---- organic fringes between terrains ---- */
 function terrainFringes(c) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), a = _eff[i], ka = TKEYS[a];
@@ -275,7 +276,7 @@ function terrainFringes(c) {
       if (!inB(nx, ny)) continue;
       const j = IDX(nx, ny), b = _eff[j], kb = TKEYS[b];
       if (b === a || b === T_PISO || FRANJA_PRIO[kb] <= pa) continue;
-      // aresta compartilhada; o vizinho "invade" este tile com bolotas
+      // a shared edge; the neighbour "invades" this tile with blobs
       const hor = dy !== 0;                        // N/S: aresta corre no eixo x
       const ex = dx === 1 ? x + 1 : x, ey = dy === 1 ? y + 1 : y;
       const r = mulberry((i * 4 + s) * 2246822519 >>> 0);
@@ -307,13 +308,13 @@ function terrainFringes(c) {
   }
 }
 
-/* ---- trilhas: faixa contínua com curvas ---- */
+/* ---- paths: a continuous band with curves ---- */
 function pathLinks(x, y) {
   const con = [pavedAt(x, y - 1), pavedAt(x + 1, y), pavedAt(x, y + 1), pavedAt(x - 1, y)];
   if (x === ENTRANCE.x && y === ENTRANCE.y) con[2] = true;   // a trilha sai pelo portão
   return con;
 }
-/** o traçado de um tile: curva nas viradas, braços do centro nos cruzamentos */
+/** a tile's outline: a curve at the turns, arms from the centre at the crossings */
 function tracePath(c, x, y, con) {
   const cx = x + .5, cy = y + .5;
   const M = [[cx, y], [x + 1, cy], [cx, y + 1], [x, cy]];   // bocas N E S W
@@ -330,7 +331,7 @@ function tracePath(c, x, y, con) {
     for (let k = 0; k < 4; k++) if (con[k]) { c.moveTo(cx, cy); c.lineTo(M[k][0], M[k][1]); }
   }
 }
-/** cantos internos de praça: com o diagonal pavimentado, fecha o quarto de tile */
+/** a plaza's inner corners: with the diagonal paved, it closes the quarter tile */
 function cantosDePraca(c, x, y, con) {
   const cx = x + .5, cy = y + .5;
   for (const [a, b, kx, ky] of [[0, 1, x + 1, y], [1, 2, x + 1, y + 1], [2, 3, x, y + 1], [3, 0, x, y]]) {
@@ -367,7 +368,7 @@ function pathDetails(c, x, y, con, ponte) {
   }
   c.lineCap = 'round';
 }
-/** esplanada de observação: a calçada alarga até rente à cerca do recinto */
+/** a viewing esplanade: the pavement widens right up to the enclosure fence */
 function mirante(c, x, y, dirs, folga) {
   for (const s of dirs) {
     let x0, y0, x1, y1;
@@ -389,8 +390,8 @@ function drawPaths(c) {
     for (let s = 0; s < 4; s++) { const [dx, dy] = LADOS[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
     tiles.push([x, y, pathLinks(x, y), _eff[i] === T_AGUA, mir]);
   }
-  // 1º o contorno (meio-fio) de todas, depois o recheio: os miolos cobrem as
-  // bordas internas e a rede vira uma faixa contínua
+  // first the outline (the kerb) of them all, then the fill: the cores cover the
+  // internal edges and the network becomes a continuous band
   for (const [x, y, con, ponte, mir] of tiles) {
     c.strokeStyle = ponte ? PONTE_G : GUIA; c.lineWidth = LARG + .1;
     tracePath(c, x, y, con); c.stroke();
@@ -408,11 +409,11 @@ function drawPaths(c) {
   for (const [x, y, con, ponte] of tiles) pathDetails(c, x, y, con, ponte);
 }
 
-/* ---- entradas: a calçada se alarga em curva até a porta ---- */
+/* ---- entrances: the pavement widens in a curve up to the door ---- */
 function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, colour, guideColour) {
-  // e1→e2 = aresta da porta; (vx,vy) aponta da aresta para dentro do tile de trilha.
-  // O leque nasce na BORDA da faixa (a .5−LARG/2 da porta) e abre até a porta —
-  // ancorar no eixo da trilha fazia o meio-fio lateral cruzar a faixa inteira.
+  // e1→e2 = the door's edge; (vx,vy) points from that edge into the path tile.
+  // The fan starts at the band's EDGE (.5−WIDTH/2 from the door) and opens to the
+  // door — anchoring it on the path's axis made the side kerb cross the whole band.
   const mx = (e1x + e2x) / 2, my = (e1y + e2y) / 2;
   const ux = e2x - e1x, uy = e2y - e1y;
   const edge = .5 - LARG / 2;
@@ -444,10 +445,10 @@ function capacho(c, mx, my, ux, uy, vx, vy, colour) {
   c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = .022;
   c.beginPath(); c.moveTo(cx - ux * .16, cy - uy * .16); c.lineTo(cx + ux * .16, cy + uy * .16); c.stroke();
 }
-/** Vãos de porta nas faces visíveis (S/E). Fachada de largura PAR com as duas
- *  trilhas do meio presentes ganha porta centrada no encontro dos tiles —
- *  senão a porta de uma loja 2x2 fica descentrada. `c` é a coordenada central
- *  do vão; `tiles` são os tiles de trilha em frente. */
+/** Door openings on the visible faces (S/E). An EVEN-width façade with both
+ *  middle paths present gets a door centred on where the tiles meet — otherwise a
+ *  2x2 shop's door sits off-centre. `c` is the opening's centre coordinate;
+ *  `tiles` are the path tiles in front of it. */
 function portaSpec(o) {
   const spec = { S: null, E: null };
   const Y = o.y + o.h, X = o.x + o.w;
@@ -468,7 +469,7 @@ function entradasDeLoja(c) {
     if (o.cat !== 'build' || o.kind === 'lixeira' || o.kind === 'banco' || o.kind === 'bebedouro') continue;
     const B = BUILDINGS[o.kind];
     const spec = portaSpec(o), Y = o.y + o.h, X = o.x + o.w;
-    // só as faces S e E: são as visíveis no isométrico — atrás, o telhado cobre
+    // only the S and E faces: they are the visible ones in isometric — behind, the roof covers
     if (spec.S) {
       const i = IDX(spec.S.tiles[0], Y);
       const ponte = _eff[i] === T_AGUA;             // trilha sobre água: deck de madeira
@@ -484,7 +485,7 @@ function entradasDeLoja(c) {
       capacho(c, X, spec.E.c, 0, 1, 1, 0, shade(B.colour, -.18));
     }
   }
-  // tapete vermelho do portão
+  // the gate's red carpet
   const ex = ENTRANCE.x, ey = ENTRANCE.y + 1;
   c.fillStyle = '#c23b2c';
   c.beginPath();
@@ -529,7 +530,7 @@ function badgeQueue(c, o, z, sx, sy) {
   c.fillStyle = '#fff'; c.strokeStyle = '#2f2113'; c.lineWidth = 3;
   c.strokeText('👥' + o.queue.length, sx, sy); c.fillText('👥' + o.queue.length, sx, sy);
 }
-/* mobiliário desenhado de verdade (caixa com emoji não faz jus) */
+/* furniture actually drawn (a box with an emoji doesn't do it justice) */
 function drawBanco(c, o, z) {
   const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
   const s = z, sh = P(.5, .5);
@@ -594,7 +595,7 @@ function drawPlayground(c, o, z) {
   isoPoly(c, [P(.12, .12), P(2.88, .12), P(2.88, 2.88), P(.12, 2.88)]);
   c.fillStyle = '#ecd9a8'; c.fill();
   c.strokeStyle = 'rgba(120,100,70,.35)'; c.lineWidth = 2 * s; c.stroke();
-  // torre com escorregador
+  // a tower with a slide
   drawIsoBox(c, o.x + .35, o.y + .45, .75, .75, 17, '#e2543f', shade('#e2543f', .26), z);
   const R1 = P(1.1, .55), R2 = P(1.1, 1.1), G1 = P(2.1, .75), G2 = P(2.1, 1.2);
   isoPoly(c, [[R1[0], R1[1] - 15 * s], [R2[0], R2[1] - 15 * s], [G2[0], G2[1]], [G1[0], G1[1]]]);
@@ -604,7 +605,7 @@ function drawPlayground(c, o, z) {
   c.beginPath();
   c.moveTo((R1[0] + R2[0]) / 2, (R1[1] + R2[1]) / 2 - 15 * s);
   c.lineTo((G1[0] + G2[0]) / 2, (G1[1] + G2[1]) / 2); c.stroke();
-  // balanço: pórtico + dois assentos oscilando
+  // a swing: a frame + two seats swinging
   const E1 = P(.75, 2.35), E2 = P(2.3, 2.35), gauge = 26 * s;
   c.strokeStyle = '#8a5a2b'; c.lineCap = 'round'; c.lineWidth = 3 * s;
   for (const [ex, ey] of [[.75, 2.35], [2.3, 2.35]]) {
@@ -639,7 +640,7 @@ function drawBuilding(c, o, z) {
   const decorado = o.kind !== 'lixeira' && o.kind !== 'banco';
   const spec = decorado ? portaSpec(o) : { S: null, E: null };
   const aceso = G.hour < 6.5 || G.hour > 18;
-  // janelas nas faces visíveis (acendem à noite)
+  // windows on the visible faces (they light up at night)
   if (hgt >= 24 && decorado) {
     const wLo = g.up * .32, wHi = g.up * .58;
     const winFill = aceso ? '#ffdf8f' : shade(B.colour, -.36);
@@ -670,7 +671,7 @@ function drawBuilding(c, o, z) {
       janela(o.x + o.w, ty + .3, o.x + o.w, ty + .7);
     }
   }
-  // porta na face que dá para a trilha (só as faces visíveis S e E)
+  // a door on the face giving onto the path (only the visible S and E faces)
   if (decorado) {
     const pAlt = Math.min(16 * z, hgt * z * .68);
     const porta = (ax, ay, bx, by) => {
@@ -682,7 +683,7 @@ function drawBuilding(c, o, z) {
     if (spec.S) porta(spec.S.c - .22, o.y + o.h, spec.S.c + .22, o.y + o.h);
     if (spec.E) porta(o.x + o.w, spec.E.c - .22, o.x + o.w, spec.E.c + .22);
   }
-  // toldo listrado nas lojas, nas duas faces da frente
+  // a striped awning on the shops, on both front faces
   if (B.value > 0 && hgt > 20) {
     const toldoFace = (P, Q) => {
       c.save();
@@ -703,7 +704,7 @@ function drawBuilding(c, o, z) {
     };
     toldoFace(g.R, g.B); toldoFace(g.L, g.B);
   }
-  // aba do telhado (beiral) por cima de tudo
+  // the roof's overhang (the eaves) on top of everything
   if (hgt >= 20) {
     const e = .08;
     const ro = [[o.x - e, o.y - e], [o.x + o.w + e, o.y - e], [o.x + o.w + e, o.y + o.h + e], [o.x - e, o.y + o.h + e]]
@@ -714,7 +715,7 @@ function drawBuilding(c, o, z) {
       .map(p => [w2sx(p[0], p[1]), w2sy(p[0], p[1]) - g.up]);
     isoPoly(c, ri); c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1.5 * z; c.stroke();
   }
-  // chaminé com fumaça nas cozinhas
+  // a chimney with smoke on the kitchens
   if (B.supplies === 'fome' && o.kind !== 'sorveteria' && hgt >= 22) {
     const px = w2sx(o.x + .36, o.y + .36), py = w2sy(o.x + .36, o.y + .36) - g.up;
     c.fillStyle = shade(B.colour, -.28); c.strokeStyle = shade(B.colour, -.58); c.lineWidth = 1.4 * z;
@@ -733,7 +734,7 @@ function drawBuilding(c, o, z) {
       c.globalAlpha = 1;
     }
   }
-  // placa com emoji
+  // a sign with an emoji
   const cx = (g.T[0] + g.B[0]) / 2, cy = (g.T[1] + g.B[1]) / 2 - g.up - 6 * z;
   const fs = Math.max(9, 17 * z * Math.min(1.4, o.w * .6 + .5));
   c.font = fs + 'px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -859,9 +860,9 @@ function drawDeco(c, o, z) {
     c.fillStyle = '#d9b878'; roundRectP(c, sx - 12 * s, sy - 32 * s, 24 * s, 16 * s, 3 * s); c.fill(); c.stroke();
   }
 }
-/** bacia isométrica com parede: base dos cochos (comedouro/bebedouro) */
+/** an isometric basin with a wall: the base of the troughs (feeder/water) */
 function baciaIso(c, sx, sy, rx, ry, alt, wallColour, edgeColour, bgColour, s) {
-  // parede lateral: metade de baixo da borda, extrudada até o chão
+  // the side wall: the bottom half of the rim, extruded to the ground
   c.fillStyle = wallColour; c.strokeStyle = shade(wallColour, -.5); c.lineWidth = 2.4 * s;
   c.beginPath();
   c.moveTo(sx - rx, sy - alt);
@@ -882,7 +883,7 @@ function drawEncObj(c, o, z) {
   }
   c.lineWidth = 2.6 * s; c.lineJoin = 'round'; c.lineCap = 'round';
   if (o.kind === 'comedouro') {
-    // cocho de madeira; a ração vai de verde (cheio) a vermelho (acabando)
+    // a wooden trough; the feed goes from green (full) to red (running out)
     baciaIso(c, sx, sy - 2 * s, 13 * s, 6.5 * s, 7 * s, '#8a6a45', '#a87f52', '#54432c', s);
     const nivel = e ? e.food : 1;
     if (nivel > .05) {
@@ -905,22 +906,22 @@ function drawEncObj(c, o, z) {
       c.beginPath(); c.moveTo(sx - 4 * s + g, sy - 9.5 * s); c.quadraticCurveTo(sx + g, sy - 11 * s, sx + 4 * s + g, sy - 9.5 * s); c.stroke();
     }
   } else if (o.kind === 'abrigo') {
-    // cabana: paredes de madeira, telhado de sapé em duas águas e porta escura
+    // a hut: wooden walls, a gabled thatch roof and a dark door
     const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
     const A = P(.08, .08), B = P(.92, .08), C = P(.92, .92), D = P(.08, .92);
     const up = 15 * s, ap = 30 * s;
     const cx2 = (A[0] + C[0]) / 2, cy2 = (A[1] + C[1]) / 2;
     c.strokeStyle = '#4a3520'; c.lineWidth = 2.2 * s;
-    // paredes visíveis (S e E)
+    // the visible walls (S and E)
     isoPoly(c, [D, C, [C[0], C[1] - up], [D[0], D[1] - up]]); c.fillStyle = '#8a6a45'; c.fill(); c.stroke();
     isoPoly(c, [B, C, [C[0], C[1] - up], [B[0], B[1] - up]]); c.fillStyle = '#a87f52'; c.fill(); c.stroke();
-    // porta na face S
+    // a door on the S face
     const dm = P(.5, .92);
     c.fillStyle = '#3a2a18';
     c.beginPath(); c.moveTo(dm[0] - 4 * s, dm[1]); c.lineTo(dm[0] - 4 * s, dm[1] - 8.5 * s);
     c.quadraticCurveTo(dm[0], dm[1] - 12 * s, dm[0] + 4 * s, dm[1] - 8.5 * s); c.lineTo(dm[0] + 4 * s, dm[1]);
     c.closePath(); c.fill();
-    // telhado piramidal de sapé com beiral curto (comprido engolia as paredes)
+    // a pyramidal thatch roof with a short eave (a long one swallowed the walls)
     const top = [cx2, cy2 - ap];
     const beiral = .07;
     const A2 = P(-beiral, -beiral), B2 = P(1 + beiral, -beiral), C2 = P(1 + beiral, 1 + beiral), D2 = P(-beiral, 1 + beiral);
@@ -929,7 +930,7 @@ function drawEncObj(c, o, z) {
     c.fillStyle = '#c9a558'; c.fill(); c.stroke();
     c.beginPath(); c.moveTo(B2[0], B2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(top[0], top[1]); c.closePath();
     c.fillStyle = '#b8924a'; c.fill(); c.stroke();
-    // fiapos de sapé
+    // wisps of thatch
     c.strokeStyle = 'rgba(74,53,32,.4)'; c.lineWidth = 1.2 * s;
     for (let i = 1; i < 4; i++) {
       const t = i / 4;
@@ -939,7 +940,7 @@ function drawEncObj(c, o, z) {
       c.stroke();
     }
   } else if (o.kind === 'brinquedo') {
-    // bola de brincar; fica frenética quando um bicho vem brincar com ela
+    // a play ball; it goes frantic when an animal comes to play with it
     const near = e && e.animals.some(a2 =>
       !a2.dead && a2.state === 'brincando' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
     const q = Math.abs(Math.sin(_now / (near ? 210 : 420) + o.id * 1.3));
@@ -958,7 +959,7 @@ function drawEncObj(c, o, z) {
     c.fillStyle = 'rgba(255,255,255,.65)';
     c.beginPath(); c.arc(bx - 2.8 * s, by - 3 * s, 2 * s, 0, TAU); c.fill();
   } else if (o.kind === 'tronco') {
-    // tronco caído: corpo roliço, casca, veios e broto
+    // a fallen log: a round body, bark, grain and a shoot
     c._ink = '#4a3520';
     limb(c, sx - 15 * s, sy - 7 * s, sx + 13 * s, sy - 3 * s, 10 * s, '#a87a45');
     c.strokeStyle = 'rgba(74,53,32,.5)'; c.lineWidth = 1.4 * s;
@@ -973,7 +974,7 @@ function drawEncObj(c, o, z) {
     c.fillStyle = '#4c9a3f';
     ellipse(c, sx - .5 * s, sy - 16.5 * s, 2.6 * s, 1.7 * s, -.4); c.fill();
   } else if (o.kind === 'rochaE') {
-    // formação: pedregulho grande facetado + companheiro + seixo
+    // a formation: a big faceted boulder + a companion + a pebble
     c.strokeStyle = '#55524d'; c.lineWidth = 2.4 * s; c.fillStyle = '#9b9a94';
     c.beginPath();
     c.moveTo(sx - 17 * s, sy - 1 * s); c.lineTo(sx - 13 * s, sy - 14 * s); c.lineTo(sx - 4 * s, sy - 20 * s);
@@ -990,7 +991,7 @@ function drawEncObj(c, o, z) {
     c.lineTo(sx + 18 * s, sy - 4 * s); c.lineTo(sx + 19 * s, sy + 2 * s); c.closePath(); c.fill(); c.stroke();
     ellipse(c, sx - 14 * s, sy + 3 * s, 3 * s, 1.8 * s); c.fillStyle = '#8b8a84'; c.fill(); c.stroke();
   } else if (o.kind === 'plantaE') {
-    // moita frondosa: folhas em leque, dois tons, bagas
+    // a leafy bush: fanned leaves, two tones, berries
     const rr = mulberry(o.id * 53);
     for (let i = 0; i < 7; i++) {
       const a = -Math.PI * .92 + i / 6 * Math.PI * .84;
@@ -1008,7 +1009,7 @@ function drawEncObj(c, o, z) {
     c.fillStyle = '#e2543f';
     for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(sx - 4 * s + i * 4 * s, sy - 8 * s - (i % 2) * 3 * s, 1.5 * s, 0, TAU); c.fill(); }
   } else if (o.kind === 'piscina') {
-    // piscina encravada: borda de pedra, água com fundo e brilho que anda
+    // a sunken pool: a stone rim, water with a bottom and a moving glint
     c.strokeStyle = '#7a7770'; c.lineWidth = 2.2 * s;
     isoPoly(c, [[sx, sy - 18 * s], [sx + 32 * s, sy - 2 * s], [sx, sy + 14 * s], [sx - 32 * s, sy - 2 * s]]);
     c.fillStyle = '#c9c4bc'; c.fill(); c.stroke();
@@ -1109,25 +1110,25 @@ function drawFenceTile(c, x, y, e, z, lados) {
 }
 
 /* ---- entidades ---- */
-/** Desenha um sprite 128x128 (chão em GND) ancorado nos pés em (sx,sy).
- *  `alt` é a altura desejada em px na tela para as 128 unidades locais. */
+/** Draws a 128x128 sprite (ground at GND) anchored by the feet at (sx,sy).
+ *  `height` is the intended on-screen height in px for the 128 local units. */
 function blitSprite(c, spr, sx, sy, alt, dir) {
   const k = alt / SPR;                      // px de tela por unidade local
   c.save();
   c.translate(sx, sy);
   if (dir < 0) c.scale(-1, 1);
-  // o chão do sprite está em (GND+PAD) unidades a partir do topo da moldura
+  // the sprite's ground is (GND+PAD) units from the top of the frame
   c.drawImage(spr, -alt / 2, -(GND + PAD) * k, alt, SPRH * k);
   c.restore();
 }
 function drawAnimal(c, a, z) {
   const sx = w2sx(a.x, a.y), sy = w2sy(a.x, a.y);
   const hp = spriteH(a.sp);              // altura base em px (zoom 1)
-  // filhote nasce com metade do porte e cresce até ~1/4 da vida
+  // a calf is born at half size and grows until ~1/4 of its life
   const cres = clamp(.5 + .5 * a.age / (a.sp.lifespan * .22), .5, 1);
   const alt = hp * z * cres;             // altura na tela
   const px = clamp(Math.round(alt / 8) * 8, 24, 240); // resolução do cache, em degraus
-  // em que ele está pisando? (água pintada ou piscina de recinto)
+  // what is it standing on? (painted water or an enclosure pool)
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const oc = world.occ[ti] && objects.get(world.occ[ti]);
   const inWater = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
@@ -1135,7 +1136,7 @@ function drawAnimal(c, a, z) {
   const parado = a.state === 'parado' || a.state === 'brincando' || a.state === 'comendo';
   const spr = getSprite(a.sp, parado && !nadando ? 0 : a.frame, px);
   if (nadando) {
-    // corpo afundado até a linha d'água, com balanço e esteira
+    // the body sunk to the waterline, with bobbing and a wake
     const bob = Math.sin(_now / 430 + a.id * 1.7) * 1.4 * z;
     const merg = alt * .32 + bob;
     c.save();
@@ -1143,7 +1144,7 @@ function drawAnimal(c, a, z) {
     c.clip();
     blitSprite(c, spr, sx, sy + merg, alt, a.dir);
     c.restore();
-    // linha d'água e ondulações
+    // the waterline and its ripples
     c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1.5 * z;
     ellipse(c, sx, sy, alt * .33, alt * .13); c.stroke();
     c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.2 * z;
@@ -1165,7 +1166,7 @@ function drawAnimal(c, a, z) {
     bubbleQueue(a, sx, sy + merg - visibleHeight(a.sp) * (alt / SPR), z);
     return;
   }
-  // pulo da brincadeira / bocada da comida
+  // the play jump / the mouthful of food
   let hop = 0;
   if (a.state === 'brincando') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
   else if (a.state === 'comendo') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
@@ -1195,11 +1196,11 @@ function drawAnimal(c, a, z) {
   }
   bubbleQueue(a, sx, sy - hop - visibleHeight(a.sp) * (alt / SPR), z);
 }
-/* ---- balões de pensamento ---- */
+/* ---- thought bubbles ---- */
 const bubbles = [];
 const BOLHA_MAX = 42;        // teto de balões desenhados por frame
 const BOLHA_DIST = 30;       // distância mínima entre dois balões, em px de tela
-/** enfileira o balão; a triagem por urgência e espaçamento é feita no desenho */
+/** queues the bubble; the triage by urgency and spacing happens at draw time */
 function bubbleQueue(ent, sx, syTop, z) {
   if (!G.bubbles || z < .42 || !ent.pensa) return;
   if (G.bubbles === 1 && ent.pensa.urg < .45) return;
@@ -1207,15 +1208,15 @@ function bubbleQueue(ent, sx, syTop, z) {
 }
 function drawBolhas(c, agora) {
   if (!bubbles.length) return;
-  // Urgência primeiro: com o teto aplicado na ordem de desenho, quem aparecia
-  // era quem estava na frente na fila de profundidade — um bicho em apuros no
-  // fundo perdia o balão para um visitante "curtindo o dia".
+  // Urgency first: with the cap applied in draw order, the ones that showed up
+  // were whoever came first in the depth queue — an animal in trouble at the back
+  // lost its bubble to a visitor "enjoying the day".
   bubbles.sort((a, b) => b.p.urg - a.p.urg);
   const aceitos = [];
   const dmin = BOLHA_DIST * BOLHA_DIST;
   for (const b of bubbles) {
     if (aceitos.length >= BOLHA_MAX) break;
-    // em multidão, um balão a cada ~30px: senão a fila vira um mural ilegível
+    // in a crowd, one bubble every ~30px: otherwise the queue becomes an illegible mural
     let near = false;
     for (const a of aceitos) if (dist2(a.sx, a.sy, b.sx, b.sy) < dmin) { near = true; break; }
     if (!near) aceitos.push(b);
@@ -1231,7 +1232,7 @@ function drawBolhas(c, agora) {
     c.lineWidth = Math.max(1, 2.2 * z);
     c.strokeStyle = edge; c.fillStyle = fundo;
     roundRectP(c, x - w / 2, y - h, w, h, 7 * z); c.fill(); c.stroke();
-    // rastro de pensamento (duas bolinhas descendo até a cabeça)
+    // the thought trail (two small dots descending to the head)
     c.beginPath(); c.arc(x - 1.5 * z, y + 3.2 * z, 2.5 * z, 0, TAU); c.fill(); c.stroke();
     c.beginPath(); c.arc(x - 3.5 * z, y + 8 * z, 1.5 * z, 0, TAU); c.fill(); c.stroke();
     c.font = Math.round(13.5 * z) + 'px system-ui';
@@ -1246,7 +1247,7 @@ function drawPersonEnt(c, p, z) {
   ellipse(c, sx, sy, 8 * z, 4 * z); c.fillStyle = 'rgba(0,0,0,.22)'; c.fill();
   const spr = getPerson(p, p.frame, clamp(Math.round(alt / 8) * 8, 24, 140));
   blitSprite(c, spr, sx, sy, alt, p.dir);
-  // item na mão fica fora do sprite cacheado (senão triplicaria as variantes)
+  // an item in hand stays out of the cached sprite (it would triple the variants)
   if (p.item && z > .45) {
     const k = alt / SPR, hx = sx + p.dir * 16 * k, hy = sy - 42 * k;
     c.lineJoin = 'round'; c._ink = '#2c2118';
@@ -1272,7 +1273,7 @@ function render(now) {
   _now = now;
   if (G.dirty.terr) buildTerrain();
   ctx.clearRect(0, 0, VW, VH);
-  // céu: gradiente + estrelas + nuvens ao fundo (o mapa é um planalto flutuando nele)
+  // sky: a gradient + stars + clouds behind (the map is a plateau floating in it)
   const night = G.hour < 6.5 || G.hour > 19;
   const ceu = ctx.createLinearGradient(0, 0, 0, VH);
   if (night) { ceu.addColorStop(0, '#18263c'); ceu.addColorStop(1, '#2b3d52'); }
@@ -1305,7 +1306,7 @@ function render(now) {
   ctx.scale(z, z);
   ctx.drawImage(terrCv, 0, 0);
   ctx.restore();
-  // sombras de nuvem passeando pelo chão (recortadas ao planalto)
+  // cloud shadows drifting over the ground (clipped to the plateau)
   if (!night) {
     ctx.save();
     ctx.beginPath();
@@ -1324,7 +1325,7 @@ function render(now) {
     ctx.restore();
   }
 
-  // faixa de tiles visível (os 4 cantos da tela em coordenadas de mundo)
+  // the visible band of tiles (the screen's 4 corners in world coordinates)
   const cs = [s2w(0, 0), s2w(VW, 0), s2w(VW, VH), s2w(0, VH)];
   const x0 = clamp(Math.floor(Math.min(...cs.map(p => p[0])) - 3), 0, W - 1);
   const x1 = clamp(Math.ceil(Math.max(...cs.map(p => p[0])) + 3), 0, W - 1);
@@ -1338,7 +1339,7 @@ function render(now) {
       ctx.font = Math.round(11 * z) + 'px system-ui';
       ctx.globalAlpha = clamp(l, .3, 1); ctx.fillText('🗑', sx, sy); ctx.globalAlpha = 1;
     }
-    // reflexos que acendem e apagam na água
+    // reflections that flicker on and off in the water
     if (world.terr[i] === T_AGUA && z > .5) {
       const h = (i * 2654435761) >>> 0;
       const tw = Math.sin(now / 800 + (h & 1023) * .006);
@@ -1350,7 +1351,7 @@ function render(now) {
         ctx.beginPath(); ctx.moveTo(sx - 3.5 * z, sy); ctx.lineTo(sx + 3.5 * z, sy); ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      // peixe pulando, só em água funda e de vez em quando
+      // a jumping fish, only in deep water and only now and then
       if (z > .6) {
         const ft = (now / 1000 + ((h >> 4) & 1023) * .07) % 11;
         if (ft < .85 &&
@@ -1378,15 +1379,15 @@ function render(now) {
     }
   }
 
-  // monta lista com profundidade
+  // builds the list with depth
   let n = 0;
   const push = (d, t, r) => { drawList[n] = drawList[n] || {}; const o = drawList[n]; o.d = d; o.t = t; o.r = r; n++; };
   for (const e of enclosures.values()) {
     for (const [k, lados] of encSegPorTile(e)) {
       const x = k % W, y = (k / W) | 0;
       if (x < x0 - 2 || x > x1 + 2 || y < y0 - 2 || y > y1 + 2) continue;
-      // N/W ficam ATRÁS do bicho que pisa no tile; S/E ficam na frente. Com o
-      // anel de cerca antigo isso não importava (ninguém pisava nele).
+      // N/W go BEHIND the animal standing on the tile; S/E go in front. With the
+      // old fence ring this didn't matter (nobody stood on it).
       const fundo = lados.filter(l => l === 'N' || l === 'W');
       const front = lados.filter(l => l === 'S' || l === 'E');
       if (fundo.length) push(x + y - .45, 'fence', { x, y, e, lados: fundo });
@@ -1439,7 +1440,7 @@ function render(now) {
     ctx.fillRect(0, 0, VW, VH);
   }
 }
-/** poças de luz quente por cima do escurecimento — postes e fachadas acesas */
+/** pools of warm light over the darkening — lamp posts and lit façades */
 function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
   for (const o of objects.values()) {
     if (o.x < x0 - 4 || o.x > x1 + 3 || o.y < y0 - 4 || o.y > y1 + 3) continue;
@@ -1460,7 +1461,7 @@ function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
     }
   }
 }
-/** bando de pássaros cruzando o céu de tempos em tempos */
+/** a flock of birds crossing the sky every so often */
 function passaros(c, now, night) {
   if (night) return;
   const ciclo = Math.floor(now / 26000);
@@ -1486,7 +1487,7 @@ function drawEntrance(c, z, now) {
   const x = ENTRANCE.x, y = ENTRANCE.y;
   const T = [w2sx(x, y), w2sy(x, y)], R = [w2sx(x + 1, y), w2sy(x + 1, y)];
   const up = 46 * z;
-  // postes de madeira com base de pedra
+  // wooden posts with a stone base
   c.lineCap = 'round';
   for (const P of [T, R]) {
     c.fillStyle = '#8b8a84';
@@ -1496,12 +1497,12 @@ function drawEntrance(c, z, now) {
     c.strokeStyle = '#8a5a2b'; c.lineWidth = 4.4 * z;
     c.beginPath(); c.moveTo(P[0], P[1] - 2 * z); c.lineTo(P[0], P[1] - up + 2 * z); c.stroke();
   }
-  // arco ligando os postes
+  // an arch joining the posts
   const mx = (T[0] + R[0]) / 2, top = Math.min(T[1], R[1]) - up - 20 * z;
   const arco = () => { c.beginPath(); c.moveTo(T[0], T[1] - up); c.quadraticCurveTo(mx, top, R[0], R[1] - up); };
   c.strokeStyle = '#3f2a12'; c.lineWidth = 6.2 * z; arco(); c.stroke();
   c.strokeStyle = '#a87a45'; c.lineWidth = 3.2 * z; arco(); c.stroke();
-  // bandeirinhas penduradas no arco
+  // bunting hung from the arch
   const colours = ['#e2543f', '#ffc23c', '#3fa5e2', '#4fae4a', '#f28ab0', '#9a6ad4'];
   for (let i = 0; i < 6; i++) {
     const t = (i + 1) / 7;
@@ -1512,7 +1513,7 @@ function drawEntrance(c, z, now) {
     c.beginPath(); c.moveTo(qx - 3 * z, qy); c.lineTo(qx + 3 * z, qy);
     c.lineTo(qx + sw * .5, qy + 7 * z + Math.abs(sw) * .5); c.closePath(); c.fill();
   }
-  // placa pendurada no vão
+  // a sign hanging in the opening
   const bal = Math.sin(now / 900) * .9 * z;
   const py = Math.min(T[1], R[1]) - up + 2 * z + bal;
   c.strokeStyle = '#3f2a12'; c.lineWidth = 1.4 * z;
@@ -1527,8 +1528,8 @@ function drawEntrance(c, z, now) {
   c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText('ZOO', mx, py + 10 * z);
 }
-/** Balão de aviso sobre recinto que tem animal mas nenhuma trilha ao lado —
- *  a causa mais comum de "zoológico cheio e nenhum visitante". */
+/** A warning bubble over an enclosure that has animals but no path beside it —
+ *  the commonest cause of "a full zoo and not one visitor". */
 function drawAvisos(c, z) {
   if (z < .35) return;
   for (const e of enclosures.values()) {
@@ -1586,12 +1587,12 @@ function drawGhost(c, z) {
   if (G.drag && (t.cat === 'recinto')) {
     const r = dragRect();
     const p = planoDoArraste(r, t.key);
-    // verde = recinto novo · dourado = ampliação do vizinho · vermelho = não dá
+    // green = a new enclosure · gold = extending the neighbour · red = not allowed
     const colour = p.action === 'criar' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
       : p.action === 'ampliar' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
         : ['#e2543f', 'rgba(226,84,63,.24)', '#8a2f22'];
     c.strokeStyle = colour[0]; c.lineWidth = 3 * z; c.fillStyle = colour[1];
-    // pinta só os tiles que realmente entram (o resto do retângulo é ocupado)
+    // paints only the tiles that really go in (the rest of the rectangle is taken)
     if (p.tiles) {
       for (const k of p.tiles) {
         const x = k % W, y = (k / W) | 0;
@@ -1631,7 +1632,7 @@ function drawGhost(c, z) {
 
 /* ---- minimapa ---- */
 const mcv = $('#minicv'), mctx = mcv.getContext('2d');
-// buffer reaproveitado: alocar canvas+ImageData 2x por segundo pressiona o GC
+// a reused buffer: allocating canvas+ImageData twice a second pressures the GC
 const _mtmp = document.createElement('canvas');
 _mtmp.width = W; _mtmp.height = H;
 const _mtmpCtx = _mtmp.getContext('2d');
@@ -1650,7 +1651,7 @@ function renderMini() {
   _mtmpCtx.putImageData(img, 0, 0);
   mctx.imageSmoothingEnabled = false;
   mctx.drawImage(_mtmp, 0, 0, 300, 300);
-  // prédios e portão
+  // buildings and the gate
   for (const o of objects.values()) {
     if (o.cat !== 'build') continue;
     mctx.fillStyle = BUILDINGS[o.kind].colour;

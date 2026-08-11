@@ -2,8 +2,8 @@
    6. ESTADO GLOBAL
    ========================================================================== */
 const G = {
-  // ingresso inicial baixo: um zoológico recém-aberto tem pouco a mostrar e
-  // um preço alto de largada espantaria o público antes do 1º recinto render
+  // a low opening ticket: a zoo that just opened has little to show, and a high
+  // starting price would scare the public off before the first enclosure pays
   money: 200000, ticket: 10, day: 1, hour: 8, speed: 1, prevSpeed: 1,
   rep: 2.5, netVer: 0, animais: 0,
   dirty: { terr: true, net: true },
@@ -56,7 +56,7 @@ function animalThought(a) {
   const F = FENCES[e.fence];
   const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
   const cand = [];
-  if (encArea(e) < sp.space * Math.max(1, irmaos) * .85) cand.push([.86, '😖', LN('Recinto apertado|Cramped enclosure')]);
+  if (encArea(e) < sp.space * Math.max(1, irmaos) * .85) cand.push([.86, '😖', LN('Recinto tight|Cramped enclosure')]);
   if (e.cleanliness < .4) cand.push([.78, '💩', LN('Recinto sujo|Dirty enclosure')]);
   if (sp.danger > F.strength) cand.push([.74, '⚠️', LN('Consegue escapar dessa cerca|Could get past this fence')]);
   if (a.health < .5) cand.push([.72, '🤕', LN('Saúde fraca|Poor health')]);
@@ -104,7 +104,7 @@ function visitorThought(v) {
   return P_(.1, '😐', 'Nada de mais');
 }
 
-/** recalcula o pensamento de tempo em tempo (não vale fazer isso todo frame) */
+/** recomputes the thought every so often (doing it every frame is not worth it) */
 function refreshThought(ent, dt, fn) {
   ent.pensaT = (ent.pensaT || 0) - dt;
   if (ent.pensaT > 0 && ent.pensa) return;
@@ -184,7 +184,7 @@ function updAnimal(a, dt, gh) {
       a.thirst -= q; e.water = clamp(e.water - q * .08 / Math.max(1, e.animals.length), 0, 1);
     }
   }
-  // saúde
+  // health
   let dh = 0;
   if (a.hunger > .85) dh -= (a.hunger - .85) * .9;
   if (a.thirst > .85) dh -= (a.thirst - .85) * 1.3;
@@ -193,7 +193,7 @@ function updAnimal(a, dt, gh) {
   if (a.sick) dh -= .55;
   if (dh === 0 && !a.sick) dh = .22;
   a.health = clamp(a.health + dh * gh * .04, 0, 1);
-  // doença
+  // illness
   if (!a.sick && Math.random() < gh * .0016 * (2 - a.health) * (e ? (2 - e.cleanliness) : 2)) {
     a.sick = true; SFX.play('doente');
     toast(BI`🤒 ${a.name} (${LN(sp.name)}) adoeceu!|🤒 ${a.name} (${LN(sp.name)}) has fallen ill!`, 'bad');
@@ -224,10 +224,10 @@ function updAnimal(a, dt, gh) {
       repEvento(-.3, BI`${LN(sp.name)} fugiu do recinto|A ${LN(sp.name)} escaped the enclosure`, '🚨');
     }
   }
-  // reprodução — precisa de casal adulto da espécie no recinto. A taxa varia
-  // por espécie (vida curta e bando grande procriam mais) e sobe com
-  // veterinários no quadro. A fórmula antiga (0.0009/h fixo, gestação de 8
-  // dias, felicidade > .72) dava ~1 cria por vida — ninguém via nascimento.
+  // breeding — needs an adult pair of the species in the enclosure. The rate
+  // varies by species (short-lived, herd animals breed more) and rises with vets
+  // on the payroll. The old formula (a flat 0.0009/h, an 8-day gestation,
+  // happiness > .72) gave ~1 calf per lifetime — nobody ever saw a birth.
   if (e && !a.escaped && a.sex === 'F' && a.happy > .62 && a.health > .5 &&
     a.age > sp.lifespan * .18 && a.age < sp.lifespan * .72) {
     if (a.pregnant > 0) {
@@ -242,8 +242,8 @@ function updAnimal(a, dt, gh) {
       }
     } else {
       const fert = 5 / (sp.lifespan * YEAR_DAYS * 24)          // ~2-3 crias por vida
-        * clamp(sp.gmax / 6, .6, 2)                        // bando procria mais
-        * (1 + .25 * Math.min(G.nVets, 4));                // programa de cria dos vets
+        * clamp(sp.gmax / 6, .6, 2)                        // a herd breeds more
+        * (1 + .25 * Math.min(G.nVets, 4));                // the vets' breeding programme
       if (Math.random() < gh * fert &&
         e.animals.some(z => z.sp.id === sp.id && z.sex === 'M' && !z.dead && z.age > sp.lifespan * .18)) {
         a.pregnant = 24 * clamp(sp.lifespan * .08, 1.5, 5);     // gestação proporcional
@@ -274,7 +274,7 @@ function moveAnimal(a, dt, gh) {
         if (TKEYS[world.terr[IDX(t[0], t[1])]] === 'water') { bx = t[0] + .5; by = t[1] + .5; break; }
       }
     } else if (Math.random() < .3) {
-      // de vez em quando o passeio é até um brinquedo (bola, tronco, piscina)
+      // every so often the stroll heads for a toy (ball, log, pool)
       const brs = e.objs.filter(o => o.kind === 'brinquedo' || o.kind === 'tronco' || o.kind === 'piscina');
       if (brs.length) {
         const o = pick(brs);
@@ -287,7 +287,7 @@ function moveAnimal(a, dt, gh) {
     a.state = 'andando';
   }
   const d = dist(a.x, a.y, a.tx, a.ty);
-  // na água anda-se devagar (aquático deslancha)
+  // in the water everything is slow (an aquatic species takes off)
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const inWater = TKEYS[world.terr[ti]] === 'water';
   const vel = (a.sick ? .35 : 1) * (.5 + Math.min(sp.scale, 1.4) * .55) * (sp.plan === 'sloth' ? .25 : 1)
@@ -300,7 +300,7 @@ function moveAnimal(a, dt, gh) {
     a.anim += dt * (2.2 + vel);
     a.state = a.sick ? 'doente' : 'andando';
   } else if (a.state === 'andando') {
-    // chegou: se o destino era um brinquedo que segue ali, fica brincando
+    // arrived: if the target was a toy that is still there, it stays and plays
     const target = a.indoBrincar && e && e.objs.find(o => o.id === a.indoBrincar);
     if (target && dist(a.x, a.y, target.x + .5, target.y + .5) < 1.3) {
       a.state = 'brincando';
@@ -324,11 +324,11 @@ function newVisitor() {
     money: rnd(40, 260) * (child ? .5 : 1),
     mood: clamp(.55 + G.rep * .07 - Math.max(0, G.ticket - 30) * .004, .15, 1),
     vistos: new Set(), time: 0, child, item: null, indo: false, saindo: false,
-    // duração sorteada UMA vez, no nascimento: reavaliar rnd() a cada tick
-    // fazia todo mundo ir embora no piso da faixa e ninguém chegava às lojas
+    // the duration is rolled ONCE, at birth: re-rolling rnd() every tick made
+    // everyone leave at the bottom of the range and nobody reached the shops
     duration: rnd(6, 11),
-    // desvio lateral fixo: sem isso todo mundo pisa no centro do tile e a
-    // multidão vira uma fila indiana em cima da trilha
+    // a fixed lateral offset: without it everybody walks the centre of the tile
+    // and the crowd becomes a single file along the path
     jx: rnd(-.32, .32), jy: rnd(-.32, .32),
     ...pick(VISITOR_LOOKS),
     balao: pick(SHIRTS),
@@ -339,7 +339,7 @@ function newVisitor() {
   return v;
 }
 function bestTarget(v) {
-  // urgências
+  // urgent needs
   const N = v.need;
   const ordem = [['banheiro', N.banheiro, 'banheiro'], ['sede', N.thirst, 'sede'],
   ['fome', N.hunger, 'fome'], ['energia', N.energia, 'energia']];
@@ -355,7 +355,7 @@ function bestTarget(v) {
     const o = achaServico('diversao', v);
     if (o && Math.random() < .5) return { kind: 'obj', ref: o, x: o.x, y: o.y };
   }
-  // exibição não vista
+  // an exhibit not yet seen
   const cands = [];
   for (const e of enclosures.values()) {
     if (!e.animals.length) continue;
@@ -371,9 +371,9 @@ function bestTarget(v) {
   }
   return null;
 }
-/** O prédio tem trilha alcançável ao lado? Cacheado por versão da malha —
- *  sem isso um visitante escolhia uma loja inalcançável a cada tick, para
- *  sempre, perdendo humor em centenas de tentativas que nunca chegavam. */
+/** Does the building have a reachable path beside it? Cached by network version —
+ *  without that a visitor picked an unreachable shop every tick, forever, losing
+ *  mood over hundreds of attempts that never arrived. */
 function objAcessivel(o) {
   if (o._accNet === G.netVer) return o._acc;
   o._accNet = G.netVer;
@@ -397,8 +397,8 @@ const priceOf = o => Math.round(BUILDINGS[o.kind].value * (o.mult === undefined 
 
 function updVisitor(v, dt, gh) {
   v.time += gh;
-  // as taxas têm de fechar dentro de uma visita (~5–8 h de jogo), senão
-  // ninguém chega a sentir fome e o comércio nunca vende nada
+  // the rates have to close within one visit (~5–8 h of game time), or nobody
+  // ever gets hungry and the shops never sell a thing
   const N = v.need;
   N.hunger = clamp(N.hunger + gh * .125, 0, 1);
   N.thirst = clamp(N.thirst + gh * .16, 0, 1);
@@ -414,14 +414,14 @@ function updVisitor(v, dt, gh) {
   dm -= (N.hunger > .8 ? .004 : 0) + (N.thirst > .8 ? .005 : 0) + (N.banheiro > .85 ? .006 : 0) + (N.energia > .85 ? .003 : 0);
   if (G.escaped.length) dm -= .006 * Math.min(G.escaped.length, 4);
   v.mood = clamp(v.mood + dm * gh * 10, 0, 1);
-  // suja o chão
+  // litters the ground
   if (world.path[i] && Math.random() < gh * .06) {
     const temLixeira = [...objects.values()].some(o => o.kind === 'lixeira' && dist2(o.x, o.y, v.x, v.y) < 36);
     world.lixo[i] = clamp(world.lixo[i] + (temLixeira ? .04 : .3), 0, 1);
   }
   refreshThought(v, dt, visitorThought);
-  // Ação em curso tem prioridade sobre a decisão de ir embora: interromper aqui
-  // zerava v.alvo no meio da compra e a venda nunca era registrada.
+  // An action in progress beats the decision to leave: interrupting here zeroed
+  // the target mid-purchase and the sale was never recorded.
   if (v.action > 0) { v.action -= dt; if (v.action <= 0) finishAction(v); return; }
   // ir embora?
   if (!v.saindo && (v.time > v.duration || v.mood < .12 || (G.hour >= CLOSE_H - .5))) {
@@ -487,7 +487,7 @@ function chegou(v) {
       e.visitsToday = (e.visitsToday || 0) + 1;
     } else v.mood = clamp(v.mood - .05, 0, 1);
     v.action = rnd(1.2, 3);
-    // vira de frente para o recinto (eixo x da tela ∝ x−y do mundo)
+    // turns to face the enclosure (the screen's x axis ∝ the world's x−y)
     const bb = encBBox(e);
     v.dir = Math.sign(bb.cx - bb.cy - (v.x - v.y)) || v.dir;
   } else if (a.kind === 'obj') {
@@ -511,7 +511,7 @@ function finishAction(v) {
     if (v.money < price) { v.mood = clamp(v.mood - .06, 0, 1); return; }
     v.money -= price; earn(price, 'loja'); spend(B.unitCost, 'feed'); SFX.play('moeda');
     o.revenue += price - B.unitCost; o.sales++;
-    // percepção de preço: caro demais irrita
+    // price perception: too dear and they resent it
     const just = clamp(1 - (price / Math.max(1, B.value) - 1) * .7, .1, 1.25);
     v.mood = clamp(v.mood + (just - .75) * .17, 0, 1);
     if (o.kind === 'souvenir') v.item = 'balao';
@@ -524,7 +524,7 @@ function visitorLeaves(v) {
   G.visitors = G.visitors.filter(z => z.id !== v.id);
   const delta = (v.mood - .5) * .0075;
   G.rep = clamp(G.rep + delta, 0, 5);
-  // acumula para o extrato do painel ⭐ (1 linha agregada por dia, não 1 por visitante)
+  // accumulates for the ⭐ panel's statement (1 aggregated row per day, not 1 per visitor)
   G.stats.repVis = (G.stats.repVis || 0) + delta;
 }
 

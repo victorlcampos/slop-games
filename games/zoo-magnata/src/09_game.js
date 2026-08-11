@@ -13,7 +13,7 @@ function dragRect() {
    formato deixa de ser obrigatoriamente retangular. */
 const MIN_TILES_RECINTO = 4;
 
-/** tiles do retângulo que estão livres para virar recinto */
+/** the rectangle's tiles that are free to become an enclosure */
 function tilesLivresDoRect(r) {
   const out = [];
   for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) {
@@ -25,7 +25,7 @@ function tilesLivresDoRect(r) {
   }
   return out;
 }
-/** ids de recinto que o retângulo sobrepõe ou toca ortogonalmente */
+/** ids of enclosures the rectangle overlaps or touches orthogonally */
 function touchedEnclosures(r) {
   const ids = new Set();
   for (let j = -1; j <= r.h; j++) for (let i = -1; i <= r.w; i++) {
@@ -38,7 +38,7 @@ function touchedEnclosures(r) {
   }
   return [...ids];
 }
-/** o que este arraste faria: {acao, custo, tiles, alvo, motivo} */
+/** what this drag would do: {action, cost, tiles, target, reason} */
 function planoDoArraste(r, fenceKey) {
   const livres = tilesLivresDoRect(r);
   const tocados = touchedEnclosures(r);
@@ -50,7 +50,7 @@ function planoDoArraste(r, fenceKey) {
     const e = enclosures.get(tocados[0]);
     const uniao = new Set(e.tiles);
     for (const k of livres) uniao.add(k);
-    // paga só o crescimento da cerca; preencher um recanto pode até encurtá-la
+    // you only pay for the fence's growth; filling a nook can even shorten it
     const delta = Math.max(0, countSegments(uniao) - encSegCount(e));
     return {
       action: 'ampliar', target: e, tiles: livres,
@@ -98,7 +98,7 @@ function aplicarFerramenta(x, y, arrastando) {
     if (G.money < t.cost) return semGrana();
     if (addPath(x, y)) {
       spend(t.cost, 'obra'); SFX.play('trilha');
-      // uma pincelada inteira = 1 desfazer (o grupo fecha ao soltar o dedo)
+      // one whole stroke = 1 undo (the group closes when the finger lifts)
       if (!undoGroup || undoGroup.kind !== 'trilha') undoGroup = { kind: 'trilha', cat: 'obra', tiles: [], cost: 0 };
       undoGroup.tiles.push([x, y]); undoGroup.cost += t.cost;
     }
@@ -174,7 +174,7 @@ function demolishAt(x, y) {
   }
 }
 
-/* ---- seleção ---- */
+/* ---- selection ---- */
 function pickAt(sx, sy) {
   let best = null, bd = 34 * 34;
   const chk = (ent, kind) => {
@@ -184,7 +184,7 @@ function pickAt(sx, sy) {
   };
   for (const a of G.animals) if (!a.dead) chk(a, 'animal');
   for (const s of G.staff) chk(s, 'staff');
-  // visitantes por último: com 200 na tela eles não devem roubar o toque do bicho
+  // visitors last: with 200 on screen they must not steal the tap from an animal
   if (!best) { bd = 20 * 20; for (const v of G.visitors) chk(v, 'vis'); }
   if (best) return best;
   const [wx, wy] = s2w(sx, sy);
@@ -217,14 +217,14 @@ function startPan(sx, sy) {
   cv.style.cursor = 'grabbing';
 }
 function stopPan() { panning = false; cv.style.cursor = 'crosshair'; }
-/** aplica zoom mantendo o ponto (sx,sy) da tela ancorado no mesmo tile */
+/** zooms while keeping the screen point (sx,sy) anchored to the same tile */
 function zoomAt(fator, sx, sy) {
   const [wx, wy] = s2w(sx, sy);
   cam.z = clamp(cam.z * fator, ZMIN, ZMAX);
   cam.x += sx - w2sx(wx, wy);
   cam.y += sy - w2sy(wx, wy);
 }
-/** conclui o retângulo de recinto (compartilhado por mouse e toque) */
+/** finishes the enclosure rectangle (shared by mouse and touch) */
 function endEnclosureDrag() {
   if (!(G.drag && G.tool && G.tool.cat === 'recinto')) return;
   const r = dragRect();
@@ -257,7 +257,7 @@ function undoRecord(ent) {
   if (G.undo.length > UNDO_MAX) G.undo.shift();
   refreshUndoButton();
 }
-/** fecha a pincelada atual (chamado ao soltar o ponteiro) */
+/** closes the current stroke (called when the pointer lifts) */
 function undoCloseGroup() {
   if (!undoGroup) return;
   const g = undoGroup; undoGroup = null;
@@ -366,8 +366,8 @@ cv.addEventListener('pointerdown', e => {
   const [sx, sy] = evPos(e);
   ptrs.set(e.pointerId, { x: sx, y: sy });
 
-  // Dois dedos: pinça. Cancela o que o primeiro dedo tinha começado — quem
-  // abre a mão quer navegar, não desenhar.
+  // Two fingers: a pinch. It cancels whatever the first finger had started —
+  // opening your hand means you want to navigate, not draw.
   if (ptrs.size === 2) {
     pintando = false; G.drag = null; tapCand = null; pendenteTool = null; stopPan();
     const [a, b] = [...ptrs.values()];
@@ -385,13 +385,13 @@ cv.addEventListener('pointerdown', e => {
   if (G.tool) {
     if (G.tool.cat === 'recinto') { G.drag = { x, y }; return; }
     pintando = true;
-    // No toque, a primeira aplicação espera o gesto se confirmar como de um
-    // dedo (mover ou soltar). Aplicar já no encostar fazia o primeiro dedo de
-    // uma pinça deixar trilha/prédio perdido no mapa.
+    // On touch, the first application waits for the gesture to confirm itself as
+    // one-fingered (a move or a lift). Applying on contact made the first finger
+    // of a pinch leave a stray path or building on the map.
     if (e.pointerType === 'touch') pendenteTool = { x, y };
     else aplicarFerramenta(x, y, false);
   } else {
-    // sem ferramenta um dedo arrasta a câmera; se quase não andar, é seleção
+    // with no tool, one finger drags the camera; if it barely moves, it is a selection
     startPan(sx, sy);
     tapCand = { x: sx, y: sy, t: performance.now() };
   }
@@ -447,7 +447,7 @@ function pointerEnd(e) {
     tapCand = null;
     if (tap) {
       const p = pickAt(sx, sy);
-      // tocar num bicho faz ele responder — é a graça de ter voz por espécie
+      // tapping an animal makes it answer — that is the point of a voice per species
       if (p) {
         if (p.kind === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
         else if (p.kind === 'vis' || p.kind === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
@@ -457,7 +457,7 @@ function pointerEnd(e) {
     }
     return;
   }
-  // toque curto com ferramenta: aplica agora, no soltar
+  // a short tap with a tool: apply now, on the lift
   if (pendenteTool) { aplicarFerramenta(pendenteTool.x, pendenteTool.y, false); pendenteTool = null; }
   endEnclosureDrag();
   pintando = false;
@@ -472,10 +472,10 @@ cv.addEventListener('wheel', e => {
   zoomAt(e.deltaY < 0 ? 1.14 : 1 / 1.14, sx, sy);
 }, { passive: false });
 
-/* botões de zoom (toque) — ancoram no centro da tela */
+/* zoom buttons (touch) — they anchor on the centre of the screen */
 $('#zIn').onclick = () => zoomAt(1.3, VW / 2, VH / 2);
 $('#zOut').onclick = () => zoomAt(1 / 1.3, VW / 2, VH / 2);
-$('#zMap').onclick = () => { G.miniQuer = !G.miniQuer; refreshMinimap(); };
+$('#zMap').onclick = () => { G.wantsMinimap = !G.wantsMinimap; refreshMinimap(); };
 $('#stWarn').onclick = () => openFinance();
 $('#stHappy').onclick = () => openSatisfaction();
 $('#stRep').onclick = () => openReputation();
@@ -492,7 +492,7 @@ function refreshSoundButton() {
   $('#zSom').classList.toggle('on', SFX.on);
 }
 function ciclarSom() {
-  // 3 estados: cheio -> baixo -> mudo. Preferência é do aparelho, não do save.
+  // 3 states: full -> low -> mute. The preference belongs to the device, not the save.
   SFX.iniciar();
   if (!SFX.on) { SFX.on = true; SFX.vol = .65; }
   else if (SFX.vol > .5) SFX.vol = .3;
@@ -509,14 +509,14 @@ $('#fileSave').onchange = ev => {
   const f = ev.target.files[0];
   ev.target.value = '';
   if (!f) return;
-  // vindo do splash não há partida em curso: carrega direto e entra no jogo
+  // coming from the splash there is no game in progress: load straight in
   const noSplash = !$('#splash').classList.contains('hidden');
   if (!noSplash && !confirm(BI`Carregar "${f.name}"? O progresso atual será perdido.|Load "${f.name}"? The current progress will be lost.`)) return;
   importSave(f, ok => {
     if (ok && noSplash) { $('#splash').classList.add('hidden'); setSpeed(1); }
   });
 };
-/* cancelar a ferramenta ativa sem teclado */
+/* cancel the active tool without a keyboard */
 UI.hint.addEventListener('click', e => {
   if (e.target.closest('#hintX')) { setTool(null); G.drag = null; closePalette(); }
 });
@@ -527,7 +527,7 @@ addEventListener('keydown', e => {
   if (k === 'Shift') G.shift = true;
   if (k === ' ') { e.preventDefault(); G.space = true; togglePause(); }
   if (k === 'Escape') { setTool(null); G.drag = null; closePalette(); closeModal(); deselect(); }
-  if (k === 'm' || k === 'M') { G.miniQuer = !G.miniQuer; refreshMinimap(); }
+  if (k === 'm' || k === 'M') { G.wantsMinimap = !G.wantsMinimap; refreshMinimap(); }
   if (k === 'b' || k === 'B') cycleBubbles();
   if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoLast(); return; }
   if (k === 's' || k === 'S') ciclarSom();
@@ -570,9 +570,9 @@ function visitorRate() {
     s + (encViewSpots(e).length ? e.animals.filter(a => !a.dead).length : 0), 0);
   if (!atracoes) return 0;
   const fair = fairPrice();
-  // Queda assintótica, nunca zero: com a subtração linear anterior um ingresso
-  // ~2x o preço justo travava a bilheteria em 0 visitantes — estado absorvente,
-  // e o jogador não tinha como perceber a causa dentro do jogo.
+  // An asymptotic fall, never zero: with the previous linear subtraction a ticket
+  // ~2x the fair price locked the box office at 0 visitors — an absorbing state,
+  // and the player had no way to see the cause from inside the game.
   const excesso = Math.max(0, G.ticket - fair);
   const priceF = excesso > 0
     ? fair / (fair + excesso * 1.7)
@@ -590,8 +590,8 @@ function tick(dt) {
   G.hour += gh;
   if (G.hour >= 24) { G.hour -= 24; closeDay(); }
 
-  // spawn de visitantes (teto menor no celular: cada visitante é um sprite
-  // desenhado e um BFS ocasional na malha de trilhas)
+  // visitor spawning (a lower cap on a phone: every visitor is a drawn sprite
+  // plus the occasional BFS over the path network)
   const teto = G.maxVis;
   if (G.visitors.length < teto) {
     spawnAcc += visitorRate() * gh;
@@ -614,7 +614,7 @@ function tick(dt) {
   let nv = 0; for (const s of G.staff) if (s.kind === 'vet') nv++;
   G.nVets = nv;
   for (const a of G.animals) updAnimal(a, dt, gh);
-  // carcaça some 3s depois da morte (dá tempo de ver a notificação)
+  // the carcass disappears 3s after death (enough time to see the notification)
   G.animals = G.animals.filter(a => !a.dead || (a._t = (a._t || 0) + dt) < 3);
   for (let i = G.visitors.length - 1; i >= 0; i--) updVisitor(G.visitors[i], dt, gh);
   for (const s of G.staff) updStaff(s, dt, gh);
@@ -644,21 +644,21 @@ function closeDay() {
     spend(payroll + mk, 'salario'); SFX.play('contas');
     toast(BI`🧾 Contas da semana: ${moneyFull(payroll + mk)} (folha${mk ? ' + marketing' : ''})|🧾 Weekly bills: ${moneyFull(payroll + mk)} (payroll${mk ? ' + marketing' : ''})`, 'money');
   }
-  // Se o dia fechou sem visitante, diz o motivo — 1x por dia. Ficar no escuro
-  // por dias é indistinguível de um jogo quebrado.
+  // If the day closed with no visitors, say why — once a day. Being left in the
+  // dark for days is indistinguishable from a broken game.
   if (visitorsToday === 0 && G.day > 2) {
     const diag = crowdDiagnosis();
     if (diag) toast(diag.em + ' ' + diag.long.replace(/<\/?b>/g, ''), 'bad');
   }
-  // avaliações dos visitantes do dia entram como 1 linha agregada no extrato
+  // the day's visitor ratings enter the statement as 1 aggregated row
   const rv = G.stats.repVis || 0;
   if (Math.abs(rv) >= .02) {
     G.repLog.push({ day: G.day - 1, delta: rv, reason: BI`Avaliações de ${visitorsToday} visitantes|Ratings from ${visitorsToday} visitors`, em: rv > 0 ? '🗳️' : '📉' });
     if (G.repLog.length > 60) G.repLog.shift();
   }
   G.stats.repVis = 0;
-  // reputação decai devagar rumo à qualidade real do parque
-  const target = qualidadeParque();
+  // reputation drifts slowly towards the park's real quality
+  const target = parkQuality();
   const before = G.rep;
   G.rep = clamp(lerp(G.rep, target, .12), 0, 5);
   if (Math.abs(G.rep - before) >= .05) {
@@ -680,13 +680,13 @@ function closeDay() {
        <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">Aceitar resgate de R$ 100.000</button>`);
   }
 }
-/** choque pontual na reputação + linha no extrato (visível ao clicar em ⭐) */
+/** a one-off shock to the reputation + a row in the statement (visible on ⭐) */
 function repEvento(delta, reason, em) {
   G.rep = clamp(G.rep + delta, 0, 5);
   G.repLog.push({ day: G.day, delta, reason, em });
   if (G.repLog.length > 60) G.repLog.shift();
 }
-function qualidadeParque() {
+function parkQuality() {
   const vivos = G.animals.filter(a => !a.dead);
   if (!vivos.length) return .6;
   const felAn = vivos.reduce((s, a) => s + a.happy, 0) / vivos.length;
@@ -701,8 +701,8 @@ function qualidadeParque() {
 /* ==========================================================================
    15. SALVAR / CARREGAR
    ========================================================================== */
-/** Retrato completo do jogo. Serve ao autosave (localStorage) e à exportação
- *  em arquivo — um só formato para não haver dois "saves" divergindo. */
+/** A complete snapshot of the game. It serves the autosave (localStorage) and
+ *  the file export — one format, so there are never two "saves" drifting apart. */
 function gameSnapshot() {
   return {
       v: 1, money: G.money, ticket: G.ticket, day: G.day, hour: G.hour, rep: G.rep,
@@ -736,7 +736,7 @@ function loadGame() {
   if (!raw) { toast('Nenhum jogo salvo encontrado', 'bad'); return false; }
   return aplicarSnapshot(raw, 'Jogo carregado');
 }
-/** Aplica um retrato salvo (do localStorage ou de arquivo importado). */
+/** Applies a saved snapshot (from localStorage or an imported file). */
 function aplicarSnapshot(raw, label) {
   try {
     const s = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -750,7 +750,7 @@ function aplicarSnapshot(raw, label) {
     G.stats = s.stats; G.ledger = s.ledger;
     cam.x = s.cam.x; cam.y = s.cam.y; cam.z = s.cam.z;
     world.terr.set(s.terr); world.path.set(s.path);
-    // conserta save antigo em que o tapete do portão foi demolido (travava o zoo)
+    // fixes an old save where the gate's doormat was demolished (it locked the zoo)
     if (!world.path[IDX(ENTRANCE.x, ENTRANCE.y)]) {
       world.path[IDX(ENTRANCE.x, ENTRANCE.y)] = 1;
       world.terr[IDX(ENTRANCE.x, ENTRANCE.y)] = TKEYS.indexOf('piso');
@@ -761,8 +761,8 @@ function aplicarSnapshot(raw, label) {
     G.animals = []; G.visitors = []; G.staff = []; G.escaped = [];
     _uid = s.uid || 1;
     for (const e of s.encs) {
-      // Save antigo guardava retângulo (x,y,w,h) com o anel externo virando
-      // cerca. O interior daquele retângulo vira o conjunto de tiles de agora.
+      // An old save stored a rectangle (x,y,w,h) with the outer ring becoming the
+      // fence. That rectangle's interior becomes today's tile set.
       let tiles = e.tiles;
       if (!Array.isArray(tiles)) {
         tiles = [];
@@ -842,7 +842,7 @@ function importSave(file, onDone) {
   fr.readAsText(file);
 }
 
-/** Relatório legível do estado do zoológico — o "status do jogo" em texto. */
+/** A readable report on the zoo's state — the "game status" as text. */
 function reportText() {
   const L = [];
   const row = c => L.push(c);
@@ -979,12 +979,12 @@ function startingPath() {
   for (const dx of [-6, 6]) for (let y = H - 12; y <= H - 6; y++) addPath(ENTRANCE.x + dx, y);
   G.ledger.hoje.obra = 0; G.ledger.week.obra = 0;
 }
-/** ajusta o que depende do tamanho da tela (boot e a cada rotação/resize) */
+/** adjusts what depends on the screen size (at boot and on every rotate/resize) */
 function ajustarParaTela() {
   const estreita = window.innerWidth <= 700;
   G.maxVis = estreita ? 110 : window.innerWidth <= 1100 ? 190 : 280;
-  // minimapa e botões de zoom: numa tela estreita o mapa sobrepõe o dock, então
-  // fica atrás do botão 🗺️; o zoom por botão só aparece onde não há roda
+  // minimap and zoom buttons: on a narrow screen the map overlaps the dock, so it
+  // hides behind the 🗺️ button; button zoom only shows where there is no wheel
   $('#zoomBtns').classList.toggle('show', IS_TOUCH);
   refreshMinimap();
   medirHud();
@@ -999,14 +999,14 @@ function init() {
   buildDock();
   contratar('trat'); contratar('fax');
   updateHUD();
-  G.miniQuer = !isSmall();      // no celular o minimapa começa desligado
+  G.wantsMinimap = !isSmall();      // no celular o minimapa começa desligado
   try {
     const pref = JSON.parse(localStorage.getItem('zoo_som') || 'null');
     if (pref) { SFX.on = !!pref.l; SFX.vol = +pref.v || .65; }
   } catch (e) {}
   refreshSoundButton();
   ajustarParaTela();
-  // o HUD muda de altura quando as etiquetas quebram de linha
+  // the HUD changes height when the labels break onto another line
   if (window.ResizeObserver) new ResizeObserver(medirHud).observe($('#hud'));
   setSpeed(0);          // o relógio só começa quando o jogador sai do splash
   loop(performance.now());
@@ -1017,12 +1017,12 @@ function loop(now) {
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > .25) dt = .25;
   // Trilha desenhada / recinto criado invalidam a malha de caminhos. Consumir a
-  // flag aqui (1x por frame) cobre um arraste inteiro com uma única BFS — e sem
-  // isso `netVer` nunca mudava, congelando o cache de "quem vê este recinto"
-  // vazio para sempre: nenhum recinto virava atração e ninguém visitava o zoo.
+  // the flag here (once a frame) covers a whole drag with a single BFS — and
+  // without it `netVer` never changed, freezing the "who sees this enclosure"
+  // cache empty forever: no enclosure became an attraction and nobody visited.
   if (G.dirty.net) rebuildNet();
   if (!G.gameOver && G.speed > 0) {
-    // passos fixos para a simulação continuar estável em 2x/4x
+    // fixed steps so the simulation stays stable at 2x/4x
     acc += dt * G.speed;
     let guard = 0;
     while (acc > 1 / 30 && guard++ < 12) { tick(1 / 30); acc -= 1 / 30; }
@@ -1031,8 +1031,8 @@ function loop(now) {
   hudAcc += dt;
   if (hudAcc > .2) {
     hudAcc = 0;
-    // precoJusto() varre recintos e prédios; os pensamentos consultam por
-    // visitante, então guarda o valor em vez de recalcular centenas de vezes
+    // fairPrice() sweeps enclosures and buildings; the thoughts query it per
+    // visitor, so cache the value instead of recomputing it hundreds of times
     G.fairCache = fairPrice();
     updateHUD();
     refreshInspector();
@@ -1040,8 +1040,8 @@ function loop(now) {
   somAcc += dt;
   if (somAcc > .5) {
     somAcc = 0;
-    // Vozes de bicho ao fundo, abafadas e esparsas. Sem murmúrio de multidão:
-    // o parque fica em silêncio e o que se ouve são os próprios animais.
+    // Animal voices in the background, muffled and sparse. No crowd murmur: the
+    // park stays quiet and what you hear are the animals themselves.
     if (G.speed > 0 && SFX.on) {
       const vivos = G.animals.filter(a => !a.dead);
       const chance = clamp(.02 + vivos.length * .006, 0, .13);
@@ -1055,7 +1055,7 @@ function loop(now) {
 
 init();
 
-/* O splash decide entre jogo novo e save — sem confirm() bloqueante, e com o
+/* The splash chooses between a new game and a save — with no blocking confirm(), and with the
    relógio parado enquanto ele está na tela. */
 let temSave = false;
 try { temSave = !!localStorage.getItem('zoo_save'); } catch (e) { temSave = false; }

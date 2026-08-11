@@ -2,7 +2,7 @@
    3. GERADOR PROCEDURAL DE SPRITES
    Espaço local: 128x128, chão em y=116, animal olhando para a direita.
    ========================================================================== */
-/* Espaço de desenho: SPR de largura, chão em GND.
+/* Drawing space: SPR wide, ground at GND.
    PAD é folga ACIMA da moldura: sem ela sobravam 12 unidades sobre o corpo e
    pescoço de girafa (-28) e chifres de cudo/alce/órix (-24 a -9) saíam cortados.
    Todo desenho é relativo a GND, então basta transladar na hora de rasterizar —
@@ -13,7 +13,7 @@ const spriteCache = new Map();
 function lum(hexc) { const [r, g, b] = hex2rgb(hexc); return (r * .299 + g * .587 + b * .114) / 255; }
 function inkFor(c1) { return lum(c1) > .28 ? shade(c1, -.62) : '#16120e'; }
 
-/* ---- presets de quadrúpede por plano ---- */
+/* ---- quadruped presets per body plan ---- */
 const QUAD = {
   feline: { bL: 46, bH: 24, bY: 50, legL: 26, legW: 8, neckL: 15, neckA: -.55, neckW: 15, headR: 14, snoutL: 10, snoutH: 10, ear: 'redonda', earS: 9, tail: 'long', tailL: 40, hump: 3 },
   canine: { bL: 44, bH: 21, bY: 48, legL: 27, legW: 7, neckL: 15, neckA: -.6, neckW: 13, headR: 12, snoutL: 15, snoutH: 8, ear: 'ponta', earS: 11, tail: 'bushy', tailL: 32, hump: 2 },
@@ -32,7 +32,7 @@ const QUAD = {
   giraffe: { bL: 44, bH: 26, bY: 66, legL: 44, legW: 6, neckL: 56, neckA: -1.15, neckW: 12, headR: 10, snoutL: 12, snoutH: 7, ear: 'ponta', earS: 8, tail: 'fina', tailL: 22, hump: 8 },
 };
 
-/* ---- padrões ---- */
+/* ---- coat patterns ---- */
 function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
   const p = sp.pattern, c2 = sp.c2, rr = mulberry(hashStr(sp.key) + 7);
   const wdt = x1 - x0, hgt = y1 - y0;
@@ -92,7 +92,7 @@ function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
       c.beginPath(); c.moveTo(x, y0 - 4); c.lineTo(x, y1 + 4); c.stroke();
     }
   }
-  // barriga mais clara (quase todos)
+  // a lighter belly (nearly all of them)
   if (p !== 'patches' && p !== 'zebra') {
     c.globalAlpha = .35; c.fillStyle = shade(sp.c1, .42);
     ellipse(c, (x0 + x1) / 2, y1 - hgt * .04, wdt * .42, hgt * .3); c.fill();
@@ -137,8 +137,8 @@ function drawHorn(c, x, y, kind, s, col) {
 function drawEar(c, x, y, kind, s, fill, inner) {
   c._ink = inkFor(fill);
   if (kind === 'ponta' || kind === 'tuft') {
-    // base mais larga e ponta mais baixa: assim a orelha encosta no crânio em
-    // vez de flutuar como um triângulo solto acima da cabeça
+    // a wider base and a lower tip: that way the ear meets the skull instead
+    // of floating as a loose triangle above the head
     c.beginPath(); c.moveTo(x - s * .8, y + s * .7); c.lineTo(x + s * .1, y - s * 1.02); c.lineTo(x + s * .9, y + s * .55); c.closePath();
     ink(c, fill, 3.6);
     c.beginPath(); c.moveTo(x - s * .3, y + s * .4); c.lineTo(x + s * .08, y - s * .55); c.lineTo(x + s * .48, y + s * .34); c.closePath();
@@ -195,7 +195,7 @@ function drawTail(c, x, y, kind, len, col, dark, wag) {
   }
 }
 
-/* ---- QUADRÚPEDE (o desenhista principal) ---- */
+/* ---- QUADRUPED (the main draughtsman) ---- */
 function drawQuad(c, sp, t) {
   const P = QUAD[sp.plan] || QUAD.feline, o = sp.o;
   const c1 = sp.c1, c2 = sp.c2, dk = shade(c1, -.26), ik = inkFor(c1);
@@ -215,11 +215,11 @@ function drawQuad(c, sp, t) {
     c.bezierCurveTo(x0 + 8, bCY + P.bH * .62 - bob, x0 - 5, bCY + P.bH * .5 - bob, x0 - 2, bCY - bob);
     c.closePath();
   };
-  // patas traseiras (mais escuras)
+  // hind legs (darker)
   const hipX = x0 + 6, shoX = x1 - 8;
   limb2(c, hipX, bCY + 4 - bob, hipX - 5 + sw2 * 5, GND - legL * .5, hipX + sw2 * 8, GND, P.legW, dk);
   limb2(c, shoX, bCY + 4 - bob, shoX + sw * 4, GND - legL * .5, shoX + sw * 8, GND, P.legW, dk);
-  // cauda atrás do corpo
+  // tail behind the body
   if (P.tail !== 'long') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.tail || P.tail, P.tailL, c1, c2, sw * 3);
   // corpo
   bodyPath(); ink(c, c1, 4.6);
@@ -243,7 +243,7 @@ function drawQuad(c, sp, t) {
   limb2(c, shoX - 3, bCY + 3 - bob, shoX + sw2 * 4, GND - legL * .5, shoX + sw2 * 9, GND, P.legW, c1);
   if (P.tail === 'long') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.tail || P.tail, P.tailL, c1, c2, sw * 4);
 
-  // pescoço + cabeça
+  // neck + head
   const hr = P.headR;
   const nA = P.neckA, nL = P.neckL * (o.neck !== undefined ? o.neck : 1);
   const nx = x1 - 4, ny = bCY - P.bH * .35 - bob;
@@ -257,8 +257,8 @@ function drawQuad(c, sp, t) {
         limb(c, px, py - P.neckW * .35, px - 5, py - P.neckW * .35 - 9 * o.mane, 4.5, jc);
       }
     } else {
-      // coroa de tufos ao redor do pescoço/cabeça, com contorno, para a juba
-      // aparecer de verdade no tamanho em que o bicho é visto no mapa
+      // a crown of tufts around neck and head, outlined, so the mane actually
+      // reads at the size the animal is seen on the map
       const R = (P.neckW * .42 + 11 * o.mane);
       c.beginPath();
       for (let i = 0; i < 11; i++) {
@@ -276,7 +276,7 @@ function drawQuad(c, sp, t) {
       ellipse(c, cx2, bCY - P.bH * .55 - bob, 13, 12); ink(c, c1, 4.4);
     }
   }
-  // a orelha do elefante vai ATRÁS da cabeça, senão vira um disco cobrindo o rosto
+  // the elephant's ear goes BEHIND the head, or it becomes a disc over the face
   if (sp.plan === 'elephant') drawEar(c, hx - hr * .5, hy - hr * .05, 'giant', P.earS, shade(c1, -.1), shade(c1, -.28));
   ellipse(c, hx, hy, hr, hr * .92); ink(c, c1, 4.4);
   // focinho
@@ -296,7 +296,7 @@ function drawQuad(c, sp, t) {
   if (o.horn) drawHorn(c, hx - 2, hy - hr * .78, o.horn, o.hornSize || 1);
   if (sp.plan !== 'elephant')
     drawEar(c, hx - hr * .34, hy - hr * .78, o.ear || P.ear, P.earS, c1, shade(c1, -.3));
-  // tromba do elefante
+  // the elephant's trunk
   if (sp.plan === 'elephant') {
     const swg = Math.sin(t * TAU) * 5;
     c.beginPath(); c.moveTo(hx + hr * .5, hy + hr * .3);
@@ -328,11 +328,11 @@ function drawPrimate(c, sp, t) {
   const bodyPath = () => ellipse(c, bx, hipY - 22, 20, 26);
   applyPattern(c, sp, bodyPath, bx - 20, hipY - 46, bx + 20, hipY + 2);
   if (sp.o.back === 'silver') { c.save(); bodyPath(); c.clip(); c.fillStyle = '#b8b4ac'; ellipse(c, bx - 3, hipY - 30, 17, 12); c.fill(); c.restore(); }
-  // braços
+  // arms
   const aL = sp.o.longArm ? 42 : 30;
   limb2(c, bx - 13, hipY - 36, bx - 24, hipY - 36 + aL * .5, bx - 21 + sw * 5, hipY - 36 + aL, 8, c1);
   limb2(c, bx + 13, hipY - 36, bx + 24, hipY - 36 + aL * .5, bx + 21 - sw * 5, hipY - 36 + aL, 8, c1);
-  // cabeça
+  // head
   const hy = hipY - 58, hx = bx + 2;
   ellipse(c, hx, hy, 15, 15.5); ink(c, c1, 4.4);
   ellipse(c, hx + 2, hy + 5, 10, 8); ink(c, mixc(c2, '#ffffff', .1), 3.4);
@@ -372,7 +372,7 @@ function drawKangaroo(c, sp, t) {
   eye(c, hx + 5, hy - 2, 3.6);
 }
 
-/* ---- AVE (terrestre, voadora, aquática) ---- */
+/* ---- BIRD (ground, flying, water) ---- */
 function drawBird(c, sp, t) {
   const o = sp.o, c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const legL = 16 * (o.longLeg || 1), sw = Math.sin(t * TAU);
@@ -396,7 +396,7 @@ function drawBird(c, sp, t) {
       ellipse(c, bx - 18 + Math.cos(a) * 46, bY + 4 + Math.sin(a) * 46, 5, 5); ink(c, '#2f8a7a', 2.4);
     }
   } else if (o.tail === 'long' || o.tail === 'plume') {
-    // penas retrizes: leque curto e largo, não uma lança fina
+    // tail feathers: a short, wide fan, not a thin spear
     for (let i = 0; i < 4; i++) {
       const ang = .18 + i * .16;
       limb(c, bx - 17, bY + 2, bx - 17 - Math.cos(ang) * 34, bY + 2 + Math.sin(ang) * 34, 7 - i, i % 2 ? c2 : c1);
@@ -404,7 +404,7 @@ function drawBird(c, sp, t) {
   } else {
     ellipse(c, bx - 24, bY + 3, 11, 7, .35); ink(c, shade(c1, -.2), 3.6);
   }
-  // pescoço + cabeça
+  // neck + head
   const nl = 16 * (o.neck || 1);
   const hx = bx + 17, hy = bY - 10 - nl;
   limb(c, bx + 12, bY - 6, hx, hy + 4, 9 * (o.neck > 1.2 ? .8 : 1), c1);
@@ -465,7 +465,7 @@ function drawLizard(c, sp, t) {
     c.fillStyle = shade(c1, -.3);
     for (let i = 0; i < 9; i++) { const x = bx - bL * .42 + i / 8 * bL * .8; c.beginPath(); c.moveTo(x - 3, bY - bH + 2); c.lineTo(x, bY - bH - 6); c.lineTo(x + 3, bY - bH + 2); c.closePath(); c.fill(); }
   }
-  // cabeça
+  // head
   const fl = (o.longSnout || 1), hx = bx + bL * .52 + (croc ? 12 : 8), hy = bY - 3;
   if (croc) {
     c.beginPath(); c.moveTo(hx - 14, hy - 7); c.lineTo(hx + 22 * fl, hy - 3); c.lineTo(hx + 22 * fl, hy + 3); c.lineTo(hx - 14, hy + 8); c.closePath(); ink(c, c1, 4.2);
@@ -531,7 +531,7 @@ function drawTurtle(c, sp, t) {
   drawTail(c, bx - 29, bY + 2, 'fina', 10, c1, c2, 0);
 }
 
-/* ---- ANFÍBIO ---- */
+/* ---- AMPHIBIAN ---- */
 function drawFrog(c, sp, t) {
   const c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 62, bY = GND - 16, sw = Math.sin(t * TAU) * 2;
@@ -546,15 +546,15 @@ function drawFrog(c, sp, t) {
   if (sp.o.gills) for (const d of [-1, 1]) for (let i = 0; i < 3; i++) limb(c, bx + d * 14, bY - 10 + i * 4, bx + d * 26, bY - 16 + i * 6, 3, c2);
 }
 
-/* ---- PEIXE / CETÁCEO / RAIA ---- */
+/* ---- FISH / CETACEAN / RAY ---- */
 function drawFish(c, sp, t) {
   const o = sp.o, c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 62, bY = GND - 34, sw = Math.sin(t * TAU);
   if (o.ray) { // arraia manta — vista frontal, asas batendo
     c.save(); c.translate(bx, bY);
     const flap = sw * 7;
-    // cauda varre para trás; apontada para baixo ela encostava no chão e a
-    // arraia virava um cogumelo
+    // the tail sweeps back; pointing down it touched the ground and the ray
+    // turned into a mushroom
     limb(c, -4, 2, -40, 20, 3, shade(c1, -.1));
     const asa = () => {                                     // losango achatado com pontas caídas
       c.beginPath();
@@ -600,7 +600,7 @@ function drawFish(c, sp, t) {
   eye(c, bx + L * .66, bY - 4, 3.4);
 }
 
-/* ---- PINÍPEDE ---- */
+/* ---- PINNIPED ---- */
 function drawSeal(c, sp, t) {
   const c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 60, bY = GND - 15, sw = Math.sin(t * TAU);
@@ -701,7 +701,7 @@ function drawBug(c, sp, t) {
   dotEye(c, bx + 20, bY - 5, 2);
 }
 
-/* ---- PREGUIÇA / TAMANDUÁ / TATU ---- */
+/* ---- SLOTH / ANTEATER / ARMADILLO ---- */
 function drawXenarthra(c, sp, t) {
   if (sp.o.plates) { // tatu
     const c1 = sp.c1, ik = inkFor(c1); c._ink = ik;
@@ -733,9 +733,9 @@ function drawSpecies(c, sp, frame) {
   (DRAWER[sp.plan] || drawQuad)(c, sp, t);
 }
 
-/** Mede a linha opaca mais alta do sprite e guarda como fração da altura da
- *  moldura. Serve para pousar o balão de pensamento logo acima do bicho — com
- *  219 espécies de alturas muito diferentes, um deslocamento fixo erra sempre. */
+/** Measures the highest opaque row of the sprite and keeps it as a fraction of
+ *  the frame height. It is what lands the thought bubble just above the animal —
+ *  with 219 species of wildly different heights, a fixed offset is always wrong. */
 function measureTop(sp, cv) {
   try {
     const c = cv.getContext('2d');
@@ -749,10 +749,10 @@ function measureTop(sp, cv) {
     sp._topN = 0.5;
   } catch (e) { sp._topN = 0.25; }   // canvas sujo: cai num palpite razoável
 }
-/** altura visível do bicho, do chão ao topo do traço, em unidades locais */
+/** the animal's visible height, from the ground to the top of the line, in local units */
 const visibleHeight = sp => (GND + PAD) - (sp._topN === undefined ? 40 : sp._topN * SPRH);
 
-/** sprite pronto (canvas) para uma espécie, frame e altura em px */
+/** a ready sprite (canvas) for a species, frame and height in px */
 function getSprite(sp, frame, px) {
   const key = sp.id + '|' + frame + '|' + px;
   let cv = spriteCache.get(key);
@@ -769,19 +769,19 @@ function getSprite(sp, frame, px) {
   if (spriteCache.size > 2600) { const k = spriteCache.keys().next().value; spriteCache.delete(k); }
   return cv;
 }
-/** altura desejada do sprite no mundo (px a zoom 1).
- *  O expoente comprime os gigantes: linear, um elefante cobria meio recinto. */
+/** the sprite's intended height in the world (px at zoom 1).
+ *  The exponent compresses the giants: linear, an elephant covered half an enclosure. */
 const spriteH = sp => Math.round(26 + 52 * Math.pow(Math.min(sp.scale, 2.3), .85));
 
-/** canvas NOVO com o retrato da espécie — para colocar no DOM.
- *  Nunca devolva um canvas do spriteCache para a UI: anexá-lo ao DOM o
- *  arrancaria do cache e o mundo pararia de desenhar aquela espécie. */
-/** Retrato da espécie que cabe por construção numa caixa maxW x maxH.
- *  Duas razões para não deixar isso a cargo do CSS:
- *  1) a moldura do mundo tem 48 unidades de folga no topo (chifres, pescoços) —
- *     num retrato viram faixa vazia, então o traço é recortado na altura real;
- *  2) `max-height:100%` não clampa o canvas dentro do grid da loja, e a girafa
- *     (a mais alta) vazava 6px para fora da caixa. */
+/** a NEW canvas with the species' portrait — for putting in the DOM.
+ *  Never hand a canvas from spriteCache to the UI: attaching it to the DOM would
+ *  tear it out of the cache and the world would stop drawing that species. */
+/** A species portrait that fits a maxW x maxH box by construction.
+ *  Two reasons not to leave this to CSS:
+ *  1) the world frame has 48 units of headroom (horns, necks) — in a portrait
+ *     that is an empty band, so the drawing is cropped to its real height;
+ *  2) `max-height:100%` does not clamp the canvas inside the shop grid, and the
+ *     giraffe (the tallest) spilled 6px out of its box. */
 function spriteThumb(sp, maxW, maxH) {
   getSprite(sp, 0, 64);                       // garante a medição de _topN
   const top = (sp._topN === undefined ? .2 : sp._topN) * SPRH;
@@ -808,7 +808,7 @@ const SHIRTS = ['#e2543f', '#3fa5e2', '#4fae4a', '#ffc23c', '#9a6ad4', '#f28ab0'
 const HAIRS = ['#2b2118', '#5e3a20', '#c9a04a', '#8a4a2a', '#3a3a3a', '#d9d2c2'];
 const PANTS = ['#3a4a6a', '#5e4a3a', '#33333a', '#6a5a4a', '#4a5a4a'];
 
-/* Elenco fixo de aparências de visitante.
+/* A fixed cast of visitor looks.
    Sortear cada peça por visitante daria ~79 mil combinações: nenhum sprite
    seria reaproveitado e o cache viveria em despejo. Com um elenco fechado o
    cache fica limitado e ainda há variedade de sobra na multidão. */
@@ -841,7 +841,7 @@ function drawPerson(c, o, frame) {
   }
   limb(c, bx - 10, legY - 26 - bob, bx - 14 - sw * 5, legY - 8 - bob, 5.5, o.skin);
   limb(c, bx + 10, legY - 26 - bob, bx + 14 + sw * 5, legY - 8 - bob, 5.5, o.skin);
-  // cabeça
+  // head
   const hy = legY - 42 - bob;
   ellipse(c, bx, hy, 11, 12); ink(c, o.skin, 4.4);
   c.save(); ellipse(c, bx, hy, 11, 12); c.clip();
@@ -860,9 +860,9 @@ function drawPerson(c, o, frame) {
   if (o.role === 'fax') { limb(c, bx - 16, legY - 30, bx - 20, legY - 2, 3, '#8a6a3c'); ellipse(c, bx - 21, legY, 7, 4); ink(c, '#c9b58a', 2.6); }
   if (o.role === 'seg') { roundRectP(c, bx - 11, legY - 30 - bob, 22, 8, 4); c.fillStyle = 'rgba(0,0,0,.25)'; c.fill(); }
 }
-/** Chave do cache = tudo que drawPerson realmente desenha.
- *  Nunca use um id por pessoa: dezenas de visitantes idênticos passariam a
- *  ocupar entradas próprias e o cache viveria em despejo permanente. */
+/** The cache key = everything drawPerson actually draws.
+ *  Never use a per-person id: dozens of identical visitors would each take their
+ *  own entry and the cache would live in permanent eviction. */
 function personKey(o) {
   return [o.skin, o.shirt, o.pants, o.hair, o.longHair ? 1 : 0, o.bald ? 1 : 0,
     o.hat || '-', o.role || '-'].join('|');

@@ -58,7 +58,7 @@ const SPECIES_RAW = [
 ["Sagui-de-tufos-brancos|Common marmoset","primate","#8a7f6e","#f2ede2","solid",.28,"jungle","inse",4,10,4500,6,14,1],
 ["Mico-leão-dourado|Golden lion tamarin","primate","#e8a02c","#c47a15","solid",.3,"jungle","frug",3,8,22000,9,16,1,{mane:.8}],
 ["Macaco-narigudo|Proboscis monkey","primate","#c4763c","#9a5528","solid",.85,"wetland","herb",4,14,42000,9,22,2],
-/* ---------- UNGULADOS: cervos & antílopes (13) ---------- */
+/* ---------- UNGULATES: deer & antelope (13) ---------- */
 ["Cervo-vermelho|Red deer","ungulate","#a87a4a","#6a4a2c","solid",1,"forest","herb",4,14,7000,5,18,1,{horn:"branched",hornSize:1}],
 ["Alce|Moose","ungulate","#6a4f36","#3d2c1c","solid",1.5,"tundra","herb",1,4,19000,8,20,3,{horn:"palm",hornSize:1.3}],
 ["Rena|Reindeer","ungulate","#a89880","#5e5040","solid",1.05,"tundra","herb",6,25,13000,7,17,1,{horn:"branched",hornSize:1.1}],
@@ -91,7 +91,7 @@ const SPECIES_RAW = [
 ["Elefante-africano|African elephant","elephant","#8f8c88","#6a6763","solid",2.1,"savanna","herb",3,10,140000,10,60,4,{ear:"giant",tusk:1.3}],
 ["Elefante-asiático|Asian elephant","elephant","#8a8480","#6a6560","solid",1.9,"jungle","herb",3,10,120000,10,60,4,{ear:"medium",tusk:.8}],
 ["Elefante-da-floresta|Forest elephant","elephant","#7d7a76","#5e5b57","solid",1.7,"jungle","herb",3,8,135000,10,55,4,{ear:"medium",tusk:1.1}],
-/* ---------- GIRAFÍDEOS (2) ---------- */
+/* ---------- GIRAFFIDS (2) ---------- */
 ["Girafa-masai|Masai giraffe","giraffe","#e0b055","#8a5a26","spots",2.2,"savanna","herb",3,12,95000,10,26,2],
 ["Okapi|Okapi","giraffe","#7a3f24","#f2ece0","zebra",1.15,"jungle","herb",1,3,72000,9,25,2,{neck:.45}],
 /* ---------- RINOCERONTES (4) ---------- */
@@ -99,17 +99,17 @@ const SPECIES_RAW = [
 ["Rinoceronte-negro|Black rhinoceros","rhino","#7d7a74","#5e5b56","solid",1.65,"savanna","herb",1,3,125000,9,42,5,{prong:1.5}],
 ["Rinoceronte-indiano|Indian rhinoceros","rhino","#8a8782","#6a6762","plates",1.8,"wetland","herb",1,4,130000,10,45,4,{prong:.7,plates:1}],
 ["Rinoceronte-de-java|Javan rhinoceros","rhino","#83807a","#63605b","plates",1.6,"jungle","herb",1,2,180000,10,40,4,{prong:.5,plates:1}],
-/* ---------- HIPOPÓTAMOS (2) ---------- */
+/* ---------- HIPPOS (2) ---------- */
 ["Hipopótamo|Hippopotamus","hippo","#9a7a80","#7a5c62","solid",1.7,"wetland","herb",3,12,72000,9,45,5,{swims:1}],
 ["Hipopótamo-pigmeu|Pygmy hippopotamus","hippo","#5e5048","#4a3e37","solid",.85,"jungle","herb",1,3,52000,8,40,3,{swims:1}],
-/* ---------- CAMELÍDEOS (6) ---------- */
+/* ---------- CAMELIDS (6) ---------- */
 ["Camelo-bactriano|Bactrian camel","camelid","#c9a266","#8a6a3f","solid",1.5,"desert","herb",3,12,26000,8,45,2,{hump:2}],
 ["Dromedário|Dromedary","camelid","#d9b478","#a88a52","solid",1.5,"desert","herb",3,12,18000,7,45,2,{hump:1}],
 ["Lhama|Llama","camelid","#e8dcc4","#a8906a","patches",.95,"mountain","herb",4,14,5500,5,22,1,{hump:0,furry:1}],
 ["Alpaca|Alpaca","camelid","#f2e8d4","#c9b590","solid",.8,"mountain","herb",4,16,6500,6,20,1,{hump:0,furry:1.4}],
 ["Vicunha|Vicuña","camelid","#d9a86e","#f4ede0","solid",.8,"mountain","herb",5,18,14000,7,20,1,{hump:0}],
 ["Guanaco|Guanaco","camelid","#c99a62","#f2ece0","solid",.95,"mountain","herb",4,16,9000,6,22,1,{hump:0}],
-/* ---------- SUÍNOS (5) ---------- */
+/* ---------- SWINE (5) ---------- */
 ["Facóquero|Warthog","swine","#8a7a68","#5e5145","solid",.85,"savanna","omni",3,12,6000,5,15,2,{tusk:1,mane:.8}],
 ["Javali-europeu|Wild boar","swine","#5e5148","#3a322c","solid",.95,"forest","omni",3,14,5500,4,14,3,{tusk:.8,mane:.5}],
 ["Babirussa|Babirusa","swine","#9a8f80","#6a6156","solid",.85,"jungle","omni",2,8,17000,8,18,2,{tusk:1.6}],
@@ -195,13 +195,13 @@ const SPECIES_RAW = [
 ["Jiboia-constritora|Boa constrictor","snake","#c4a882","#7a5a3a","patches",.9,"jungle","carn",1,3,7500,6,25,3],
 ["Cascavel-diamante|Diamondback rattlesnake","snake","#b5a06a","#5e4e30","diamond",.7,"desert","carn",1,3,11000,7,20,5,{rattle:1}],
 ["Mamba-negra|Black mamba","snake","#4a4a48","#33332f","solid",.85,"savanna","carn",1,2,29000,9,15,5],
-/* ---------- QUELÔNIOS (5) ---------- */
+/* ---------- CHELONIANS (5) ---------- */
 ["Tartaruga-de-galápagos|Galápagos tortoise","turtle","#6a6254","#4a443a","shell",1.15,"desert","herb",2,10,44000,9,120,1],
 ["Jabuti-piranga|Red-footed tortoise","turtle","#4a453c","#e8843c","shell",.45,"jungle","herb",2,10,3800,4,60,1],
 ["Tartaruga-verde|Green sea turtle","turtle","#5a7a52","#3f5a3a","shell",.9,"aquarium","herb",2,8,26000,9,80,1,{swims:1,flipper:1}],
 ["Tartaruga-mordedora|Snapping turtle","turtle","#4a4a40","#33332c","shell",.6,"wetland","carn",1,4,6500,5,45,3],
 ["Tartaruga-de-esporão|African spurred tortoise","turtle","#a8946a","#7a6a48","shell",.7,"desert","herb",2,8,9500,6,70,1],
-/* ---------- ANFÍBIOS (6) ---------- */
+/* ---------- AMPHIBIANS (6) ---------- */
 ["Rã-flecha-azul|Blue poison dart frog","amphibian","#2f7fe8","#1f4aa8","spots",.14,"jungle","inse",4,20,4500,8,8,4],
 ["Sapo-cururu|Cane toad","amphibian","#8a7a58","#5e5238","spots",.24,"jungle","inse",2,10,900,2,12,2],
 ["Axolote|Axolotl","amphibian","#f2b0c0","#e88aa0","solid",.2,"aquarium","carn",3,12,7500,8,12,1,{swims:1,gills:1}],
@@ -217,18 +217,18 @@ const SPECIES_RAW = [
 ["Peixe-palhaço|Clownfish","fish","#f28422","#f6f4ee","stripes",.1,"aquarium","omni",6,30,600,5,10,1,{swims:1}],
 ["Carpa-koi|Koi carp","fish","#f6f2e8","#e8621f","patches",.3,"aquarium","omni",5,25,2400,5,40,1,{swims:1}],
 ["Peixe-lua|Ocean sunfish","fish","#9aa0a8","#d2d6da","solid",1.5,"aquarium","omni",1,3,62000,9,20,1,{swims:1,spring:1}],
-/* ---------- CETÁCEOS (4) ---------- */
+/* ---------- CETACEANS (4) ---------- */
 ["Golfinho-nariz-de-garrafa|Bottlenose dolphin","fish","#8a949c","#e2e6ea","solid",1.25,"aquarium","pisc",4,16,140000,10,45,2,{swims:1,dolphin:1}],
 ["Orca|Orca","fish","#26262c","#f6f4ee","patches",2,"aquarium","carn",3,10,320000,10,60,4,{swims:1,dolphin:1,dorsal:1.6}],
 ["Beluga|Beluga","fish","#eef2f4","#d8e0e6","solid",1.6,"aquarium","pisc",3,12,190000,10,50,1,{swims:1,dolphin:1,dorsal:0}],
 ["Boto-cor-de-rosa|Amazon river dolphin","fish","#f0a8b8","#e88a9e","solid",1.2,"wetland","pisc",2,8,110000,10,35,1,{swims:1,dolphin:1,longSnout:1.4}],
-/* ---------- PINÍPEDES (5) ---------- */
+/* ---------- PINNIPEDS (5) ---------- */
 ["Foca-comum|Harbour seal","seal","#8a8a84","#c9c9c0","spots",.85,"coast","pisc",5,20,18000,8,30,1,{swims:1}],
 ["Leão-marinho-da-califórnia|California sea lion","seal","#6a5442","#a8886a","solid",1.05,"coast","pisc",5,25,26000,9,25,2,{swims:1,mane:.6}],
 ["Morsa|Walrus","seal","#a8785e","#7a5440","solid",1.7,"tundra","pisc",4,16,58000,10,40,3,{swims:1,tusk:1.6,whiskers:1}],
 ["Foca-leopardo|Leopard seal","seal","#6a7078","#c4c9ce","spots",1.35,"tundra","carn",1,3,48000,9,26,4,{swims:1}],
 ["Lobo-marinho|Fur seal","seal","#4a3a2c","#7a6248","solid",.9,"coast","pisc",6,30,21000,8,25,2,{swims:1,mane:.4}],
-/* ---------- MUSTELÍDEOS & PEQUENOS CARNÍVOROS (12) ---------- */
+/* ---------- MUSTELIDS & SMALL CARNIVORES (12) ---------- */
 ["Lontra-gigante|Giant otter","mustelid","#5e422c","#e8dcc4","ruff",.85,"wetland","pisc",4,14,34000,9,15,2,{swims:1}],
 ["Lontra-europeia|European otter","mustelid","#6a4e34","#c9b596","solid",.5,"forest","pisc",3,10,14000,8,12,1,{swims:1}],
 ["Texugo-europeu|European badger","mustelid","#8a8a84","#26221f","mask",.5,"forest","omni",2,8,5500,5,12,2],
@@ -252,7 +252,7 @@ const SPECIES_RAW = [
 ["Borboleta-morfo-azul|Blue morpho butterfly","insect","#2f6fe8","#1f4aa8","solid",.1,"jungle","frug",10,60,900,7,1,1,{butterfly:1,flies:1}],
 ["Louva-a-deus-orquídea|Orchid mantis","insect","#f4e2ee","#e8a8c8","solid",.1,"jungle","inse",2,8,1600,7,1,1,{mantis:1}],
 ["Bicho-pau-gigante|Giant stick insect","insect","#7a6a4a","#5a4e38","solid",.16,"jungle","herb",3,14,1200,5,2,1,{stick:1}],
-/* ---------- AVES AQUÁTICAS (6) ---------- */
+/* ---------- WATERFOWL (6) ---------- */
 ["Cisne-negro|Black swan","bird","#33333a","#d63a2a","solid",.65,"wetland","herb",2,12,5200,7,25,1,{neck:1.6,swims:1,beak:"duck"}],
 ["Cisne-branco|Mute swan","bird","#f8f6f0","#f2a81c","solid",.7,"wetland","herb",2,12,4800,7,25,1,{neck:1.7,swims:1,beak:"duck"}],
 ["Pato-mandarim|Mandarin duck","bird","#e8843c","#2f7fa8","solid",.28,"wetland","omni",4,20,2200,7,10,1,{swims:1,beak:"duck",crest:.7}],

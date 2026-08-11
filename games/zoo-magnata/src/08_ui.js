@@ -12,23 +12,22 @@ const UI = {
 const isSmall = () => window.innerWidth <= 700;
 const IS_TOUCH = matchMedia('(hover:none)').matches || navigator.maxTouchPoints > 0;
 
-/** Qual arranjo de painéis o CSS está aplicando — espelha as media queries.
- *  'gaveta'      celular em pé: inspetor é gaveta inferior, paleta ocupa o rodapé
- *  'lateralCurto' paisagem baixa: inspetor lateral de 250px, dock encurtado
- *  'apertado'    tablet: inspetor lateral, mas a paleta ainda cruzaria com ele
- *  'amplo'       desktop: os dois convivem sem se tocar */
+/** Which panel arrangement the CSS is applying — it mirrors the media queries.
+ *  'drawer'   phone upright: the inspector is a bottom drawer, the palette takes the footer
+ *  'tight'    tablet: a side inspector, but the palette would still cross it
+ *  'wide'     desktop: the two coexist without touching */
 function layoutModo() {
   const w = window.innerWidth, h = window.innerHeight;
   if (h <= 520 && w >= 560) return 'lateralCurto';
-  if (w <= 700) return 'gaveta';
-  if (w <= 1000) return 'apertado';
-  return 'amplo';
+  if (w <= 700) return 'drawer';
+  if (w <= 1000) return 'tight';
+  return 'wide';
 }
-/** onde paleta e inspetor não cabem juntos, só um fica aberto por vez */
-function painelUnico() { const m = layoutModo(); return m === 'gaveta' || m === 'apertado'; }
+/** where palette and inspector don't fit together, only one stays open at a time */
+function painelUnico() { const m = layoutModo(); return m === 'drawer' || m === 'tight'; }
 
-/** publica a altura real do HUD para o CSS — ela varia quando as etiquetas
- *  quebram em duas linhas no celular, e inspetor/dica/toasts pendem dela */
+/** publishes the HUD's real height to the CSS — it varies when the labels break
+ *  onto two lines on a phone, and inspector/hint/toasts hang off it */
 function medirHud() {
   const h = Math.round($('#hud').getBoundingClientRect().height);
   document.documentElement.style.setProperty('--hudH', h + 'px');
@@ -58,9 +57,9 @@ function updateHUD() {
   $('#vRep').textContent = G.rep.toFixed(1) + '★';
   $('#clockBadge').textContent = relTime(G.hour) + (G.hour >= OPEN_H && G.hour < CLOSE_H ? '' : ' 🌙');
 
-  // Aviso curto no HUD. Não condicionar a "zero visitantes no parque": quando
-  // você acabou de cortar a trilha, o pessoal que já entrou continua saindo e o
-  // alerta ficava escondido justamente na hora em que ele importa.
+  // A short warning in the HUD. Don't gate it on "zero visitors in the park":
+  // right after you cut the path, the people already inside keep leaving and the
+  // alert stayed hidden at exactly the moment it mattered.
   const w = $('#stWarn');
   const diag = crowdDiagnosis();
   const mostra = !!diag && diag.key !== 'closed';
@@ -72,7 +71,7 @@ function updateHUD() {
   renderAlerts();
 }
 
-/* ---- barra de alertas do gerente ----
+/* ---- the manager's alert bar ----
    Os problemas que pedem ação AGORA, agrupados por tipo. Clicar no chip
    centraliza a câmera no alvo; clicar de novo cicla entre os casos. */
 const ALERTA_DEF = {
@@ -136,7 +135,7 @@ function renderAlerts() {
   }
 }
 
-/* ---- categorias do dock ---- */
+/* ---- dock categories ---- */
 const CATS = [
   { k: 'caminho', n: 'Trilhas|Paths', em: '🛣️' },
   { k: 'recinto', n: 'Recintos|Enclosures', em: '🚧' },
@@ -298,9 +297,9 @@ function openShop(encId) {
   $('#shopB').onchange = ev => { shopFiltro.biome = ev.target.value; renderShop(); };
   $('#shopD').onchange = ev => { shopFiltro.diet = ev.target.value; renderShop(); };
   $('#shopO').onchange = ev => { shopFiltro.ord = ev.target.value; renderShop(); };
-  // o filtro persiste entre aberturas — os controles precisam MOSTRAR isso.
-  // Reabrir com controles zerados mas filtro antigo valendo fazia a lista
-  // "minguar" a cada visita até 0 espécies sem motivo aparente.
+  // the filter persists between openings — the controls have to SHOW that.
+  // Reopening with cleared controls but the old filter still in force made the
+  // list "dwindle" on every visit down to 0 species for no apparent reason.
   $('#shopQ').value = shopFiltro.q;
   $('#shopB').value = shopFiltro.biome;
   $('#shopD').value = shopFiltro.diet;
@@ -328,9 +327,9 @@ function renderShop() {
       if (d.dataset.done) continue;
       d.dataset.done = '1';
       shopObserver.unobserve(d);
-      // cada card é isolado: uma espécie problemática não pode apagar a loja inteira
+      // each card is isolated: one problem species must not wipe out the whole shop
       try {
-        // mede a caixa real: ela encolhe no celular (.pic tem altura menor lá)
+        // measure the real box: it shrinks on a phone (.pic is shorter there)
         const pic = d.querySelector('.pic');
         pic.appendChild(spriteThumb(SPECIES[+d.dataset.sp],
           Math.min(96, pic.clientWidth - 6), pic.clientHeight - 6));
@@ -384,7 +383,7 @@ function checkEnclosure(sp, e) {
     if (carnivoro) return { bloqueia: true, msg: LN('Não dá para misturar carnívoros com outras espécies nesse recinto.|You cannot mix carnivores with other species in that enclosure.') };
   }
   if (encArea(e) < sp.space) return { bloqueia: true, msg: BI`${LN(sp.name)} precisa de ${sp.space} tiles e o recinto só tem ${encArea(e)}.|A ${LN(sp.name)} needs ${sp.space} tiles and the enclosure only has ${encArea(e)}.` };
-  if (encArea(e) < sp.space * (irmaos + 1)) return { bloqueia: false, msg: 'O recinto vai ficar apertado — a felicidade cai.' };
+  if (encArea(e) < sp.space * (irmaos + 1)) return { bloqueia: false, msg: 'O recinto vai ficar tight — a felicidade cai.' };
   if (sp.danger > F.strength) return { bloqueia: false, msg: BI`${LN(FENCES[e.fence].n)} é fraca demais: risco de fuga.|${LN(FENCES[e.fence].n)} is too weak: escape risk.` };
   if (sp.flies && !F.aviary) return { bloqueia: false, msg: LN('Ave sem tela de aviário fica infeliz e pode escapar.|A bird without aviary mesh is unhappy and may escape.') };
   if (sp.aquatic && !F.aquarium) return { bloqueia: false, msg: LN('Espécie aquática pede vidro de aquário.|An aquatic species needs aquarium glass.') };
@@ -399,7 +398,7 @@ function bar(label, v, col, extra, key) {
     <label><span>${label}</span><span data-v>${extra !== undefined ? extra : p + '%'}</span></label>
     <div class="bar"><i style="width:${p}%;background:${col}"></i></div></div>`;
 }
-/** atualiza uma barra já existente sem recriar o DOM em volta */
+/** updates an existing gauge without rebuilding the DOM around it */
 function setBar(key, v, col, extra) {
   const row = UI.insp.querySelector(`[data-bar="${key}"]`);
   if (!row) return;
@@ -416,15 +415,15 @@ function select(kind, ref) {
   showInspector();
 }
 function deselect() { G.sel = null; UI.insp.classList.remove('show'); zoomBtnsVisiveis(true); refreshMinimap(); }
-/** o inspetor mora no mesmo lado dos botões de zoom em todos os layouts */
+/** the inspector lives on the same side as the zoom buttons in every layout */
 function zoomBtnsVisiveis(v) { $('#zoomBtns').classList.toggle('tapado', !v); }
-/** Minimapa: `G.miniQuer` é a vontade do jogador; a exibição também depende de
- *  não colidir — no modo gaveta o rodapé é disputado por dock, paleta e
- *  inspetor, e o mapa é o último da fila. */
+/** Minimap: `G.wantsMinimap` is the player's wish; whether it shows also depends on
+ *  not colliding — in drawer mode the footer is contested by dock, palette and
+ *  inspector, and the map is last in the queue. */
 function refreshMinimap() {
-  const conflita = layoutModo() === 'gaveta' &&
+  const conflita = layoutModo() === 'drawer' &&
     (!!G.sel || UI.pal.classList.contains('show'));
-  $('#mini').classList.toggle('show', !!G.miniQuer && !conflita);
+  $('#mini').classList.toggle('show', !!G.wantsMinimap && !conflita);
 }
 function showInspector() {
   const s = G.sel;
@@ -438,12 +437,12 @@ function showInspector() {
   else if (s.kind === 'staff') inspStaff(s.ref);
   else if (s.kind === 'vis') inspVisitor(s.ref);
 }
-/** assinatura do que exige reconstruir o painel (o resto é só valor a atualizar) */
+/** a signature of what forces a panel rebuild (the rest is just values to update) */
 const encSig = e => [e.name, e.fence, e.tiles.size,
   e.animals.filter(a => !a.dead).map(a => a.id).join(','),
   e.objs.map(o => o.kind).join(',')].join('|');
-/** composição do terreno em tags — muda a cada pincelada, então é atualizada
- *  no refresh em vez de ficar congelada no HTML da abertura */
+/** the terrain composition as tags — it changes with every stroke, so it is
+ *  updated on refresh instead of frozen into the opening HTML */
 const encMixHTML = e => Object.entries(encMix(e)).sort((a, b) => b[1] - a[1]).slice(0, 5)
   .map(([k, v]) => `<span class="tag">${TERRAIN[k].em} ${LN(TERRAIN[k].n)} ${Math.round(v * 100)}%</span>`).join('');
 function encAlertsHTML(e) {
@@ -504,7 +503,7 @@ function inspEnclosure(e) {
   $('#ix').onclick = deselect;
   $('#ibuy').onclick = () => openShop(e.id);
   $('#igrow').onclick = () => {
-    // já entrega a ferramenta com o tipo de cerca deste recinto
+    // hands over the tool already carrying this enclosure's fence type
     setTool({ cat: 'recinto', key: e.fence, em: FENCES[e.fence].em, n: 'Ampliar ' + e.name,
               cost: FENCES[e.fence].cost, ampliando: e.id });
     if (painelUnico()) deselect();
@@ -629,10 +628,11 @@ function transferir(a) {
     closeModal(); showInspector(); toast(BI`📦 ${a.name} foi para ${e2.name}|📦 ${a.name} moved to ${e2.name}`, 'good');
   });
 }
-/** Atualização periódica do inspetor: mexe SÓ nos valores.
- *  Reconstruir o painel com innerHTML a cada 200ms trocava os botões de
- *  identidade no meio do toque — mousedown ia no botão antigo, mouseup no novo,
- *  e o navegador não gerava `click`. Era o "tenho que clicar várias vezes". */
+/** The inspector's periodic refresh: it touches the VALUES only.
+ *  Rebuilding the panel with innerHTML every 200ms swapped the buttons'
+ *  identity mid-tap — mousedown landed on the old button, mouseup on the new
+ *  one, and the browser produced no `click`. That was the "I have to click
+ *  several times". */
 function refreshInspector() {
   const s = G.sel;
   if (!s) return;
@@ -679,8 +679,8 @@ function refreshInspector() {
     if (UI.insp.dataset.sig !== visitorSignature(v)) { showInspector(); return; }
     setBar('mood', v.mood, colourFor(v.mood));
     for (const k in NEED_INFO) setBar('n_' + k, 1 - v.need[k], colourFor(1 - v.need[k]));
-    // recalcula na ficha aberta: o cache tem até ~2s de atraso e ficava
-    // contradizendo as barras (dizia "morrendo de sede" com a sede cheia)
+    // recompute while the card is open: the cache lags by up to ~2s and kept
+    // contradicting the gauges (it said "dying of thirst" with thirst full)
     const p = v.pensa = visitorThought(v);
     const est = $('#iEstado');
     if (est && p) {
@@ -778,7 +778,7 @@ function openStaff() {
   });
 }
 
-/* ---- finanças ---- */
+/* ---- finance ---- */
 function openFinance() {
   const L = G.ledger;
   const row = (n, v, neg) => `<tr><td>${n}</td><td class="n ${v ? (neg ? 'negv' : 'pos') : ''}">${neg ? '-' : '+'}${moneyFull(v)}</td></tr>`;
@@ -816,7 +816,7 @@ function openFinance() {
         <h4 class="sec" style="margin-top:0">Preço do ingresso</h4>
         <div style="display:flex;align-items:center;gap:9px">
           <input type="range" id="fTicket" min="0" max="${
-    // o teto acompanha o zoo: sempre dá para passar bem do preço de referência
+    // the ceiling follows the zoo: you can always go well past the reference price
     Math.max(140, Math.ceil(fairPrice() * 1.8 / 10) * 10, Math.ceil(G.ticket / 10) * 10)
     }" value="${G.ticket}" style="flex:1">
           <b id="fTicketV" style="min-width:70px;text-align:right">${moneyFull(G.ticket)}</b>
@@ -869,9 +869,10 @@ function openFinance() {
 }
 const saldo = o => o.ticket + o.loja + o.venda - o.feed - o.wage - o.manut - o.compra - o.obra;
 
-/** Por que a bilheteria está parada? Devolve o primeiro motivo estrutural, na
- *  ordem em que o jogador precisa resolver — ou null se está tudo certo.
- *  Existe porque zero visitante sem explicação é indistinguível de bug. */
+/** Why has the box office stalled? Returns the first structural reason, in the
+ *  order the player needs to solve them — or null if everything is fine.
+ *  It exists because zero visitors with no explanation is indistinguishable
+ *  from a bug. */
 function crowdDiagnosis() {
   // `key` identifies the diagnosis regardless of language — the HUD compares
   // against it instead of against the translated headline
@@ -892,7 +893,7 @@ function crowdDiagnosis() {
     return D('🌙', LN('Zoológico fechado|Zoo closed'), BI`O zoológico está fechado (abre às ${OPEN_H}h). Os visitantes voltam de manhã.|The zoo is closed (it opens at ${OPEN_H}:00). The visitors come back in the morning.`, 'closed');
   return null;
 }
-/** preço de ingresso que o público considera justo, dado o acervo */
+/** the ticket price the public considers fair, given the collection */
 function fairPrice() {
   let v = 4;
   for (const e of enclosures.values()) {
@@ -907,7 +908,7 @@ function fairPrice() {
 /* ==========================================================================
    11b. RELATÓRIO DE SATISFAÇÃO — de onde vem cada reclamação
    ========================================================================== */
-/** o que fazer a respeito, indexado pelo ícone do pensamento */
+/** what to do about it, indexed by the thought's icon */
 const TIPS = {
   '🚻': 'Construa Banheiros perto das trilhas movimentadas.',
   '🥤': 'Um Quiosque de Bebidas ou Bebedouro resolve a sede.',
@@ -922,7 +923,7 @@ const TIPS = {
   '😠': 'Veja os outros motivos da lista — algo está faltando.',
   '😐': 'Nada urgente, mas o parque não empolga: decore e diversifique.',
   '💧': 'Ponha Bebedouro no recinto e tenha um Tratador de plantão.',
-  '😖': 'Recinto apertado: amplie ou separe os animais.',
+  '😖': 'Recinto tight: amplie ou separe os animais.',
   '💩': 'Contrate mais Tratadores — eles limpam os recintos.',
   '⚠️': LN('Troque por uma cerca mais forte (inspetor do recinto).|Swap in a stronger fence (enclosure inspector).'),
   '🤕': 'Contrate um Veterinário.',
@@ -937,9 +938,10 @@ const TIPS = {
 for (const k in COMIDA_EM) TIPS[COMIDA_EM[k]] = LN('Ponha Comedouro no recinto e tenha um Tratador.|Put a Feeder in the enclosure and hire a Keeper.');
 for (const k in BIOMES) TIPS[BIOMES[k].em] = LN('Pinte o terreno do recinto com o bioma pedido (aba Terreno).|Paint the enclosure terrain with the biome it asks for (Terrain tab).');
 
-/** Conta os pensamentos de uma população e devolve ranking.
- *  Calcula na hora quem ainda não tem: com o jogo pausado ou recém-carregado
- *  ninguém passou pelo update, e o relatório saía vazio com o parque cheio. */
+/** Counts a population's thoughts and returns a ranking.
+ *  It computes on the spot for whoever hasn't got one yet: with the game paused
+ *  or freshly loaded nobody has been through update, and the report came out
+ *  empty with the park full. */
 function agruparPensamentos(lista, fn) {
   const m = new Map();
   for (const ent of lista) {
@@ -1002,7 +1004,7 @@ function openSatisfaction() {
      <span style="margin-left:auto;font-size:12px;opacity:.7">Reputação ${G.rep.toFixed(1)}★ — é ela que define quanta gente aparece</span>`);
 }
 
-/* ---- painel de reputação: de onde vem a nota ---- */
+/* ---- the reputation panel: where the score comes from ---- */
 function openReputation() {
   closePalette();
   const vivos = G.animals.filter(a => !a.dead);
@@ -1012,8 +1014,8 @@ function openReputation() {
   let lixoS = 0, lixoN = 0;
   for (let i = 0; i < W * H; i++) if (world.path[i]) { lixoS += world.lixo[i]; lixoN++; }
   const lixoMed = lixoN ? lixoS / lixoN : 0;
-  const target = qualidadeParque();
-  // os mesmos pesos de qualidadeParque(), abertos linha a linha
+  const target = parkQuality();
+  // the same weights as parkQuality(), opened up line by line
   const comp = [
     ['🐾', 'Bem-estar dos animais', felAn, felAn * 1.7],
     ['👥', 'Satisfação dos visitantes', felVis, felVis * 1.9],
@@ -1029,7 +1031,7 @@ function openReputation() {
         <div style="width:${Math.round(clamp(frac, 0, 1) * 100)}%;height:100%;background:${pts >= 0 ? '#4fae4a' : '#e2543f'}"></div></div>`}
       <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${pts.toFixed(2)}★</b>
     </div>`;
-  // extrato: resumo por tipo + últimos acontecimentos
+  // the statement: a summary by kind + the latest events
   const NOME_EV = { '💀': 'mortes', '🚨': 'fugas', '🎉': 'nascimentos', '🗳️': 'avaliações do público', '📉': 'quedas', '📈': 'subidas' };
   const byKind = new Map();
   for (const r of G.repLog) {
