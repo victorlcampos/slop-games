@@ -50,14 +50,26 @@ function mixc(a, b, t) {
 const outlineOf = c => shade(c, -0.62);
 
 /* ---- formatting ---- */
+/* Money follows the language. A zoo tycoon reading English and being charged
+   in "R$ 1.500" is the kind of detail that gives the whole thing away — and the
+   thousands separator differs too (1.500 in pt-BR, 1,500 in en-US). */
+const CURRENCY = { pt: { sign: 'R$ ', tag: 'pt-BR', mi: ' mi' }, en: { sign: '$', tag: 'en-US', mi: 'M' } };
+const currency = () => CURRENCY[I18N.lang] || CURRENCY.en;
 function money(v) {
   const neg = v < 0; v = Math.abs(Math.round(v));
+  const C = currency();
   let s;
-  if (v >= 1e6) s = (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace('.', ',') + ' mi';
-  else s = v.toLocaleString('pt-BR');
-  return (neg ? '-R$ ' : 'R$ ') + s;
+  if (v >= 1e6) {
+    s = (v / 1e6).toFixed(v >= 1e7 ? 0 : 1);
+    if (I18N.lang === 'pt') s = s.replace('.', ',');
+    s += C.mi;
+  } else s = v.toLocaleString(C.tag);
+  return (neg ? '-' : '') + C.sign + s;
 }
-const moneyFull = v => (v < 0 ? '-R$ ' : 'R$ ') + Math.abs(Math.round(v)).toLocaleString('pt-BR');
+const moneyFull = (v) => {
+  const C = currency();
+  return (v < 0 ? '-' : '') + C.sign + Math.abs(Math.round(v)).toLocaleString(C.tag);
+};
 const pct = v => Math.round(v * 100) + '%';
 function stars(n) { // n 0..5, meio ponto
   const f = Math.floor(n), h = n - f >= .5;
@@ -144,6 +156,9 @@ const ENTRANCE = { x: 27, y: 55 }; // the gate (south edge)
 const DAY_SEC = 110;              // real seconds per game day at 1x
 const OPEN_H = 8, CLOSE_H = 20;   // opening hours
 const YEAR_DAYS = 2;              // game days per "year of life" of an animal
+/* weekly cost of each marketing tier — read by the bills and by the panel that
+   offers them, so the button can never advertise a price the bill does not charge */
+const MARKETING_COST = [0, 1500, 5000, 14000];
 const BILL_EVERY = 7;             // contas a cada N dias
 
 /* Terrenos */

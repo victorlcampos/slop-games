@@ -11,18 +11,18 @@ const FENCES = {
   aquario: { n: 'Vidro de Aquário|Aquarium Glass', em: '🌊', cost: 520, strength: 6, sight: 1, colour: '#7ec4dd', height: 24, aquarium: 1 },
 };
 const BUILDINGS = {
-  lanchonete: { n: 'Lanchonete|Snack Bar', em: '🍔', w: 2, h: 2, cost: 16000, wage: 140, colour: '#e2543f', supplies: 'fome', value: 26, unitCost: 7, strength: .45 },
-  restaurante: { n: 'Restaurante|Restaurant', em: '🍽️', w: 3, h: 3, cost: 58000, wage: 340, colour: '#b5502a', supplies: 'fome', value: 68, unitCost: 19, strength: 1 },
-  pizzaria: { n: 'Pizzaria|Pizzeria', em: '🍕', w: 2, h: 3, cost: 38000, wage: 240, colour: '#d9782c', supplies: 'fome', value: 44, unitCost: 13, strength: .8 },
-  sorveteria: { n: 'Sorveteria|Ice Cream Shop', em: '🍦', w: 2, h: 2, cost: 19000, wage: 150, colour: '#f2a8c0', supplies: 'fome', value: 20, unitCost: 5, strength: .3 },
-  pipoca: { n: 'Carrinho de Pipoca|Popcorn Cart', em: '🍿', w: 1, h: 1, cost: 6500, wage: 80, colour: '#f2d43c', supplies: 'fome', value: 12, unitCost: 3, strength: .22 },
-  bebidas: { n: 'Quiosque de Bebidas|Drinks Kiosk', em: '🥤', w: 1, h: 2, cost: 11000, wage: 110, colour: '#3fa5e2', supplies: 'sede', value: 15, unitCost: 3.5, strength: .9 },
-  cafe: { n: 'Cafeteria|Café', em: '☕', w: 2, h: 2, cost: 24000, wage: 190, colour: '#8a5a2b', supplies: 'sede', value: 24, unitCost: 6, strength: 1 },
-  bebedouro: { n: 'Bebedouro|Water Fountain', em: '⛲', w: 1, h: 1, cost: 2600, wage: 0, colour: '#7ec4dd', supplies: 'sede', value: 0, unitCost: 0, strength: .5 },
-  banheiro: { n: 'Banheiro|Restroom', em: '🚻', w: 2, h: 2, cost: 13000, wage: 90, colour: '#7d8890', supplies: 'banheiro', value: 2, unitCost: .6, strength: 1 },
-  banco: { n: 'Banco de Praça|Park Bench', em: '🪑', w: 1, h: 1, cost: 900, wage: 0, colour: '#a87a45', supplies: 'energia', value: 0, unitCost: 0, strength: 1 },
-  souvenir: { n: 'Loja de Souvenirs|Souvenir Shop', em: '🎁', w: 2, h: 2, cost: 27000, wage: 200, colour: '#9a6ad4', supplies: 'diversao', value: 42, unitCost: 11, strength: .6 },
-  playground: { n: 'Playground|Playground', em: '🛝', w: 3, h: 3, cost: 21000, wage: 60, colour: '#4fae4a', supplies: 'diversao', value: 0, unitCost: 0, strength: 1.4 },
+  lanchonete: { n: 'Lanchonete|Snack Bar', em: '🍔', w: 2, h: 2, cost: 16000, wage: 140, colour: '#e2543f', supplies: 'hunger', value: 26, unitCost: 7, strength: .45 },
+  restaurante: { n: 'Restaurante|Restaurant', em: '🍽️', w: 3, h: 3, cost: 58000, wage: 340, colour: '#b5502a', supplies: 'hunger', value: 68, unitCost: 19, strength: 1 },
+  pizzaria: { n: 'Pizzaria|Pizzeria', em: '🍕', w: 2, h: 3, cost: 38000, wage: 240, colour: '#d9782c', supplies: 'hunger', value: 44, unitCost: 13, strength: .8 },
+  sorveteria: { n: 'Sorveteria|Ice Cream Shop', em: '🍦', w: 2, h: 2, cost: 19000, wage: 150, colour: '#f2a8c0', supplies: 'hunger', value: 20, unitCost: 5, strength: .3 },
+  pipoca: { n: 'Carrinho de Pipoca|Popcorn Cart', em: '🍿', w: 1, h: 1, cost: 6500, wage: 80, colour: '#f2d43c', supplies: 'hunger', value: 12, unitCost: 3, strength: .22 },
+  bebidas: { n: 'Quiosque de Bebidas|Drinks Kiosk', em: '🥤', w: 1, h: 2, cost: 11000, wage: 110, colour: '#3fa5e2', supplies: 'thirst', value: 15, unitCost: 3.5, strength: .9 },
+  cafe: { n: 'Cafeteria|Café', em: '☕', w: 2, h: 2, cost: 24000, wage: 190, colour: '#8a5a2b', supplies: 'thirst', value: 24, unitCost: 6, strength: 1 },
+  bebedouro: { n: 'Bebedouro|Water Fountain', em: '⛲', w: 1, h: 1, cost: 2600, wage: 0, colour: '#7ec4dd', supplies: 'thirst', value: 0, unitCost: 0, strength: .5 },
+  toilet: { n: 'Banheiro|Restroom', em: '🚻', w: 2, h: 2, cost: 13000, wage: 90, colour: '#7d8890', supplies: 'toilet', value: 2, unitCost: .6, strength: 1 },
+  banco: { n: 'Banco de Praça|Park Bench', em: '🪑', w: 1, h: 1, cost: 900, wage: 0, colour: '#a87a45', supplies: 'energy', value: 0, unitCost: 0, strength: 1 },
+  souvenir: { n: 'Loja de Souvenirs|Souvenir Shop', em: '🎁', w: 2, h: 2, cost: 27000, wage: 200, colour: '#9a6ad4', supplies: 'fun', value: 42, unitCost: 11, strength: .6 },
+  playground: { n: 'Playground|Playground', em: '🛝', w: 3, h: 3, cost: 21000, wage: 60, colour: '#4fae4a', supplies: 'fun', value: 0, unitCost: 0, strength: 1.4 },
   lixeira: { n: 'Lixeira|Bin', em: '🗑️', w: 1, h: 1, cost: 450, wage: 0, colour: '#5e6a76', supplies: null, value: 0, unitCost: 0, strength: 0 },
   info: { n: 'Quiosque de Informações|Information Kiosk', em: 'ℹ️', w: 1, h: 1, cost: 5200, wage: 70, colour: '#3fa5e2', supplies: null, value: 0, unitCost: 0, strength: 0 },
   posto: { n: 'Posto Veterinário|Veterinary Post', em: '🏥', w: 2, h: 2, cost: 34000, wage: 0, colour: '#f4f2ec', supplies: null, value: 0, unitCost: 0, strength: 0 },
@@ -67,8 +67,8 @@ const world = {
   path: new Uint8Array(W * H),
   occ: new Int32Array(W * H),   // id de objeto ocupando o tile
   enc: new Int32Array(W * H),   // id do recinto
-  bel: new Float32Array(W * H), // beleza acumulada
-  lixo: new Float32Array(W * H),// sujeira na trilha
+  beauty: new Float32Array(W * H), // beleza acumulada
+  litter: new Float32Array(W * H),// sujeira na trilha
 };
 const objects = new Map();      // id -> object (building/decoration/enclosure prop)
 const enclosures = new Map();   // id -> recinto
@@ -125,7 +125,7 @@ function removePath(x, y) {
   // there. With no path on it the whole network is disconnected and the zoo
   // sits at 0 visitors with no visible sign why. Don't let it be erased.
   if (x === ENTRANCE.x && y === ENTRANCE.y) return false;
-  world.path[i] = 0; world.lixo[i] = 0;
+  world.path[i] = 0; world.litter[i] = 0;
   world.terr[i] = TKEYS.indexOf('grass');
   G.dirty.net = true; terrainChanged();
   return true;
@@ -157,10 +157,10 @@ function encAddTiles(e, tiles) {
     if (world.enc[k]) continue;              // already belongs to someone
     e.tiles.add(k); world.enc[k] = e.id; world.path[k] = 0;
   }
-  encInvalida(e);
+  encInvalidate(e);
 }
 /** drops the caches derived from the shape */
-function encInvalida(e) {
+function encInvalidate(e) {
   e._seg = e._segTile = e._bb = e._arr = e._vs = e._mix = null;
   G.dirty.net = true; terrainChanged();
 }
@@ -215,7 +215,7 @@ function encSegPorTile(e) {
 }
 const encSegCount = e => (encSegPorTile(e), e._seg);
 /** any tile of the enclosure, as [x, y] */
-function encTileAleatorio(e) {
+function encRandomTile(e) {
   const a = encTilesArr(e);
   if (!a.length) return null;
   const k = a[(Math.random() * a.length) | 0];
@@ -302,7 +302,7 @@ function applyBeauty(o, sign) {
   for (let y = Math.max(0, o.y - d.r); y <= Math.min(H - 1, o.y + d.r); y++)
     for (let x = Math.max(0, o.x - d.r); x <= Math.min(W - 1, o.x + d.r); x++) {
       const dd = dist(x, y, o.x, o.y);
-      if (dd <= d.r) world.bel[IDX(x, y)] += sign * d.beauty * (1 - dd / d.r) / 6;
+      if (dd <= d.r) world.beauty[IDX(x, y)] += sign * d.beauty * (1 - dd / d.r) / 6;
     }
 }
 

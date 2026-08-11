@@ -35,7 +35,7 @@ body{
 }
 button{touch-action:manipulation}
 /* Only the world canvas is positioned. A global `canvas{position:absolute}` rule
-   vazaria para todo retrato de espécie inserido na UI (loja, inspetor). */
+   would leak into every species portrait dropped into the UI (shop, inspector). */
 #cv{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
 canvas{display:block;max-width:100%}
 #app{position:fixed;inset:0}
@@ -91,7 +91,7 @@ canvas{display:block;max-width:100%}
 .stat.alerta:active{transform:translateY(1px)}
 @keyframes pisca{0%,100%{filter:brightness(1)}50%{filter:brightness(1.13)}}
 /* wraps along with the HUD: without this the last button spilled out of the
-   tela no celular, porque o grupo da direita não acompanhava o wrap do pai */
+   screen on a phone, because the right-hand group did not follow the parent's wrap */
 #hudRight{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;
   gap:4px;align-items:center;flex:0 1 auto}
 .spd{width:32px;height:32px;padding:0;font-size:13.5px;display:grid;place-items:center}
@@ -101,7 +101,7 @@ canvas{display:block;max-width:100%}
 #dockWrap{position:absolute;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;
   display:flex;flex-direction:column;gap:7px;align-items:flex-start;
   /* reserva a coluna do minimapa (150px + margens): com flex-wrap o dock
-     esticaria até a borda direita e passaria por baixo dele */
+     would stretch to the right edge and slide underneath it */
   max-width:calc(100% - 176px)}
 #palette{
   display:none;gap:6px;padding:9px;max-width:min(880px,calc(100vw - 30px));
@@ -130,7 +130,7 @@ canvas{display:block;max-width:100%}
 #inspector{
   position:absolute;right:8px;top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top));
   /* -200px reserves the minimap's footer (150) + margins: a full inspector
-     descia por cima dele em telas de altura média */
+     came down on top of it on medium-height screens */
   width:302px;max-height:calc(100dvh - var(--hudH,60px) - 200px);
   overflow-y:auto;z-index:19;padding:12px;display:none;
   background:linear-gradient(#fffdf6,var(--cream));border:3px solid var(--ink);
@@ -224,9 +224,9 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 #hintX{flex:none;width:26px;height:26px;padding:0;display:grid;place-items:center;font-size:13px}
 
 /* Zoom buttons / minimap — indispensable on touch, where there is no mouse wheel.
-   Ficam SEMPRE no topo à direita: o rodapé é do dock e da paleta em todo layout,
-   e o canto superior é a única região livre em qualquer tamanho de tela.
-   Somem enquanto o inspetor está aberto (ele ocupa esse lado). */
+   They live ALWAYS at the top right: the footer belongs to the dock and the
+   palette in every layout, and the top corner is the only free region at any
+   screen size. They vanish while the inspector is open (it takes that side). */
 #zoomBtns{position:absolute;right:8px;z-index:18;display:none;flex-direction:column;gap:6px;
   top:calc(var(--hudH,60px) + 14px + env(safe-area-inset-top))}
 #zoomBtns.show{display:flex}
@@ -244,7 +244,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ---------- Splash ---------- */
 /* The exit to the catalog — it only appears when the game runs inside it.
-   O visual vem de .btn, o botão desta casa: um <a> sem `color` próprio herda
+   The look comes from .btn, this house's button: an <a> with no `color` of its own inherits
    o azul de link do navegador, que destoa de tudo aqui. */
 .back-to-games{display:inline-flex;align-items:center;gap:7px;text-decoration:none;margin-top:14px}
 .back-to-games[hidden]{display:none}
@@ -365,7 +365,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 }
 
 /* Short screens (phone in landscape): the bottom drawer doesn't fit, so it goes back to the side.
-   Aqui a restrição é ALTURA — o dock em duas linhas comeria 150px de 390px. */
+   Here the constraint is HEIGHT — a two-row dock would eat 150px out of 390px. */
 @media(max-height:520px) and (min-width:560px){
   #inspector{
     left:auto;right:6px;width:250px;
@@ -393,8 +393,9 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #dockWrap{width:auto;right:auto;max-width:calc(100% - 268px)}
   #toasts{max-width:230px}
   /* On a ~375px-tall screen, HUD + hint + zoom + palette + dock do not fit.
-     Aqui o zoom sai (a pinça resolve) e o minimapa também — 150px de mapa
-     cobririam 40% da altura útil. Sobra espaço para a dica ficar legível. */
+     Here the zoom goes (the pinch covers it) and so does the minimap — 150px of
+     map would cover 40% of the usable height. That leaves room for the hint to
+     stay readable. */
   #zoomBtns.show{display:none}
   #mini{display:none!important}
   #zMap{display:none}
@@ -431,12 +432,12 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
     <button class="stat alerta" id="stWarn" title="Ver o motivo" data-pt-title="Ver o motivo" data-en-title="See why"><span class="ic">⚠️</span><span id="vWarn">—</span></button>
     <div id="hudRight">
       <div class="stat" id="clockBadge">08:00</div>
-      <button class="btn spd" id="sp0" title="Pausar (Espaço)" data-pt-title="Pausar (Espaço)" data-en-title="Pause (Space)">⏸</button>
+      <button class="btn spd" id="sp0" title="Pause (Space)" data-pt-title="Pausar (Espaço)" data-en-title="Pause (Space)">⏸</button>
       <button class="btn spd on" id="sp1" title="Velocidade 1x" data-pt-title="Velocidade 1x" data-en-title="Speed 1x">▶</button>
       <button class="btn spd" id="sp2" title="Velocidade 2x" data-pt-title="Velocidade 2x" data-en-title="Speed 2x">⏩</button>
       <button class="btn spd" id="sp3" title="Velocidade 4x" data-pt-title="Velocidade 4x" data-en-title="Speed 4x">⏭</button>
-      <button class="btn spd" id="zSom" title="Som (S)" data-pt-title="Som (S)" data-en-title="Sound (S)">🔊</button>
-      <button class="btn spd" id="zBolha" title="Balões de pensamento (B)" data-pt-title="Balões de pensamento (B)" data-en-title="Thought bubbles (B)">💭</button>
+      <button class="btn spd" id="zSound" title="Som (S)" data-pt-title="Som (S)" data-en-title="Sound (S)">🔊</button>
+      <button class="btn spd" id="zBubble" title="Thought bubbles (B)" data-pt-title="Balões de pensamento (B)" data-en-title="Thought bubbles (B)">💭</button>
       <button class="btn spd" id="zUndo" title="Nada para desfazer (Ctrl+Z)" data-pt-title="Nada para desfazer (Ctrl+Z)" data-en-title="Nothing to undo (Ctrl+Z)" disabled>↩️</button>
       <button class="btn spd soToque" id="zMap" title="Minimapa" data-pt-title="Minimapa" data-en-title="Minimap">🗺️</button>
       <button class="btn spd" id="zSave" title="Baixar save do jogo (.json)" data-pt-title="Baixar save do jogo (.json)" data-en-title="Download the save file (.json)">📥</button>
@@ -475,7 +476,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
       <h1>🦁 ZOO <span>MAGNATA</span></h1>
       <p class="tag" data-pt="Construa o zoológico mais lucrativo do país" data-en="Build the most profitable zoo in the country">Build the most profitable zoo in the country</p>
       <div class="grid">
-        <div>🐘 <b>200+ espécies</b> de animais, cada uma com bioma, dieta e temperamento próprios</div>
+        <div>🐘 <b data-pt="200+ espécies" data-en="200+ species">200+ species</b> <span data-pt="de animais, cada uma com bioma, dieta e temperamento próprios" data-en="of animal, each with its own biome, diet and temperament">of animal, each with its own biome, diet and temperament</span></div>
         <div data-pt="🏗️ Recintos com cercas, terreno pintável, comedouros e enriquecimento" data-en="🏗️ Enclosures with fences, paintable terrain, feeders and enrichment">🏗️ Enclosures with fences, paintable terrain, feeders and enrichment</div>
         <div data-pt="🍔 Lanchonetes e restaurantes com preço que você define" data-en="🍔 Snack bars and restaurants at prices you set">🍔 Snack bars and restaurants at prices you set</div>
         <div data-pt="👨‍🔬 Tratadores, veterinários e faxineiros cuidando do parque" data-en="👨‍🔬 Keepers, vets and cleaners looking after the park">👨‍🔬 Keepers, vets and cleaners looking after the park</div>
@@ -490,12 +491,21 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
       <span class="langs" data-lang-picker></span>
       <div style="margin-top:12px;font-size:11.5px;opacity:.65;line-height:1.5">
         <span class="ctrlMouse">
-          Arraste com o botão direito (ou espaço + arrastar) para mover a câmera • Roda do mouse dá zoom<br>
-          <b>1–9</b> alterna as abas de construção • <b>Esc</b> cancela a ferramenta • <b>Espaço</b> pausa
+          <span data-pt="Arraste com o botão direito (ou espaço + arrastar) para mover a câmera • Roda do mouse dá zoom"
+                data-en="Drag with the right button (or space + drag) to move the camera • The mouse wheel zooms">Drag with the right button (or space + drag) to move the camera • The mouse wheel zooms</span><br>
+          <b>1–9</b> <span data-pt="alterna as abas de construção" data-en="switches the building tabs">switches the building tabs</span>
+          • <b>Esc</b> <span data-pt="cancela a ferramenta" data-en="cancels the tool">cancels the tool</span>
+          • <b data-pt="Espaço" data-en="Space">Space</b> <span data-pt="pausa" data-en="pauses">pauses</span>
         </span>
         <span class="ctrlToque">
-          Arraste com <b>um dedo</b> para mover o mapa e <b>toque</b> para inspecionar<br>
-          <b>Pinça</b> com dois dedos dá zoom • com uma ferramenta ativa, um dedo desenha e dois movem a câmera
+          <span data-pt="Arraste com" data-en="Drag with">Drag with</span>
+          <b data-pt="um dedo" data-en="one finger">one finger</b>
+          <span data-pt="para mover o mapa e" data-en="to move the map and">to move the map and</span>
+          <b data-pt="toque" data-en="tap">tap</b>
+          <span data-pt="para inspecionar" data-en="to inspect">to inspect</span><br>
+          <b data-pt="Pinça" data-en="Pinch">Pinch</b>
+          <span data-pt="com dois dedos dá zoom • com uma ferramenta ativa, um dedo desenha e dois movem a câmera"
+                data-en="with two fingers to zoom • with a tool active, one finger draws and two move the camera">with two fingers to zoom • with a tool active, one finger draws and two move the camera</span>
         </span>
       </div>
     </div>

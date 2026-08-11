@@ -1,5 +1,5 @@
 /* ==========================================================================
-   12. CONSTRUÇÃO — validação e custos
+   12. BUILDING — validation and costs
    ========================================================================== */
 function dragRect() {
   const d = G.drag, h = G.hover;
@@ -7,14 +7,14 @@ function dragRect() {
   const x = Math.min(d.x, h[0]), y = Math.min(d.y, h[1]);
   return { x, y, w: Math.abs(h[0] - d.x) + 1, h: Math.abs(h[1] - d.y) + 1 };
 }
-/* ---- recintos de forma livre ----
-   Um arraste vira: recinto novo (se não encostar em nada) ou ampliação (se
-   encostar em exatamente um). Repetindo arrastes dá para montar L, T, U — o
-   formato deixa de ser obrigatoriamente retangular. */
-const MIN_TILES_RECINTO = 4;
+/* ---- free-form enclosures ----
+   A drag becomes: a new enclosure (if it touches nothing) or an extension (if it
+   touches exactly one). Repeating drags builds an L, a T, a U — the shape stops
+   having to be a rectangle. */
+const MIN_ENC_TILES = 4;
 
 /** the rectangle's tiles that are free to become an enclosure */
-function tilesLivresDoRect(r) {
+function freeTilesOfRect(r) {
   const out = [];
   for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) {
     const x = r.x + i, y = r.y + j;
@@ -30,7 +30,7 @@ function touchedEnclosures(r) {
   const ids = new Set();
   for (let j = -1; j <= r.h; j++) for (let i = -1; i <= r.w; i++) {
     const outX = i < 0 || i >= r.w, outY = j < 0 || j >= r.h;
-    if (outX && outY) continue;              // cantos diagonais não contam
+    if (outX && outY) continue;              // diagonal corners do not count
     const x = r.x + i, y = r.y + j;
     if (!inB(x, y)) continue;
     const id = world.enc[IDX(x, y)];
@@ -39,28 +39,28 @@ function touchedEnclosures(r) {
   return [...ids];
 }
 /** what this drag would do: {action, cost, tiles, target, reason} */
-function planoDoArraste(r, fenceKey) {
-  const livres = tilesLivresDoRect(r);
-  const tocados = touchedEnclosures(r);
-  if (tocados.length > 1)
-    return { action: 'swims', reason: LN('Esse retângulo encosta em 2 recintos — amplie um de cada vez.|That rectangle touches 2 enclosures — extend one at a time.') };
-  if (!livres.length)
-    return { action: 'swims', reason: LN('Nenhum tile livre aqui (já tem trilha, prédio ou recinto).|No free tile here (there is already a path, a building or an enclosure).') };
-  if (tocados.length === 1) {
-    const e = enclosures.get(tocados[0]);
-    const uniao = new Set(e.tiles);
-    for (const k of livres) uniao.add(k);
+function dragPlan(r, fenceKey) {
+  const free = freeTilesOfRect(r);
+  const touched = touchedEnclosures(r);
+  if (touched.length > 1)
+    return { action: 'none', reason: LN('Esse retângulo encosta em 2 recintos — amplie um de cada vez.|That rectangle touches 2 enclosures — extend one at a time.') };
+  if (!free.length)
+    return { action: 'none', reason: LN('Nenhum tile livre aqui (já tem trilha, prédio ou recinto).|No free tile here (there is already a path, a building or an enclosure).') };
+  if (touched.length === 1) {
+    const e = enclosures.get(touched[0]);
+    const union = new Set(e.tiles);
+    for (const k of free) union.add(k);
     // you only pay for the fence's growth; filling a nook can even shorten it
-    const delta = Math.max(0, countSegments(uniao) - encSegCount(e));
+    const delta = Math.max(0, countSegments(union) - encSegCount(e));
     return {
-      action: 'ampliar', target: e, tiles: livres,
-      cost: delta * FENCES[e.fence].cost + livres.length * 18,
+      action: 'extend', target: e, tiles: free,
+      cost: delta * FENCES[e.fence].cost + free.length * 18,
     };
   }
-  if (livres.length < MIN_TILES_RECINTO)
-    return { action: 'swims', reason: BI`Recinto muito pequeno: precisa de ${MIN_TILES_RECINTO} tiles livres.|Enclosure too small: it needs ${MIN_TILES_RECINTO} free tiles.` };
-  const set = new Set(livres);
-  return { action: 'criar', tiles: livres, cost: countSegments(set) * FENCES[fenceKey].cost };
+  if (free.length < MIN_ENC_TILES)
+    return { action: 'none', reason: BI`Recinto muito pequeno: precisa de ${MIN_ENC_TILES} tiles livres.|Enclosure too small: it needs ${MIN_ENC_TILES} free tiles.` };
+  const set = new Set(free);
+  return { action: 'criar', tiles: free, cost: countSegments(set) * FENCES[fenceKey].cost };
 }
 const fenceCostOf = e => encSegCount(e) * FENCES[e.fence].cost;
 
@@ -68,9 +68,9 @@ function canPlace(t, x, y) {
   if (!inB(x, y)) return false;
   const k = IDX(x, y);
   switch (t.cat) {
-    case 'caminho':
+    case 'path':
       return t.key === 'del' ? !!world.path[k] : !world.path[k] && !world.occ[k] && !world.enc[k];
-    case 'terreno':
+    case 'terrain':
       return !world.occ[k] && !world.path[k];
     case 'build':
       return rectFree(x, y, t.w, t.h);
@@ -83,77 +83,77 @@ function canPlace(t, x, y) {
     }
     case 'animal':
       return !!world.enc[k];
-    case 'demolir':
+    case 'demolish':
       return !!(world.occ[k] || world.enc[k] || world.path[k]);
-    case 'recinto':
+    case 'enclosure':
       return true;
   }
   return false;
 }
-function aplicarFerramenta(x, y, arrastando) {
+function applyTool(x, y, dragging) {
   const t = G.tool; if (!t || !inB(x, y)) return;
   const k = IDX(x, y);
-  if (t.cat === 'caminho') {
-    if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'sell'); SFX.play('demolir'); } return; }
-    if (G.money < t.cost) return semGrana();
+  if (t.cat === 'path') {
+    if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'sell'); SFX.play('demolish'); } return; }
+    if (G.money < t.cost) return noCash();
     if (addPath(x, y)) {
-      spend(t.cost, 'build'); SFX.play('trilha');
+      spend(t.cost, 'build'); SFX.play('path');
       // one whole stroke = 1 undo (the group closes when the finger lifts)
-      if (!undoGroup || undoGroup.kind !== 'trilha') undoGroup = { kind: 'trilha', cat: 'build', tiles: [], cost: 0 };
+      if (!undoGroup || undoGroup.kind !== 'path') undoGroup = { kind: 'path', cat: 'build', tiles: [], cost: 0 };
       undoGroup.tiles.push([x, y]); undoGroup.cost += t.cost;
     }
-  } else if (t.cat === 'terreno') {
+  } else if (t.cat === 'terrain') {
     const target = TKEYS.indexOf(t.key);
-    const raio = G.shift ? 1 : 0;
-    for (let dy = -raio; dy <= raio; dy++) for (let dx = -raio; dx <= raio; dx++) {
+    const radius = G.shift ? 1 : 0;
+    for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
       const nx = x + dx, ny = y + dy;
       if (!inB(nx, ny)) continue;
       const nk = IDX(nx, ny);
       if (world.occ[nk] || world.path[nk]) continue;
       if (world.terr[nk] === target) continue;
-      if (G.money < t.cost) return semGrana();
+      if (G.money < t.cost) return noCash();
       const before = world.terr[nk];
-      world.terr[nk] = target; spend(t.cost, 'build'); terrainChanged(); SFX.play('terreno');
-      if (!undoGroup || undoGroup.kind !== 'terreno') undoGroup = { kind: 'terreno', cat: 'build', changes: [], cost: 0 };
+      world.terr[nk] = target; spend(t.cost, 'build'); terrainChanged(); SFX.play('terrain');
+      if (!undoGroup || undoGroup.kind !== 'terrain') undoGroup = { kind: 'terrain', cat: 'build', changes: [], cost: 0 };
       undoGroup.changes.push([nk, before, target]); undoGroup.cost += t.cost;
     }
   } else if (t.cat === 'build') {
-    if (arrastando) return;
+    if (dragging) return;
     if (!rectFree(x, y, t.w, t.h)) { toast(LN('🚫 Espaço ocupado|🚫 Space taken'), 'bad'); return; }
-    if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'build'); const ob = placeObject(t.key, 'build', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'build', id: ob.id, cost: t.cost, label: t.n });
+    if (G.money < t.cost) return noCash();
+    spend(t.cost, 'build'); const ob = placeObject(t.key, 'build', x, y); SFX.play('building');
+    undoRecord({ kind: 'object', cat: 'build', id: ob.id, cost: t.cost, label: t.n });
     if (!nearestPathTile(x, y, 4)) toast(LN('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar|⚠️ No path nearby — visitors will not be able to reach it'), 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
-    if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'build'); const od = placeObject(t.key, 'deco', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'build', id: od.id, cost: t.cost, label: t.n });
+    if (G.money < t.cost) return noCash();
+    spend(t.cost, 'build'); const od = placeObject(t.key, 'deco', x, y); SFX.play('building');
+    undoRecord({ kind: 'object', cat: 'build', id: od.id, cost: t.cost, label: t.n });
   } else if (t.cat === 'encobj') {
-    if (arrastando) return;
+    if (dragging) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast(LN('🚫 Objetos de recinto só vão dentro de um recinto|🚫 Enclosure objects only go inside an enclosure'), 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
-    if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'build'); const oe = placeObject(t.key, 'encobj', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'build', id: oe.id, cost: t.cost, label: t.n });
+    if (G.money < t.cost) return noCash();
+    spend(t.cost, 'build'); const oe = placeObject(t.key, 'encobj', x, y); SFX.play('building');
+    undoRecord({ kind: 'object', cat: 'build', id: oe.id, cost: t.cost, label: t.n });
   } else if (t.cat === 'animal') {
-    if (arrastando) return;
+    if (dragging) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast(LN('🚫 Clique dentro de um recinto|🚫 Click inside an enclosure'), 'bad'); return; }
-    if (comprarPara(t.sp, e)) { select('enc', e); }
-  } else if (t.cat === 'demolir') {
+    if (buyFor(t.sp, e)) { select('enc', e); }
+  } else if (t.cat === 'demolish') {
     demolishAt(x, y);
   }
 }
-function semGrana() { SFX.play('erro'); toast('💸 Caixa insuficiente', 'bad'); }
+function noCash() { SFX.play('error'); toast('💸 Caixa insuficiente', 'bad'); }
 function demolishAt(x, y) {
   const k = IDX(x, y);
   if (world.occ[k]) {
     const o = objects.get(world.occ[k]);
     if (o) {
       const def = BUILDINGS[o.kind] || DECOS[o.kind] || ENCOBJ[o.kind];
-      earn(Math.round((def.cost || 0) * .5), 'sell'); removeObject(o.id); SFX.play('demolir');
+      earn(Math.round((def.cost || 0) * .5), 'sell'); removeObject(o.id); SFX.play('demolish');
     }
     return;
   }
@@ -169,7 +169,7 @@ function demolishAt(x, y) {
     if (!e) return;
     if (e.animals.length) { toast(LN('🚫 Tire os animais antes de demolir o recinto|🚫 Take the animals out before demolishing the enclosure'), 'bad'); return; }
     const dev = Math.round(fenceCostOf(e) * .5);
-    deleteEnclosure(e.id); earn(dev, 'sell'); SFX.play('demolir');
+    deleteEnclosure(e.id); earn(dev, 'sell'); SFX.play('demolish');
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
   }
 }
@@ -202,10 +202,10 @@ function pickAt(sx, sy) {
 const ZMIN = .26, ZMAX = 2.6;
 const ptrs = new Map();            // ponteiros ativos: id -> {x,y}
 let panning = false, panSX = 0, panSY = 0, panCX = 0, panCY = 0;
-let pintando = false;
-let pinch = null;                  // gesto de pinça em curso
-let tapCand = null;                // candidato a toque curto (= seleção)
-let pendenteTool = null;           // 1ª aplicação de ferramenta adiada (toque)
+let painting = false;
+let pinch = null;                  // a pinch gesture in progress
+let tapCand = null;                // a candidate for a short tap (= a selection)
+let pendingTool = null;           // the first tool application, deferred (touch)
 G.hover = null; G.shift = false;
 
 function evPos(e) {
@@ -226,29 +226,29 @@ function zoomAt(fator, sx, sy) {
 }
 /** finishes the enclosure rectangle (shared by mouse and touch) */
 function endEnclosureDrag() {
-  if (!(G.drag && G.tool && G.tool.cat === 'recinto')) return;
+  if (!(G.drag && G.tool && G.tool.cat === 'enclosure')) return;
   const r = dragRect();
   G.drag = null;
   if (r.w < 1 || r.h < 1) return;
-  const p = planoDoArraste(r, G.tool.key);
-  if (p.action === 'swims') { toast('🚫 ' + p.reason, 'bad'); return; }
-  if (G.money < p.cost) return semGrana();
+  const p = dragPlan(r, G.tool.key);
+  if (p.action === 'none') { toast('🚫 ' + p.reason, 'bad'); return; }
+  if (G.money < p.cost) return noCash();
   spend(p.cost, 'build');
-  if (p.action === 'ampliar') {
-    encAddTiles(p.target, p.tiles); SFX.play('ampliar');
-    undoRecord({ kind: 'ampliacao', cat: 'build', id: p.target.id, tiles: [...p.tiles], cost: p.cost });
+  if (p.action === 'extend') {
+    encAddTiles(p.target, p.tiles); SFX.play('extend');
+    undoRecord({ kind: 'extension', cat: 'build', id: p.target.id, tiles: [...p.tiles], cost: p.cost });
     select('enc', p.target);
     toast(BI`➕ ${p.target.name} ampliado para ${encArea(p.target)} tiles|➕ ${p.target.name} extended to ${encArea(p.target)} tiles`, 'good');
   } else {
-    const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.play('construir');
-    undoRecord({ kind: 'recinto', cat: 'build', id: e2.id, cost: p.cost });
+    const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.play('construct');
+    undoRecord({ kind: 'enclosure', cat: 'build', id: e2.id, cost: p.cost });
     select('enc', e2);
     toast(BI`🚧 ${e2.name} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar|🚧 ${e2.name} built (${encArea(e2)} tiles) — drag alongside it to extend`, 'good');
   }
 }
 
 /* ==========================================================================
-   DESFAZER — as últimas 5 compras (botão ↩️ no HUD ou Ctrl+Z)
+   UNDO — the last 5 purchases (the ↩️ button in the HUD, or Ctrl+Z)
    ========================================================================== */
 const UNDO_MAX = 5;
 let undoGroup = null;          // pincelada de trilha/terreno em andamento
@@ -277,14 +277,14 @@ function undoLast() {
   const refund = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'build', -v); return v; };
   let msg = '', value = 0;
   switch (ent.kind) {
-    case 'trilha': {
+    case 'path': {
       let n = 0;
       for (const [x, y] of ent.tiles) if (removePath(x, y)) n++;
       if (n) { value = refund(ent.cost * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
       else msg = '!' + LN('a trilha já não existe mais|the path is gone already');
       break;
     }
-    case 'terreno': {
+    case 'terrain': {
       let n = 0;
       for (const [k, before, after] of ent.changes)
         if (world.terr[k] === after && !world.path[k] && !world.occ[k]) { world.terr[k] = before; n++; }
@@ -292,12 +292,12 @@ function undoLast() {
       else msg = '!' + LN('o terreno já mudou de novo|the terrain has changed again');
       break;
     }
-    case 'objeto': {
+    case 'object': {
       const o = objects.get(ent.id);
       if (o) {
         if (G.sel && G.sel.ref === o) deselect();
         removeObject(ent.id); value = refund(ent.cost); msg = ent.label;
-      } else msg = '!' + ent.label + ' já foi removido';
+      } else msg = '!' + LN(ent.label) + LN(' já foi removido| has already been removed');
       break;
     }
     case 'animal': {
@@ -312,7 +312,7 @@ function undoLast() {
       } else msg = '!' + LN('o animal já não está no plantel|the animal is no longer in the collection');
       break;
     }
-    case 'recinto': {
+    case 'enclosure': {
       const e = enclosures.get(ent.id);
       if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       if (e.animals.some(a => !a.dead)) { msg = '!' + LN('o recinto tem animais — venda ou transfira antes|the enclosure has animals — sell or transfer them first'); break; }
@@ -321,7 +321,7 @@ function undoLast() {
       deleteEnclosure(ent.id); value = refund(ent.cost); msg = 'Recinto';
       break;
     }
-    case 'ampliacao': {
+    case 'extension': {
       const e = enclosures.get(ent.id);
       if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       const set = new Set(ent.tiles.filter(k => e.tiles.has(k)));
@@ -329,11 +329,11 @@ function undoLast() {
       if (set.size >= e.tiles.size) { msg = '!desfazer apagaria o recinto inteiro'; break; }
       if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!' + LN('há objetos na área ampliada — remova antes|there are objects in the extended area — remove them first'); break; }
       for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
-      encInvalida(e);
+      encInvalidate(e);
       for (const a of e.animals) {   // bicho que ficou de fora volta para dentro
         if (a.dead) continue;
         if (!e.tiles.has(IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1)))) {
-          const tl = encTileAleatorio(e);
+          const tl = encRandomTile(e);
           if (tl) { a.x = tl[0] + .5; a.y = tl[1] + .5; a.tx = a.x; a.ty = a.y; }
         }
       }
@@ -341,7 +341,7 @@ function undoLast() {
       msg = BI`Ampliação (${set.size} tile${set.size > 1 ? 's' : ''})|Extension (${set.size} tile${set.size > 1 ? 's' : ''})`;
       break;
     }
-    case 'cerca': {
+    case 'fence': {
       const e = enclosures.get(ent.id);
       if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       if (e.fence !== ent.after) { msg = '!' + LN('a cerca já foi trocada de novo|the fence has been swapped again'); break; }
@@ -350,11 +350,11 @@ function undoLast() {
     }
   }
   if (msg[0] !== '!') {
-    SFX.play('demolir');
+    SFX.play('demolish');
     toast(`↩️ Desfeito: ${msg} — reembolso ${moneyFull(value)}`, 'good');
     if (typeof refreshInspector === 'function') refreshInspector();
   } else {
-    SFX.play('erro');
+    SFX.play('error');
     toast(BI`↩️ Não deu para desfazer: ${msg.slice(1)}|↩️ Could not undo: ${msg.slice(1)}`, 'bad');
   }
 }
@@ -369,7 +369,7 @@ cv.addEventListener('pointerdown', e => {
   // Two fingers: a pinch. It cancels whatever the first finger had started —
   // opening your hand means you want to navigate, not draw.
   if (ptrs.size === 2) {
-    pintando = false; G.drag = null; tapCand = null; pendenteTool = null; stopPan();
+    painting = false; G.drag = null; tapCand = null; pendingTool = null; stopPan();
     const [a, b] = [...ptrs.values()];
     pinch = { d0: dist(a.x, a.y, b.x, b.y), z0: cam.z, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
     return;
@@ -383,13 +383,13 @@ cv.addEventListener('pointerdown', e => {
   const x = Math.floor(wx), y = Math.floor(wy);
   G.hover = [x, y];
   if (G.tool) {
-    if (G.tool.cat === 'recinto') { G.drag = { x, y }; return; }
-    pintando = true;
+    if (G.tool.cat === 'enclosure') { G.drag = { x, y }; return; }
+    painting = true;
     // On touch, the first application waits for the gesture to confirm itself as
     // one-fingered (a move or a lift). Applying on contact made the first finger
     // of a pinch leave a stray path or building on the map.
-    if (e.pointerType === 'touch') pendenteTool = { x, y };
-    else aplicarFerramenta(x, y, false);
+    if (e.pointerType === 'touch') pendingTool = { x, y };
+    else applyTool(x, y, false);
   } else {
     // with no tool, one finger drags the camera; if it barely moves, it is a selection
     startPan(sx, sy);
@@ -409,7 +409,7 @@ cv.addEventListener('pointermove', e => {
       const target = clamp(pinch.z0 * (d / pinch.d0), ZMIN, ZMAX);
       zoomAt(target / cam.z, pinch.mx, pinch.my);
     }
-    cam.x += mx - pinch.mx; cam.y += my - pinch.my;   // pinça também desloca
+    cam.x += mx - pinch.mx; cam.y += my - pinch.my;   // a pinch pans as well
     pinch.mx = mx; pinch.my = my;
     return;
   }
@@ -422,9 +422,9 @@ cv.addEventListener('pointermove', e => {
   const x = Math.floor(wx), y = Math.floor(wy);
   const mudou = !G.hover || G.hover[0] !== x || G.hover[1] !== y;
   G.hover = [x, y];
-  if (pintando && G.tool) {
-    if (pendenteTool) { aplicarFerramenta(pendenteTool.x, pendenteTool.y, false); pendenteTool = null; }
-    if (mudou) aplicarFerramenta(x, y, true);
+  if (painting && G.tool) {
+    if (pendingTool) { applyTool(pendingTool.x, pendingTool.y, false); pendingTool = null; }
+    if (mudou) applyTool(x, y, true);
   }
 });
 
@@ -449,8 +449,8 @@ function pointerEnd(e) {
       const p = pickAt(sx, sy);
       // tapping an animal makes it answer — that is the point of a voice per species
       if (p) {
-        if (p.kind === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
-        else if (p.kind === 'vis' || p.kind === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
+        if (p.kind === 'animal') SFX.voz(p.ref.sp, { vol: .3, now: true });
+        else if (p.kind === 'vis' || p.kind === 'staff') SFX.humanVoice(p.ref, { vol: .26, now: true });
         select(p.kind, p.ref);
       }
       else deselect();
@@ -458,9 +458,9 @@ function pointerEnd(e) {
     return;
   }
   // a short tap with a tool: apply now, on the lift
-  if (pendenteTool) { aplicarFerramenta(pendenteTool.x, pendenteTool.y, false); pendenteTool = null; }
+  if (pendingTool) { applyTool(pendingTool.x, pendingTool.y, false); pendingTool = null; }
   endEnclosureDrag();
-  pintando = false;
+  painting = false;
   undoCloseGroup();           // a pincelada acabou: vira 1 item de desfazer
 }
 cv.addEventListener('pointerup', pointerEnd);
@@ -480,20 +480,20 @@ $('#stWarn').onclick = () => openFinance();
 $('#stHappy').onclick = () => openSatisfaction();
 $('#stRep').onclick = () => openReputation();
 $('#zUndo').onclick = () => undoLast();
-const NOME_BOLHA = ['desligados|off', 'só quem está insatisfeito|only the unhappy ones', 'todos|all'];
+const BUBBLE_MODES = ['desligados|off', 'só quem está insatisfeito|only the unhappy ones', 'todos|all'];
 function cycleBubbles() {
   G.bubbles = (G.bubbles + 1) % 3;
-  $('#zBolha').classList.toggle('on', G.bubbles > 0);
-  $('#zBolha').textContent = G.bubbles === 0 ? '💤' : G.bubbles === 1 ? '💭' : '💬';
-  toast(BI`💭 Balões de pensamento: ${LN(NOME_BOLHA[G.bubbles])}|💭 Thought bubbles: ${LN(NOME_BOLHA[G.bubbles])}`, '');
+  $('#zBubble').classList.toggle('on', G.bubbles > 0);
+  $('#zBubble').textContent = G.bubbles === 0 ? '💤' : G.bubbles === 1 ? '💭' : '💬';
+  toast(BI`💭 Balões de pensamento: ${LN(BUBBLE_MODES[G.bubbles])}|💭 Thought bubbles: ${LN(BUBBLE_MODES[G.bubbles])}`, '');
 }
 function refreshSoundButton() {
-  $('#zSom').textContent = SFX.on ? (SFX.vol > .5 ? '🔊' : '🔉') : '🔇';
-  $('#zSom').classList.toggle('on', SFX.on);
+  $('#zSound').textContent = SFX.on ? (SFX.vol > .5 ? '🔊' : '🔉') : '🔇';
+  $('#zSound').classList.toggle('on', SFX.on);
 }
-function ciclarSom() {
+function cycleSound() {
   // 3 states: full -> low -> mute. The preference belongs to the device, not the save.
-  SFX.iniciar();
+  SFX.start();
   if (!SFX.on) { SFX.on = true; SFX.vol = .65; }
   else if (SFX.vol > .5) SFX.vol = .3;
   else SFX.on = false;
@@ -501,8 +501,8 @@ function ciclarSom() {
   try { localStorage.setItem('zoo_som', JSON.stringify({ l: SFX.on, v: SFX.vol })); } catch (e) {}
   if (SFX.on) SFX.play('ui');
 }
-$('#zSom').onclick = ciclarSom;
-$('#zBolha').onclick = cycleBubbles;
+$('#zSound').onclick = cycleSound;
+$('#zBubble').onclick = cycleBubbles;
 $('#zSave').onclick = () => exportSave();
 $('#zLoad').onclick = () => $('#fileSave').click();
 $('#fileSave').onchange = ev => {
@@ -530,7 +530,7 @@ addEventListener('keydown', e => {
   if (k === 'm' || k === 'M') { G.wantsMinimap = !G.wantsMinimap; refreshMinimap(); }
   if (k === 'b' || k === 'B') cycleBubbles();
   if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoLast(); return; }
-  if (k === 's' || k === 'S') ciclarSom();
+  if (k === 's' || k === 'S') cycleSound();
   if (k === 'Delete' || k === 'Backspace') {
     if (G.sel && G.sel.kind === 'obj') { removeObject(G.sel.ref.id); deselect(); }
   }
@@ -540,8 +540,8 @@ addEventListener('keydown', e => {
   if (k === 'ArrowUp') cam.y += pan; if (k === 'ArrowDown') cam.y -= pan;
 });
 addEventListener('keyup', e => { if (e.key === 'Shift') G.shift = false; if (e.key === ' ') G.space = false; });
-addEventListener('resize', () => { resize(); ajustarParaTela(); });
-addEventListener('orientationchange', () => setTimeout(() => { resize(); ajustarParaTela(); }, 250));
+addEventListener('resize', () => { resize(); fitToScreen(); });
+addEventListener('orientationchange', () => setTimeout(() => { resize(); fitToScreen(); }, 250));
 
 function setSpeed(s) {
   G.speed = s;
@@ -559,16 +559,16 @@ $('#minicv').onclick = e => {
 };
 
 /* ==========================================================================
-   14. SIMULAÇÃO
+   14. SIMULATION
    ========================================================================== */
 let spawnAcc = 0;
 
 function visitorRate() {
   if (!pathConnected(ENTRANCE.x, ENTRANCE.y - 1) && !pathConnected(ENTRANCE.x, ENTRANCE.y)) return 0;
   if (G.hour < OPEN_H || G.hour >= CLOSE_H) return 0;
-  const atracoes = [...enclosures.values()].reduce((s, e) =>
+  const attractions = [...enclosures.values()].reduce((s, e) =>
     s + (encViewSpots(e).length ? e.animals.filter(a => !a.dead).length : 0), 0);
-  if (!atracoes) return 0;
+  if (!attractions) return 0;
   const fair = fairPrice();
   // An asymptotic fall, never zero: with the previous linear subtraction a ticket
   // ~2x the fair price locked the box office at 0 visitors — an absorbing state,
@@ -579,8 +579,8 @@ function visitorRate() {
     : clamp(1 + (fair - G.ticket) / Math.max(1, fair) * .45, 1, 1.5);
   const t = (G.hour - OPEN_H) / (CLOSE_H - OPEN_H);
   const hourF = Math.sin(t * Math.PI) ** .7;
-  const mk = [1, 1.35, 1.8, 2.5][G.research.marketing]; // 0 = sem campanha, e não "sem público"
-  const base = (1 + Math.pow(G.rep, 1.6)) * Math.min(1 + atracoes * .09, 3.2);
+  const mk = [1, 1.35, 1.8, 2.5][G.research.marketing]; // 0 = no campaign, not "no public"
+  const base = (1 + Math.pow(G.rep, 1.6)) * Math.min(1 + attractions * .09, 3.2);
   return base * priceF * hourF * mk; // visitantes por hora de jogo
 }
 
@@ -626,7 +626,7 @@ function tick(dt) {
   }
 }
 function closeDay() {
-  SFX.play('dia');
+  SFX.play('day');
   const visitorsToday = G.stats.visToday;   // read before the reset below
   G.day++;
   G.ledger.hist.push({ day: G.day - 1, vis: G.stats.visToday, balance: balance(G.ledger.today) });
@@ -640,8 +640,8 @@ function closeDay() {
     G.lastBill = G.day;
     let payroll = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0);
     payroll += [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].wage : 0), 0);
-    const mk = [0, 1500, 5000, 14000][G.research.marketing];
-    spend(payroll + mk, 'wage'); SFX.play('contas');
+    const mk = MARKETING_COST[G.research.marketing];
+    spend(payroll + mk, 'wage'); SFX.play('bills');
     toast(BI`🧾 Contas da semana: ${moneyFull(payroll + mk)} (folha${mk ? ' + marketing' : ''})|🧾 Weekly bills: ${moneyFull(payroll + mk)} (payroll${mk ? ' + marketing' : ''})`, 'money');
   }
   // If the day closed with no visitors, say why — once a day. Being left in the
@@ -672,12 +672,11 @@ function closeDay() {
   saveGame(true);
 
   if (G.money < -120000 && !G.gameOver) {
-    G.gameOver = true; setSpeed(0); SFX.play('falencia');
+    G.gameOver = true; setSpeed(0); SFX.play('bankrupt');
     openModal(LN('🏚️ Falência|🏚️ Bankruptcy'),
-      `<p style="font-size:14px;line-height:1.6">O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias.
-       Você recebeu ${G.stats.visitorTotal.toLocaleString('pt-BR')} visitantes e chegou a ter ${G.animals.filter(a => !a.dead).length} animais.</p>`,
-      `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">Recomeçar</button>
-       <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">Aceitar resgate de R$ 100.000</button>`);
+      `<p style="font-size:14px;line-height:1.6">${BI`O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias. Você recebeu ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitantes e chegou a ter ${G.animals.filter(a => !a.dead).length} animais.|The zoo went under with <b>${moneyFull(G.money)}</b> in the red after ${G.day} days. You took in ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitors and got as far as ${G.animals.filter(a => !a.dead).length} animals.`}</p>`,
+      `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">${LN('Recomeçar|Start over')}</button>
+       <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">${BI`Aceitar resgate de ${moneyFull(100000)}|Accept a ${moneyFull(100000)} bailout`}</button>`);
   }
 }
 /** a one-off shock to the reputation + a row in the statement (visible on ⭐) */
@@ -692,8 +691,8 @@ function parkQuality() {
   const felAn = vivos.reduce((s, a) => s + a.happy, 0) / vivos.length;
   const variety = new Set(vivos.map(a => a.sp.id)).size;
   const felVis = G.stats.happiness;
-  const lixoMed = (() => { let s = 0, n = 0; for (let i = 0; i < W * H; i++) if (world.path[i]) { s += world.lixo[i]; n++; } return n ? s / n : 0; })();
-  let q = felAn * 1.7 + felVis * 1.9 + Math.min(variety, 30) / 30 * 1.1 - lixoMed * 1.2;
+  const litterAvg = (() => { let s = 0, n = 0; for (let i = 0; i < W * H; i++) if (world.path[i]) { s += world.litter[i]; n++; } return n ? s / n : 0; })();
+  let q = felAn * 1.7 + felVis * 1.9 + Math.min(variety, 30) / 30 * 1.1 - litterAvg * 1.2;
   q -= G.escaped.length * .25;
   return clamp(q, 0, 5);
 }
@@ -739,31 +738,31 @@ function gameSnapshot() {
         hunger: a.hunger, thirst: a.thirst, health: a.health, happy: a.happy, sick: a.sick,
         pregnant: a.pregnant, escaped: a.escaped, x: a.x, y: a.y,
       })),
-    staff: G.staff.map(s2 => ({ kind: s2.kind, x: s2.x, y: s2.y, feitos: s2.feitos })),
+    staff: G.staff.map(s2 => ({ kind: s2.kind, x: s2.x, y: s2.y, done: s2.done })),
     uid: _uid,
   };
 }
-function saveGame(silencioso) {
+function saveGame(quiet) {
   try {
     localStorage.setItem('zoo_save', JSON.stringify(gameSnapshot()));
-    if (!silencioso) toast('💾 Jogo salvo', 'good');
+    if (!quiet) toast('💾 Jogo salvo', 'good');
     return true;
-  } catch (err) { if (!silencioso) toast(BI`⚠️ Não foi possível salvar: ${err.message}|⚠️ Could not save: ${err.message}`, 'bad'); return false; }
+  } catch (err) { if (!quiet) toast(BI`⚠️ Não foi possível salvar: ${err.message}|⚠️ Could not save: ${err.message}`, 'bad'); return false; }
 }
 function loadGame() {
   const raw = localStorage.getItem('zoo_save');
   if (!raw) { toast('Nenhum jogo salvo encontrado', 'bad'); return false; }
-  return aplicarSnapshot(raw, 'Jogo carregado');
+  return applySnapshot(raw, 'Jogo carregado');
 }
 /** Applies a saved snapshot (from localStorage or an imported file). */
-function aplicarSnapshot(raw, label) {
+function applySnapshot(raw, label) {
   try {
     const s = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!s || typeof s.money !== 'number' || !Array.isArray(s.terr))
       throw new Error(LN('não parece um save do Zoo Magnata|that does not look like a Zoo Magnata save'));
     G.money = s.money; G.ticket = s.ticket; G.day = s.day; G.hour = s.hour; G.rep = s.rep;
     G.repLog = Array.isArray(s.repLog) ? s.repLog : [];
-    G.undo = []; undoGroup = null; refreshUndoButton();   // ids de outro mundo não valem aqui
+    G.undo = []; undoGroup = null; refreshUndoButton();   // ids from another world mean nothing here
     G.lastBill = s.lastBill || 1; G.loan = s.loan || 0;
     G.research.marketing = s.marketing || 0;
     G.stats = keepShape(newStats(), s.stats); G.ledger = loadLedger(s.ledger);
@@ -775,7 +774,7 @@ function aplicarSnapshot(raw, label) {
       world.terr[IDX(ENTRANCE.x, ENTRANCE.y)] = TKEYS.indexOf('piso');
       toast(LN('🚪 Recoloquei a trilha do portão — sem ela ninguém conseguia entrar.|🚪 Put the gate path back — without it nobody could get in.'), 'good');
     }
-    world.occ.fill(0); world.enc.fill(0); world.bel.fill(0); world.lixo.fill(0);
+    world.occ.fill(0); world.enc.fill(0); world.beauty.fill(0); world.litter.fill(0);
     objects.clear(); enclosures.clear();
     G.animals = []; G.visitors = []; G.staff = []; G.escaped = [];
     _uid = s.uid || 1;
@@ -796,7 +795,7 @@ function aplicarSnapshot(raw, label) {
       };
       enclosures.set(e.id, en);
       for (const k of tiles) { en.tiles.add(k); world.enc[k] = e.id; }
-      encInvalida(en);
+      encInvalidate(en);
     }
     for (const o of s.objs) {
       const def = o.cat === 'build' ? BUILDINGS[o.kind] : o.cat === 'deco' ? DECOS[o.kind] : ENCOBJ[o.kind];
@@ -809,15 +808,15 @@ function aplicarSnapshot(raw, label) {
     for (const a of s.animals) {
       const an = {
         ...a, sp: SPECIES[a.sp], dead: false, tx: a.x, ty: a.y, dir: 1,
-        frame: 0, anim: 0, state: 'parado', espera: rnd(1, 4),
+        frame: 0, anim: 0, state: 'idle', wait: rnd(1, 4),
       };
       G.animals.push(an);
       const e = enclosures.get(a.enc);
       if (e && !a.escaped) e.animals.push(an);
       if (a.escaped) G.escaped.push(an);
     }
-    for (const st of s.staff) { const x = contratar(st.kind); x.x = st.x; x.y = st.y; x.feitos = st.feitos || 0; }
-    terrainChanged(); rebuildNet();   // rebuildNet já incrementa netVer
+    for (const st of s.staff) { const x = hire(st.kind); x.x = st.x; x.y = st.y; x.done = st.done || 0; }
+    terrainChanged(); rebuildNet();   // rebuildNet already bumps netVer
     deselect(); closeModal();
     toast('📂 ' + (label || 'Jogo carregado') + ' — dia ' + G.day, 'good');
     return true;
@@ -827,7 +826,7 @@ function aplicarSnapshot(raw, label) {
 /* ==========================================================================
    15b. EXPORTAR / IMPORTAR ARQUIVO
    ========================================================================== */
-function baixarArquivo(name, conteudo, mime) {
+function downloadFile(name, conteudo, mime) {
   try {
     const blob = new Blob([conteudo], { type: mime + ';charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -838,14 +837,14 @@ function baixarArquivo(name, conteudo, mime) {
     return true;
   } catch (err) { toast('⚠️ Download falhou: ' + err.message, 'bad'); return false; }
 }
-const selo = () => 'dia' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour).replace(':', 'h');
+const selo = () => 'day' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour).replace(':', 'h');
 
 function exportSave() {
-  if (baixarArquivo(`zoo-magnata-${selo()}.json`, JSON.stringify(gameSnapshot()), 'application/json'))
+  if (downloadFile(`zoo-magnata-${selo()}.json`, JSON.stringify(gameSnapshot()), 'application/json'))
     toast(LN('📥 Save baixado — guarde o arquivo para retomar depois|📥 Save downloaded — keep the file to pick up later'), 'good');
 }
 function exportReport() {
-  if (baixarArquivo(`zoo-magnata-status-${selo()}.txt`, reportText(), 'text/plain'))
+  if (downloadFile(`zoo-magnata-status-${selo()}.txt`, reportText(), 'text/plain'))
     toast(LN('📄 Relatório de status baixado|📄 Status report downloaded'), 'good');
 }
 function importSave(file, onDone) {
@@ -853,7 +852,7 @@ function importSave(file, onDone) {
   const fr = new FileReader();
   fr.onload = () => {
     let ok = false;
-    if (/^\s*[{[]/.test(fr.result)) ok = aplicarSnapshot(fr.result, 'Save importado');
+    if (/^\s*[{[]/.test(fr.result)) ok = applySnapshot(fr.result, 'Save importado');
     else toast(LN('⚠️ Esse arquivo não é um save (.json) do jogo|⚠️ That file is not a game save (.json)'), 'bad');
     if (onDone) onDone(ok);
   };
@@ -871,46 +870,47 @@ function reportText() {
   const moodV = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.happiness;
   const moodA = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
 
-  row('ZOO MAGNATA — STATUS');
+  row(LN('ZOO MAGNATA — STATUS|ZOO TYCOON — STATUS'));
   row('='.repeat(64));
-  row(`Dia ${G.day}, ${relTime(G.hour)}${G.hour >= OPEN_H && G.hour < CLOSE_H ? ' (aberto)' : ' (fechado)'}`);
+  row(BI`Dia ${G.day}, ${relTime(G.hour)}|Day ${G.day}, ${relTime(G.hour)}` +
+    (G.hour >= OPEN_H && G.hour < CLOSE_H ? LN(' (aberto)| (open)') : LN(' (fechado)| (closed)')));
   row('');
-  row('VISÃO GERAL');
-  reg('Caixa', moneyFull(G.money));
-  reg('Empréstimo em aberto', moneyFull(G.loan));
-  reg('Reputação', G.rep.toFixed(2) + ' / 5.00  ' + miniGauge(G.rep / 5));
-  reg('Preço do ingresso', moneyFull(G.ticket) + '  (referência: ' + moneyFull(fairPrice()) + ')');
-  reg('Marketing', ['nenhum', 'local', 'regional', 'nacional'][G.research.marketing]);
-  reg('Visitantes agora', G.visitors.length);
-  reg('Visitantes hoje', G.stats.visToday);
-  reg('Visitantes desde a abertura', G.stats.visitorTotal);
-  reg('Satisfação dos visitantes', Math.round(moodV * 100) + '%  ' + miniGauge(moodV));
-  reg('Felicidade dos animais', Math.round(moodA * 100) + '%  ' + miniGauge(moodA));
-  reg('Animais vivos', vivos.length + ' de ' + new Set(vivos.map(a => a.sp.id)).size + ' espécies');
-  reg('Recintos', enclosures.size);
+  row(LN('VISÃO GERAL|OVERVIEW'));
+  reg(LN('Caixa|Cash'), moneyFull(G.money));
+  reg(LN('Empréstimo em aberto|Outstanding loan'), moneyFull(G.loan));
+  reg(LN('Reputação|Reputation'), G.rep.toFixed(2) + ' / 5.00  ' + miniGauge(G.rep / 5));
+  reg(LN('Preço do ingresso|Ticket price'), moneyFull(G.ticket) + LN('  (referência: |  (reference: ') + moneyFull(fairPrice()) + ')');
+  reg('Marketing', LN(['nenhum|none', 'local|local', 'regional|regional', 'nacional|national'][G.research.marketing]));
+  reg(LN('Visitantes agora|Visitors right now'), G.visitors.length);
+  reg(LN('Visitantes hoje|Visitors today'), G.stats.visToday);
+  reg(LN('Visitantes desde a abertura|Visitors since opening'), G.stats.visitorTotal);
+  reg(LN('Satisfação dos visitantes|Visitor satisfaction'), Math.round(moodV * 100) + '%  ' + miniGauge(moodV));
+  reg(LN('Felicidade dos animais|Animal happiness'), Math.round(moodA * 100) + '%  ' + miniGauge(moodA));
+  reg(LN('Animais vivos|Animals alive'), vivos.length + BI` de ${new Set(vivos.map(a => a.sp.id)).size} espécies| across ${new Set(vivos.map(a => a.sp.id)).size} species`);
+  reg(LN('Recintos|Enclosures'), enclosures.size);
 
-  const trava = crowdDiagnosis();
-  if (trava) {
+  const stuck = crowdDiagnosis();
+  if (stuck) {
     row('');
-    row('!! O QUE ESTÁ TRAVANDO A BILHETERIA');
-    row('   ' + trava.em + ' ' + trava.long.replace(/<\/?b>/g, ''));
+    row(LN('!! O QUE ESTÁ TRAVANDO A BILHETERIA|!! WHAT IS HOLDING THE BOX OFFICE BACK'));
+    row('   ' + stuck.em + ' ' + stuck.long.replace(/<\/?b>/g, ''));
   }
 
   row('');
-  row('FINANÇAS — HOJE');
+  row(LN('FINANÇAS — HOJE|FINANCE — TODAY'));
   const h = G.ledger.today;
   reg('Ingressos', '+' + moneyFull(h.ticket));
   reg('Lojas e restaurantes', '+' + moneyFull(h.shop));
   reg('Venda de animais', '+' + moneyFull(h.sell));
-  reg('Ração e insumos', '-' + moneyFull(h.feed));
-  reg('Salários', '-' + moneyFull(h.wage));
-  reg('Manutenção e veterinário', '-' + moneyFull(h.upkeep));
+  reg(LN('Ração e insumos|Feed and supplies'), '-' + moneyFull(h.feed));
+  reg(LN('Salários|Wages'), '-' + moneyFull(h.wage));
+  reg(LN('Manutenção e veterinário|Upkeep and vet'), '-' + moneyFull(h.upkeep));
   reg('Compra de animais', '-' + moneyFull(h.buy));
   reg('Obras', '-' + moneyFull(h.build));
   reg('SALDO DO DIA', moneyFull(balance(h)));
   if (G.ledger.hist.length) {
     row('');
-    row('ÚLTIMOS DIAS');
+    row(LN('ÚLTIMOS DIAS|RECENT DAYS'));
     for (const d of G.ledger.hist.slice(-10))
       row(`  dia ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitantes · saldo ${moneyFull(d.balance)}`);
   }
@@ -923,68 +923,67 @@ function reportText() {
     const fel = av.length ? av.reduce((s, a) => s + a.happy, 0) / av.length : 0;
     const sp0 = av[0] ? av[0].sp : null;
     row('');
-    row(`  ${e.name} — ${FENCES[e.fence].n}, ${encArea(e)} tiles, cerca de ${encSegCount(e)} trechos`);
-    row(`    felicidade ${miniGauge(fel)} ${Math.round(fel * 100)}%   ` +
-      `limpeza ${miniGauge(e.cleanliness)} ${Math.round(e.cleanliness * 100)}%`);
-    row(`    comida    ${miniGauge(e.food)} ${Math.round(e.food * 100)}%   ` +
-      `água    ${miniGauge(e.water)} ${Math.round(e.water * 100)}%`);
+    row(`  ${e.name} — ${LN(FENCES[e.fence].n)}, ` +
+      BI`${encArea(e)} tiles, cerca de ${encSegCount(e)} trechos|${encArea(e)} tiles, a fence of ${encSegCount(e)} runs`);
+    row(BI`    felicidade ${miniGauge(fel)} ${Math.round(fel * 100)}%   limpeza ${miniGauge(e.cleanliness)} ${Math.round(e.cleanliness * 100)}%|    happiness ${miniGauge(fel)} ${Math.round(fel * 100)}%   cleanliness ${miniGauge(e.cleanliness)} ${Math.round(e.cleanliness * 100)}%`);
+    row(BI`    comida    ${miniGauge(e.food)} ${Math.round(e.food * 100)}%   água    ${miniGauge(e.water)} ${Math.round(e.water * 100)}%|    food      ${miniGauge(e.food)} ${Math.round(e.food * 100)}%   water   ${miniGauge(e.water)} ${Math.round(e.water * 100)}%`);
     const enr = encEnrich(e);
-    row(`    enriquecimento ${miniGauge(enr)} ${Math.round(enr * 100)}%   ` +
-      `pontos de observação: ${encViewSpots(e).length}`);
+    row(BI`    enriquecimento ${miniGauge(enr)} ${Math.round(enr * 100)}%   pontos de observação: ${encViewSpots(e).length}|    enrichment ${miniGauge(enr)} ${Math.round(enr * 100)}%   viewing spots: ${encViewSpots(e).length}`);
     const mix = Object.entries(encMix(e)).sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `${TERRAIN[k].n} ${Math.round(v * 100)}%`).join(', ');
-    row('    terreno: ' + mix);
-    if (sp0) row('    ideal:   ' + Object.entries(sp0.mix)
-      .map(([k, v]) => `${TERRAIN[k].n} ${Math.round(v * 100)}%`).join(', ') + `  (biome ${sp0.biomeName})`);
-    row('    objetos: ' + (e.objs.length ? e.objs.map(o => ENCOBJ[o.kind].n).join(', ') : 'nenhum'));
+      .map(([k, v]) => `${LN(TERRAIN[k].n)} ${Math.round(v * 100)}%`).join(', ');
+    row(LN('    terreno: |    terrain: ') + mix);
+    if (sp0) row(LN('    ideal:   |    ideal:   ') + Object.entries(sp0.mix)
+      .map(([k, v]) => `${LN(TERRAIN[k].n)} ${Math.round(v * 100)}%`).join(', ') + `  (${LN(sp0.biomeName)})`);
+    row(LN('    objetos: |    objects: ') + (e.objs.length ? e.objs.map(o => LN(ENCOBJ[o.kind].n)).join(', ') : LN('nenhum|none')));
     for (const a of av)
-      row(`      - ${a.name} (${a.sex}) ${LN(a.sp.name)}, ${a.age.toFixed(1)}/${a.sp.lifespan} anos · ` +
-        `felicidade ${Math.round(a.happy * 100)}% · saúde ${Math.round(a.health * 100)}%` +
-        `${a.sick ? ' · DOENTE' : ''}${a.pregnant > 0 ? ' · gestante' : ''}` +
-        (a.pensa ? ` · pensando: ${a.pensa.txt}` : ''));
+      row(`      - ${a.name} (${a.sex}) ${LN(a.sp.name)}, ` +
+        BI`${a.age.toFixed(1)}/${a.sp.lifespan} anos · felicidade ${Math.round(a.happy * 100)}% · saúde ${Math.round(a.health * 100)}%|${a.age.toFixed(1)}/${a.sp.lifespan} years · happiness ${Math.round(a.happy * 100)}% · health ${Math.round(a.health * 100)}%` +
+        `${a.sick ? LN(' · DOENTE| · SICK') : ''}${a.pregnant > 0 ? LN(' · gestante| · expecting') : ''}` +
+        (a.thought ? LN(' · pensando: | · thinking: ') + a.thought.txt : ''));
     const al = encAlertsHTML(e).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (al) row('    alertas: ' + al);
+    if (al) row(LN('    alertas: |    alerts: ') + al);
   }
 
   row('');
-  row('COMÉRCIO E SERVIÇOS');
+  row(LN('COMÉRCIO E SERVIÇOS|SHOPS AND SERVICES'));
   const builds = [...objects.values()].filter(o => o.cat === 'build');
-  if (!builds.length) row('  (nenhum)');
+  if (!builds.length) row(LN('  (nenhum)|  (none)'));
   for (const o of builds) {
     const B = BUILDINGS[o.kind];
-    row(`  ${B.n} em (${o.x},${o.y}) · ${objAcessivel(o) ? 'acessível' : 'SEM TRILHA POR PERTO'}` +
-      (B.value > 0 ? ` · preço ${moneyFull(priceOf(o))} · ${o.sales} vendas · lucro ${moneyFull(o.revenue)}` : ''));
+    row(`  ${LN(B.n)} ` + BI`em (${o.x},${o.y})|at (${o.x},${o.y})` + ' · ' +
+      (objAcessivel(o) ? LN('acessível|reachable') : LN('SEM TRILHA POR PERTO|NO PATH NEARBY')) +
+      (B.value > 0 ? BI` · preço ${moneyFull(priceOf(o))} · ${o.sales} vendas · lucro ${moneyFull(o.revenue)}| · price ${moneyFull(priceOf(o))} · ${o.sales} sales · profit ${moneyFull(o.revenue)}` : ''));
   }
 
   row('');
-  row('EQUIPE');
+  row(LN('EQUIPE|STAFF'));
   let payroll = 0;
   for (const k in STAFF_TYPES) {
     const n = G.staff.filter(s => s.kind === k).length;
     if (!n) continue;
     payroll += n * STAFF_TYPES[k].wage;
-    row(`  ${n}x ${STAFF_TYPES[k].n} · ${moneyFull(STAFF_TYPES[k].wage)}/semana cada · ` +
-      `${G.staff.filter(s => s.kind === k).reduce((s, x) => s + x.feitos, 0)} tarefas feitas`);
+    row(`  ${n}x ${LN(STAFF_TYPES[k].n)} · ` +
+      BI`${moneyFull(STAFF_TYPES[k].wage)}/semana cada · ${G.staff.filter(s => s.kind === k).reduce((s, x) => s + x.done, 0)} tarefas feitas|${moneyFull(STAFF_TYPES[k].wage)}/week each · ${G.staff.filter(s => s.kind === k).reduce((s, x) => s + x.done, 0)} tasks done`);
   }
-  if (!G.staff.length) row('  (ninguém contratado)');
+  if (!G.staff.length) row(LN('  (ninguém contratado)|  (nobody hired)'));
   payroll += builds.reduce((s, o) => s + BUILDINGS[o.kind].wage, 0);
-  reg('Folha semanal total', moneyFull(payroll));
+  reg(LN('Folha semanal total|Total weekly payroll'), moneyFull(payroll));
 
-  const rv = agruparPensamentos(G.visitors, visitorThought), ra = agruparPensamentos(vivos, animalThought);
+  const rv = groupThoughts(G.visitors, visitorThought), ra = groupThoughts(vivos, animalThought);
   const section = (tit, rank, tot) => {
     row(''); row(tit);
-    if (!rank.length) { row('  (ninguém)'); return; }
+    if (!rank.length) { row(LN('  (ninguém)|  (nobody)')); return; }
     for (const r of rank) {
       row(`  ${r.em} ${r.txt} — ${r.n} (${Math.round(r.n / Math.max(1, tot) * 100)}%)`);
-      if (TIPS[r.em] && r.urg >= .45) row('      -> ' + TIPS[r.em]);
+      if (TIPS[r.em] && r.urg >= .45) row('      -> ' + LN(TIPS[r.em]));
     }
   };
-  section('POR QUE OS VISITANTES ESTÃO ASSIM', rv, G.visitors.length);
-  section('POR QUE OS ANIMAIS ESTÃO ASSIM', ra, vivos.length);
+  section(LN('POR QUE OS VISITANTES ESTÃO ASSIM|WHY THE VISITORS FEEL THIS WAY'), rv, G.visitors.length);
+  section(LN('POR QUE OS ANIMAIS ESTÃO ASSIM|WHY THE ANIMALS FEEL THIS WAY'), ra, vivos.length);
 
   row('');
   row('='.repeat(64));
-  row('Gerado pelo próprio jogo. Para retomar a partida use o save .json.');
+  row(LN('Gerado pelo próprio jogo. Para retomar a partida use o save .json.|Generated by the game itself. To resume the game, use the .json save.'));
   return L.join('\n');
 }
 
@@ -999,7 +998,7 @@ function startingPath() {
   G.ledger.today.build = 0; G.ledger.week.build = 0;
 }
 /** adjusts what depends on the screen size (at boot and on every rotate/resize) */
-function ajustarParaTela() {
+function fitToScreen() {
   const estreita = window.innerWidth <= 700;
   G.maxVis = estreita ? 110 : window.innerWidth <= 1100 ? 190 : 280;
   // minimap and zoom buttons: on a narrow screen the map overlaps the dock, so it
@@ -1016,18 +1015,18 @@ function init() {
   cam.z = window.innerWidth <= 700 ? .62 : .85;
   centerOn(ENTRANCE.x, ENTRANCE.y - 14);
   buildDock();
-  contratar('trat'); contratar('fax');
+  hire('trat'); hire('fax');
   updateHUD();
-  G.wantsMinimap = !isSmall();      // no celular o minimapa começa desligado
+  G.wantsMinimap = !isSmall();      // on a phone the minimap starts off
   try {
     const pref = JSON.parse(localStorage.getItem('zoo_som') || 'null');
     if (pref) { SFX.on = !!pref.l; SFX.vol = +pref.v || .65; }
   } catch (e) {}
   refreshSoundButton();
-  ajustarParaTela();
+  fitToScreen();
   // the HUD changes height when the labels break onto another line
   if (window.ResizeObserver) new ResizeObserver(medirHud).observe($('#hud'));
-  setSpeed(0);          // o relógio só começa quando o jogador sai do splash
+  setSpeed(0);          // the clock only starts when the player leaves the splash
   loop(performance.now());
 }
 let lastT = 0, acc = 0, hudAcc = 0, miniAcc = 0, somAcc = 0;
@@ -1075,18 +1074,18 @@ function loop(now) {
 init();
 
 /* The splash chooses between a new game and a save — with no blocking confirm(), and with the
-   relógio parado enquanto ele está na tela. */
-let temSave = false;
-try { temSave = !!localStorage.getItem('zoo_save'); } catch (e) { temSave = false; }
+   the clock stopped while it is on screen. */
+let hasSave = false;
+try { hasSave = !!localStorage.getItem('zoo_save'); } catch (e) { hasSave = false; }
 const comecar = loadSaveFile => {
-  SFX.iniciar();       // 1º gesto do usuário: só aqui o áudio pode nascer
+  SFX.start();       // the user's first gesture: only here can the audio be born
   $('#splash').classList.add('hidden');
   if (loadSaveFile) loadGame();
   setSpeed(1);
 };
 $('#btnStart').onclick = () => comecar(false);
 $('#btnUpload').onclick = () => $('#fileSave').click();
-if (temSave) {
+if (hasSave) {
   $('#btnStart').innerHTML = LN('Começar do zero 🎟️|Start from scratch 🎟️');
   const b = el('button', 'btn b big', LN('Continuar jogo salvo 📂|Continue saved game 📂'));
   b.onclick = () => comecar(true);

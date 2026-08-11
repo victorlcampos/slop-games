@@ -16,21 +16,21 @@ function inkFor(c1) { return lum(c1) > .28 ? shade(c1, -.62) : '#16120e'; }
 
 /* ---- quadruped presets per body plan ---- */
 const QUAD = {
-  feline: { bL: 46, bH: 24, bY: 50, legL: 26, legW: 8, neckL: 15, neckA: -.55, neckW: 15, headR: 14, snoutL: 10, snoutH: 10, ear: 'redonda', earS: 9, tail: 'long', tailL: 40, hump: 3 },
-  canine: { bL: 44, bH: 21, bY: 48, legL: 27, legW: 7, neckL: 15, neckA: -.6, neckW: 13, headR: 12, snoutL: 15, snoutH: 8, ear: 'ponta', earS: 11, tail: 'bushy', tailL: 32, hump: 2 },
-  bear: { bL: 50, bH: 33, bY: 50, legL: 22, legW: 12, neckL: 8, neckA: -.5, neckW: 20, headR: 16, snoutL: 13, snoutH: 12, ear: 'redonda', earS: 8, tail: 'short', tailL: 8, hump: 7 },
+  feline: { bL: 46, bH: 24, bY: 50, legL: 26, legW: 8, neckL: 15, neckA: -.55, neckW: 15, headR: 14, snoutL: 10, snoutH: 10, ear: 'round', earS: 9, tail: 'long', tailL: 40, hump: 3 },
+  canine: { bL: 44, bH: 21, bY: 48, legL: 27, legW: 7, neckL: 15, neckA: -.6, neckW: 13, headR: 12, snoutL: 15, snoutH: 8, ear: 'pointed', earS: 11, tail: 'bushy', tailL: 32, hump: 2 },
+  bear: { bL: 50, bH: 33, bY: 50, legL: 22, legW: 12, neckL: 8, neckA: -.5, neckW: 20, headR: 16, snoutL: 13, snoutH: 12, ear: 'round', earS: 8, tail: 'short', tailL: 8, hump: 7 },
   ungulate: { bL: 44, bH: 22, bY: 60, legL: 40, legW: 5, neckL: 26, neckA: -.95, neckW: 11, headR: 11, snoutL: 14, snoutH: 8, ear: 'long', earS: 11, tail: 'short', tailL: 12, hump: 3 },
   bovine: { bL: 52, bH: 30, bY: 54, legL: 30, legW: 9, neckL: 13, neckA: -.5, neckW: 21, headR: 14, snoutL: 14, snoutH: 12, ear: 'long', earS: 9, tail: 'tuft', tailL: 26, hump: 9 },
-  equine: { bL: 50, bH: 25, bY: 60, legL: 40, legW: 6, neckL: 26, neckA: -.85, neckW: 14, headR: 11, snoutL: 17, snoutH: 9, ear: 'ponta', earS: 10, tail: 'crina', tailL: 30, hump: 4 },
-  swine: { bL: 44, bH: 25, bY: 44, legL: 20, legW: 7, neckL: 8, neckA: -.35, neckW: 17, headR: 12, snoutL: 15, snoutH: 10, ear: 'caida', earS: 10, tail: 'fina', tailL: 12, hump: 6 },
-  rodent: { bL: 36, bH: 26, bY: 40, legL: 14, legW: 6, neckL: 5, neckA: -.5, neckW: 16, headR: 14, snoutL: 8, snoutH: 8, ear: 'redonda', earS: 8, tail: 'fina', tailL: 16, hump: 4 },
-  camelid: { bL: 46, bH: 24, bY: 60, legL: 40, legW: 6, neckL: 30, neckA: -1.0, neckW: 11, headR: 10, snoutL: 12, snoutH: 8, ear: 'ponta', earS: 7, tail: 'fina', tailL: 14, hump: 4 },
-  mustelid: { bL: 44, bH: 18, bY: 32, legL: 12, legW: 6, neckL: 9, neckA: -.5, neckW: 13, headR: 11, snoutL: 10, snoutH: 7, ear: 'redonda', earS: 7, tail: 'bushy', tailL: 28, hump: 2 },
-  sloth: { bL: 42, bH: 26, bY: 42, legL: 18, legW: 8, neckL: 10, neckA: -.4, neckW: 15, headR: 12, snoutL: 14, snoutH: 8, ear: 'pequena', earS: 5, tail: 'short', tailL: 10, hump: 5 },
-  hippo: { bL: 58, bH: 34, bY: 42, legL: 15, legW: 13, neckL: 6, neckA: -.2, neckW: 24, headR: 17, snoutL: 18, snoutH: 16, ear: 'pequena', earS: 6, tail: 'fina', tailL: 10, hump: 3 },
-  rhino: { bL: 58, bH: 34, bY: 48, legL: 22, legW: 13, neckL: 8, neckA: -.3, neckW: 23, headR: 14, snoutL: 20, snoutH: 12, ear: 'ponta', earS: 8, tail: 'fina', tailL: 14, hump: 8 },
-  elephant: { bL: 60, bH: 42, bY: 56, legL: 30, legW: 16, neckL: 6, neckA: -.35, neckW: 28, headR: 20, snoutL: 0, snoutH: 0, ear: 'giant', earS: 22, tail: 'fina', tailL: 20, hump: 5 },
-  giraffe: { bL: 44, bH: 26, bY: 66, legL: 44, legW: 6, neckL: 56, neckA: -1.15, neckW: 12, headR: 10, snoutL: 12, snoutH: 7, ear: 'ponta', earS: 8, tail: 'fina', tailL: 22, hump: 8 },
+  equine: { bL: 50, bH: 25, bY: 60, legL: 40, legW: 6, neckL: 26, neckA: -.85, neckW: 14, headR: 11, snoutL: 17, snoutH: 9, ear: 'pointed', earS: 10, tail: 'mane', tailL: 30, hump: 4 },
+  swine: { bL: 44, bH: 25, bY: 44, legL: 20, legW: 7, neckL: 8, neckA: -.35, neckW: 17, headR: 12, snoutL: 15, snoutH: 10, ear: 'drooping', earS: 10, tail: 'thin', tailL: 12, hump: 6 },
+  rodent: { bL: 36, bH: 26, bY: 40, legL: 14, legW: 6, neckL: 5, neckA: -.5, neckW: 16, headR: 14, snoutL: 8, snoutH: 8, ear: 'round', earS: 8, tail: 'thin', tailL: 16, hump: 4 },
+  camelid: { bL: 46, bH: 24, bY: 60, legL: 40, legW: 6, neckL: 30, neckA: -1.0, neckW: 11, headR: 10, snoutL: 12, snoutH: 8, ear: 'pointed', earS: 7, tail: 'thin', tailL: 14, hump: 4 },
+  mustelid: { bL: 44, bH: 18, bY: 32, legL: 12, legW: 6, neckL: 9, neckA: -.5, neckW: 13, headR: 11, snoutL: 10, snoutH: 7, ear: 'round', earS: 7, tail: 'bushy', tailL: 28, hump: 2 },
+  sloth: { bL: 42, bH: 26, bY: 42, legL: 18, legW: 8, neckL: 10, neckA: -.4, neckW: 15, headR: 12, snoutL: 14, snoutH: 8, ear: 'small', earS: 5, tail: 'short', tailL: 10, hump: 5 },
+  hippo: { bL: 58, bH: 34, bY: 42, legL: 15, legW: 13, neckL: 6, neckA: -.2, neckW: 24, headR: 17, snoutL: 18, snoutH: 16, ear: 'small', earS: 6, tail: 'thin', tailL: 10, hump: 3 },
+  rhino: { bL: 58, bH: 34, bY: 48, legL: 22, legW: 13, neckL: 8, neckA: -.3, neckW: 23, headR: 14, snoutL: 20, snoutH: 12, ear: 'pointed', earS: 8, tail: 'thin', tailL: 14, hump: 8 },
+  elephant: { bL: 60, bH: 42, bY: 56, legL: 30, legW: 16, neckL: 6, neckA: -.35, neckW: 28, headR: 20, snoutL: 0, snoutH: 0, ear: 'giant', earS: 22, tail: 'thin', tailL: 20, hump: 5 },
+  giraffe: { bL: 44, bH: 26, bY: 66, legL: 44, legW: 6, neckL: 56, neckA: -1.15, neckW: 12, headR: 10, snoutL: 12, snoutH: 7, ear: 'pointed', earS: 8, tail: 'thin', tailL: 22, hump: 8 },
 };
 
 /* ---- coat patterns ---- */
@@ -137,7 +137,7 @@ function drawHorn(c, x, y, kind, s, col) {
 }
 function drawEar(c, x, y, kind, s, fill, inner) {
   c._ink = inkFor(fill);
-  if (kind === 'ponta' || kind === 'tuft') {
+  if (kind === 'pointed' || kind === 'tuft') {
     // a wider base and a lower tip: that way the ear meets the skull instead
     // of floating as a loose triangle above the head
     c.beginPath(); c.moveTo(x - s * .8, y + s * .7); c.lineTo(x + s * .1, y - s * 1.02); c.lineTo(x + s * .9, y + s * .55); c.closePath();
@@ -148,7 +148,7 @@ function drawEar(c, x, y, kind, s, fill, inner) {
   } else if (kind === 'giant') {
     ellipse(c, x, y - s * .2, s * .78, s * 1.05, .25); ink(c, fill, 3.6);
     ellipse(c, x, y - s * .2, s * .44, s * .68, .25); c.fillStyle = inner; c.fill();
-  } else if (kind === 'caida') {
+  } else if (kind === 'drooping') {
     ellipse(c, x, y + s * .5, s * .5, s * .95, .35); ink(c, fill, 3.6);
   } else if (kind === 'long') {
     ellipse(c, x, y - s * .1, s * .38, s * 1.0, .35); ink(c, fill, 3.6);
@@ -177,7 +177,7 @@ function drawTail(c, x, y, kind, len, col, dark, wag) {
   } else if (kind === 'tuft') {
     limb(c, x, y, x - len * .85, y - len * .3 + w, 5, col);
     ellipse(c, x - len * .9, y - len * .34 + w, 6, 6); ink(c, dark, 3.4);
-  } else if (kind === 'crina') {
+  } else if (kind === 'mane') {
     for (let i = 0; i < 6; i++) limb(c, x, y, x - len * (.7 + i * .05), y + len * (.2 + i * .13) + w, 4, i % 2 ? dark : col);
   } else if (kind === 'paddle') {
     ellipse(c, x - len * .7, y - 2 + w, len * .55, len * .3, -.3); ink(c, dark, 3.6);
@@ -186,7 +186,7 @@ function drawTail(c, x, y, kind, len, col, dark, wag) {
     c.quadraticCurveTo(x - len * .7, y - len * .1, x - len, y - len * .5 + w);
     c.lineWidth = 22; c.strokeStyle = c._ink; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 17; c.strokeStyle = dark; c.stroke();
-  } else if (kind === 'short' || kind === 'fina') {
+  } else if (kind === 'short' || kind === 'thin') {
     limb(c, x, y, x - len * .8, y - len * .5 + w, kind === 'short' ? 6 : 3.5, col);
   } else { // longa
     c.beginPath(); c.moveTo(x, y);
@@ -342,8 +342,8 @@ function drawPrimate(c, sp, t) {
     c.fillStyle = c2; ellipse(c, hx - 3, hy + 4, 3.5, 7); c.fill(); ellipse(c, hx + 8, hy + 4, 3.5, 7); c.fill();
     c.fillStyle = '#d64a2a'; ellipse(c, hx + 3, hy + 8, 3, 7); c.fill();
   }
-  drawEar(c, hx - 14, hy - 2, 'redonda', 8, c1, shade(c1, -.3));
-  drawEar(c, hx + 14, hy - 2, 'redonda', 8, c1, shade(c1, -.3));
+  drawEar(c, hx - 14, hy - 2, 'round', 8, c1, shade(c1, -.3));
+  drawEar(c, hx + 14, hy - 2, 'round', 8, c1, shade(c1, -.3));
   eye(c, hx - 2, hy - 1, 4); eye(c, hx + 7, hy - 1, 4);
   if (sp.o.tail === 'ringed') drawTail(c, bx - 15, hipY - 6, 'ringed', 38, c1, sp.c2, sw * 4);
 }
@@ -529,7 +529,7 @@ function drawTurtle(c, sp, t) {
   limb(c, bx + 24, bY - 2, hx, hy, 9, c1);
   ellipse(c, hx + 3, hy, 9, 7.5); ink(c, c1, 4);
   dotEye(c, hx + 5, hy - 2, 2.6);
-  drawTail(c, bx - 29, bY + 2, 'fina', 10, c1, c2, 0);
+  drawTail(c, bx - 29, bY + 2, 'thin', 10, c1, c2, 0);
 }
 
 /* ---- AMPHIBIAN ---- */
@@ -640,8 +640,8 @@ function drawBat(c, sp, t) {
   ellipse(c, bx, bY, 10, 15); ink(c, c1, 4.2);
   const hy = bY - 17;
   ellipse(c, bx, hy, 10, 9); ink(c, c1, 4);
-  drawEar(c, bx - 6, hy - 9, 'ponta', 9, c1, shade(c1, -.3));
-  drawEar(c, bx + 6, hy - 9, 'ponta', 9, c1, shade(c1, -.3));
+  drawEar(c, bx - 6, hy - 9, 'pointed', 9, c1, shade(c1, -.3));
+  drawEar(c, bx + 6, hy - 9, 'pointed', 9, c1, shade(c1, -.3));
   ellipse(c, bx, hy + 4, 5, 4); ink(c, shade(c1, .18), 2.8);
   dotEye(c, bx - 3.5, hy - 1, 2.4); dotEye(c, bx + 3.5, hy - 1, 2.4);
   for (const d of [-1, 1]) limb(c, bx + d * 4, bY + 13, bx + d * 5, GND - 4, 3, c1);
@@ -715,7 +715,7 @@ function drawXenarthra(c, sp, t) {
     ellipse(c, hx, bY - 4, 11, 7, .12); ink(c, c1, 4);
     drawEar(c, hx - 4, bY - 12, 'long', 7, c1, shade(c1, -.3));
     dotEye(c, hx + 4, bY - 6, 2.4);
-    drawTail(c, bx - 27, bY - 2, 'fina', 20, c1, sp.c2, sw * 3);
+    drawTail(c, bx - 27, bY - 2, 'thin', 20, c1, sp.c2, sw * 3);
     return;
   }
   drawQuad(c, sp, t);

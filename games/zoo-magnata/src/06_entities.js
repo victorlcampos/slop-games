@@ -1,5 +1,5 @@
 /* ==========================================================================
-   6. ESTADO GLOBAL
+   6. GLOBAL STATE
    ========================================================================== */
 /* The shape of the two bookkeeping objects, in one place: the running game
    starts from it and a loaded save is measured against it (see keepShape). */
@@ -11,24 +11,24 @@ const G = {
   // a low opening ticket: a zoo that just opened has little to show, and a high
   // starting price would scare the public off before the first enclosure pays
   money: 200000, ticket: 10, day: 1, hour: 8, speed: 1, prevSpeed: 1,
-  rep: 2.5, netVer: 0, animais: 0,
+  rep: 2.5, netVer: 0, animalCount: 0,
   dirty: { terr: true, net: true },
   animals: [], visitors: [], staff: [], escaped: [],
-  sel: null,             // seleção atual {tipo, ref}
-  tool: null,            // ferramenta ativa
+  sel: null,             // the current selection {kind, ref}
+  tool: null,            // the active tool
   toolCat: null,
-  drag: null,            // arraste de construção
+  drag: null,            // a build drag in progress
   cam: { x: 0, y: 0, z: 1 },
   stats: newStats(),
   ledger: newLedger(),
   research: { marketing: 0 },
-  repLog: [],            // extrato de choques na reputação (painel ⭐)
-  nVets: 0,              // veterinários no quadro (contado no tick; acelera cria)
-  undo: [],              // últimas compras desfazíveis (não persiste no save)
-  maxVis: 280,           // ajustado no boot conforme o tamanho da tela
-  bubbles: 1,             // balões de pensamento: 0 off · 1 só problemas · 2 tudo
-  terrVer: 0,            // versão do terreno (invalida cache de encMix)
-  fairCache: 0,         // preço justo recalculado 1x por segundo
+  repLog: [],            // the statement of hits to reputation (⭐ panel)
+  nVets: 0,              // vets on the payroll (counted in the tick; speeds up breeding)
+  undo: [],              // the last undoable purchases (not persisted in the save)
+  maxVis: 280,           // adjusted at boot from the screen size
+  bubbles: 1,             // thought bubbles: 0 off · 1 problems only · 2 everything
+  terrVer: 0,            // the terrain version (invalidates the encMix cache)
+  fairCache: 0,         // the fair price, recomputed once a second
   lastBill: 1,
   loan: 0, dailyInterest: 0,
   gameOver: false,
@@ -44,15 +44,15 @@ function spend(v, k) { G.money -= v; lgr(k || 'build', v); }
 function earn(v, k) { G.money += v; lgr(k || 'shop', v); }
 
 /* ==========================================================================
-   6b. PENSAMENTOS — o que cada bicho e cada pessoa está achando
-   Cada entidade guarda {urg, em, txt}: urgência 0..1, ícone e texto. A urgência
-   ordena os candidatos (mostra-se o mais gritante) e decide se o balão aparece
-   no modo "só problemas". O ícone é escolhido para ENSINAR: o bicho com fome
-   pensa na comida da diet dele, e o que está no biome errado mostra o biome
-   que quer — dá para varrer o mapa e saber o que construir.
+   6b. THOUGHTS — what each animal and each person makes of it all
+   Every entity keeps {urg, em, txt}: urgency 0..1, an icon and text. The urgency
+   orders the candidates (the loudest one shows) and decides whether the bubble
+   appears in "problems only" mode. The icon is chosen to TEACH: a hungry animal
+   thinks of the food for its diet, and one in the wrong biome shows the biome it
+   wants — so you can sweep the map and know what to build.
    ========================================================================== */
 const P_ = (urg, em, txt) => ({ urg, em, txt });
-const COMIDA_EM = { herb: '🥬', carn: '🥩', omni: '🍎', pisc: '🐟', inse: '🦗', frug: '🍌' };
+const FOOD_EM = { herb: '🥬', carn: '🥩', omni: '🍎', pisc: '🐟', inse: '🦗', frug: '🍌' };
 
 function animalThought(a) {
   const sp = a.sp, e = enclosures.get(a.enc);
@@ -60,98 +60,102 @@ function animalThought(a) {
   if (a.sick) return P_(.96, '🤒', LN('Doente — chame o veterinário|Sick — call the vet'));
   if (!e) return P_(.9, '❓', LN('Sem recinto|No enclosure'));
   if (a.thirst > .8) return P_(.93, '💧', LN('Sem água no bebedouro|No water in the trough'));
-  if (a.hunger > .8) return P_(.91, COMIDA_EM[sp.diet], LN('Sem comida no cocho|No food in the feeder'));
+  if (a.hunger > .8) return P_(.91, FOOD_EM[sp.diet], LN('Sem comida no cocho|No food in the feeder'));
   const F = FENCES[e.fence];
-  const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
+  const kin = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
   const cand = [];
-  if (encArea(e) < sp.space * Math.max(1, irmaos) * .85) cand.push([.86, '😖', LN('Recinto tight|Cramped enclosure')]);
+  if (encArea(e) < sp.space * Math.max(1, kin) * .85) cand.push([.86, '😖', LN('Recinto apertado|Cramped enclosure')]);
   if (e.cleanliness < .4) cand.push([.78, '💩', LN('Recinto sujo|Dirty enclosure')]);
   if (sp.danger > F.strength) cand.push([.74, '⚠️', LN('Consegue escapar dessa cerca|Could get past this fence')]);
   if (a.health < .5) cand.push([.72, '🤕', LN('Saúde fraca|Poor health')]);
   if (terrainScore(e, sp) < .5) cand.push([.7, BIOMES[sp.biome].em, LN('Quer terreno de |Wants ') + LN(sp.biomeName) + LN('| terrain')]);
-  if (irmaos < sp.groupMin) cand.push([.66, '👥', BI`Solitário — quer ${sp.groupMin}+ da espécie|Lonely — wants ${sp.groupMin}+ of its kind`]);
-  if (irmaos > sp.groupMax) cand.push([.62, '😤', LN('Grupo grande demais|Group too large')]);
+  if (kin < sp.groupMin) cand.push([.66, '👥', BI`Solitário — quer ${sp.groupMin}+ da espécie|Lonely — wants ${sp.groupMin}+ of its kind`]);
+  if (kin > sp.groupMax) cand.push([.62, '😤', LN('Grupo grande demais|Group too large')]);
   if (sp.flies && !F.aviary) cand.push([.6, '🕸️', LN('Precisa de tela de aviário|Needs aviary mesh')]);
   if (sp.aquatic && !F.aquarium) cand.push([.6, '🌊', LN('Precisa de vidro de aquário|Needs aquarium glass')]);
   if (encEnrich(e) < .3) cand.push([.55, '🥱', LN('Sem nada para fazer|Nothing to do')]);
-  if (a.hunger > .5) cand.push([.5, COMIDA_EM[sp.diet], LN('Com fome|Hungry')]);
+  if (a.hunger > .5) cand.push([.5, FOOD_EM[sp.diet], LN('Com fome|Hungry')]);
   if (cand.length) { cand.sort((x, y) => y[0] - x[0]); return P_(...cand[0]); }
-  if (a.pregnant > 0) return P_(.34, '🤰', 'Gestante');
-  if (a.age / sp.lifespan > .9) return P_(.32, '👴', 'Bem velhinho');
-  if (a.age < 1) return P_(.26, '🍼', 'Filhote');
-  if (a.state === 'brincando') return P_(.18, '⚽', 'Brincando!');
-  if (a.state === 'comendo') return P_(.2, '😋', 'Comendo');
-  if (a.happy > .82) return P_(.16, '💚', 'Muito feliz aqui');
-  if (a.state === 'parado') return P_(.12, '😴', 'Descansando');
-  return P_(.1, '🙂', 'Tranquilo');
+  if (a.pregnant > 0) return P_(.34, '🤰', LN('Gestante|Expecting'));
+  if (a.age / sp.lifespan > .9) return P_(.32, '👴', LN('Bem velhinho|Getting on in years'));
+  if (a.age < 1) return P_(.26, '🍼', LN('Filhote|A youngster'));
+  if (a.state === 'playing') return P_(.18, '⚽', LN('Brincando!|Playing!'));
+  if (a.state === 'eating') return P_(.2, '😋', LN('Comendo|Eating'));
+  if (a.happy > .82) return P_(.16, '💚', LN('Muito feliz aqui|Very happy here'));
+  if (a.state === 'idle') return P_(.12, '😴', LN('Descansando|Resting'));
+  return P_(.1, '🙂', LN('Tranquilo|All quiet'));
 }
 
 function visitorThought(v) {
   const N = v.need, cand = [];
   const i = IDX(clamp(v.x | 0, 0, W - 1), clamp(v.y | 0, 0, H - 1));
-  if (G.escaped.length) cand.push([.99, '😱', 'Tem animal solto no parque!']);
-  if (N.banheiro > .85) cand.push([.92, '🚻', 'Preciso de banheiro, urgente']);
-  if (N.thirst > .85) cand.push([.9, '🥤', 'Morrendo de sede']);
-  if (N.hunger > .85) cand.push([.88, '🍔', 'Faminto']);
-  if (N.energia > .85) cand.push([.82, '😩', 'Exausto, quero sentar']);
-  if (world.lixo[i] > .5) cand.push([.8, '🤢', 'Que sujeira nessa trilha']);
-  if (v.saindo && v.mood < .3) cand.push([.79, '😠', 'Indo embora irritado']);
-  if (N.diversao > .78) cand.push([.7, '🥱', 'Tédio, quero ver mais bicho']);
-  if (G.ticket > (G.fairCache || 0) * 1.4) cand.push([.64, '💸', 'Ingresso caro pelo que tem']);
-  if (N.banheiro > .6) cand.push([.55, '🚻', 'Procurando banheiro']);
-  if (N.thirst > .58) cand.push([.53, '🥤', 'Com sede']);
+  if (G.escaped.length) cand.push([.99, '😱', LN('Tem animal solto no parque!|There is an animal loose in the park!')]);
+  if (N.toilet > .85) cand.push([.92, '🚻', LN('Preciso de banheiro, urgente|I need a restroom, now')]);
+  if (N.thirst > .85) cand.push([.9, '🥤', LN('Morrendo de sede|Dying of thirst')]);
+  if (N.hunger > .85) cand.push([.88, '🍔', LN('Faminto|Starving')]);
+  if (N.energy > .85) cand.push([.82, '😩', LN('Exausto, quero sentar|Exhausted, I want to sit down')]);
+  if (world.litter[i] > .5) cand.push([.8, '🤢', LN('Que sujeira nessa trilha|What a filthy path')]);
+  if (v.leaving && v.mood < .3) cand.push([.79, '😠', LN('Indo embora irritado|Leaving annoyed')]);
+  if (N.fun > .78) cand.push([.7, '🥱', LN('Tédio, quero ver mais bicho|Bored, I want to see more animals')]);
+  if (G.ticket > (G.fairCache || 0) * 1.4) cand.push([.64, '💸', LN('Ingresso caro pelo que tem|Pricey ticket for what is here')]);
+  if (N.toilet > .6) cand.push([.55, '🚻', LN('Procurando banheiro|Looking for a restroom')]);
+  if (N.thirst > .58) cand.push([.53, '🥤', LN('Com sede|Thirsty')]);
   if (N.hunger > .58) cand.push([.52, '🍟', LN('Com fome|Hungry')]);
-  if (N.energia > .62) cand.push([.46, '🪑', 'Cansado de andar']);
+  if (N.energy > .62) cand.push([.46, '🪑', LN('Cansado de andar|Tired of walking')]);
   if (cand.length) { cand.sort((x, y) => y[0] - x[0]); return P_(...cand[0]); }
-  if (v.action > 0 && v.target && v.target.kind === 'exib') return P_(.36, '😍', LN('Adorando esse animal|Loving this animal'));
-  if (v.item === 'comida') return P_(.24, '😋', 'Comendo algo gostoso');
-  if (v.item === 'balao') return P_(.22, '🎈', 'Levando lembrança');
-  if (world.bel[i] > 1.5) return P_(.2, '🌸', 'Que parque bonito');
-  if (v.mood > .85) return P_(.16, '😄', 'Passeio ótimo');
-  if (v.mood > .6) return P_(.12, '🙂', 'Curtindo o dia');
-  return P_(.1, '😐', 'Nada de mais');
+  if (v.action > 0 && v.target && v.target.kind === 'exhibit') return P_(.36, '😍', LN('Adorando esse animal|Loving this animal'));
+  if (v.item === 'food') return P_(.24, '😋', LN('Comendo algo gostoso|Eating something tasty'));
+  if (v.item === 'balloon') return P_(.22, '🎈', LN('Levando lembrança|Taking home a souvenir'));
+  if (world.beauty[i] > 1.5) return P_(.2, '🌸', LN('Que parque bonito|What a pretty park'));
+  if (v.mood > .85) return P_(.16, '😄', LN('Passeio ótimo|A great day out'));
+  if (v.mood > .6) return P_(.12, '🙂', LN('Curtindo o dia|Enjoying the day'));
+  return P_(.1, '😐', LN('Nada de mais|Nothing special'));
 }
 
 /** recomputes the thought every so often (doing it every frame is not worth it) */
 function refreshThought(ent, dt, fn) {
-  ent.pensaT = (ent.pensaT || 0) - dt;
-  if (ent.pensaT > 0 && ent.pensa) return;
-  ent.pensaT = rnd(1.1, 1.9);
-  ent.pensa = fn(ent);
+  ent.thoughtT = (ent.thoughtT || 0) - dt;
+  if (ent.thoughtT > 0 && ent.thought) return;
+  ent.thoughtT = rnd(1.1, 1.9);
+  ent.thought = fn(ent);
 }
 
 /* ==========================================================================
-   7. ANIMAIS
+   7. ANIMALS
    ========================================================================== */
-const NOMES_A = ['Bento', 'Lua', 'Thor', 'Nina', 'Simba', 'Maya', 'Zeca', 'Aurora', 'Duque', 'Pipoca', 'Mel', 'Rex',
-  'Íris', 'Bolt', 'Zara', 'Nala', 'Kiko', 'Amora', 'Toby', 'Safira', 'Odin', 'Jade', 'Rocky', 'Fiona',
-  'Bruno', 'Cacau', 'Loki', 'Estrela', 'Max', 'Pérola', 'Apolo', 'Sofia', 'Gaia', 'Zeus', 'Bela', 'Fred',
-  'Tuca', 'Manu', 'Kaio', 'Lola', 'Otto', 'Vida', 'Índigo', 'Nuvem', 'Brisa', 'Tango', 'Fumaça', 'Canela'];
+/* Names given to the animals. They are proper nouns, so they do not go through
+   LN() — but the Portuguese common nouns that were in here (Pipoca, Estrela,
+   Fumaça...) read as untranslated text to an English player, so they became the
+   names an English-speaking zoo would actually use. */
+const ANIMAL_NAMES = ['Bento', 'Luna', 'Thor', 'Nina', 'Simba', 'Maya', 'Ziggy', 'Aurora', 'Duke', 'Popcorn', 'Honey', 'Rex',
+  'Iris', 'Bolt', 'Zara', 'Nala', 'Kiko', 'Berry', 'Toby', 'Sapphire', 'Odin', 'Jade', 'Rocky', 'Fiona',
+  'Bruno', 'Cocoa', 'Loki', 'Star', 'Max', 'Pearl', 'Apollo', 'Sofia', 'Gaia', 'Zeus', 'Bella', 'Fred',
+  'Tucker', 'Milo', 'Kai', 'Lola', 'Otto', 'Willow', 'Indigo', 'Cloud', 'Breeze', 'Tango', 'Smoky', 'Cinnamon'];
 
 function newAnimal(sp, encId, age) {
   const a = {
     id: uid(), sp, enc: encId,
-    name: pick(NOMES_A), sex: Math.random() < .5 ? 'M' : 'F',
+    name: pick(ANIMAL_NAMES), sex: Math.random() < .5 ? 'M' : 'F',
     age: age !== undefined ? age : rnd(sp.lifespan * .15, sp.lifespan * .45),
     hunger: rnd(.1, .35), thirst: rnd(.1, .35), health: 1, happy: .7,
     sick: false, pregnant: 0, dead: false, escaped: false,
     x: 0, y: 0, tx: 0, ty: 0, dir: 1, frame: rndi(0, 5), anim: 0,
-    state: 'parado', espera: rnd(1, 4), fofoca: 0,
+    state: 'idle', wait: rnd(1, 4), gossip: 0,
   };
   const e = enclosures.get(encId);
-  if (e) { const t = encTileAleatorio(e); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; } }
+  if (e) { const t = encRandomTile(e); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; } }
   G.animals.push(a);
   return a;
 }
-function animalScore(a) { // felicidade decomposta (usada no inspetor)
+function animalScore(a) { // happiness broken down (used by the inspector)
   const e = enclosures.get(a.enc);
-  if (!e) return { total: .3, itens: [] };
+  if (!e) return { total: .3, items: [] };
   const sp = a.sp;
-  const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.dead);
-  const area = encArea(e), needs = sp.space * Math.max(1, irmaos.length);
+  const kin = e.animals.filter(z => z.sp.id === sp.id && !z.dead);
+  const area = encArea(e), needs = sp.space * Math.max(1, kin.length);
   const space = clamp(area / needs, 0, 1.35) / 1.35;
   const terr = terrainScore(e, sp);
-  const n = irmaos.length;
+  const n = kin.length;
   const social = n < sp.groupMin ? clamp(.35 + n / Math.max(1, sp.groupMin) * .55, 0, 1)
     : n > sp.groupMax ? clamp(1 - (n - sp.groupMax) / sp.groupMax * .8, .1, 1) : 1;
   const enr = encEnrich(e);
@@ -162,13 +166,13 @@ function animalScore(a) { // felicidade decomposta (usada no inspetor)
   const aer = sp.flies && !F.aviary ? .55 : 1;
   const aqu = sp.aquatic && !F.aquarium ? .6 : 1;
   const hunger = 1 - clamp(a.hunger - .45, 0, .55) / .55 * .9;
-  const itens = [
+  const items = [
     [LN('Espaço|Space'), space, .19], [LN('Terreno/bioma|Terrain/biome'), terr, .19], [LN('Convívio|Company'), social, .13],
     [LN('Enriquecimento|Enrichment'), enr, .12], [LN('Limpeza|Cleanliness'), limp, .11], [LN('Saúde|Health'), health, .12],
     [LN('Alimentação|Feeding'), hunger, .08], [LN('Recinto adequado|Suitable enclosure'), Math.min(seg, aer, aqu), .06],
   ];
-  let total = 0; for (const [, v, w] of itens) total += v * w;
-  return { total: clamp(total, 0, 1), itens };
+  let total = 0; for (const [, v, w] of items) total += v * w;
+  return { total: clamp(total, 0, 1), items };
 }
 
 function updAnimal(a, dt, gh) {
@@ -177,7 +181,7 @@ function updAnimal(a, dt, gh) {
   // envelhecimento
   a.age += gh / (24 * YEAR_DAYS);
   const old = a.age / sp.lifespan;
-  // fome / sede
+  // hunger / thirst
   const rate = .028 + sp.scale * .012;
   a.hunger = clamp(a.hunger + rate * gh * .1, 0, 1);
   a.thirst = clamp(a.thirst + rate * gh * .13, 0, 1);
@@ -185,7 +189,7 @@ function updAnimal(a, dt, gh) {
     if (encHasFeeder(e) && e.food > .05 && a.hunger > .35) {
       const q = Math.min(a.hunger, gh * .5);
       a.hunger -= q; e.food = clamp(e.food - q * .1 / Math.max(1, e.animals.length), 0, 1);
-      a.state = 'comendo';
+      a.state = 'eating';
     }
     if (encHasWater(e) && e.water > .05 && a.thirst > .35) {
       const q = Math.min(a.thirst, gh * .6);
@@ -203,30 +207,30 @@ function updAnimal(a, dt, gh) {
   a.health = clamp(a.health + dh * gh * .04, 0, 1);
   // illness
   if (!a.sick && Math.random() < gh * .0016 * (2 - a.health) * (e ? (2 - e.cleanliness) : 2)) {
-    a.sick = true; SFX.play('doente');
+    a.sick = true; SFX.play('sick');
     toast(BI`🤒 ${a.name} (${LN(sp.name)}) adoeceu!|🤒 ${a.name} (${LN(sp.name)}) has fallen ill!`, 'bad');
   }
-  // morte
+  // death
   if (a.health <= 0 || (old > 1 && Math.random() < gh * .02)) {
     a.dead = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
     repEvento(-.12, old > 1
       ? BI`${a.name} (${LN(sp.name)}) morreu de velhice|${a.name} (${LN(sp.name)}) died of old age`
       : BI`${a.name} (${LN(sp.name)}) morreu|${a.name} (${LN(sp.name)}) died`, '💀');
-    SFX.play('morte');
+    SFX.play('death');
     toast(old > 1
       ? BI`💀 ${a.name} (${LN(sp.name)}) morreu de velhice|💀 ${a.name} (${LN(sp.name)}) died of old age`
       : BI`💀 ${a.name} (${LN(sp.name)}) morreu|💀 ${a.name} (${LN(sp.name)}) died`, 'bad');
     return;
   }
-  // felicidade
+  // happiness
   const p = animalScore(a);
   a.happy = lerp(a.happy, p.total, clamp(gh * .25, 0, 1));
   // fuga
   if (e && !a.escaped) {
     const F = FENCES[e.fence];
     if (sp.danger > F.strength && Math.random() < gh * .0022 * (sp.danger - F.strength) * (1.4 - a.happy)) {
-      a.escaped = true; G.escaped.push(a); SFX.play('alarme');
+      a.escaped = true; G.escaped.push(a); SFX.play('alarm');
       e.animals = e.animals.filter(z => z.id !== a.id);
       toast(BI`🚨 ${LN(sp.name)} FUGIU do recinto!|🚨 A ${LN(sp.name)} ESCAPED the enclosure!`, 'bad');
       repEvento(-.3, BI`${LN(sp.name)} fugiu do recinto|A ${LN(sp.name)} escaped the enclosure`, '🚨');
@@ -241,9 +245,9 @@ function updAnimal(a, dt, gh) {
     if (a.pregnant > 0) {
       a.pregnant -= gh;
       if (a.pregnant <= 0) {
-        const irmaos = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
-        if (encArea(e) >= sp.space * (irmaos + 1) && irmaos < sp.groupMax + 2) {
-          const f = newAnimal(sp, e.id, 0.02); e.animals.push(f); SFX.play('nascimento');
+        const kin = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
+        if (encArea(e) >= sp.space * (kin + 1) && kin < sp.groupMax + 2) {
+          const f = newAnimal(sp, e.id, 0.02); e.animals.push(f); SFX.play('birth');
           toast(BI`🎉 Nasceu um filhote de ${LN(sp.name)}!|🎉 A baby ${LN(sp.name)} was born!`, 'good');
           repEvento(+.12, BI`Nasceu um filhote de ${LN(sp.name)}|A baby ${LN(sp.name)} was born`, '🎉');
         }
@@ -254,7 +258,7 @@ function updAnimal(a, dt, gh) {
         * (1 + .25 * Math.min(G.nVets, 4));                // the vets' breeding programme
       if (Math.random() < gh * fert &&
         e.animals.some(z => z.sp.id === sp.id && z.sex === 'M' && !z.dead && z.age > sp.lifespan * .18)) {
-        a.pregnant = 24 * clamp(sp.lifespan * .08, 1.5, 5);     // gestação proporcional
+        a.pregnant = 24 * clamp(sp.lifespan * .08, 1.5, 5);     // gestation scales with lifespan
       }
     }
   }
@@ -264,21 +268,21 @@ function updAnimal(a, dt, gh) {
 }
 function moveAnimal(a, dt, gh) {
   const sp = a.sp;
-  a.espera -= dt;
+  a.wait -= dt;
   const e = enclosures.get(a.enc);
   if (a.escaped) {
-    if (a.espera <= 0) {
+    if (a.wait <= 0) {
       a.tx = clamp(a.x + rnd(-8, 8), 1, W - 2); a.ty = clamp(a.y + rnd(-8, 8), 1, H - 2);
-      a.espera = rnd(2, 5);
+      a.wait = rnd(2, 5);
     }
-  } else if (e && a.espera <= 0) {
+  } else if (e && a.wait <= 0) {
     a.indoBrincar = 0;
-    const t0 = encTileAleatorio(e);
+    const t0 = encRandomTile(e);
     if (!t0) return;
     let bx = t0[0] + .5, by = t0[1] + .5;
-    if (sp.aquatic) { // procura água entre os tiles do recinto
+    if (sp.aquatic) { // looks for water among the enclosure's tiles
       for (let k = 0; k < 12; k++) {
-        const t = encTileAleatorio(e); if (!t) break;
+        const t = encRandomTile(e); if (!t) break;
         if (TKEYS[world.terr[IDX(t[0], t[1])]] === 'water') { bx = t[0] + .5; by = t[1] + .5; break; }
       }
     } else if (Math.random() < .3) {
@@ -291,8 +295,8 @@ function moveAnimal(a, dt, gh) {
       }
     }
     a.tx = bx; a.ty = by;
-    a.espera = rnd(1.5, 6) + (sp.scale > 1.3 ? 2 : 0);
-    a.state = 'andando';
+    a.wait = rnd(1.5, 6) + (sp.scale > 1.3 ? 2 : 0);
+    a.state = 'walking';
   }
   const d = dist(a.x, a.y, a.tx, a.ty);
   // in the water everything is slow (an aquatic species takes off)
@@ -306,14 +310,14 @@ function moveAnimal(a, dt, gh) {
     if (a.tx < a.x - .01) a.dir = -1; else if (a.tx > a.x + .01) a.dir = 1;
     a.x = nx; a.y = ny;
     a.anim += dt * (2.2 + vel);
-    a.state = a.sick ? 'doente' : 'andando';
-  } else if (a.state === 'andando') {
+    a.state = a.sick ? 'sick' : 'walking';
+  } else if (a.state === 'walking') {
     // arrived: if the target was a toy that is still there, it stays and plays
     const target = a.indoBrincar && e && e.objs.find(o => o.id === a.indoBrincar);
     if (target && dist(a.x, a.y, target.x + .5, target.y + .5) < 1.3) {
-      a.state = 'brincando';
+      a.state = 'playing';
       a.dir = Math.sign(target.x - target.y - (a.x - a.y)) || a.dir;   // de frente para ele
-    } else a.state = 'parado';
+    } else a.state = 'idle';
     a.indoBrincar = 0;
   }
   a.frame = Math.floor(a.anim) % FRAMES;
@@ -328,10 +332,10 @@ function newVisitor() {
     id: uid(), kind: 'vis',
     x: ENTRANCE.x + .5, y: ENTRANCE.y + .5, dir: -1, anim: 0, frame: 0,
     path: null, pi: 0, target: null, targetKind: null, action: 0,
-    need: { hunger: rnd(0, .3), thirst: rnd(0, .35), banheiro: rnd(0, .2), energia: rnd(0, .2), diversao: rnd(.3, .6) },
+    need: { hunger: rnd(0, .3), thirst: rnd(0, .35), toilet: rnd(0, .2), energy: rnd(0, .2), fun: rnd(.3, .6) },
     money: rnd(40, 260) * (child ? .5 : 1),
     mood: clamp(.55 + G.rep * .07 - Math.max(0, G.ticket - 30) * .004, .15, 1),
-    vistos: new Set(), time: 0, child, item: null, indo: false, saindo: false,
+    seen: new Set(), time: 0, child, item: null, heading: false, leaving: false,
     // the duration is rolled ONCE, at birth: re-rolling rnd() every tick made
     // everyone leave at the bottom of the range and nobody reached the shops
     duration: rnd(6, 11),
@@ -349,18 +353,18 @@ function newVisitor() {
 function bestTarget(v) {
   // urgent needs
   const N = v.need;
-  const ordem = [['banheiro', N.banheiro, 'banheiro'], ['sede', N.thirst, 'sede'],
-  ['fome', N.hunger, 'fome'], ['energia', N.energia, 'energia']];
+  const ordem = [['toilet', N.toilet, 'toilet'], ['thirst', N.thirst, 'thirst'],
+  ['hunger', N.hunger, 'hunger'], ['energy', N.energy, 'energy']];
   ordem.sort((a, b) => b[1] - a[1]);
   for (const [name, val, supre] of ordem) {
     if (val > .5) {
-      const o = achaServico(supre, v);
+      const o = findJob(supre, v);
       if (o) return { kind: 'obj', ref: o, x: o.x, y: o.y };
       v.mood = clamp(v.mood - .0007 * (val - .6) * 100, 0, 1);
     }
   }
-  if (N.diversao > .5 && Math.random() < .4) {
-    const o = achaServico('diversao', v);
+  if (N.fun > .5 && Math.random() < .4) {
+    const o = findJob('fun', v);
     if (o && Math.random() < .5) return { kind: 'obj', ref: o, x: o.x, y: o.y };
   }
   // an exhibit not yet seen
@@ -369,13 +373,13 @@ function bestTarget(v) {
     if (!e.animals.length) continue;
     const vs = encViewSpots(e);
     if (!vs.length) continue;
-    const peso = (v.vistos.has(e.id) ? .12 : 1) * (1 + e.animals.reduce((s, a) => s + a.sp.appeal, 0) / 12);
-    cands.push({ e, vs, peso });
+    const weight = (v.seen.has(e.id) ? .12 : 1) * (1 + e.animals.reduce((s, a) => s + a.sp.appeal, 0) / 12);
+    cands.push({ e, vs, weight });
   }
   if (cands.length) {
-    let tot = 0; for (const c of cands) tot += c.peso;
+    let tot = 0; for (const c of cands) tot += c.weight;
     let r = Math.random() * tot;
-    for (const c of cands) { r -= c.peso; if (r <= 0) { const s = pick(c.vs); return { kind: 'exib', ref: c.e, x: s[0], y: s[1] }; } }
+    for (const c of cands) { r -= c.weight; if (r <= 0) { const s = pick(c.vs); return { kind: 'exhibit', ref: c.e, x: s[0], y: s[1] }; } }
   }
   return null;
 }
@@ -388,7 +392,7 @@ function objAcessivel(o) {
   o._acc = !!nearestPathTile(o.x, o.y, 4);
   return o._acc;
 }
-function achaServico(supre, v) {
+function findJob(supre, v) {
   let best = null, bd = 1e9;
   for (const o of objects.values()) {
     if (o.cat !== 'build') continue;
@@ -410,34 +414,34 @@ function updVisitor(v, dt, gh) {
   const N = v.need;
   N.hunger = clamp(N.hunger + gh * .125, 0, 1);
   N.thirst = clamp(N.thirst + gh * .16, 0, 1);
-  N.banheiro = clamp(N.banheiro + gh * .10, 0, 1);
-  N.energia = clamp(N.energia + gh * .085, 0, 1);
-  N.diversao = clamp(N.diversao + gh * .07, 0, 1);
+  N.toilet = clamp(N.toilet + gh * .10, 0, 1);
+  N.energy = clamp(N.energy + gh * .085, 0, 1);
+  N.fun = clamp(N.fun + gh * .07, 0, 1);
 
   // ambiente afeta humor
   const i = IDX(clamp(v.x | 0, 0, W - 1), clamp(v.y | 0, 0, H - 1));
   let dm = 0;
-  dm += clamp(world.bel[i], 0, 3) * .0016;
-  dm -= world.lixo[i] * .004;
-  dm -= (N.hunger > .8 ? .004 : 0) + (N.thirst > .8 ? .005 : 0) + (N.banheiro > .85 ? .006 : 0) + (N.energia > .85 ? .003 : 0);
+  dm += clamp(world.beauty[i], 0, 3) * .0016;
+  dm -= world.litter[i] * .004;
+  dm -= (N.hunger > .8 ? .004 : 0) + (N.thirst > .8 ? .005 : 0) + (N.toilet > .85 ? .006 : 0) + (N.energy > .85 ? .003 : 0);
   if (G.escaped.length) dm -= .006 * Math.min(G.escaped.length, 4);
   v.mood = clamp(v.mood + dm * gh * 10, 0, 1);
   // litters the ground
   if (world.path[i] && Math.random() < gh * .06) {
-    const temLixeira = [...objects.values()].some(o => o.kind === 'lixeira' && dist2(o.x, o.y, v.x, v.y) < 36);
-    world.lixo[i] = clamp(world.lixo[i] + (temLixeira ? .04 : .3), 0, 1);
+    const hasBin = [...objects.values()].some(o => o.kind === 'lixeira' && dist2(o.x, o.y, v.x, v.y) < 36);
+    world.litter[i] = clamp(world.litter[i] + (hasBin ? .04 : .3), 0, 1);
   }
   refreshThought(v, dt, visitorThought);
   // An action in progress beats the decision to leave: interrupting here zeroed
   // the target mid-purchase and the sale was never recorded.
   if (v.action > 0) { v.action -= dt; if (v.action <= 0) finishAction(v); return; }
   // ir embora?
-  if (!v.saindo && (v.time > v.duration || v.mood < .12 || (G.hour >= CLOSE_H - .5))) {
-    v.saindo = true; v.target = null; v.path = null;
+  if (!v.leaving && (v.time > v.duration || v.mood < .12 || (G.hour >= CLOSE_H - .5))) {
+    v.leaving = true; v.target = null; v.path = null;
   }
-  // precisa de alvo
+  // it needs a target
   if (!v.path || v.pi >= v.path.length) {
-    if (v.saindo) {
+    if (v.leaving) {
       const d = dist(v.x, v.y, ENTRANCE.x + .5, ENTRANCE.y + .5);
       if (d < 1.2) { visitorLeaves(v); return; }
       const st = nearestPathTile(v.x | 0, v.y | 0);
@@ -445,7 +449,7 @@ function updVisitor(v, dt, gh) {
       if (p) { v.path = p; v.pi = 0; } else { visitorLeaves(v); return; }
     } else {
       const target = bestTarget(v);
-      if (!target) { v.mood = clamp(v.mood - .004 * gh * 10, 0, 1); v.espera = 1; wander(v); return; }
+      if (!target) { v.mood = clamp(v.mood - .004 * gh * 10, 0, 1); v.wait = 1; wander(v); return; }
       let tx = target.x, ty = target.y;
       if (target.kind === 'obj') { const nt = nearestPathTile(target.ref.x, target.ref.y, 5); if (!nt) { v.mood -= .01; return; } tx = nt[0]; ty = nt[1]; }
       const st = nearestPathTile(v.x | 0, v.y | 0);
@@ -458,10 +462,10 @@ function updVisitor(v, dt, gh) {
     const [px, py] = v.path[v.pi];
     const tx = px + .5 + v.jx, ty = py + .5 + v.jy;
     const d = dist(v.x, v.y, tx, ty);
-    const spd = 1.55 * (v.child ? .9 : 1) * (1 - N.energia * .28);
+    const spd = 1.55 * (v.child ? .9 : 1) * (1 - N.energy * .28);
     if (d < .1) {
       v.pi++;
-      if (v.pi >= v.path.length) { chegou(v); }
+      if (v.pi >= v.path.length) { arrived(v); }
     } else {
       const s = Math.min(spd * dt, d);
       if (tx < v.x - .01) v.dir = -1; else if (tx > v.x + .01) v.dir = 1;
@@ -478,10 +482,10 @@ function wander(v) {
     if (world.path[IDX(tx, ty)]) { const p = findPath(st[0], st[1], tx, ty); if (p) { v.path = p; v.pi = 0; v.target = null; return; } }
   }
 }
-function chegou(v) {
+function arrived(v) {
   const a = v.target;
   if (!a) return;
-  if (a.kind === 'exib') {
+  if (a.kind === 'exhibit') {
     const e = a.ref;
     if (!enclosures.has(e.id)) { v.target = null; return; }
     const F = FENCES[e.fence];
@@ -490,8 +494,8 @@ function chegou(v) {
     if (n) {
       const bonus = (q / n) * F.sight / 10;
       v.mood = clamp(v.mood + bonus * .16, 0, 1);
-      v.need.diversao = clamp(v.need.diversao - bonus * .55, 0, 1);
-      if (!v.vistos.has(e.id)) { v.vistos.add(e.id); v.mood = clamp(v.mood + bonus * .1, 0, 1); }
+      v.need.fun = clamp(v.need.fun - bonus * .55, 0, 1);
+      if (!v.seen.has(e.id)) { v.seen.add(e.id); v.mood = clamp(v.mood + bonus * .1, 0, 1); }
       e.visitsToday = (e.visitsToday || 0) + 1;
     } else v.mood = clamp(v.mood - .05, 0, 1);
     v.action = rnd(1.2, 3);
@@ -517,13 +521,13 @@ function finishAction(v) {
   const price = priceOf(o);
   if (B.value > 0) {
     if (v.money < price) { v.mood = clamp(v.mood - .06, 0, 1); return; }
-    v.money -= price; earn(price, 'shop'); spend(B.unitCost, 'feed'); SFX.play('moeda');
+    v.money -= price; earn(price, 'shop'); spend(B.unitCost, 'feed'); SFX.play('coin');
     o.revenue += price - B.unitCost; o.sales++;
     // price perception: too dear and they resent it
     const just = clamp(1 - (price / Math.max(1, B.value) - 1) * .7, .1, 1.25);
     v.mood = clamp(v.mood + (just - .75) * .17, 0, 1);
-    if (o.kind === 'souvenir') v.item = 'balao';
-    else if (B.supplies === 'fome') v.item = 'comida';
+    if (o.kind === 'souvenir') v.item = 'balloon';
+    else if (B.supplies === 'hunger') v.item = 'food';
   }
   if (B.supplies) v.need[B.supplies] = clamp(v.need[B.supplies] - B.strength * .85, 0, 1);
   v.mood = clamp(v.mood + .035, 0, 1);
@@ -537,9 +541,9 @@ function visitorLeaves(v) {
 }
 
 /* ==========================================================================
-   9. FUNCIONÁRIOS
+   9. STAFF
    ========================================================================== */
-function contratar(kind) {
+function hire(kind) {
   const T = STAFF_TYPES[kind];
   const s = {
     id: uid(), kind, task: null, target: null, path: null, pi: 0, action: 0,
@@ -547,7 +551,7 @@ function contratar(kind) {
     skin: pick(SKINS), shirt: T.colour,
     pants: '#3a4048', hair: pick(HAIRS), longHair: Math.random() < .4,
     hat: kind === 'trat' ? '#8a6a3c' : kind === 'seg' ? '#2b2b33' : null,
-    role: kind, mood: .8, zoomScale: 1, feitos: 0,
+    role: kind, mood: .8, zoomScale: 1, done: 0,
   };
   G.staff.push(s);
   return s;
@@ -576,14 +580,14 @@ function findTask(s) {
   } else if (s.kind === 'fax') {
     let best = null, bd = 1e9;
     for (let k = 0; k < W * H; k++) {
-      if (world.lixo[k] < .3) continue;
+      if (world.litter[k] < .3) continue;
       const x = k % W, y = (k / W) | 0;
-      const d = dist2(x, y, s.x, s.y) / Math.max(.3, world.lixo[k]);
+      const d = dist2(x, y, s.x, s.y) / Math.max(.3, world.litter[k]);
       if (d < bd) { bd = d; best = [x, y]; }
     }
-    if (best) return { kind: 'lixo', ref: best, x: best[0], y: best[1] };
+    if (best) return { kind: 'litter', ref: best, x: best[0], y: best[1] };
   } else if (s.kind === 'seg') {
-    if (G.escaped.length) { const a = G.escaped[0]; return { kind: 'fuga', ref: a, x: a.x | 0, y: a.y | 0 }; }
+    if (G.escaped.length) { const a = G.escaped[0]; return { kind: 'escape', ref: a, x: a.x | 0, y: a.y | 0 }; }
   }
   return null;
 }
@@ -606,11 +610,11 @@ function updStaff(s, dt, gh) {
     }
   }
   const T = s.task;
-  const alvoX = (T.kind === 'animal' || T.kind === 'fuga') ? T.ref.x : T.x + .5;
-  const alvoY = (T.kind === 'animal' || T.kind === 'fuga') ? T.ref.y : T.y + .5;
-  const d = dist(s.x, s.y, alvoX, alvoY);
+  const goalX = (T.kind === 'animal' || T.kind === 'escape') ? T.ref.x : T.x + .5;
+  const goalY = (T.kind === 'animal' || T.kind === 'escape') ? T.ref.y : T.y + .5;
+  const d = dist(s.x, s.y, goalX, goalY);
   if (d < .8) { s.action = s.kind === 'trat' ? 2.2 : s.kind === 'vet' ? 3 : 1.1; }
-  else moveTo(s, alvoX, alvoY, dt, 1.9);
+  else moveTo(s, goalX, goalY, dt, 1.9);
 }
 function moveTo(s, tx, ty, dt, spd) {
   const d = dist(s.x, s.y, tx, ty);
@@ -623,7 +627,7 @@ function moveTo(s, tx, ty, dt, spd) {
 function runTask(s) {
   const T = s.task; s.task = null;
   if (!T) return;
-  s.feitos++;
+  s.done++;
   if (T.kind === 'enc') {
     const e = T.ref; if (!enclosures.has(e.id)) return;
     let cost = 0;
@@ -636,16 +640,16 @@ function runTask(s) {
     a.sick = false; a.health = clamp(a.health + .45, 0, 1);
     spend(320, 'upkeep');
     toast(BI`💉 ${a.name} foi tratado pelo veterinário|💉 ${a.name} was treated by the vet`, 'good');
-  } else if (T.kind === 'lixo') {
-    world.lixo[IDX(T.ref[0], T.ref[1])] = 0;
-  } else if (T.kind === 'fuga') {
+  } else if (T.kind === 'litter') {
+    world.litter[IDX(T.ref[0], T.ref[1])] = 0;
+  } else if (T.kind === 'escape') {
     const a = T.ref; if (!a.escaped) return;
     a.escaped = false;
     G.escaped = G.escaped.filter(z => z.id !== a.id);
     const e = enclosures.get(a.enc);
     if (e && enclosures.has(e.id)) {
       e.animals.push(a);
-      const t = encTileAleatorio(e); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; }
+      const t = encRandomTile(e); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; }
       toast(BI`🔒 ${LN(a.LN(sp.name))} foi recapturado|🔒 The ${LN(a.LN(sp.name))} was recaptured`, 'good');
     } else { a.dead = true; toast(BI`💀 ${LN(a.LN(sp.name))} se perdeu — o recinto não existe mais|💀 The ${LN(a.LN(sp.name))} was lost — its enclosure is gone`, 'bad'); }
   }

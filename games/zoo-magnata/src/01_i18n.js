@@ -26,19 +26,31 @@
 
 const I18N = Slop.createI18n({ dict: {} });
 
-/** Splits `'en|pt'` and returns the side that matches the current flag. */
+/**
+ * Splits `'pt|en'` and returns the side that matches the current flag.
+ *
+ * The order is Portuguese first because that is how the data was written — the
+ * species table, the terrains, the fences. BI below reads the same order, and
+ * the two MUST agree: while they disagreed, every LN() string came out in the
+ * language the player had just turned off.
+ */
 function LN(value) {
   if (typeof value !== 'string') return value;
   const bar = value.indexOf('|');
   if (bar < 0) return value;
-  return I18N.lang === 'pt' ? value.slice(bar + 1) : value.slice(0, bar);
+  return I18N.lang === 'en' ? value.slice(bar + 1) : value.slice(0, bar);
 }
 
-/** The English side — the stable identity used for seeds and sprite keys. */
+/**
+ * The English side — the stable identity behind sprite and voice seeds.
+ *
+ * It has to be one fixed side, never LN(): the seed feeds `hashStr`, so a key
+ * that changed with the flag would redraw all 219 species on every switch.
+ */
 function KEY(value) {
   if (typeof value !== 'string') return value;
   const bar = value.indexOf('|');
-  return bar < 0 ? value : value.slice(0, bar);
+  return bar < 0 ? value : value.slice(bar + 1);
 }
 
 /**

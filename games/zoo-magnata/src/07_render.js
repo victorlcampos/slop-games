@@ -32,14 +32,14 @@ function centerOn(x, y) { cam.x = VW / 2 - (x - y) * (TW / 2) * cam.z; cam.y = V
    Tudo aqui é redesenhado só quando G.dirty.terr liga; o frame a frame apenas
    blita o canvas. Três camadas: base (losangos + textura), franjas orgânicas
    entre terrenos, e a rede de trilhas com meio-fio, curvas e entradas de loja. */
-const T_GRAMA = TKEYS.indexOf('grass'), T_AGUA = TKEYS.indexOf('water'), T_PISO = TKEYS.indexOf('piso');
+const T_GRAMA = TKEYS.indexOf('grass'), T_WATER = TKEYS.indexOf('water'), T_PISO = TKEYS.indexOf('piso');
 const AGUA_FUNDA = shade(TERRAIN.water.c2, -.12);
 /* a softened alternate tone: pure c2 made too strong a checkerboard on the lawn */
 const TOM2 = {}; for (const k of TKEYS) TOM2[k] = mixc(TERRAIN[k].c, TERRAIN[k].c2, .6);
 const PISO_C = TERRAIN.piso.c, PISO_C2 = TERRAIN.piso.c2;
 const GUIA = shade(PISO_C, -.3);                 // meio-fio da trilha
-const PONTE_C = '#b08a55', PONTE_G = '#5e4326';  // trilha sobre água = ponte de madeira
-const LARG = .56;                                // largura da trilha, em fração de tile
+const BRIDGE_C = '#b08a55', BRIDGE_G = '#5e4326';  // trilha sobre água = ponte de madeira
+const TRAIL_W = .56;                                // largura da trilha, em fração de tile
 /* whoever has the higher priority pushes fringes over its neighbour (paving is
    left out:
    calçada tem borda reta) */
@@ -80,7 +80,7 @@ function buildTerrain() {
     const i = IDX(x, y);
     if (world.path[i]) _eff[i] = underlayOf(x, y);
   }
-  const water = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_AGUA;
+  const water = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_WATER;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), tk = TKEYS[_eff[i]], T = TERRAIN[tk];
     // the tile's centre: w2s(x+.5, y+.5) — fences, buildings and animals use the
@@ -91,8 +91,8 @@ function buildTerrain() {
     c.beginPath();
     c.moveTo(sx, sy - TH / 2); c.lineTo(sx + TW / 2, sy); c.lineTo(sx, sy + TH / 2); c.lineTo(sx - TW / 2, sy); c.closePath();
     const alt = r() < .5;
-    const funda = tk === 'water' && water(x, y - 1) && water(x + 1, y) && water(x, y + 1) && water(x - 1, y);
-    const baseColour = funda ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
+    const deep = tk === 'water' && water(x, y - 1) && water(x + 1, y) && water(x, y + 1) && water(x - 1, y);
+    const baseColour = deep ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
     c.fillStyle = baseColour;
     c.fill();
     // textura
@@ -121,7 +121,7 @@ function buildTerrain() {
         const py = sy - 6 + k * 9 + r() * 3;
         c.beginPath(); c.moveTo(sx - 16, py); c.quadraticCurveTo(sx - 4, py - 3, sx + 6, py); c.stroke();
       }
-      if (!funda && !world.path[i] && r() < .2) { // vitórias-régias na água rasa
+      if (!deep && !world.path[i] && r() < .2) { // vitórias-régias na água rasa
         const n = 1 + (r() < .35 ? 1 : 0);
         for (let k = 0; k < n; k++) {
           const px = sx - 13 + r() * 26, py = sy - 6 + r() * 12;
@@ -174,7 +174,7 @@ function buildTerrain() {
   terrainFringes(c);
   drawPaths(c);
   medalhoesDePraca(c);
-  entradasDeLoja(c);
+  shopDoors(c);
   enclosureWear(c);
   c.restore();
   G.dirty.terr = false;
@@ -288,7 +288,7 @@ function terrainFringes(c) {
         ellipse(c, hor ? ex + t : ex, hor ? ey : ey + t, hor ? rl : rp, hor ? rp : rl);
         c.fill();
       }
-      if (a === T_AGUA) {                          // espuma na margem, do lado da água
+      if (a === T_WATER) {                          // espuma na margem, do lado da água
         c.strokeStyle = 'rgba(255,255,255,.38)'; c.lineWidth = .05; c.lineCap = 'round';
         c.beginPath();
         if (hor) {
@@ -342,14 +342,14 @@ function cantosDePraca(c, x, y, con) {
     c.fill();
   }
 }
-function pathDetails(c, x, y, con, ponte) {
+function pathDetails(c, x, y, con, bridge) {
   const cx = x + .5, cy = y + .5;
   const r = mulberry(IDX(x, y) * 1597334677 >>> 0);
   c.lineCap = 'butt';
   for (let k = 0; k < 4; k++) {
     if (!con[k]) continue;
     const [dx, dy] = SIDES[k];
-    if (ponte) {                                  // tábuas atravessadas
+    if (bridge) {                                  // tábuas atravessadas
       c.strokeStyle = 'rgba(80,55,28,.4)'; c.lineWidth = .035;
       for (const t of [.16, .34]) {
         const px = cx + dx * t, py = cy + dy * t;
@@ -362,7 +362,7 @@ function pathDetails(c, x, y, con, ponte) {
       c.beginPath(); c.moveTo(px - dy * .2, py - dx * .2); c.lineTo(px + dy * .2, py + dx * .2); c.stroke();
     }
   }
-  if (!ponte && r() < .3) {
+  if (!bridge && r() < .3) {
     c.fillStyle = 'rgba(60,45,25,.1)';
     ellipse(c, cx + (r() - .5) * .3, cy + (r() - .5) * .3, .045, .03); c.fill();
   }
@@ -388,35 +388,35 @@ function drawPaths(c) {
     if (!world.path[i]) continue;
     const mir = [];
     for (let s = 0; s < 4; s++) { const [dx, dy] = SIDES[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
-    tiles.push([x, y, pathLinks(x, y), _eff[i] === T_AGUA, mir]);
+    tiles.push([x, y, pathLinks(x, y), _eff[i] === T_WATER, mir]);
   }
   // first the outline (the kerb) of them all, then the fill: the cores cover the
   // internal edges and the network becomes a continuous band
-  for (const [x, y, con, ponte, mir] of tiles) {
-    c.strokeStyle = ponte ? PONTE_G : GUIA; c.lineWidth = LARG + .1;
+  for (const [x, y, con, bridge, mir] of tiles) {
+    c.strokeStyle = bridge ? BRIDGE_G : GUIA; c.lineWidth = TRAIL_W + .1;
     tracePath(c, x, y, con); c.stroke();
-    c.fillStyle = ponte ? PONTE_G : GUIA;
+    c.fillStyle = bridge ? BRIDGE_G : GUIA;
     cantosDePraca(c, x, y, con);
     if (mir.length) mirante(c, x, y, mir, .05);
   }
-  for (const [x, y, con, ponte, mir] of tiles) {
-    c.strokeStyle = ponte ? PONTE_C : tileAlt(IDX(x, y)) ? PISO_C : PISO_C2; c.lineWidth = LARG;
+  for (const [x, y, con, bridge, mir] of tiles) {
+    c.strokeStyle = bridge ? BRIDGE_C : tileAlt(IDX(x, y)) ? PISO_C : PISO_C2; c.lineWidth = TRAIL_W;
     tracePath(c, x, y, con); c.stroke();
     c.fillStyle = c.strokeStyle;
     cantosDePraca(c, x, y, con);
     if (mir.length) mirante(c, x, y, mir, 0);
   }
-  for (const [x, y, con, ponte] of tiles) pathDetails(c, x, y, con, ponte);
+  for (const [x, y, con, bridge] of tiles) pathDetails(c, x, y, con, bridge);
 }
 
 /* ---- entrances: the pavement widens in a curve up to the door ---- */
-function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, colour, guideColour) {
+function gateFlare(c, e1x, e1y, e2x, e2y, vx, vy, colour, guideColour) {
   // e1→e2 = the door's edge; (vx,vy) points from that edge into the path tile.
   // The fan starts at the band's EDGE (.5−WIDTH/2 from the door) and opens to the
   // door — anchoring it on the path's axis made the side kerb cross the whole band.
   const mx = (e1x + e2x) / 2, my = (e1y + e2y) / 2;
   const ux = e2x - e1x, uy = e2y - e1y;
-  const edge = .5 - LARG / 2;
+  const edge = .5 - TRAIL_W / 2;
   const B1 = [mx - ux * .3 + vx * (edge + .06), my - uy * .3 + vy * (edge + .06)];
   const B2 = [mx + ux * .3 + vx * (edge + .06), my + uy * .3 + vy * (edge + .06)];
   const S1 = [mx - ux * .33 + vx * edge, my - uy * .33 + vy * edge];
@@ -433,7 +433,7 @@ function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, colour, guideColour) {
   c.beginPath(); c.moveTo(S1[0], S1[1]); c.quadraticCurveTo(Q1[0], Q1[1], A1[0], A1[1]); c.stroke();
   c.beginPath(); c.moveTo(S2[0], S2[1]); c.quadraticCurveTo(Q2[0], Q2[1], A2[0], A2[1]); c.stroke();
 }
-function capacho(c, mx, my, ux, uy, vx, vy, colour) {
+function doormat(c, mx, my, ux, uy, vx, vy, colour) {
   const cx = mx + vx * .12, cy = my + vy * .12;
   c.fillStyle = colour;
   c.beginPath();
@@ -464,7 +464,7 @@ function portaSpec(o) {
   if (!spec.E) { const m = o.y + ((o.h - 1) >> 1); if (pavedAt(X, m)) spec.E = { c: m + .5, tiles: [m] }; }
   return spec;
 }
-function entradasDeLoja(c) {
+function shopDoors(c) {
   for (const o of objects.values()) {
     if (o.cat !== 'build' || o.kind === 'lixeira' || o.kind === 'banco' || o.kind === 'bebedouro') continue;
     const B = BUILDINGS[o.kind];
@@ -472,17 +472,17 @@ function entradasDeLoja(c) {
     // only the S and E faces: they are the visible ones in isometric — behind, the roof covers
     if (spec.S) {
       const i = IDX(spec.S.tiles[0], Y);
-      const ponte = _eff[i] === T_AGUA;             // trilha sobre água: deck de madeira
-      flareDeEntrada(c, spec.S.c - .5, Y, spec.S.c + .5, Y, 0, 1,
-        ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
-      capacho(c, spec.S.c, Y, 1, 0, 0, 1, shade(B.colour, -.18));
+      const bridge = _eff[i] === T_WATER;             // trilha sobre água: deck de madeira
+      gateFlare(c, spec.S.c - .5, Y, spec.S.c + .5, Y, 0, 1,
+        bridge ? BRIDGE_C : tileAlt(i) ? PISO_C : PISO_C2, bridge ? BRIDGE_G : GUIA);
+      doormat(c, spec.S.c, Y, 1, 0, 0, 1, shade(B.colour, -.18));
     }
     if (spec.E) {
       const i = IDX(X, spec.E.tiles[0]);
-      const ponte = _eff[i] === T_AGUA;
-      flareDeEntrada(c, X, spec.E.c - .5, X, spec.E.c + .5, 1, 0,
-        ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
-      capacho(c, X, spec.E.c, 0, 1, 1, 0, shade(B.colour, -.18));
+      const bridge = _eff[i] === T_WATER;
+      gateFlare(c, X, spec.E.c - .5, X, spec.E.c + .5, 1, 0,
+        bridge ? BRIDGE_C : tileAlt(i) ? PISO_C : PISO_C2, bridge ? BRIDGE_G : GUIA);
+      doormat(c, X, spec.E.c, 0, 1, 1, 0, shade(B.colour, -.18));
     }
   }
   // the gate's red carpet
@@ -560,7 +560,7 @@ function drawBanco(c, o, z) {
   }
   badgeQueue(c, o, z, sh[0], sh[1] - 26 * s);
 }
-function drawLixeira(c, o, z) {
+function drawBin(c, o, z) {
   const p = [w2sx(o.x + .5, o.y + .5), w2sy(o.x + .5, o.y + .5)], s = z;
   ellipse(c, p[0], p[1] + s, 8 * s, 4 * s); c.fillStyle = 'rgba(0,0,0,.2)'; c.fill();
   c.fillStyle = '#5e6a76'; c.strokeStyle = '#39424c'; c.lineWidth = 2 * s; c.lineJoin = 'round';
@@ -632,7 +632,7 @@ function drawPlayground(c, o, z) {
 function drawBuilding(c, o, z) {
   const B = BUILDINGS[o.kind];
   if (o.kind === 'banco') return drawBanco(c, o, z);
-  if (o.kind === 'lixeira') return drawLixeira(c, o, z);
+  if (o.kind === 'lixeira') return drawBin(c, o, z);
   if (o.kind === 'bebedouro') return drawBebedouroPub(c, o, z);
   if (o.kind === 'playground') return drawPlayground(c, o, z);
   const hgt = o.kind === 'pipoca' ? 22 : 30 + (o.h > 2 ? 8 : 0);
@@ -716,7 +716,7 @@ function drawBuilding(c, o, z) {
     isoPoly(c, ri); c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1.5 * z; c.stroke();
   }
   // a chimney with smoke on the kitchens
-  if (B.supplies === 'fome' && o.kind !== 'sorveteria' && hgt >= 22) {
+  if (B.supplies === 'hunger' && o.kind !== 'sorveteria' && hgt >= 22) {
     const px = w2sx(o.x + .36, o.y + .36), py = w2sy(o.x + .36, o.y + .36) - g.up;
     c.fillStyle = shade(B.colour, -.28); c.strokeStyle = shade(B.colour, -.58); c.lineWidth = 1.4 * z;
     roundRectP(c, px - 3 * z, py - 10 * z, 6 * z, 11 * z, 1.6 * z); c.fill(); c.stroke();
@@ -942,7 +942,7 @@ function drawEncObj(c, o, z) {
   } else if (o.kind === 'brinquedo') {
     // a play ball; it goes frantic when an animal comes to play with it
     const near = e && e.animals.some(a2 =>
-      !a2.dead && a2.state === 'brincando' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
+      !a2.dead && a2.state === 'playing' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
     const q = Math.abs(Math.sin(_now / (near ? 210 : 420) + o.id * 1.3));
     const rol = near ? Math.sin(_now / 330 + o.id) * 6 * s : 0;
     const bx = sx + rol;
@@ -1131,11 +1131,11 @@ function drawAnimal(c, a, z) {
   // what is it standing on? (painted water or an enclosure pool)
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const oc = world.occ[ti] && objects.get(world.occ[ti]);
-  const inWater = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
-  const nadando = inWater && a.sp.plan !== 'wader';   // pernalta vadeia; o resto nada
-  const parado = a.state === 'parado' || a.state === 'brincando' || a.state === 'comendo';
-  const spr = getSprite(a.sp, parado && !nadando ? 0 : a.frame, px);
-  if (nadando) {
+  const inWater = world.terr[ti] === T_WATER || (oc && oc.kind === 'piscina');
+  const swimming = inWater && a.sp.plan !== 'wader';   // pernalta vadeia; o resto nada
+  const parado = a.state === 'idle' || a.state === 'playing' || a.state === 'eating';
+  const spr = getSprite(a.sp, parado && !swimming ? 0 : a.frame, px);
+  if (swimming) {
     // the body sunk to the waterline, with bobbing and a wake
     const bob = Math.sin(_now / 430 + a.id * 1.7) * 1.4 * z;
     const merg = alt * .32 + bob;
@@ -1154,7 +1154,7 @@ function drawAnimal(c, a, z) {
       ellipse(c, sx, sy, alt * (.36 + t * .3), alt * (.14 + t * .13)); c.stroke();
     }
     c.globalAlpha = 1;
-    if (a.state === 'andando') {        // esteira em V atrás
+    if (a.state === 'walking') {        // esteira em V atrás
       c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1.4 * z; c.lineCap = 'round';
       c.beginPath();
       c.moveTo(sx - a.dir * alt * .28, sy - 2 * z);
@@ -1168,8 +1168,8 @@ function drawAnimal(c, a, z) {
   }
   // the play jump / the mouthful of food
   let hop = 0;
-  if (a.state === 'brincando') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
-  else if (a.state === 'comendo') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
+  if (a.state === 'playing') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
+  else if (a.state === 'eating') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
   const kSombra = 1 - hop * .022 / Math.max(z, .001);
   ellipse(c, sx, sy, hp * .26 * z * cres * Math.max(.7, kSombra), hp * .12 * z * cres * Math.max(.7, kSombra));
   c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
@@ -1183,7 +1183,7 @@ function drawAnimal(c, a, z) {
     c.globalAlpha = 1;
   }
   blitSprite(c, spr, sx, sy - hop, alt, a.dir);
-  if (a.state === 'comendo' && z > .5) { // farelos caindo do focinho
+  if (a.state === 'eating' && z > .5) { // farelos caindo do focinho
     c.fillStyle = 'rgba(96,66,34,.75)';
     for (let k = 0; k < 3; k++) {
       const t = (_now / 500 + k / 3 + a.id * .21) % 1;
@@ -1198,24 +1198,24 @@ function drawAnimal(c, a, z) {
 }
 /* ---- thought bubbles ---- */
 const bubbles = [];
-const BOLHA_MAX = 42;        // teto de balões desenhados por frame
-const BOLHA_DIST = 30;       // distância mínima entre dois balões, em px de tela
+const BUBBLE_MAX = 42;        // teto de balões desenhados por frame
+const BUBBLE_DIST = 30;       // distância mínima entre dois balões, em px de tela
 /** queues the bubble; the triage by urgency and spacing happens at draw time */
 function bubbleQueue(ent, sx, syTop, z) {
-  if (!G.bubbles || z < .42 || !ent.pensa) return;
-  if (G.bubbles === 1 && ent.pensa.urg < .45) return;
-  bubbles.push({ sx, sy: syTop - 6 * z, p: ent.pensa, z });
+  if (!G.bubbles || z < .42 || !ent.thought) return;
+  if (G.bubbles === 1 && ent.thought.urg < .45) return;
+  bubbles.push({ sx, sy: syTop - 6 * z, p: ent.thought, z });
 }
-function drawBolhas(c, agora) {
+function drawBubbles(c, agora) {
   if (!bubbles.length) return;
   // Urgency first: with the cap applied in draw order, the ones that showed up
   // were whoever came first in the depth queue — an animal in trouble at the back
   // lost its bubble to a visitor "enjoying the day".
   bubbles.sort((a, b) => b.p.urg - a.p.urg);
   const aceitos = [];
-  const dmin = BOLHA_DIST * BOLHA_DIST;
+  const dmin = BUBBLE_DIST * BUBBLE_DIST;
   for (const b of bubbles) {
-    if (aceitos.length >= BOLHA_MAX) break;
+    if (aceitos.length >= BUBBLE_MAX) break;
     // in a crowd, one bubble every ~30px: otherwise the queue becomes an illegible mural
     let near = false;
     for (const a of aceitos) if (dist2(a.sx, a.sy, b.sx, b.sy) < dmin) { near = true; break; }
@@ -1251,7 +1251,7 @@ function drawPersonEnt(c, p, z) {
   if (p.item && z > .45) {
     const k = alt / SPR, hx = sx + p.dir * 16 * k, hy = sy - 42 * k;
     c.lineJoin = 'round'; c._ink = '#2c2118';
-    if (p.item === 'balao') {
+    if (p.item === 'balloon') {
       c.strokeStyle = '#8a7a5e'; c.lineWidth = 1.4;
       c.beginPath(); c.moveTo(hx, hy + 8 * k); c.lineTo(hx + p.dir * 7 * k, hy - 30 * k); c.stroke();
       ellipse(c, hx + p.dir * 8 * k, hy - 39 * k, 9 * k, 10 * k); ink(c, p.balao, 3 * k);
@@ -1333,14 +1333,14 @@ function render(now) {
   const y1 = clamp(Math.ceil(Math.max(...cs.map(p => p[1])) + 3), 0, H - 1);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const i = IDX(x, y), l = world.lixo[i];
+    const i = IDX(x, y), l = world.litter[i];
     if (l > .18) {
       const sx = w2sx(x + .5, y + .5), sy = w2sy(x + .5, y + .5);
       ctx.font = Math.round(11 * z) + 'px system-ui';
       ctx.globalAlpha = clamp(l, .3, 1); ctx.fillText('🗑', sx, sy); ctx.globalAlpha = 1;
     }
     // reflections that flicker on and off in the water
-    if (world.terr[i] === T_AGUA && z > .5) {
+    if (world.terr[i] === T_WATER && z > .5) {
       const h = (i * 2654435761) >>> 0;
       const tw = Math.sin(now / 800 + (h & 1023) * .006);
       if (tw > .25) {
@@ -1355,10 +1355,10 @@ function render(now) {
       if (z > .6) {
         const ft = (now / 1000 + ((h >> 4) & 1023) * .07) % 11;
         if (ft < .85 &&
-          (!inB(x, y - 1) || world.terr[IDX(x, y - 1)] === T_AGUA) &&
-          (!inB(x + 1, y) || world.terr[IDX(x + 1, y)] === T_AGUA) &&
-          (!inB(x, y + 1) || world.terr[IDX(x, y + 1)] === T_AGUA) &&
-          (!inB(x - 1, y) || world.terr[IDX(x - 1, y)] === T_AGUA)) {
+          (!inB(x, y - 1) || world.terr[IDX(x, y - 1)] === T_WATER) &&
+          (!inB(x + 1, y) || world.terr[IDX(x + 1, y)] === T_WATER) &&
+          (!inB(x, y + 1) || world.terr[IDX(x, y + 1)] === T_WATER) &&
+          (!inB(x - 1, y) || world.terr[IDX(x - 1, y)] === T_WATER)) {
           const p = ft / .85;
           const sx = w2sx(x + .5, y + .5), sy = w2sy(x + .5, y + .5);
           const fx = sx - 9 * z + p * 18 * z, fy = sy - Math.sin(p * Math.PI) * 13 * z;
@@ -1424,7 +1424,7 @@ function render(now) {
   }
   drawEntrance(ctx, z, now);
   passaros(ctx, now, night);
-  drawBolhas(ctx, now);       // por cima das entidades, senão some atrás delas
+  drawBubbles(ctx, now);       // por cima das entidades, senão some atrás delas
   drawAvisos(ctx, z);
   drawSelection(ctx, z);
   drawGhost(ctx, z);
@@ -1584,12 +1584,12 @@ function drawGhost(c, z) {
   const t = G.tool; if (!t || !G.hover) return;
   const [hx, hy] = G.hover;
   c.globalAlpha = .62;
-  if (G.drag && (t.cat === 'recinto')) {
+  if (G.drag && (t.cat === 'enclosure')) {
     const r = dragRect();
-    const p = planoDoArraste(r, t.key);
+    const p = dragPlan(r, t.key);
     // green = a new enclosure · gold = extending the neighbour · red = not allowed
     const colour = p.action === 'criar' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
-      : p.action === 'ampliar' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
+      : p.action === 'extend' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
         : ['#e2543f', 'rgba(226,84,63,.24)', '#8a2f22'];
     c.strokeStyle = colour[0]; c.lineWidth = 3 * z; c.fillStyle = colour[1];
     // paints only the tiles that really go in (the rest of the rectangle is taken)
@@ -1606,7 +1606,7 @@ function drawGhost(c, z) {
     c.stroke();
     c.globalAlpha = 1;
     const rot = p.action === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
-      : p.action === 'ampliar' ? `Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+      : p.action === 'extend' ? `Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
         : p.reason;
     c.fillStyle = colour[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
     c.textAlign = 'center';
