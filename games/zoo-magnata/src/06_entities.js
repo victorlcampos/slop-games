@@ -124,9 +124,9 @@ function refreshThought(ent, dt, fn) {
    7. ANIMALS
    ========================================================================== */
 /* Names given to the animals. They are proper nouns, so they do not go through
-   LN() — but the Portuguese common nouns that were in here (Pipoca, Estrela,
-   Fumaça...) read as untranslated text to an English player, so they became the
-   names an English-speaking zoo would actually use. */
+   LN() — but the Portuguese common nouns that used to be in here read as
+   untranslated text to an English player, so they became the names an
+   English-speaking zoo would actually use. */
 const ANIMAL_NAMES = ['Bento', 'Luna', 'Thor', 'Nina', 'Simba', 'Maya', 'Ziggy', 'Aurora', 'Duke', 'Popcorn', 'Honey', 'Rex',
   'Iris', 'Bolt', 'Zara', 'Nala', 'Kiko', 'Berry', 'Toby', 'Sapphire', 'Odin', 'Jade', 'Rocky', 'Fiona',
   'Bruno', 'Cocoa', 'Loki', 'Star', 'Max', 'Pearl', 'Apollo', 'Sofia', 'Gaia', 'Zeus', 'Bella', 'Fred',
@@ -162,14 +162,14 @@ function animalScore(a) { // happiness broken down (used by the inspector)
   const limp = e.cleanliness;
   const health = a.health;
   const F = FENCES[e.fence];
-  const seg = sp.danger <= F.strength ? 1 : clamp(1 - (sp.danger - F.strength) * .28, .2, 1);
+  const security = sp.danger <= F.strength ? 1 : clamp(1 - (sp.danger - F.strength) * .28, .2, 1);
   const aer = sp.flies && !F.aviary ? .55 : 1;
   const aqu = sp.aquatic && !F.aquarium ? .6 : 1;
   const hunger = 1 - clamp(a.hunger - .45, 0, .55) / .55 * .9;
   const items = [
     [LN('Espaço|Space'), space, .19], [LN('Terreno/bioma|Terrain/biome'), terr, .19], [LN('Convívio|Company'), social, .13],
     [LN('Enriquecimento|Enrichment'), enr, .12], [LN('Limpeza|Cleanliness'), limp, .11], [LN('Saúde|Health'), health, .12],
-    [LN('Alimentação|Feeding'), hunger, .08], [LN('Recinto adequado|Suitable enclosure'), Math.min(seg, aer, aqu), .06],
+    [LN('Alimentação|Feeding'), hunger, .08], [LN('Recinto adequado|Suitable enclosure'), Math.min(security, aer, aqu), .06],
   ];
   let total = 0; for (const [, v, w] of items) total += v * w;
   return { total: clamp(total, 0, 1), items };
@@ -287,7 +287,7 @@ function moveAnimal(a, dt, gh) {
       }
     } else if (Math.random() < .3) {
       // every so often the stroll heads for a toy (ball, log, pool)
-      const brs = e.objs.filter(o => o.kind === 'brinquedo' || o.kind === 'tronco' || o.kind === 'piscina');
+      const brs = e.objs.filter(o => o.kind === 'toy' || o.kind === 'log' || o.kind === 'pool');
       if (brs.length) {
         const o = pick(brs);
         bx = o.x + .5 + rnd(-.3, .3); by = o.y + .5 + rnd(-.3, .3);
@@ -428,7 +428,7 @@ function updVisitor(v, dt, gh) {
   v.mood = clamp(v.mood + dm * gh * 10, 0, 1);
   // litters the ground
   if (world.path[i] && Math.random() < gh * .06) {
-    const hasBin = [...objects.values()].some(o => o.kind === 'lixeira' && dist2(o.x, o.y, v.x, v.y) < 36);
+    const hasBin = [...objects.values()].some(o => o.kind === 'bin' && dist2(o.x, o.y, v.x, v.y) < 36);
     world.litter[i] = clamp(world.litter[i] + (hasBin ? .04 : .3), 0, 1);
   }
   refreshThought(v, dt, visitorThought);
@@ -545,19 +545,20 @@ function visitorLeaves(v) {
    ========================================================================== */
 function hire(kind) {
   const T = STAFF_TYPES[kind];
+  if (!T) { console.warn('unknown staff kind:', kind); return null; }
   const s = {
     id: uid(), kind, task: null, target: null, path: null, pi: 0, action: 0,
     x: ENTRANCE.x + .5, y: ENTRANCE.y + .5, dir: -1, anim: 0, frame: 0,
     skin: pick(SKINS), shirt: T.colour,
     pants: '#3a4048', hair: pick(HAIRS), longHair: Math.random() < .4,
-    hat: kind === 'trat' ? '#8a6a3c' : kind === 'seg' ? '#2b2b33' : null,
+    hat: kind === 'keeper' ? '#8a6a3c' : kind === 'security' ? '#2b2b33' : null,
     role: kind, mood: .8, zoomScale: 1, done: 0,
   };
   G.staff.push(s);
   return s;
 }
 function findTask(s) {
-  if (s.kind === 'trat') {
+  if (s.kind === 'keeper') {
     let best = null, bd = 1e9;
     for (const e of enclosures.values()) {
       if (!e.animals.length) continue;
@@ -577,7 +578,7 @@ function findTask(s) {
       if (d < bd) { bd = d; best = a; }
     }
     if (best) return { kind: 'animal', ref: best, x: best.x | 0, y: best.y | 0 };
-  } else if (s.kind === 'fax') {
+  } else if (s.kind === 'cleaner') {
     let best = null, bd = 1e9;
     for (let k = 0; k < W * H; k++) {
       if (world.litter[k] < .3) continue;
@@ -586,7 +587,7 @@ function findTask(s) {
       if (d < bd) { bd = d; best = [x, y]; }
     }
     if (best) return { kind: 'litter', ref: best, x: best[0], y: best[1] };
-  } else if (s.kind === 'seg') {
+  } else if (s.kind === 'security') {
     if (G.escaped.length) { const a = G.escaped[0]; return { kind: 'escape', ref: a, x: a.x | 0, y: a.y | 0 }; }
   }
   return null;
@@ -613,7 +614,7 @@ function updStaff(s, dt, gh) {
   const goalX = (T.kind === 'animal' || T.kind === 'escape') ? T.ref.x : T.x + .5;
   const goalY = (T.kind === 'animal' || T.kind === 'escape') ? T.ref.y : T.y + .5;
   const d = dist(s.x, s.y, goalX, goalY);
-  if (d < .8) { s.action = s.kind === 'trat' ? 2.2 : s.kind === 'vet' ? 3 : 1.1; }
+  if (d < .8) { s.action = s.kind === 'keeper' ? 2.2 : s.kind === 'vet' ? 3 : 1.1; }
   else moveTo(s, goalX, goalY, dt, 1.9);
 }
 function moveTo(s, tx, ty, dt, spd) {

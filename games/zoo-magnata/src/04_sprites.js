@@ -856,10 +856,10 @@ function drawPerson(c, o, frame) {
   else if (o.mood > .3) { c.moveTo(bx - 4, hy + 5); c.lineTo(bx + 4, hy + 5); }
   else c.arc(bx, hy + 8, 4, 3.44, 6);
   c.stroke();
-  if (o.role === 'trat') { roundRectP(c, bx - 22, legY - 18, 12, 12, 3); ink(c, '#b5875c', 3.2); }
+  if (o.role === 'keeper') { roundRectP(c, bx - 22, legY - 18, 12, 12, 3); ink(c, '#b5875c', 3.2); }
   if (o.role === 'vet') { roundRectP(c, bx - 22, legY - 18, 12, 11, 3); ink(c, '#f4f2ec', 3.2); c.fillStyle = '#e2543f'; c.fillRect(bx - 18, legY - 15, 4, 6); c.fillRect(bx - 21, legY - 12.5, 10, 3); }
-  if (o.role === 'fax') { limb(c, bx - 16, legY - 30, bx - 20, legY - 2, 3, '#8a6a3c'); ellipse(c, bx - 21, legY, 7, 4); ink(c, '#c9b58a', 2.6); }
-  if (o.role === 'seg') { roundRectP(c, bx - 11, legY - 30 - bob, 22, 8, 4); c.fillStyle = 'rgba(0,0,0,.25)'; c.fill(); }
+  if (o.role === 'cleaner') { limb(c, bx - 16, legY - 30, bx - 20, legY - 2, 3, '#8a6a3c'); ellipse(c, bx - 21, legY, 7, 4); ink(c, '#c9b58a', 2.6); }
+  if (o.role === 'security') { roundRectP(c, bx - 11, legY - 30 - bob, 22, 8, 4); c.fillStyle = 'rgba(0,0,0,.25)'; c.fill(); }
 }
 /** The cache key = everything drawPerson actually draws.
  *  Never use a per-person id: dozens of identical visitors would each take their

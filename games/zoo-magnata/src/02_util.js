@@ -170,7 +170,7 @@ const TERRAIN = {
   rock: { n: 'Rocha|Rock', c: '#9b9a94', c2: '#8b8a84', cost: 14, em: '🪨' },
   snow: { n: 'Neve|Snow', c: '#eaf2f7', c2: '#d8e6ef', cost: 18, em: '❄️' },
   water: { n: 'Água|Water', c: '#4fa8db', c2: '#3f96c8', cost: 22, em: '💧' },
-  piso: { n: 'Calçada|Path', c: '#d9cdb6', c2: '#cabda4', cost: 10, em: '🧱' },
+  pavement: { n: 'Calçada|Path', c: '#d9cdb6', c2: '#cabda4', cost: 10, em: '🧱' },
 };
 const TKEYS = Object.keys(TERRAIN);
 

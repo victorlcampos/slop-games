@@ -2,58 +2,58 @@
    4. BUILDING CATALOGUES
    ========================================================================== */
 const FENCES = {
-  madeira: { n: 'Cerca de Madeira|Wooden Fence', em: '🪵', cost: 55, strength: 1, sight: 1, colour: '#a87a45', height: 13 },
-  ferro: { n: 'Grade de Ferro|Iron Railing', em: '🔩', cost: 130, strength: 3, sight: .92, colour: '#5e6068', height: 19 },
-  pedra: { n: 'Muro de Pedra|Stone Wall', em: '🧱', cost: 210, strength: 4, sight: .55, colour: '#9b9a94', height: 20 },
-  vidro: { n: 'Vidro Blindado|Armoured Glass', em: '🪟', cost: 340, strength: 5, sight: 1, colour: '#a8d8e8', height: 21 },
-  eletrica: { n: 'Cerca Elétrica|Electric Fence', em: '⚡', cost: 430, strength: 6, sight: .96, colour: '#c9a83c', height: 17 },
-  aviario: { n: 'Tela de Aviário|Aviary Mesh', em: '🕸️', cost: 265, strength: 3, sight: .86, colour: '#8a9098', height: 34, aviary: 1 },
-  aquario: { n: 'Vidro de Aquário|Aquarium Glass', em: '🌊', cost: 520, strength: 6, sight: 1, colour: '#7ec4dd', height: 24, aquarium: 1 },
+  wood: { n: 'Cerca de Madeira|Wooden Fence', em: '🪵', cost: 55, strength: 1, sight: 1, colour: '#a87a45', height: 13 },
+  iron: { n: 'Grade de Ferro|Iron Railing', em: '🔩', cost: 130, strength: 3, sight: .92, colour: '#5e6068', height: 19 },
+  stone: { n: 'Muro de Pedra|Stone Wall', em: '🧱', cost: 210, strength: 4, sight: .55, colour: '#9b9a94', height: 20 },
+  glass: { n: 'Vidro Blindado|Armoured Glass', em: '🪟', cost: 340, strength: 5, sight: 1, colour: '#a8d8e8', height: 21 },
+  electric: { n: 'Cerca Elétrica|Electric Fence', em: '⚡', cost: 430, strength: 6, sight: .96, colour: '#c9a83c', height: 17 },
+  aviary: { n: 'Tela de Aviário|Aviary Mesh', em: '🕸️', cost: 265, strength: 3, sight: .86, colour: '#8a9098', height: 34, aviary: 1 },
+  aquarium: { n: 'Vidro de Aquário|Aquarium Glass', em: '🌊', cost: 520, strength: 6, sight: 1, colour: '#7ec4dd', height: 24, aquarium: 1 },
 };
 const BUILDINGS = {
-  lanchonete: { n: 'Lanchonete|Snack Bar', em: '🍔', w: 2, h: 2, cost: 16000, wage: 140, colour: '#e2543f', supplies: 'hunger', value: 26, unitCost: 7, strength: .45 },
-  restaurante: { n: 'Restaurante|Restaurant', em: '🍽️', w: 3, h: 3, cost: 58000, wage: 340, colour: '#b5502a', supplies: 'hunger', value: 68, unitCost: 19, strength: 1 },
-  pizzaria: { n: 'Pizzaria|Pizzeria', em: '🍕', w: 2, h: 3, cost: 38000, wage: 240, colour: '#d9782c', supplies: 'hunger', value: 44, unitCost: 13, strength: .8 },
-  sorveteria: { n: 'Sorveteria|Ice Cream Shop', em: '🍦', w: 2, h: 2, cost: 19000, wage: 150, colour: '#f2a8c0', supplies: 'hunger', value: 20, unitCost: 5, strength: .3 },
-  pipoca: { n: 'Carrinho de Pipoca|Popcorn Cart', em: '🍿', w: 1, h: 1, cost: 6500, wage: 80, colour: '#f2d43c', supplies: 'hunger', value: 12, unitCost: 3, strength: .22 },
-  bebidas: { n: 'Quiosque de Bebidas|Drinks Kiosk', em: '🥤', w: 1, h: 2, cost: 11000, wage: 110, colour: '#3fa5e2', supplies: 'thirst', value: 15, unitCost: 3.5, strength: .9 },
+  snackbar: { n: 'Lanchonete|Snack Bar', em: '🍔', w: 2, h: 2, cost: 16000, wage: 140, colour: '#e2543f', supplies: 'hunger', value: 26, unitCost: 7, strength: .45 },
+  restaurant: { n: 'Restaurante|Restaurant', em: '🍽️', w: 3, h: 3, cost: 58000, wage: 340, colour: '#b5502a', supplies: 'hunger', value: 68, unitCost: 19, strength: 1 },
+  pizzeria: { n: 'Pizzaria|Pizzeria', em: '🍕', w: 2, h: 3, cost: 38000, wage: 240, colour: '#d9782c', supplies: 'hunger', value: 44, unitCost: 13, strength: .8 },
+  icecream: { n: 'Sorveteria|Ice Cream Shop', em: '🍦', w: 2, h: 2, cost: 19000, wage: 150, colour: '#f2a8c0', supplies: 'hunger', value: 20, unitCost: 5, strength: .3 },
+  popcorn: { n: 'Carrinho de Pipoca|Popcorn Cart', em: '🍿', w: 1, h: 1, cost: 6500, wage: 80, colour: '#f2d43c', supplies: 'hunger', value: 12, unitCost: 3, strength: .22 },
+  drinks: { n: 'Quiosque de Bebidas|Drinks Kiosk', em: '🥤', w: 1, h: 2, cost: 11000, wage: 110, colour: '#3fa5e2', supplies: 'thirst', value: 15, unitCost: 3.5, strength: .9 },
   cafe: { n: 'Cafeteria|Café', em: '☕', w: 2, h: 2, cost: 24000, wage: 190, colour: '#8a5a2b', supplies: 'thirst', value: 24, unitCost: 6, strength: 1 },
-  bebedouro: { n: 'Bebedouro|Water Fountain', em: '⛲', w: 1, h: 1, cost: 2600, wage: 0, colour: '#7ec4dd', supplies: 'thirst', value: 0, unitCost: 0, strength: .5 },
+  waterpoint: { n: 'Bebedouro|Water Fountain', em: '⛲', w: 1, h: 1, cost: 2600, wage: 0, colour: '#7ec4dd', supplies: 'thirst', value: 0, unitCost: 0, strength: .5 },
   toilet: { n: 'Banheiro|Restroom', em: '🚻', w: 2, h: 2, cost: 13000, wage: 90, colour: '#7d8890', supplies: 'toilet', value: 2, unitCost: .6, strength: 1 },
-  banco: { n: 'Banco de Praça|Park Bench', em: '🪑', w: 1, h: 1, cost: 900, wage: 0, colour: '#a87a45', supplies: 'energy', value: 0, unitCost: 0, strength: 1 },
+  bench: { n: 'Banco de Praça|Park Bench', em: '🪑', w: 1, h: 1, cost: 900, wage: 0, colour: '#a87a45', supplies: 'energy', value: 0, unitCost: 0, strength: 1 },
   souvenir: { n: 'Loja de Souvenirs|Souvenir Shop', em: '🎁', w: 2, h: 2, cost: 27000, wage: 200, colour: '#9a6ad4', supplies: 'fun', value: 42, unitCost: 11, strength: .6 },
   playground: { n: 'Playground|Playground', em: '🛝', w: 3, h: 3, cost: 21000, wage: 60, colour: '#4fae4a', supplies: 'fun', value: 0, unitCost: 0, strength: 1.4 },
-  lixeira: { n: 'Lixeira|Bin', em: '🗑️', w: 1, h: 1, cost: 450, wage: 0, colour: '#5e6a76', supplies: null, value: 0, unitCost: 0, strength: 0 },
+  bin: { n: 'Lixeira|Bin', em: '🗑️', w: 1, h: 1, cost: 450, wage: 0, colour: '#5e6a76', supplies: null, value: 0, unitCost: 0, strength: 0 },
   info: { n: 'Quiosque de Informações|Information Kiosk', em: 'ℹ️', w: 1, h: 1, cost: 5200, wage: 70, colour: '#3fa5e2', supplies: null, value: 0, unitCost: 0, strength: 0 },
-  posto: { n: 'Posto Veterinário|Veterinary Post', em: '🏥', w: 2, h: 2, cost: 34000, wage: 0, colour: '#f4f2ec', supplies: null, value: 0, unitCost: 0, strength: 0 },
+  vetpost: { n: 'Posto Veterinário|Veterinary Post', em: '🏥', w: 2, h: 2, cost: 34000, wage: 0, colour: '#f4f2ec', supplies: null, value: 0, unitCost: 0, strength: 0 },
 };
 const DECOS = {
-  arvore: { n: 'Árvore|Tree', em: '🌳', cost: 380, beauty: 5, r: 4 },
-  pinheiro: { n: 'Pinheiro|Pine', em: '🌲', cost: 420, beauty: 5, r: 4 },
-  palmeira: { n: 'Palmeira|Palm', em: '🌴', cost: 520, beauty: 6, r: 4 },
-  arbusto: { n: 'Arbusto|Bush', em: '🌿', cost: 120, beauty: 2, r: 3 },
-  flores: { n: 'Canteiro de Flores|Flower Bed', em: '🌸', cost: 190, beauty: 4, r: 3 },
-  pedra: { n: 'Rocha|Rock', em: '🪨', cost: 150, beauty: 1, r: 2 },
-  fonte: { n: 'Fonte|Fountain', em: '⛲', cost: 4200, beauty: 14, r: 7 },
-  estatua: { n: 'Estátua|Statue', em: '🗿', cost: 3100, beauty: 11, r: 6 },
-  poste: { n: 'Poste de Luz|Lamp Post', em: '💡', cost: 640, beauty: 3, r: 5 },
-  placa: { n: 'Placa Informativa|Information Sign', em: '🪧', cost: 260, beauty: 2, r: 2 },
+  tree: { n: 'Árvore|Tree', em: '🌳', cost: 380, beauty: 5, r: 4 },
+  pine: { n: 'Pinheiro|Pine', em: '🌲', cost: 420, beauty: 5, r: 4 },
+  palm: { n: 'Palmeira|Palm', em: '🌴', cost: 520, beauty: 6, r: 4 },
+  bush: { n: 'Arbusto|Bush', em: '🌿', cost: 120, beauty: 2, r: 3 },
+  flowers: { n: 'Canteiro de Flores|Flower Bed', em: '🌸', cost: 190, beauty: 4, r: 3 },
+  stone: { n: 'Rocha|Rock', em: '🪨', cost: 150, beauty: 1, r: 2 },
+  fountain: { n: 'Fonte|Fountain', em: '⛲', cost: 4200, beauty: 14, r: 7 },
+  statue: { n: 'Estátua|Statue', em: '🗿', cost: 3100, beauty: 11, r: 6 },
+  lamp: { n: 'Poste de Luz|Lamp Post', em: '💡', cost: 640, beauty: 3, r: 5 },
+  sign: { n: 'Placa Informativa|Information Sign', em: '🪧', cost: 260, beauty: 2, r: 2 },
 };
 const ENCOBJ = {
-  comedouro: { n: 'Comedouro|Feeder', em: '🥣', cost: 900, role: 'food' },
-  bebedouro2: { n: 'Bebedouro|Water Fountain', em: '🚰', cost: 800, role: 'water' },
-  abrigo: { n: 'Abrigo|Shelter', em: '🛖', cost: 3200, role: 'shelter', enr: 3 },
-  brinquedo: { n: 'Enriquecimento|Enrichment', em: '🎾', cost: 1400, role: 'enrich', enr: 5 },
-  tronco: { n: 'Tronco|Log', em: '🪵', cost: 700, role: 'enrich', enr: 3 },
-  rochaE: { n: 'Formação Rochosa|Rock Formation', em: '⛰️', cost: 1900, role: 'enrich', enr: 4 },
-  plantaE: { n: 'Vegetação|Planting', em: '🪴', cost: 500, role: 'enrich', enr: 2 },
-  piscina: { n: 'Piscina|Pool', em: '🏊', cost: 5200, role: 'enrich', enr: 6 },
+  feeder: { n: 'Comedouro|Feeder', em: '🥣', cost: 900, role: 'food' },
+  trough: { n: 'Bebedouro|Water Fountain', em: '🚰', cost: 800, role: 'water' },
+  shelter: { n: 'Abrigo|Shelter', em: '🛖', cost: 3200, role: 'shelter', enr: 3 },
+  toy: { n: 'Enriquecimento|Enrichment', em: '🎾', cost: 1400, role: 'enrich', enr: 5 },
+  log: { n: 'Tronco|Log', em: '🪵', cost: 700, role: 'enrich', enr: 3 },
+  rocks: { n: 'Formação Rochosa|Rock Formation', em: '⛰️', cost: 1900, role: 'enrich', enr: 4 },
+  planting: { n: 'Vegetação|Planting', em: '🪴', cost: 500, role: 'enrich', enr: 2 },
+  pool: { n: 'Piscina|Pool', em: '🏊', cost: 5200, role: 'enrich', enr: 6 },
 };
 const STAFF_TYPES = {
-  trat: { n: 'Tratador|Keeper', em: '🧑‍🌾', wage: 1400, colour: '#4fae4a', desc: 'Alimenta os animais e limpa os recintos|Feeds the animals and cleans the enclosures' },
+  keeper: { n: 'Tratador|Keeper', em: '🧑‍🌾', wage: 1400, colour: '#4fae4a', desc: 'Alimenta os animais e limpa os recintos|Feeds the animals and cleans the enclosures' },
   vet: { n: 'Veterinário|Vet', em: '🧑‍⚕️', wage: 2600, colour: '#f4f2ec', desc: 'Cura animais doentes e feridos|Treats sick and injured animals' },
-  fax: { n: 'Faxineiro|Cleaner', em: '🧹', wage: 900, colour: '#3fa5e2', desc: 'Recolhe lixo das trilhas|Picks litter off the paths' },
-  seg: { n: 'Segurança|Security', em: '👮', wage: 1600, colour: '#33333a', desc: 'Recaptura fugas e acalma visitantes|Recaptures escapees and calms visitors' },
+  cleaner: { n: 'Faxineiro|Cleaner', em: '🧹', wage: 900, colour: '#3fa5e2', desc: 'Recolhe lixo das trilhas|Picks litter off the paths' },
+  security: { n: 'Segurança|Security', em: '👮', wage: 1600, colour: '#33333a', desc: 'Recaptura fugas e acalma visitantes|Recaptures escapees and calms visitors' },
 };
 
 /* ==========================================================================
@@ -114,7 +114,7 @@ function addPath(x, y) {
   const i = IDX(x, y);
   if (world.path[i] || world.occ[i] || world.enc[i]) return false;
   world.path[i] = 1;
-  world.terr[i] = TKEYS.indexOf('piso');
+  world.terr[i] = TKEYS.indexOf('pavement');
   G.dirty.net = true; terrainChanged();
   return true;
 }

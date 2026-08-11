@@ -192,7 +192,7 @@ function buildPalette(k) {
   };
   if (k === 'path') {
     title.textContent = LN('Trilhas — clique e arraste para desenhar o caminho dos visitantes|Paths — click and drag to draw where the visitors walk');
-    add(LN('Calçada|Path'), '🛣️', 30, { cat: 'path', key: 'piso', em: '🛣️', n: 'Calçada|Path', cost: 30 });
+    add(LN('Calçada|Path'), '🛣️', 30, { cat: 'path', key: 'pavement', em: '🛣️', n: 'Calçada|Path', cost: 30 });
     add(LN('Apagar trilha|Erase path'), '🧽', 0, { cat: 'path', key: 'del', em: '🧽', n: 'Apagar trilha|Erase path', cost: 0 });
   } else if (k === 'enclosure') {
     title.textContent = LN('Recintos — arraste um retângulo (mínimo 3×3). O preço cobre a cerca do perímetro.|Enclosures — drag a rectangle (3×3 minimum). The price covers the perimeter fence.');
@@ -204,7 +204,7 @@ function buildPalette(k) {
   } else if (k === 'terrain') {
     title.textContent = LN('Terreno — pinte dentro dos recintos para bater com o bioma da espécie|Terrain — paint inside the enclosures to match the species\u2019 biome');
     for (const key of TKEYS) {
-      if (key === 'piso') continue;
+      if (key === 'pavement') continue;
       const T = TERRAIN[key];
       add(T.n, T.em, T.cost, { cat: 'terrain', key, em: T.em, n: T.n, cost: T.cost });
     }
@@ -313,7 +313,7 @@ function renderShop() {
   const e = shopEncId ? enclosures.get(shopEncId) : null;
   const q = shopFiltro.q.trim().toLowerCase();
   let list = SPECIES.filter(s =>
-    (!q || s.name.toLowerCase().includes(q) || s.biomeName.toLowerCase().includes(q)) &&
+    (!q || LN(s.name).toLowerCase().includes(q) || LN(s.biomeName).toLowerCase().includes(q)) &&
     (!shopFiltro.biome || s.biome === shopFiltro.biome) &&
     (!shopFiltro.diet || s.diet === shopFiltro.diet));
   const ord = { appeal: (a, b) => b.appeal - a.appeal || a.price - b.price, price: (a, b) => a.price - b.price, priceDesc: (a, b) => b.price - a.price, name: (a, b) => LN(a.name).localeCompare(LN(b.name)), space: (a, b) => a.space - b.space };
@@ -349,7 +349,7 @@ function renderShop() {
     card.innerHTML =
       `<div class="pic" style="background:${bg}"></div>
        <div class="nm">${esc(LN(sp.name))}</div>
-       <div class="mt">${BIOMES[sp.biome].em} ${sp.biomeName} · ${DIETS[sp.diet].em} ${sp.dietName}<br>
+       <div class="mt">${BIOMES[sp.biome].em} ${LN(sp.biomeName)} · ${DIETS[sp.diet].em} ${LN(sp.dietName)}<br>
          ${BI`${sp.space} tiles/animal · grupo ${sp.groupMin}–${sp.groupMax} · ${sp.lifespan} anos|${sp.space} tiles/animal · group ${sp.groupMin}–${sp.groupMax} · ${sp.lifespan} years`}<br>
          ${BI`ração ${moneyFull(sp.feed)}/dia · perigo|feed ${moneyFull(sp.feed)}/day · danger`} ${'⚠️'.repeat(Math.min(sp.danger, 5)) || '—'}</div>
        <div class="ft"><span class="stars">${stars(sp.appeal / 2)}</span><b>${moneyFull(sp.price)}</b></div>`;
@@ -480,7 +480,7 @@ function inspEnclosure(e) {
     ${bar(LN('Comida no cocho|Food in the feeder'), e.food, colourFor(e.food), undefined, 'food')}
     ${bar(LN('Água|Water'), e.water, colourFor(e.water), undefined, 'water')}
     ${bar('Enriquecimento', encEnrich(e), colourFor(encEnrich(e)), undefined, 'enr')}
-    ${ts !== null ? bar('Terreno x biome (' + sp0.biomeName + ')', ts, colourFor(ts), undefined, 'terr') : ''}
+    ${ts !== null ? bar(LN('Terreno x bioma|Terrain vs biome') + ' (' + LN(sp0.biomeName) + ')', ts, colourFor(ts), undefined, 'terr') : ''}
     <h4 class="sec">Terreno</h4><div class="tagline" id="iMix">${encMixHTML(e)}</div>
     ${sp0 ? `<div style="font-size:11px;opacity:.7;margin-top:4px">Ideal: ${Object.entries(sp0.mix).map(([k, v]) => `${TERRAIN[k].em}${Math.round(v * 100)}%`).join(' · ')}</div>` : ''}
     <h4 class="sec">Animais (${vivos.length})</h4>
@@ -570,8 +570,8 @@ function inspectAnimal(a) {
     <div class="tagline">
       <span class="tag" id="iEstado">${est}</span>
       <span class="tag ${pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok'}" id="iPensa">${pa.em} ${esc(pa.txt)}</span>
-      <span class="tag">${BIOMES[sp.biome].em} ${sp.biomeName}</span>
-      <span class="tag">${DIETS[sp.diet].em} ${sp.dietName}</span>
+      <span class="tag">${BIOMES[sp.biome].em} ${LN(sp.biomeName)}</span>
+      <span class="tag">${DIETS[sp.diet].em} ${LN(sp.dietName)}</span>
       ${a.pregnant > 0 ? '<span class="tag ok">🤰 Gestante</span>' : ''}
     </div>
     ${bar('Felicidade', a.happy, colourFor(a.happy), undefined, 'feliz')}
@@ -750,8 +750,8 @@ function inspStaff(s) {
 function openStaff() {
   const cont = Object.keys(STAFF_TYPES).map(k => {
     const T = STAFF_TYPES[k], n = G.staff.filter(s => s.kind === k).length;
-    // NÃO use data-t aqui: é o atributo de dicionário do slopkit, e bindText
-    // reescreveria o textContent do card inteiro na troca de idioma.
+    // Do NOT use data-t here: it is slopkit's dictionary attribute, and bindText
+    // would overwrite the whole card's textContent on a language change.
     return `<div class="pitem" data-staff="${k}" style="width:auto;min-width:210px;text-align:left;padding:10px 12px">
       <span class="em">${T.em}</span><b>${LN(T.n)}</b> <span style="float:right">${n} ${LN('contratados|hired')}</span>
       <div class="pr" style="margin-top:3px">${LN(T.desc)}</div>

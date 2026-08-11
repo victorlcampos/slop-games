@@ -704,6 +704,25 @@ function parkQuality() {
  *  missing. A save written before a field was renamed would otherwise bring the
  *  old name in and leave the new one undefined — and `undefined + 10` is NaN,
  *  which then spreads through every sum that touches it. */
+/* The keys of the fences, buildings, decorations, enclosure objects and terrain
+   used to be Portuguese words. A save written back then still names them that
+   way, and an unknown key means `BUILDINGS[o.kind]` is undefined — the object
+   vanishes, or the load throws. One table maps the old names to today's. */
+const LEGACY_KEYS = {
+  madeira: 'wood', ferro: 'iron', pedra: 'stone', vidro: 'glass', eletrica: 'electric',
+  aviario: 'aviary', aquario: 'aquarium', piso: 'pavement',
+  lanchonete: 'snackbar', restaurante: 'restaurant', pizzaria: 'pizzeria',
+  sorveteria: 'icecream', pipoca: 'popcorn', bebidas: 'drinks', banheiro: 'toilet',
+  bebedouro: 'waterpoint', bebedouro2: 'trough', banco: 'bench', lixeira: 'bin', posto: 'vetpost',
+  arvore: 'tree', pinheiro: 'pine', palmeira: 'palm', arbusto: 'bush', flores: 'flowers',
+  fonte: 'fountain', estatua: 'statue', poste: 'lamp', placa: 'sign',
+  comedouro: 'feeder', abrigo: 'shelter', brinquedo: 'toy', tronco: 'log',
+  rochaE: 'rocks', plantaE: 'planting', piscina: 'pool',
+  trat: 'keeper', fax: 'cleaner', seg: 'security',
+  predio: 'build',
+};
+const modernKey = (k) => LEGACY_KEYS[k] || k;
+
 function keepShape(model, saved) {
   const out = {};
   for (const k in model) out[k] = (saved && typeof saved[k] === typeof model[k]) ? saved[k] : model[k];
@@ -771,7 +790,7 @@ function applySnapshot(raw, label) {
     // fixes an old save where the gate's doormat was demolished (it locked the zoo)
     if (!world.path[IDX(ENTRANCE.x, ENTRANCE.y)]) {
       world.path[IDX(ENTRANCE.x, ENTRANCE.y)] = 1;
-      world.terr[IDX(ENTRANCE.x, ENTRANCE.y)] = TKEYS.indexOf('piso');
+      world.terr[IDX(ENTRANCE.x, ENTRANCE.y)] = TKEYS.indexOf('pavement');
       toast(LN('🚪 Recoloquei a trilha do portão — sem ela ninguém conseguia entrar.|🚪 Put the gate path back — without it nobody could get in.'), 'good');
     }
     world.occ.fill(0); world.enc.fill(0); world.beauty.fill(0); world.litter.fill(0);
@@ -788,7 +807,7 @@ function applySnapshot(raw, label) {
           tiles.push(IDX(e.x + i, e.y + j));
       }
       const en = {
-        id: e.id, fence: e.fence, name: e.name, tiles: new Set(),
+        id: e.id, fence: modernKey(e.fence), name: e.name, tiles: new Set(),
         animals: [], objs: [], happy: .7, alerts: [],
         cleanliness: e.cleanliness, food: e.food, water: e.water,
         integrity: e.integrity === undefined ? 1 : e.integrity,
@@ -798,8 +817,10 @@ function applySnapshot(raw, label) {
       encInvalidate(en);
     }
     for (const o of s.objs) {
-      const def = o.cat === 'build' ? BUILDINGS[o.kind] : o.cat === 'deco' ? DECOS[o.kind] : ENCOBJ[o.kind];
-      const ob = { ...o, w: def.w || 1, h: def.h || 1, queue: [], estoque: 1, dirty: 0, hp: 1, revenue: o.revenue || 0, sales: o.sales || 0 };
+      const kind = modernKey(o.kind), cat = modernKey(o.cat);
+      const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
+      if (!def) { console.warn('save has an unknown object:', o.cat, o.kind); continue; }
+      const ob = { ...o, kind, cat, w: def.w || 1, h: def.h || 1, queue: [], estoque: 1, dirty: 0, hp: 1, revenue: o.revenue || 0, sales: o.sales || 0 };
       for (let j = 0; j < ob.h; j++) for (let i = 0; i < ob.w; i++) world.occ[IDX(ob.x + i, ob.y + j)] = ob.id;
       objects.set(ob.id, ob);
       if (ob.cat === 'deco') applyBeauty(ob, +1);
@@ -815,7 +836,7 @@ function applySnapshot(raw, label) {
       if (e && !a.escaped) e.animals.push(an);
       if (a.escaped) G.escaped.push(an);
     }
-    for (const st of s.staff) { const x = hire(st.kind); x.x = st.x; x.y = st.y; x.done = st.done || 0; }
+    for (const st of s.staff) { const x = hire(modernKey(st.kind)); if (!x) continue; x.x = st.x; x.y = st.y; x.done = st.done || 0; }
     terrainChanged(); rebuildNet();   // rebuildNet already bumps netVer
     deselect(); closeModal();
     toast('📂 ' + (label || 'Jogo carregado') + ' — dia ' + G.day, 'good');
@@ -1015,7 +1036,7 @@ function init() {
   cam.z = window.innerWidth <= 700 ? .62 : .85;
   centerOn(ENTRANCE.x, ENTRANCE.y - 14);
   buildDock();
-  hire('trat'); hire('fax');
+  hire('keeper'); hire('cleaner');
   updateHUD();
   G.wantsMinimap = !isSmall();      // on a phone the minimap starts off
   try {
@@ -1030,8 +1051,12 @@ function init() {
   loop(performance.now());
 }
 let lastT = 0, acc = 0, hudAcc = 0, miniAcc = 0, somAcc = 0;
+/* Counts drawn frames. The test bridge exposes it so a test can wait for the
+   screen to actually show up instead of betting on a fixed sleep. */
+let framesDrawn = 0;
 function loop(now) {
   requestAnimationFrame(loop);
+  framesDrawn++;
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > .25) dt = .25;
   // Trilha desenhada / recinto criado invalidam a malha de caminhos. Consumir a
@@ -1118,4 +1143,4 @@ I18N.onChange(() => {
 });
 
 // the test bridge — the kit looks for this name
-window.__game = { name: 'zoo-magnata', i18n: I18N, G };
+window.__game = { name: 'zoo-magnata', i18n: I18N, G, frames: () => framesDrawn };
