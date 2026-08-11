@@ -1,4 +1,4 @@
-// WorldDrive — dirija em qualquer rua do mundo
+// WorldDrive — drive down any street in the world
 // Three.js + OpenStreetMap (Overpass) + AWS Terrain Tiles + Esri World Imagery
 import * as THREE from 'three';
 import { createSave } from 'slopkit/save';
@@ -10,15 +10,17 @@ import { Minimap } from './minimap.js';
 import { MapPicker } from './picker.js';
 import { UI } from './ui.js';
 import { clamp, lerp } from './geo.js';
+import { i18n, t } from './i18n.js';
+import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
 const app = {
   state: 'menu',       // menu | loading | driving
   world: null,
   camMode: 0,
-  quality: 2,          // 2 pleno, 1 sem pixel-ratio, 0 sem sombras
+  quality: 2,          // 2 full, 1 without pixel-ratio, 0 without shadows
   label: null,
 };
-window.WD = app; // para smoke test / debug
+window.WD = app; // for the smoke test / debugging
 
 // ---------- three ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -49,7 +51,7 @@ sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 1.2;
 scene.add(sun, sun.target);
 
-// céu com gradiente + sol
+// gradient sky + sun
 const skyGeo = new THREE.SphereGeometry(1900, 24, 12);
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide,
@@ -70,7 +72,7 @@ const skyMat = new THREE.ShaderMaterial({
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 
-// ---------- módulos ----------
+// ---------- modules ----------
 const ui = new UI();
 const input = new Input();
 const audio = new GameAudio();
@@ -80,31 +82,40 @@ const picker = new MapPicker(document.getElementById('map'));
 const isTouch = matchMedia('(pointer: coarse)').matches;
 input.bindTouch(document.getElementById('touch'));
 
-// Preferências pelo slopkit: coordenada inválida no save (arquivo editado,
-// versão antiga) não pode mandar o jogador para o meio do oceano.
-const cofre = createSave({
+// Preferences through slopkit: an invalid coordinate in the save (a hand-edited
+// file, an old version) must not send the player into the middle of the ocean.
+const vault = createSave({
   game: 'worlddrive',
   version: 1,
-  chave: 'worlddrive:prefs',
-  initial: () => ({ version: 1, lat: null, lon: null, zoom: 16, label: null, mudo: false }),
-  normalize: (bruto, base) => {
-    if (!bruto || typeof bruto !== 'object') return base;
-    const s = { ...base, ...bruto };
-    const valido = Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
+  key: 'worlddrive:prefs',
+  initial: () => ({ version: 1, lat: null, lon: null, zoom: 16, label: null, muted: false }),
+  normalize: (raw, base) => {
+    if (!raw || typeof raw !== 'object') return base;
+    const s = { ...base, ...raw };
+    const valid = Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
       Math.abs(s.lat) <= 90 && Math.abs(s.lon) <= 180;
-    if (!valido) { s.lat = null; s.lon = null; }
+    if (!valid) { s.lat = null; s.lon = null; }
     s.zoom = Number.isFinite(s.zoom) ? Math.min(Math.max(3, s.zoom), 19) : 16;
-    s.mudo = !!s.mudo;
+    s.muted = !!s.muted;
     return s;
   },
+  i18n,
 });
-const prefs = cofre.load();
+const prefs = vault.load();
 if (prefs.lat !== null) picker.setCenter(prefs.lat, prefs.lon, prefs.zoom);
-audio.setMuted(prefs.mudo);
+audio.setMuted(prefs.muted);
+
+// The menu, the help card and the HUD tooltips are written inline in both
+// languages; bindText keeps them in step with the flags.
+bindText(i18n);
+mountLangPicker(i18n, { width: 26 });
+const applyTitle = () => { document.title = t('page.title'); };
+applyTitle();
+i18n.onChange(applyTitle);
 
 ui.bind({ picker, onDrive: (lat, lon, label) => startDrive(lat, lon, label) });
 
-// ---------- fluxo ----------
+// ---------- flow ----------
 async function startDrive(lat, lon, label) {
   if (app.state === 'loading') return;
   app.state = 'loading';
@@ -122,13 +133,13 @@ async function startDrive(lat, lon, label) {
     snapCamera();
     app.state = 'driving';
     ui.showHUD(isTouch);
-    ui.toast(w.spawn.name ? `Você está em ${w.spawn.name}` : 'Boa viagem!');
+    ui.toast(w.spawn.name ? t('toast.youAreIn', { street: w.spawn.name }) : t('toast.goodTrip'));
     Object.assign(prefs, { lat, lon, zoom: 16, label: label || null });
-    cofre.save(prefs);
+    vault.save(prefs);
   } catch (err) {
     console.error(err);
     app.state = 'loading';
-    ui.showLoadError(err && err.message || 'Erro inesperado ao carregar os dados.', () => {
+    ui.showLoadError((err && err.message) || t('load.error'), () => {
       app.state = 'menu';
       startDrive(lat, lon, label);
     });
@@ -141,26 +152,30 @@ function backToMenu() {
   ui.showMenu();
 }
 
-// atalhos
+// shortcuts
 input.on('reset', () => {
   if (app.state !== 'driving' || !app.world) return;
   const n = app.world.roadIndex.nearest(car.x, car.z, 600);
-  if (n) { car.place(n.x, n.z, n.heading, app.world); snapCamera(); ui.toast('De volta à rua ' + (n.name ? `(${n.name})` : '')); }
+  if (n) {
+    car.place(n.x, n.z, n.heading, app.world);
+    snapCamera();
+    ui.toast(n.name ? t('toast.backToStreet', { name: `(${n.name})` }) : t('toast.backToStreetPlain'));
+  }
 });
 input.on('camera', () => {
   app.camMode = (app.camMode + 1) % 3;
-  ui.toast(['Câmera: perseguição', 'Câmera: próxima', 'Câmera: aérea'][app.camMode]);
+  ui.toast(t('toast.camera', { mode: t(['camera.chase', 'camera.close', 'camera.aerial'][app.camMode]) }));
 });
 input.on('reload', () => {
   if (app.state !== 'driving' || !app.world) return;
   const [lat, lon] = app.world.proj.toLatLon(car.x, car.z);
-  startDrive(lat, lon, 'este ponto');
+  startDrive(lat, lon, t('hud.thisSpot'));
 });
 input.on('mute', () => {
   audio.setMuted(!audio.muted);
-  prefs.mudo = audio.muted;
-  cofre.save(prefs);
-  ui.toast(audio.muted ? 'Som desligado' : 'Som ligado');
+  prefs.muted = audio.muted;
+  vault.save(prefs);
+  ui.toast(t(audio.muted ? 'toast.soundOff' : 'toast.soundOn'));
 });
 input.on('help', () => ui.toggleHelp());
 input.on('menu', () => backToMenu());
@@ -174,7 +189,7 @@ document.getElementById('help').addEventListener('click', () => ui.toggleHelp(fa
 
 car.onCrash = i => audio.crash(i);
 
-// ---------- câmera ----------
+// ---------- camera ----------
 const camPos = new THREE.Vector3(0, 30, 30);
 const camLook = new THREE.Vector3();
 function snapCamera() {
@@ -218,7 +233,7 @@ renderer.setAnimationLoop(() => {
     car.update(dt, inp, app.world);
     updateCamera(dt);
 
-    // sol/sombras seguem o carro (snap para evitar cintilação)
+    // sun/shadows follow the car (snapped to avoid shimmer)
     const sx = Math.round(car.x / 10) * 10, sz = Math.round(car.z / 10) * 10;
     sun.position.set(sx + 210, 300, sz - 170);
     sun.target.position.set(sx, 0, sz);
@@ -239,7 +254,7 @@ renderer.setAnimationLoop(() => {
       ui.setEdgeWarning(edge > app.world.half - 90);
     }
 
-    // qualidade automática
+    // automatic quality
     const fps = 1 / Math.max(dt, 1e-3);
     fpsEMA = fpsEMA * 0.95 + fps * 0.05;
     if (fpsEMA < 27) lowFpsTime += dt; else lowFpsTime = 0;
@@ -248,7 +263,7 @@ renderer.setAnimationLoop(() => {
       app.quality--;
       if (app.quality === 1) renderer.setPixelRatio(1);
       if (app.quality === 0) { renderer.shadowMap.enabled = false; sun.castShadow = false; }
-      ui.toast('Qualidade reduzida para manter a fluidez');
+      ui.toast(t('toast.qualityDropped'));
     }
   }
 
@@ -262,3 +277,6 @@ addEventListener('resize', () => {
 });
 
 ui.showMenu();
+
+// the test bridge — the kit looks for this name
+window.__game = { name: 'worlddrive', i18n, app };

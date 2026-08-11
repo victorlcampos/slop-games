@@ -1,4 +1,4 @@
-// Árvores: nós natural=tree + preenchimento procedural de parques/bosques
+// Trees: natural=tree nodes + procedural filling of parks and woods
 import * as THREE from 'three';
 import { mulberry32 } from './geo.js';
 
@@ -22,7 +22,7 @@ export function buildTrees(trees, greens, proj, heightAt, half, collision, seed)
     if (Math.abs(x) < half && Math.abs(z) < half) spots.push([x, z]);
   }
 
-  // espalha árvores dentro de áreas verdes (grade com jitter)
+  // scatter trees inside green areas (a jittered grid)
   for (const g of greens) {
     if (spots.length >= MAX_TREES) break;
     const ring = g.ring.map(p => proj.toLocal(p.lat, p.lon));

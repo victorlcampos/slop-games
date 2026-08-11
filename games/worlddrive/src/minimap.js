@@ -1,4 +1,4 @@
-// Minimapa circular (norte fixo, carro no centro)
+// Circular minimap (north fixed, car at the centre)
 export class Minimap {
   constructor(canvas) {
     this.canvas = canvas;
@@ -45,14 +45,14 @@ export class Minimap {
     c.fillStyle = 'rgba(8,10,14,0.78)';
     c.fillRect(0, 0, S, S);
 
-    // recorte do offscreen centrado no carro; raio visível ~230m
+    // crop of the offscreen centred on the car; visible radius ~230m
     const viewM = 230;
     const px = (x + this.half) * this.offScale;
     const pz = (z + this.half) * this.offScale;
     const srcHalf = viewM * this.offScale;
     c.drawImage(this.off, px - srcHalf, pz - srcHalf, srcHalf * 2, srcHalf * 2, 0, 0, S, S);
 
-    // seta do carro
+    // the car's arrow
     c.translate(S / 2, S / 2);
     c.rotate(heading);
     c.fillStyle = '#ff4444';

@@ -1,4 +1,4 @@
-// Som do motor / derrapagem / batida — 100% sintetizado (WebAudio)
+// Engine / skid / crash sound — 100% synthesised (WebAudio)
 export class GameAudio {
   constructor() {
     this.ctx = null;
@@ -6,7 +6,7 @@ export class GameAudio {
     this._built = false;
   }
 
-  // criar apenas após gesto do usuário
+  // only create after a user gesture
   start() {
     if (this._built) { this.ctx && this.ctx.resume(); return; }
     try {
@@ -30,7 +30,7 @@ export class GameAudio {
       this.osc1.start(); this.osc2.start();
       this.engFilt = filt;
 
-      // ruído (derrapagem)
+      // noise (skidding)
       const len = ctx.sampleRate * 1.5;
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = buf.getChannelData(0);
@@ -43,7 +43,7 @@ export class GameAudio {
       this.noise.start();
 
       this._built = true;
-    } catch (e) { /* sem áudio, sem drama */ }
+    } catch (e) { /* no audio, no drama */ }
   }
 
   update(speedKmh, throttle, drifting) {

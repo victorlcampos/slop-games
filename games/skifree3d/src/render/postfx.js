@@ -1,14 +1,13 @@
-// Passes de pós-processamento próprios: raios de sol volumétricos e um
-// estágio final de "lente" (motion blur radial, aberração, vinheta, grão
-// e color grading).
+// Our own post-processing passes: volumetric sun rays and a final "lens"
+// stage (radial motion blur, aberration, vignette, grain and colour grading).
 
 import * as THREE from 'three';
 
 // ============================================================= god rays
-// Volumetric light scattering em screen space (GPU Gems 3): marcha do pixel
-// em direção ao sol acumulando o que é muito brilhante. Como o disco solar
-// do céu é o único objeto realmente estourado, as árvores e o relevo que o
-// cobrem recortam os raios de graça.
+// Screen-space volumetric light scattering (GPU Gems 3): march the pixel
+// towards the sun accumulating whatever is very bright. Since the sky's solar
+// disc is the only genuinely blown-out object, the trees and terrain covering
+// it cut the rays out for free.
 export const GodRaysShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -59,7 +58,7 @@ export const GodRaysShader = {
       }
       accum /= float(SAMPLES);
 
-      // some quando o sol se aproxima da borda: senão os raios "grudam" na tela
+      // fades as the sun nears the edge: otherwise the rays "stick" to the screen
       float edge = 1.0 - smoothstep(0.30, 0.85, length(uSunPos - vec2(0.5)));
       gl_FragColor = vec4(base.rgb + accum * uIntensity * edge * uVisible, base.a);
     }
@@ -67,12 +66,12 @@ export const GodRaysShader = {
 };
 
 // ================================================================ lente
-// Roda depois do tone mapping, em espaço de exibição.
+// Runs after tone mapping, in display space.
 export const LensShader = {
   uniforms: {
     tDiffuse: { value: null },
     uTime: { value: 0 },
-    uSpeed: { value: 0 },            // 0..1 — intensidade do borrão radial
+    uSpeed: { value: 0 },            // 0..1 — strength of the radial blur
     uAberration: { value: 0.0007 },
     uVignette: { value: 0.62 },
     uGrain: { value: 0.022 },
@@ -116,7 +115,7 @@ export const LensShader = {
       vec3 col;
       float blur = uSpeed * 0.055 * smoothstep(0.06, 0.7, r);
       if (blur > 0.0008) {
-        // borrão radial: o mundo se estica para fora quando você acelera
+        // radial blur: the world stretches outwards as you speed up
         float total = 0.0;
         col = vec3(0.0);
         for (int i = 0; i < 8; i++) {
@@ -135,7 +134,7 @@ export const LensShader = {
       col = (col - 0.5) * uContrast + 0.5;
       float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
       col = mix(vec3(lum), col, uSaturation);
-      // split toning: sombras frias, realces quentes — a leitura clássica de neve
+      // split toning: cool shadows, warm highlights — the classic read of snow
       col = mix(col * vec3(0.955, 0.982, 1.06), col * vec3(1.045, 1.012, 0.955),
                 smoothstep(0.22, 0.88, lum));
 
@@ -143,7 +142,7 @@ export const LensShader = {
       float vig = smoothstep(1.02, 0.30, r);
       col *= mix(1.0, vig, uVignette);
 
-      // ---- grão
+      // ---- grain
       float g = fract(sin(dot(vUv * uResolution + vec2(uTime * 37.0), vec2(12.9898, 78.233))) * 43758.5453);
       col += (g - 0.5) * uGrain;
 
@@ -152,7 +151,7 @@ export const LensShader = {
   `,
 };
 
-/** Projeta a direção do sol para coordenadas de tela (uv) e devolve a visibilidade. */
+/** Projects the sun direction to screen coordinates (uv) and returns visibility. */
 const _sunWorld = new THREE.Vector3();
 const _camPos = new THREE.Vector3();
 
@@ -164,7 +163,7 @@ export function updateSunScreenPosition(sunDirection, camera, uniforms) {
   const behind = _sunWorld.z > 1;
   uniforms.uSunPos.value.set(_sunWorld.x * 0.5 + 0.5, _sunWorld.y * 0.5 + 0.5);
 
-  // desvanece suavemente quando o sol sai do enquadramento
+  // fades out smoothly when the sun leaves the frame
   const dx = Math.max(0, Math.abs(_sunWorld.x) - 1);
   const dy = Math.max(0, Math.abs(_sunWorld.y) - 1);
   const off = Math.hypot(dx, dy);

@@ -148,38 +148,38 @@ const BILL_EVERY = 7;             // contas a cada N dias
 
 /* Terrenos */
 const TERRAIN = {
-  grama: { n: 'Grama', c: '#77c257', c2: '#68b04a', cost: 6, em: '🌿' },
-  mata: { n: 'Mata', c: '#4e9143', c2: '#438038', cost: 12, em: '🌳' },
-  terra: { n: 'Terra', c: '#b9905c', c2: '#a87f4d', cost: 5, em: '🟫' },
-  areia: { n: 'Areia', c: '#e8d29a', c2: '#dcc086', cost: 8, em: '🏜️' },
-  rocha: { n: 'Rocha', c: '#9b9a94', c2: '#8b8a84', cost: 14, em: '🪨' },
-  neve: { n: 'Neve', c: '#eaf2f7', c2: '#d8e6ef', cost: 18, em: '❄️' },
-  agua: { n: 'Água', c: '#4fa8db', c2: '#3f96c8', cost: 22, em: '💧' },
-  piso: { n: 'Calçada', c: '#d9cdb6', c2: '#cabda4', cost: 10, em: '🧱' },
+  grass: { n: 'Grama|Grass', c: '#77c257', c2: '#68b04a', cost: 6, em: '🌿' },
+  woods: { n: 'Mata|Woods', c: '#4e9143', c2: '#438038', cost: 12, em: '🌳' },
+  dirt: { n: 'Terra|Dirt', c: '#b9905c', c2: '#a87f4d', cost: 5, em: '🟫' },
+  sand: { n: 'Areia|Sand', c: '#e8d29a', c2: '#dcc086', cost: 8, em: '🏜️' },
+  rock: { n: 'Rocha|Rock', c: '#9b9a94', c2: '#8b8a84', cost: 14, em: '🪨' },
+  snow: { n: 'Neve|Snow', c: '#eaf2f7', c2: '#d8e6ef', cost: 18, em: '❄️' },
+  water: { n: 'Água|Water', c: '#4fa8db', c2: '#3f96c8', cost: 22, em: '💧' },
+  piso: { n: 'Calçada|Path', c: '#d9cdb6', c2: '#cabda4', cost: 10, em: '🧱' },
 };
 const TKEYS = Object.keys(TERRAIN);
 
-/* Biomas: mistura ideal de terreno + clima */
-const BIOMAS = {
-  savana: { n: 'Savana', mix: { grama: .55, terra: .3, rocha: .15 }, temp: 'quente', em: '🌾' },
-  floresta: { n: 'Floresta Temperada', mix: { mata: .45, grama: .4, terra: .15 }, temp: 'ameno', em: '🌲' },
-  selva: { n: 'Floresta Tropical', mix: { mata: .6, grama: .25, agua: .15 }, temp: 'quente', em: '🌴' },
-  deserto: { n: 'Deserto', mix: { areia: .7, rocha: .3 }, temp: 'quente', em: '🌵' },
-  tundra: { n: 'Tundra', mix: { neve: .65, rocha: .2, agua: .15 }, temp: 'frio', em: '🧊' },
-  montanha: { n: 'Montanha', mix: { rocha: .6, neve: .2, grama: .2 }, temp: 'frio', em: '⛰️' },
-  pantanal: { n: 'Pantanal', mix: { agua: .45, grama: .3, mata: .25 }, temp: 'quente', em: '🐊' },
-  pradaria: { n: 'Pradaria', mix: { grama: .8, terra: .2 }, temp: 'ameno', em: '🌱' },
-  costa: { n: 'Costa Rochosa', mix: { agua: .45, rocha: .3, areia: .25 }, temp: 'frio', em: '🪨' },
-  aquatico: { n: 'Aquário', mix: { agua: .9, rocha: .1 }, temp: 'ameno', em: '🌊' },
-  caverna: { n: 'Caverna', mix: { rocha: .8, terra: .2 }, temp: 'ameno', em: '🕳️' },
+/* Biomes: the ideal terrain mix + climate */
+const BIOMES = {
+  savanna: { n: 'Savana|Savanna', mix: { grass: .55, dirt: .3, rock: .15 }, temp: 'hot', em: '🌾' },
+  forest: { n: 'Floresta Temperada|Temperate Forest', mix: { woods: .45, grass: .4, dirt: .15 }, temp: 'mild', em: '🌲' },
+  jungle: { n: 'Floresta Tropical|Rainforest', mix: { woods: .6, grass: .25, water: .15 }, temp: 'hot', em: '🌴' },
+  desert: { n: 'Deserto|Desert', mix: { sand: .7, rock: .3 }, temp: 'hot', em: '🌵' },
+  tundra: { n: 'Tundra|Tundra', mix: { snow: .65, rock: .2, water: .15 }, temp: 'cold', em: '🧊' },
+  mountain: { n: 'Montanha|Mountain', mix: { rock: .6, snow: .2, grass: .2 }, temp: 'cold', em: '⛰️' },
+  wetland: { n: 'Pantanal|Wetland', mix: { water: .45, grass: .3, woods: .25 }, temp: 'hot', em: '🐊' },
+  grassland: { n: 'Pradaria|Grassland', mix: { grass: .8, dirt: .2 }, temp: 'mild', em: '🌱' },
+  coast: { n: 'Costa Rochosa|Rocky Coast', mix: { water: .45, rock: .3, sand: .25 }, temp: 'cold', em: '🪨' },
+  aquarium: { n: 'Aquário|Aquarium', mix: { water: .9, rock: .1 }, temp: 'mild', em: '🌊' },
+  cave: { n: 'Caverna|Cave', mix: { rock: .8, dirt: .2 }, temp: 'mild', em: '🕳️' },
 };
 
-/* Dietas: custo diário de ração por unidade de tamanho */
-const DIETA = {
-  herb: { n: 'Herbívoro', custo: 7, em: '🥬' },
-  carn: { n: 'Carnívoro', custo: 19, em: '🥩' },
-  oniv: { n: 'Onívoro', custo: 11, em: '🍎' },
-  pisc: { n: 'Piscívoro', custo: 16, em: '🐟' },
-  inse: { n: 'Insetívoro', custo: 9, em: '🦗' },
-  nect: { n: 'Frugívoro', custo: 8, em: '🍌' },
+/* Diets: daily feed cost per unit of size */
+const DIETS = {
+  herb: { n: 'Herbívoro|Herbivore', cost: 7, em: '🥬' },
+  carn: { n: 'Carnívoro|Carnivore', cost: 19, em: '🥩' },
+  omni: { n: 'Onívoro|Omnivore', cost: 11, em: '🍎' },
+  pisc: { n: 'Piscívoro|Piscivore', cost: 16, em: '🐟' },
+  inse: { n: 'Insetívoro|Insectivore', cost: 9, em: '🦗' },
+  frug: { n: 'Frugívoro|Frugivore', cost: 8, em: '🍌' },
 };

@@ -1,28 +1,28 @@
-// Céu com espalhamento atmosférico (Preetham), cordilheira distante e nuvens.
-// O mesmo céu alimenta o environment map, então a luz ambiente da cena vem
-// fisicamente do ar e do sol, não de uma cor chutada.
+// Sky with atmospheric scattering (Preetham), a distant range and clouds.
+// The same sky feeds the environment map, so the scene's ambient light comes
+// physically from the air and the sun, not from a guessed colour.
 
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { fbm2, ridged2, makeRng } from '../lib/noise.js';
 
-// A cúpula precisa caber dentro de camera.far: o clip do far plane corta
-// geometria mesmo com frustumCulled desligado.
+// The dome has to fit inside camera.far: the far plane clips geometry even
+// with frustumCulled turned off.
 const SKY_RADIUS = 2000;
 
 export const SKY_PARAMS = {
   turbidity: 1.8,          // ar limpo de alta montanha
-  rayleigh: 1.0,           // valores altos lavam o azul depois do tone map
-  mieCoefficient: 0.005,   // brilho ao redor do sol
+  rayleigh: 1.0,           // high values wash the blue out after tone mapping
+  mieCoefficient: 0.005,   // glow around the sun
   mieDirectionalG: 0.78,
-  intensity: 0.30,         // escala HDR do céu (medida, não chutada)
-  ridgeGain: 1.5,          // compensa o tone mapping nas cordilheiras
+  intensity: 0.30,         // HDR scale of the sky (measured, not guessed)
+  ridgeGain: 1.5,          // compensates tone mapping on the ranges
 };
 
 /**
- * O Sky do three devolve radiância numa escala própria, alta demais para o
- * ACES: sem esta escala o azul vira branco. Também expõe o disco solar num
- * valor bem acima de 1, que é o que alimenta os god rays.
+ * three's Sky returns radiance on its own scale, far too high for ACES:
+ * without this scale the blue turns white. It also exposes the solar disc at a
+ * value well above 1, which is what feeds the god rays.
  */
 function applyIntensityPatch(material, intensity) {
   const uniforms = { uSkyIntensity: { value: intensity } };
@@ -40,7 +40,7 @@ function applyIntensityPatch(material, intensity) {
   return material;
 }
 
-/** Textura de nuvem macia gerada por ruído (sem arquivos externos). */
+/** A soft cloud texture generated from noise (no external files). */
 function makeCloudTexture(size = 128, seed = 7) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -70,7 +70,7 @@ function makeCloudTexture(size = 128, seed = 7) {
   return tex;
 }
 
-/** Silhueta de cordilheira: cilindro aberto com o topo recortado por ruído. */
+/** A mountain range silhouette: an open cylinder with its top cut by noise. */
 function makeRidgeMesh(radius, height, baseY, colorTop, colorBottom, seed, segments = 220) {
   const pos = [];
   const col = [];
@@ -108,15 +108,15 @@ function makeRidgeMesh(radius, height, baseY, colorTop, colorBottom, seed, segme
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
 
-  // Precisa ser OPACO: material transparente entra na fase de blending, que
-  // roda depois de todos os opacos — com depthTest desligado ele cobriria o
-  // jogador e o terreno inteiro.
+  // Has to be OPAQUE: a transparent material joins the blending phase, which
+  // runs after all the opaques — with depthTest off it would cover the player
+  // and the entire terrain.
   const mat = new THREE.MeshBasicMaterial({
     vertexColors: true, fog: false, side: THREE.DoubleSide,
     depthWrite: false, depthTest: false, toneMapped: true,
   });
-  // as cores foram escolhidas em espaço de exibição: sobe para HDR para
-  // chegarem ao tone mapping com o mesmo brilho do céu
+  // the colours were chosen in display space: lift to HDR so they reach tone
+  // mapping with the same brightness as the sky
   mat.color.setScalar(SKY_PARAMS.ridgeGain);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false;
@@ -135,8 +135,8 @@ function configureSky(sky, sunDirection) {
 }
 
 /**
- * Gera o environment map a partir do próprio céu — é ele que dá à neve o
- * azul do ambiente e aos objetos um specular coerente com a atmosfera.
+ * Builds the environment map from the sky itself — it is what gives the snow
+ * the blue of the surroundings and objects a specular coherent with the air.
  */
 export function buildSkyEnvironment(renderer, sunDirection) {
   const envScene = new THREE.Scene();
@@ -145,8 +145,8 @@ export function buildSkyEnvironment(renderer, sunDirection) {
   sky.scale.setScalar(1000);
   envScene.add(sky);
 
-  // hemisfério inferior branco: a neve devolve muita luz para cima, e sem
-  // isso a parte de baixo dos objetos fica preta
+  // a white lower hemisphere: snow bounces a lot of light upwards, and without
+  // this the underside of objects goes black
   const bounce = new THREE.Mesh(
     new THREE.SphereGeometry(900, 24, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
     new THREE.MeshBasicMaterial({ color: 0xdae9f7, side: THREE.BackSide, fog: false })
@@ -178,7 +178,7 @@ export function createSky(scene, sunDirection) {
   group.add(sky);
 
   // ------------------------------------------------------- cordilheiras
-  // Três camadas: quanto mais longe, mais lavada pela perspectiva aérea.
+  // Three layers: the further away, the more washed by aerial perspective.
   const far = makeRidgeMesh(1750, 300, -80, 0xf6fbff, 0xd8e9f8, 11, 180);
   const mid = makeRidgeMesh(1320, 250, -110, 0xeef6ff, 0xb9d4ec, 23, 200);
   const near = makeRidgeMesh(940, 180, -130, 0xe6f2ff, 0x9abcdb, 41, 220);
@@ -196,8 +196,8 @@ export function createSky(scene, sunDirection) {
 
   for (let i = 0; i < 26; i++) {
     const tex = cloudTextures[i % cloudTextures.length];
-    // nuvens têm alpha, então são transparentes de verdade — mas mantêm o
-    // depth test ligado para o terreno continuar na frente delas
+    // clouds have alpha, so they really are transparent — but they keep the
+    // depth test on so the terrain stays in front of them
     const mat = new THREE.MeshBasicMaterial({
       map: tex, transparent: true, depthWrite: false, depthTest: true,
       fog: false, opacity: 0.4 + rng() * 0.36,
@@ -219,7 +219,7 @@ export function createSky(scene, sunDirection) {
   return {
     group,
     sky,
-    /** Mantém o cenário centrado na câmera e faz as nuvens andarem. */
+    /** Keeps the scenery centred on the camera and moves the clouds along. */
     update(camera, dt) {
       camera.getWorldPosition(tmp);
       group.position.set(tmp.x, 0, tmp.z);
@@ -227,7 +227,7 @@ export function createSky(scene, sunDirection) {
       for (const c of cloudData) {
         c.mesh.position.x += c.drift * dt;
         if (c.mesh.position.x > 1500) c.mesh.position.x = -1500;
-        // billboard só no eixo Y: no espaço do grupo a câmera está na origem
+        // billboard on the Y axis only: in the group's space the camera is at the origin
         c.mesh.rotation.y = Math.atan2(-c.mesh.position.x, -c.mesh.position.z);
       }
     },

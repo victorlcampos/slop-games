@@ -43,9 +43,9 @@ function planoDoArraste(r, fenceKey) {
   const livres = tilesLivresDoRect(r);
   const tocados = recintosTocados(r);
   if (tocados.length > 1)
-    return { acao: 'nada', motivo: 'Esse retângulo encosta em 2 recintos — amplie um de cada vez.' };
+    return { acao: 'swims', motivo: LN('Esse retângulo encosta em 2 recintos — amplie um de cada vez.|That rectangle touches 2 enclosures — extend one at a time.') };
   if (!livres.length)
-    return { acao: 'nada', motivo: 'Nenhum tile livre aqui (já tem trilha, prédio ou recinto).' };
+    return { acao: 'swims', motivo: LN('Nenhum tile livre aqui (já tem trilha, prédio ou recinto).|No free tile here (there is already a path, a building or an enclosure).') };
   if (tocados.length === 1) {
     const e = enclosures.get(tocados[0]);
     const uniao = new Set(e.tiles);
@@ -54,13 +54,13 @@ function planoDoArraste(r, fenceKey) {
     const delta = Math.max(0, contarSegmentos(uniao) - encSegCount(e));
     return {
       acao: 'ampliar', alvo: e, tiles: livres,
-      custo: delta * FENCES[e.fence].cost + livres.length * 18,
+      cost: delta * FENCES[e.fence].cost + livres.length * 18,
     };
   }
   if (livres.length < MIN_TILES_RECINTO)
-    return { acao: 'nada', motivo: `Recinto muito pequeno: precisa de ${MIN_TILES_RECINTO} tiles livres.` };
+    return { acao: 'swims', motivo: BI`Recinto muito pequeno: precisa de ${MIN_TILES_RECINTO} tiles livres.|Enclosure too small: it needs ${MIN_TILES_RECINTO} free tiles.` };
   const set = new Set(livres);
-  return { acao: 'criar', tiles: livres, custo: contarSegmentos(set) * FENCES[fenceKey].cost };
+  return { acao: 'criar', tiles: livres, cost: contarSegmentos(set) * FENCES[fenceKey].cost };
 }
 const custoCercaDe = e => encSegCount(e) * FENCES[e.fence].cost;
 
@@ -99,8 +99,8 @@ function aplicarFerramenta(x, y, arrastando) {
     if (addPath(x, y)) {
       spend(t.cost, 'obra'); SFX.toca('trilha');
       // uma pincelada inteira = 1 desfazer (o grupo fecha ao soltar o dedo)
-      if (!undoGrupo || undoGrupo.tipo !== 'trilha') undoGrupo = { tipo: 'trilha', cat: 'obra', tiles: [], custo: 0 };
-      undoGrupo.tiles.push([x, y]); undoGrupo.custo += t.cost;
+      if (!undoGrupo || undoGrupo.kind !== 'trilha') undoGrupo = { kind: 'trilha', cat: 'obra', tiles: [], cost: 0 };
+      undoGrupo.tiles.push([x, y]); undoGrupo.cost += t.cost;
     }
   } else if (t.cat === 'terreno') {
     const alvo = TKEYS.indexOf(t.key);
@@ -114,33 +114,33 @@ function aplicarFerramenta(x, y, arrastando) {
       if (G.money < t.cost) return semGrana();
       const antes = world.terr[nk];
       world.terr[nk] = alvo; spend(t.cost, 'obra'); terrenoMudou(); SFX.toca('terreno');
-      if (!undoGrupo || undoGrupo.tipo !== 'terreno') undoGrupo = { tipo: 'terreno', cat: 'obra', mudancas: [], custo: 0 };
-      undoGrupo.mudancas.push([nk, antes, alvo]); undoGrupo.custo += t.cost;
+      if (!undoGrupo || undoGrupo.kind !== 'terreno') undoGrupo = { kind: 'terreno', cat: 'obra', mudancas: [], cost: 0 };
+      undoGrupo.mudancas.push([nk, antes, alvo]); undoGrupo.cost += t.cost;
     }
   } else if (t.cat === 'build') {
     if (arrastando) return;
-    if (!rectFree(x, y, t.w, t.h)) { toast('🚫 Espaço ocupado', 'bad'); return; }
+    if (!rectFree(x, y, t.w, t.h)) { toast(LN('🚫 Espaço ocupado|🚫 Space taken'), 'bad'); return; }
     if (G.money < t.cost) return semGrana();
     spend(t.cost, 'obra'); const ob = placeObject(t.key, 'build', x, y); SFX.toca('predio');
-    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: ob.id, custo: t.cost, rotulo: t.n });
-    if (!nearestPathTile(x, y, 4)) toast('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar', 'bad');
+    undoRegistrar({ kind: 'objeto', cat: 'obra', id: ob.id, cost: t.cost, rotulo: t.n });
+    if (!nearestPathTile(x, y, 4)) toast(LN('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar|⚠️ No path nearby — visitors will not be able to reach it'), 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
     if (G.money < t.cost) return semGrana();
     spend(t.cost, 'obra'); const od = placeObject(t.key, 'deco', x, y); SFX.toca('predio');
-    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: od.id, custo: t.cost, rotulo: t.n });
+    undoRegistrar({ kind: 'objeto', cat: 'obra', id: od.id, cost: t.cost, rotulo: t.n });
   } else if (t.cat === 'encobj') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
-    if (!e) { toast('🚫 Objetos de recinto só vão dentro de um recinto', 'bad'); return; }
+    if (!e) { toast(LN('🚫 Objetos de recinto só vão dentro de um recinto|🚫 Enclosure objects only go inside an enclosure'), 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
     spend(t.cost, 'obra'); const oe = placeObject(t.key, 'encobj', x, y); SFX.toca('predio');
-    undoRegistrar({ tipo: 'objeto', cat: 'obra', id: oe.id, custo: t.cost, rotulo: t.n });
+    undoRegistrar({ kind: 'objeto', cat: 'obra', id: oe.id, cost: t.cost, rotulo: t.n });
   } else if (t.cat === 'animal') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
-    if (!e) { toast('🚫 Clique dentro de um recinto', 'bad'); return; }
+    if (!e) { toast(LN('🚫 Clique dentro de um recinto|🚫 Click inside an enclosure'), 'bad'); return; }
     if (comprarPara(t.sp, e)) { select('enc', e); }
   } else if (t.cat === 'demolir') {
     demolirEm(x, y);
@@ -159,7 +159,7 @@ function demolirEm(x, y) {
   }
   if (world.path[k]) {
     if (x === ENTRANCE.x && y === ENTRANCE.y) {
-      toast('🚪 A trilha do portão não pode ser removida — é por ali que os visitantes entram.', 'bad');
+      toast(LN('🚪 A trilha do portão não pode ser removida — é por ali que os visitantes entram.|🚪 The gate path cannot be removed — that is where the visitors come in.'), 'bad');
       return;
     }
     removePath(x, y); earn(6, 'venda'); return;
@@ -167,7 +167,7 @@ function demolirEm(x, y) {
   if (world.enc[k]) {
     const e = enclosures.get(world.enc[k]);
     if (!e) return;
-    if (e.animals.length) { toast('🚫 Tire os animais antes de demolir o recinto', 'bad'); return; }
+    if (e.animals.length) { toast(LN('🚫 Tire os animais antes de demolir o recinto|🚫 Take the animals out before demolishing the enclosure'), 'bad'); return; }
     const dev = Math.round(custoCercaDe(e) * .5);
     deleteEnclosure(e.id); earn(dev, 'venda'); SFX.toca('demolir');
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
@@ -191,8 +191,8 @@ function pickAt(sx, sy) {
   const x = Math.floor(wx), y = Math.floor(wy);
   if (!inB(x, y)) return null;
   const k = IDX(x, y);
-  if (world.occ[k]) { const o = objects.get(world.occ[k]); if (o && o.cat !== 'encobj') return { tipo: 'obj', ref: o }; if (o) return { tipo: 'obj', ref: o }; }
-  if (world.enc[k]) { const e = enclosures.get(world.enc[k]); if (e) return { tipo: 'enc', ref: e }; }
+  if (world.occ[k]) { const o = objects.get(world.occ[k]); if (o && o.cat !== 'encobj') return { kind: 'obj', ref: o }; if (o) return { kind: 'obj', ref: o }; }
+  if (world.enc[k]) { const e = enclosures.get(world.enc[k]); if (e) return { kind: 'enc', ref: e }; }
   return null;
 }
 
@@ -231,19 +231,19 @@ function fecharArrasteRecinto() {
   G.drag = null;
   if (r.w < 1 || r.h < 1) return;
   const p = planoDoArraste(r, G.tool.key);
-  if (p.acao === 'nada') { toast('🚫 ' + p.motivo, 'bad'); return; }
-  if (G.money < p.custo) return semGrana();
-  spend(p.custo, 'obra');
+  if (p.acao === 'swims') { toast('🚫 ' + p.motivo, 'bad'); return; }
+  if (G.money < p.cost) return semGrana();
+  spend(p.cost, 'obra');
   if (p.acao === 'ampliar') {
     encAddTiles(p.alvo, p.tiles); SFX.toca('ampliar');
-    undoRegistrar({ tipo: 'ampliacao', cat: 'obra', id: p.alvo.id, tiles: [...p.tiles], custo: p.custo });
+    undoRegistrar({ kind: 'ampliacao', cat: 'obra', id: p.alvo.id, tiles: [...p.tiles], cost: p.cost });
     select('enc', p.alvo);
-    toast(`➕ ${p.alvo.nome} ampliado para ${encArea(p.alvo)} tiles`, 'good');
+    toast(BI`➕ ${p.alvo.name} ampliado para ${encArea(p.alvo)} tiles|➕ ${p.alvo.name} extended to ${encArea(p.alvo)} tiles`, 'good');
   } else {
     const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.toca('construir');
-    undoRegistrar({ tipo: 'recinto', cat: 'obra', id: e2.id, custo: p.custo });
+    undoRegistrar({ kind: 'recinto', cat: 'obra', id: e2.id, cost: p.cost });
     select('enc', e2);
-    toast(`🚧 ${e2.nome} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar`, 'good');
+    toast(BI`🚧 ${e2.name} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar|🚧 ${e2.name} built (${encArea(e2)} tiles) — drag alongside it to extend`, 'good');
   }
 }
 
@@ -266,37 +266,37 @@ function undoFecharGrupo() {
 function atualizarUndoBtn() {
   const b = $('#zUndo'); if (!b) return;
   b.disabled = !G.undo.length;
-  b.title = G.undo.length ? `Desfazer última compra — ${G.undo.length} disponíve${G.undo.length > 1 ? 'is' : 'l'} (Ctrl+Z)`
-    : 'Nada para desfazer (Ctrl+Z)';
+  b.title = G.undo.length ? BI`Desfazer última compra — ${G.undo.length} disponíve${G.undo.length > 1 ? 'is' : 'l'} (Ctrl+Z)|Undo the last purchase — ${G.undo.length} available (Ctrl+Z)`
+    : LN('Nada para desfazer (Ctrl+Z)|Nothing to undo (Ctrl+Z)');
 }
 function desfazerUltima() {
   undoFecharGrupo();
   const ent = G.undo.pop();
   atualizarUndoBtn();
-  if (!ent) { SFX.toca('ui'); toast('↩️ Nada para desfazer', ''); return; }
+  if (!ent) { SFX.toca('ui'); toast(LN('↩️ Nada para desfazer|↩️ Nothing to undo'), ''); return; }
   const devolve = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'obra', -v); return v; };
   let msg = '', valor = 0;
-  switch (ent.tipo) {
+  switch (ent.kind) {
     case 'trilha': {
       let n = 0;
       for (const [x, y] of ent.tiles) if (removePath(x, y)) n++;
-      if (n) { valor = devolve(ent.custo * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
-      else msg = '!a trilha já não existe mais';
+      if (n) { valor = devolve(ent.cost * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!' + LN('a trilha já não existe mais|the path is gone already');
       break;
     }
     case 'terreno': {
       let n = 0;
       for (const [k, antes, depois] of ent.mudancas)
         if (world.terr[k] === depois && !world.path[k] && !world.occ[k]) { world.terr[k] = antes; n++; }
-      if (n) { terrenoMudou(); valor = devolve(ent.custo * n / ent.mudancas.length); msg = `Pintura de terreno (${n} tile${n > 1 ? 's' : ''})`; }
-      else msg = '!o terreno já mudou de novo';
+      if (n) { terrenoMudou(); valor = devolve(ent.cost * n / ent.mudancas.length); msg = BI`Pintura de terreno (${n} tile${n > 1 ? 's' : ''})|Terrain painting (${n} tile${n > 1 ? 's' : ''})`; }
+      else msg = '!' + LN('o terreno já mudou de novo|the terrain has changed again');
       break;
     }
     case 'objeto': {
       const o = objects.get(ent.id);
       if (o) {
         if (G.sel && G.sel.ref === o) deselect();
-        removeObject(ent.id); valor = devolve(ent.custo); msg = ent.rotulo;
+        removeObject(ent.id); valor = devolve(ent.cost); msg = ent.rotulo;
       } else msg = '!' + ent.rotulo + ' já foi removido';
       break;
     }
@@ -308,26 +308,26 @@ function desfazerUltima() {
         G.escaped = G.escaped.filter(z => z.id !== ent.id);
         const e = enclosures.get(a.enc);
         if (e) e.animals = e.animals.filter(z => z.id !== ent.id);
-        valor = devolve(ent.custo); msg = ent.rotulo + ' devolvido à loja';
-      } else msg = '!o animal já não está no plantel';
+        valor = devolve(ent.cost); msg = BI`${LN(ent.rotulo)} devolvido à loja|${LN(ent.rotulo)} returned to the shop`;
+      } else msg = '!' + LN('o animal já não está no plantel|the animal is no longer in the collection');
       break;
     }
     case 'recinto': {
       const e = enclosures.get(ent.id);
-      if (!e) { msg = '!o recinto já foi demolido'; break; }
-      if (e.animals.some(a => !a.morto)) { msg = '!o recinto tem animais — venda ou transfira antes'; break; }
+      if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
+      if (e.animals.some(a => !a.morto)) { msg = '!' + LN('o recinto tem animais — venda ou transfira antes|the enclosure has animals — sell or transfer them first'); break; }
       if (e.objs.length) { msg = '!o recinto tem objetos dentro — remova antes'; break; }
       if (G.sel && G.sel.ref === e) deselect();
-      deleteEnclosure(ent.id); valor = devolve(ent.custo); msg = 'Recinto';
+      deleteEnclosure(ent.id); valor = devolve(ent.cost); msg = 'Recinto';
       break;
     }
     case 'ampliacao': {
       const e = enclosures.get(ent.id);
-      if (!e) { msg = '!o recinto já foi demolido'; break; }
+      if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       const set = new Set(ent.tiles.filter(k => e.tiles.has(k)));
-      if (!set.size) { msg = '!a ampliação já não existe'; break; }
+      if (!set.size) { msg = '!' + LN('a ampliação já não existe|the extension is gone already'); break; }
       if (set.size >= e.tiles.size) { msg = '!desfazer apagaria o recinto inteiro'; break; }
-      if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!há objetos na área ampliada — remova antes'; break; }
+      if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!' + LN('há objetos na área ampliada — remova antes|there are objects in the extended area — remove them first'); break; }
       for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
       encInvalida(e);
       for (const a of e.animals) {   // bicho que ficou de fora volta para dentro
@@ -337,15 +337,15 @@ function desfazerUltima() {
           if (tl) { a.x = tl[0] + .5; a.y = tl[1] + .5; a.tx = a.x; a.ty = a.y; }
         }
       }
-      valor = devolve(ent.custo * set.size / ent.tiles.length);
-      msg = `Ampliação (${set.size} tile${set.size > 1 ? 's' : ''})`;
+      valor = devolve(ent.cost * set.size / ent.tiles.length);
+      msg = BI`Ampliação (${set.size} tile${set.size > 1 ? 's' : ''})|Extension (${set.size} tile${set.size > 1 ? 's' : ''})`;
       break;
     }
     case 'cerca': {
       const e = enclosures.get(ent.id);
-      if (!e) { msg = '!o recinto já foi demolido'; break; }
-      if (e.fence !== ent.depois) { msg = '!a cerca já foi trocada de novo'; break; }
-      e.fence = ent.antes; valor = devolve(ent.custo); msg = `Cerca de volta para ${FENCES[ent.antes].n}`;
+      if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
+      if (e.fence !== ent.depois) { msg = '!' + LN('a cerca já foi trocada de novo|the fence has been swapped again'); break; }
+      e.fence = ent.antes; valor = devolve(ent.cost); msg = BI`Cerca de volta para ${LN(FENCES[ent.antes].n)}|Fence back to ${LN(FENCES[ent.antes].n)}`;
       break;
     }
   }
@@ -355,7 +355,7 @@ function desfazerUltima() {
     if (typeof refreshInspector === 'function') refreshInspector();
   } else {
     SFX.toca('erro');
-    toast('↩️ Não deu para desfazer: ' + msg.slice(1), 'bad');
+    toast(BI`↩️ Não deu para desfazer: ${msg.slice(1)}|↩️ Could not undo: ${msg.slice(1)}`, 'bad');
   }
 }
 
@@ -449,9 +449,9 @@ function fimPonteiro(e) {
       const p = pickAt(sx, sy);
       // tocar num bicho faz ele responder — é a graça de ter voz por espécie
       if (p) {
-        if (p.tipo === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
-        else if (p.tipo === 'vis' || p.tipo === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
-        select(p.tipo, p.ref);
+        if (p.kind === 'animal') SFX.voz(p.ref.sp, { vol: .3, imediato: true });
+        else if (p.kind === 'vis' || p.kind === 'staff') SFX.vozHumana(p.ref, { vol: .26, imediato: true });
+        select(p.kind, p.ref);
       }
       else deselect();
     }
@@ -480,12 +480,12 @@ $('#stWarn').onclick = () => openFinance();
 $('#stHappy').onclick = () => openSatisfacao();
 $('#stRep').onclick = () => openReputacao();
 $('#zUndo').onclick = () => desfazerUltima();
-const NOME_BOLHA = ['desligados', 'só quem está insatisfeito', 'todos'];
+const NOME_BOLHA = ['desligados|off', 'só quem está insatisfeito|only the unhappy ones', 'todos|all'];
 function ciclarBolhas() {
   G.bolhas = (G.bolhas + 1) % 3;
   $('#zBolha').classList.toggle('on', G.bolhas > 0);
   $('#zBolha').textContent = G.bolhas === 0 ? '💤' : G.bolhas === 1 ? '💭' : '💬';
-  toast('💭 Balões de pensamento: ' + NOME_BOLHA[G.bolhas], '');
+  toast(BI`💭 Balões de pensamento: ${LN(NOME_BOLHA[G.bolhas])}|💭 Thought bubbles: ${LN(NOME_BOLHA[G.bolhas])}`, '');
 }
 function atualizarBotaoSom() {
   $('#zSom').textContent = SFX.ligado ? (SFX.vol > .5 ? '🔊' : '🔉') : '🔇';
@@ -511,7 +511,7 @@ $('#fileSave').onchange = ev => {
   if (!f) return;
   // vindo do splash não há partida em curso: carrega direto e entra no jogo
   const noSplash = !$('#splash').classList.contains('hidden');
-  if (!noSplash && !confirm('Carregar "' + f.name + '"? O progresso atual será perdido.')) return;
+  if (!noSplash && !confirm(BI`Carregar "${f.name}"? O progresso atual será perdido.|Load "${f.name}"? The current progress will be lost.`)) return;
   importarSave(f, ok => {
     if (ok && noSplash) { $('#splash').classList.add('hidden'); setSpeed(1); }
   });
@@ -532,7 +532,7 @@ addEventListener('keydown', e => {
   if ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); desfazerUltima(); return; }
   if (k === 's' || k === 'S') ciclarSom();
   if (k === 'Delete' || k === 'Backspace') {
-    if (G.sel && G.sel.tipo === 'obj') { removeObject(G.sel.ref.id); deselect(); }
+    if (G.sel && G.sel.kind === 'obj') { removeObject(G.sel.ref.id); deselect(); }
   }
   if (k >= '1' && k <= '9') { const c = CATS[+k - 1]; if (c) abrirCategoria(c.k); }
   const pan = 60;
@@ -604,14 +604,14 @@ function tick(dt) {
     if (n) {
       e.limpeza = clamp(e.limpeza - gh * .0075 * n / Math.max(3, encArea(e) * .3), 0, 1);
       if (!encHasFeeder(e)) e.comida = 0;
-      if (!encHasWater(e)) e.agua = 0;
+      if (!encHasWater(e)) e.water = 0;
       const F = FENCES[e.fence];
-      const press = e.animals.reduce((s, a) => s + Math.max(0, a.sp.perigo - F.forca), 0);
+      const press = e.animals.reduce((s, a) => s + Math.max(0, a.sp.danger - F.strength), 0);
       if (press > 0) e.integridade = clamp(e.integridade - gh * .002 * press, 0, 1);
       else e.integridade = clamp(e.integridade + gh * .004, 0, 1);
     }
   }
-  let nv = 0; for (const s of G.staff) if (s.tipo === 'vet') nv++;
+  let nv = 0; for (const s of G.staff) if (s.kind === 'vet') nv++;
   G.nVets = nv;
   for (const a of G.animals) updAnimal(a, dt, gh);
   // carcaça some 3s depois da morte (dá tempo de ver a notificação)
@@ -638,22 +638,22 @@ function fecharDia() {
   // contas semanais
   if ((G.day - G.lastBill) >= BILL_EVERY) {
     G.lastBill = G.day;
-    let folha = G.staff.reduce((s, x) => s + STAFF_TYPES[x.tipo].salario, 0);
-    folha += [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].salario : 0), 0);
+    let folha = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0);
+    folha += [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].wage : 0), 0);
     const mk = [0, 1500, 5000, 14000][G.pesquisa.marketing];
     spend(folha + mk, 'salario'); SFX.toca('contas');
-    toast(`🧾 Contas da semana: ${moneyFull(folha + mk)} (folha${mk ? ' + marketing' : ''})`, 'money');
+    toast(BI`🧾 Contas da semana: ${moneyFull(folha + mk)} (folha${mk ? ' + marketing' : ''})|🧾 Weekly bills: ${moneyFull(folha + mk)} (payroll${mk ? ' + marketing' : ''})`, 'money');
   }
   // Se o dia fechou sem visitante, diz o motivo — 1x por dia. Ficar no escuro
   // por dias é indistinguível de um jogo quebrado.
   if (visitantesDoDia === 0 && G.day > 2) {
     const diag = diagnosticoPublico();
-    if (diag) toast(diag.em + ' ' + diag.longo.replace(/<\/?b>/g, ''), 'bad');
+    if (diag) toast(diag.em + ' ' + diag.long.replace(/<\/?b>/g, ''), 'bad');
   }
   // avaliações dos visitantes do dia entram como 1 linha agregada no extrato
   const rv = G.stats.repVis || 0;
   if (Math.abs(rv) >= .02) {
-    G.repLog.push({ dia: G.day - 1, delta: rv, motivo: `Avaliações de ${visitantesDoDia} visitantes`, em: rv > 0 ? '🗳️' : '📉' });
+    G.repLog.push({ dia: G.day - 1, delta: rv, motivo: BI`Avaliações de ${visitantesDoDia} visitantes|Ratings from ${visitantesDoDia} visitors`, em: rv > 0 ? '🗳️' : '📉' });
     if (G.repLog.length > 60) G.repLog.shift();
   }
   G.stats.repVis = 0;
@@ -664,7 +664,7 @@ function fecharDia() {
   if (Math.abs(G.rep - antes) >= .05) {
     G.repLog.push({
       dia: G.day - 1, delta: G.rep - antes,
-      motivo: G.rep > antes ? 'Qualidade do parque puxando a nota para cima' : 'Qualidade do parque puxando a nota para baixo',
+      motivo: G.rep > antes ? LN('Qualidade do parque puxando a nota para cima|Park quality pulling the score up') : LN('Qualidade do parque puxando a nota para baixo|Park quality pulling the score down'),
       em: G.rep > antes ? '📈' : '📉',
     });
     if (G.repLog.length > 60) G.repLog.shift();
@@ -673,7 +673,7 @@ function fecharDia() {
 
   if (G.money < -120000 && !G.gameOver) {
     G.gameOver = true; setSpeed(0); SFX.toca('falencia');
-    openModal('🏚️ Falência',
+    openModal(LN('🏚️ Falência|🏚️ Bankruptcy'),
       `<p style="font-size:14px;line-height:1.6">O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias.
        Você recebeu ${G.stats.visTotal.toLocaleString('pt-BR')} visitantes e chegou a ter ${G.animals.filter(a => !a.morto).length} animais.</p>`,
       `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">Recomeçar</button>
@@ -712,15 +712,15 @@ function snapshotJogo() {
       terr: Array.from(world.terr), path: Array.from(world.path),
       objs: [...objects.values()].map(o => ({ id: o.id, kind: o.kind, cat: o.cat, x: o.x, y: o.y, mult: o.mult, receita: o.receita, vendas: o.vendas, encId: o.encId })),
       encs: [...enclosures.values()].map(e => ({
-        id: e.id, fence: e.fence, nome: e.nome, tiles: [...e.tiles],
-        limpeza: e.limpeza, comida: e.comida, agua: e.agua, integridade: e.integridade,
+        id: e.id, fence: e.fence, name: e.name, tiles: [...e.tiles],
+        limpeza: e.limpeza, comida: e.comida, water: e.water, integridade: e.integridade,
       })),
       animals: G.animals.filter(a => !a.morto).map(a => ({
-        id: a.id, sp: a.sp.id, enc: a.enc, nome: a.nome, sexo: a.sexo, idade: a.idade,
+        id: a.id, sp: a.sp.id, enc: a.enc, name: a.name, sexo: a.sexo, idade: a.idade,
         fome: a.fome, sede: a.sede, saude: a.saude, feliz: a.feliz, doente: a.doente,
         gravida: a.gravida, fugiu: a.fugiu, x: a.x, y: a.y,
       })),
-    staff: G.staff.map(s2 => ({ tipo: s2.tipo, x: s2.x, y: s2.y, feitos: s2.feitos })),
+    staff: G.staff.map(s2 => ({ kind: s2.kind, x: s2.x, y: s2.y, feitos: s2.feitos })),
     uid: _uid,
   };
 }
@@ -729,7 +729,7 @@ function salvar(silencioso) {
     localStorage.setItem('zoo_save', JSON.stringify(snapshotJogo()));
     if (!silencioso) toast('💾 Jogo salvo', 'good');
     return true;
-  } catch (err) { if (!silencioso) toast('⚠️ Não foi possível salvar: ' + err.message, 'bad'); return false; }
+  } catch (err) { if (!silencioso) toast(BI`⚠️ Não foi possível salvar: ${err.message}|⚠️ Could not save: ${err.message}`, 'bad'); return false; }
 }
 function carregar() {
   const raw = localStorage.getItem('zoo_save');
@@ -741,7 +741,7 @@ function aplicarSnapshot(raw, rotulo) {
   try {
     const s = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!s || typeof s.money !== 'number' || !Array.isArray(s.terr))
-      throw new Error('não parece um save do Zoo Magnata');
+      throw new Error(LN('não parece um save do Zoo Magnata|that does not look like a Zoo Magnata save'));
     G.money = s.money; G.ticket = s.ticket; G.day = s.day; G.hour = s.hour; G.rep = s.rep;
     G.repLog = Array.isArray(s.repLog) ? s.repLog : [];
     G.undo = []; undoGrupo = null; atualizarUndoBtn();   // ids de outro mundo não valem aqui
@@ -754,7 +754,7 @@ function aplicarSnapshot(raw, rotulo) {
     if (!world.path[IDX(ENTRANCE.x, ENTRANCE.y)]) {
       world.path[IDX(ENTRANCE.x, ENTRANCE.y)] = 1;
       world.terr[IDX(ENTRANCE.x, ENTRANCE.y)] = TKEYS.indexOf('piso');
-      toast('🚪 Recoloquei a trilha do portão — sem ela ninguém conseguia entrar.', 'good');
+      toast(LN('🚪 Recoloquei a trilha do portão — sem ela ninguém conseguia entrar.|🚪 Put the gate path back — without it nobody could get in.'), 'good');
     }
     world.occ.fill(0); world.enc.fill(0); world.bel.fill(0); world.lixo.fill(0);
     objects.clear(); enclosures.clear();
@@ -770,9 +770,9 @@ function aplicarSnapshot(raw, rotulo) {
           tiles.push(IDX(e.x + i, e.y + j));
       }
       const en = {
-        id: e.id, fence: e.fence, nome: e.nome, tiles: new Set(),
+        id: e.id, fence: e.fence, name: e.name, tiles: new Set(),
         animals: [], objs: [], happy: .7, alertas: [],
-        limpeza: e.limpeza, comida: e.comida, agua: e.agua,
+        limpeza: e.limpeza, comida: e.comida, water: e.water,
         integridade: e.integridade === undefined ? 1 : e.integridade,
       };
       enclosures.set(e.id, en);
@@ -797,23 +797,23 @@ function aplicarSnapshot(raw, rotulo) {
       if (e && !a.fugiu) e.animals.push(an);
       if (a.fugiu) G.escaped.push(an);
     }
-    for (const st of s.staff) { const x = contratar(st.tipo); x.x = st.x; x.y = st.y; x.feitos = st.feitos || 0; }
+    for (const st of s.staff) { const x = contratar(st.kind); x.x = st.x; x.y = st.y; x.feitos = st.feitos || 0; }
     terrenoMudou(); rebuildNet();   // rebuildNet já incrementa netVer
     deselect(); closeModal();
     toast('📂 ' + (rotulo || 'Jogo carregado') + ' — dia ' + G.day, 'good');
     return true;
-  } catch (err) { toast('⚠️ Save inválido: ' + err.message, 'bad'); return false; }
+  } catch (err) { toast(BI`⚠️ Save inválido: ${err.message}|⚠️ Invalid save: ${err.message}`, 'bad'); return false; }
 }
 
 /* ==========================================================================
    15b. EXPORTAR / IMPORTAR ARQUIVO
    ========================================================================== */
-function baixarArquivo(nome, conteudo, mime) {
+function baixarArquivo(name, conteudo, mime) {
   try {
     const blob = new Blob([conteudo], { type: mime + ';charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = nome;
+    a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     return true;
@@ -823,11 +823,11 @@ const selo = () => 'dia' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour
 
 function exportarSave() {
   if (baixarArquivo(`zoo-magnata-${selo()}.json`, JSON.stringify(snapshotJogo()), 'application/json'))
-    toast('📥 Save baixado — guarde o arquivo para retomar depois', 'good');
+    toast(LN('📥 Save baixado — guarde o arquivo para retomar depois|📥 Save downloaded — keep the file to pick up later'), 'good');
 }
 function exportarRelatorio() {
   if (baixarArquivo(`zoo-magnata-status-${selo()}.txt`, relatorioTexto(), 'text/plain'))
-    toast('📄 Relatório de status baixado', 'good');
+    toast(LN('📄 Relatório de status baixado|📄 Status report downloaded'), 'good');
 }
 function importarSave(file, aoConcluir) {
   if (!file) return;
@@ -835,10 +835,10 @@ function importarSave(file, aoConcluir) {
   fr.onload = () => {
     let ok = false;
     if (/^\s*[{[]/.test(fr.result)) ok = aplicarSnapshot(fr.result, 'Save importado');
-    else toast('⚠️ Esse arquivo não é um save (.json) do jogo', 'bad');
+    else toast(LN('⚠️ Esse arquivo não é um save (.json) do jogo|⚠️ That file is not a game save (.json)'), 'bad');
     if (aoConcluir) aoConcluir(ok);
   };
-  fr.onerror = () => { toast('⚠️ Não consegui ler o arquivo', 'bad'); if (aoConcluir) aoConcluir(false); };
+  fr.onerror = () => { toast(LN('⚠️ Não consegui ler o arquivo|⚠️ Could not read the file'), 'bad'); if (aoConcluir) aoConcluir(false); };
   fr.readAsText(file);
 }
 
@@ -874,7 +874,7 @@ function relatorioTexto() {
   if (trava) {
     linha('');
     linha('!! O QUE ESTÁ TRAVANDO A BILHETERIA');
-    linha('   ' + trava.em + ' ' + trava.longo.replace(/<\/?b>/g, ''));
+    linha('   ' + trava.em + ' ' + trava.long.replace(/<\/?b>/g, ''));
   }
 
   linha('');
@@ -883,8 +883,8 @@ function relatorioTexto() {
   reg('Ingressos', '+' + moneyFull(h.ingresso));
   reg('Lojas e restaurantes', '+' + moneyFull(h.loja));
   reg('Venda de animais', '+' + moneyFull(h.venda));
-  reg('Ração e insumos', '-' + moneyFull(h.racao));
-  reg('Salários', '-' + moneyFull(h.salario));
+  reg('Ração e insumos', '-' + moneyFull(h.feed));
+  reg('Salários', '-' + moneyFull(h.wage));
   reg('Manutenção e veterinário', '-' + moneyFull(h.manut));
   reg('Compra de animais', '-' + moneyFull(h.compra));
   reg('Obras', '-' + moneyFull(h.obra));
@@ -904,11 +904,11 @@ function relatorioTexto() {
     const fel = av.length ? av.reduce((s, a) => s + a.feliz, 0) / av.length : 0;
     const sp0 = av[0] ? av[0].sp : null;
     linha('');
-    linha(`  ${e.nome} — ${FENCES[e.fence].n}, ${encArea(e)} tiles, cerca de ${encSegCount(e)} trechos`);
+    linha(`  ${e.name} — ${FENCES[e.fence].n}, ${encArea(e)} tiles, cerca de ${encSegCount(e)} trechos`);
     linha(`    felicidade ${barrinha(fel)} ${Math.round(fel * 100)}%   ` +
       `limpeza ${barrinha(e.limpeza)} ${Math.round(e.limpeza * 100)}%`);
     linha(`    comida    ${barrinha(e.comida)} ${Math.round(e.comida * 100)}%   ` +
-      `água    ${barrinha(e.agua)} ${Math.round(e.agua * 100)}%`);
+      `água    ${barrinha(e.water)} ${Math.round(e.water * 100)}%`);
     const enr = encEnrich(e);
     linha(`    enriquecimento ${barrinha(enr)} ${Math.round(enr * 100)}%   ` +
       `pontos de observação: ${encViewSpots(e).length}`);
@@ -916,10 +916,10 @@ function relatorioTexto() {
       .map(([k, v]) => `${TERRAIN[k].n} ${Math.round(v * 100)}%`).join(', ');
     linha('    terreno: ' + mix);
     if (sp0) linha('    ideal:   ' + Object.entries(sp0.mix)
-      .map(([k, v]) => `${TERRAIN[k].n} ${Math.round(v * 100)}%`).join(', ') + `  (bioma ${sp0.biomaN})`);
+      .map(([k, v]) => `${TERRAIN[k].n} ${Math.round(v * 100)}%`).join(', ') + `  (biome ${sp0.biomeName})`);
     linha('    objetos: ' + (e.objs.length ? e.objs.map(o => ENCOBJ[o.kind].n).join(', ') : 'nenhum'));
     for (const a of av)
-      linha(`      - ${a.nome} (${a.sexo}) ${a.sp.nome}, ${a.idade.toFixed(1)}/${a.sp.vida} anos · ` +
+      linha(`      - ${a.name} (${a.sexo}) ${LN(a.sp.name)}, ${a.idade.toFixed(1)}/${a.sp.lifespan} anos · ` +
         `felicidade ${Math.round(a.feliz * 100)}% · saúde ${Math.round(a.saude * 100)}%` +
         `${a.doente ? ' · DOENTE' : ''}${a.gravida > 0 ? ' · gestante' : ''}` +
         (a.pensa ? ` · pensando: ${a.pensa.txt}` : ''));
@@ -934,21 +934,21 @@ function relatorioTexto() {
   for (const o of builds) {
     const B = BUILDINGS[o.kind];
     linha(`  ${B.n} em (${o.x},${o.y}) · ${objAcessivel(o) ? 'acessível' : 'SEM TRILHA POR PERTO'}` +
-      (B.valor > 0 ? ` · preço ${moneyFull(precoDe(o))} · ${o.vendas} vendas · lucro ${moneyFull(o.receita)}` : ''));
+      (B.value > 0 ? ` · preço ${moneyFull(precoDe(o))} · ${o.vendas} vendas · lucro ${moneyFull(o.receita)}` : ''));
   }
 
   linha('');
   linha('EQUIPE');
   let folha = 0;
   for (const k in STAFF_TYPES) {
-    const n = G.staff.filter(s => s.tipo === k).length;
+    const n = G.staff.filter(s => s.kind === k).length;
     if (!n) continue;
-    folha += n * STAFF_TYPES[k].salario;
-    linha(`  ${n}x ${STAFF_TYPES[k].n} · ${moneyFull(STAFF_TYPES[k].salario)}/semana cada · ` +
-      `${G.staff.filter(s => s.tipo === k).reduce((s, x) => s + x.feitos, 0)} tarefas feitas`);
+    folha += n * STAFF_TYPES[k].wage;
+    linha(`  ${n}x ${STAFF_TYPES[k].n} · ${moneyFull(STAFF_TYPES[k].wage)}/semana cada · ` +
+      `${G.staff.filter(s => s.kind === k).reduce((s, x) => s + x.feitos, 0)} tarefas feitas`);
   }
   if (!G.staff.length) linha('  (ninguém contratado)');
-  folha += builds.reduce((s, o) => s + BUILDINGS[o.kind].salario, 0);
+  folha += builds.reduce((s, o) => s + BUILDINGS[o.kind].wage, 0);
   reg('Folha semanal total', moneyFull(folha));
 
   const rv = agruparPensamentos(G.visitors, pensamentoVisitante), ra = agruparPensamentos(vivos, pensamentoAnimal);
@@ -1068,8 +1068,36 @@ const comecar = carregarSave => {
 $('#btnStart').onclick = () => comecar(false);
 $('#btnUpload').onclick = () => $('#fileSave').click();
 if (temSave) {
-  $('#btnStart').innerHTML = 'Começar do zero 🎟️';
-  const b = el('button', 'btn b big', 'Continuar jogo salvo 📂');
+  $('#btnStart').innerHTML = LN('Começar do zero 🎟️|Start from scratch 🎟️');
+  const b = el('button', 'btn b big', LN('Continuar jogo salvo 📂|Continue saved game 📂'));
   b.onclick = () => comecar(true);
   $('#btnStart').after(b);
 }
+/* ==========================================================================
+   THE TWO FLAGS
+
+   The script tag sits at the end of <body>, so the DOM is already there — no
+   DOMContentLoaded needed. `bindText` swaps the inline copy of the splash and
+   the HUD; anything this game builds in JavaScript reads LN()/TX() when it
+   draws, and the panels redraw on the language change below.
+   ========================================================================== */
+Slop.mountLangPicker(I18N, { width: 26 });
+Slop.bindText(I18N);
+
+const applyPageTitle = () => { document.title = TX('page.title'); };
+SAY({
+  'page.title': { pt: 'Zoo Magnata — Tycoon de Zoológico', en: 'Zoo Tycoon — Build Your Zoo' },
+});
+applyPageTitle();
+I18N.onChange(() => {
+  applyPageTitle();
+  // the palette, the inspector and the open modal are all built as HTML
+  // strings, so a language change has to rebuild whatever is on screen
+  buildDock();
+  if (G.tool && G.tool.cat) montarPaleta(G.tool.cat);
+  showInspector();
+  renderAlertas();
+});
+
+// the test bridge — the kit looks for this name
+window.__game = { name: 'zoo-magnata', i18n: I18N, G };

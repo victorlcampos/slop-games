@@ -1,5 +1,5 @@
-// Partículas de neve levantada: o spray dos esquis, o estouro da queda
-// e a poeira das aterrissagens.
+// Kicked-up snow particles: the spray off the skis, the burst of a crash and
+// the dust of a landing.
 
 import * as THREE from 'three';
 
@@ -27,7 +27,7 @@ const VERT = /* glsl */`
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     float dist = max(-mv.z, 0.1);
 
-    // partícula colada na lente vira um borrão gigante: limita e desvanece
+    // a particle right on the lens becomes a giant blur: clamp it and fade it
     vAlpha = aAlpha * smoothstep(0.6, 2.4, dist);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = min(aSize * uPixelRatio * (300.0 / dist), 42.0 * uPixelRatio);
@@ -114,7 +114,7 @@ export function createSpray(parent, capacity = 900) {
     }
   }
 
-  /** Explosão radial — queda, aterrissagem, Yeti pisando. */
+  /** A radial burst — a crash, a landing, the Yeti stomping. */
   function burst(x, y, z, power = 1, count = 40) {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;

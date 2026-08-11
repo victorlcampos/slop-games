@@ -1,222 +1,298 @@
-// O que todo jogo do catálogo tem de cumprir, seja qual for a tecnologia.
+// What every game in the catalog has to deliver, whatever the technology.
 //
-// Cada jogo pode (e deve) ter o teste dele em `jogos/<slug>/test/`, exercitando
-// a própria jogabilidade. Este aqui é o piso: se falhar, o jogo está quebrado
-// para quem abriu o arquivo, independentemente do que mais faça.
+// Each game can (and should) have its own test in `games/<slug>/test/`,
+// exercising its own play. This one is the floor: if it fails, the game is
+// broken for whoever opened the file, whatever else it does.
 
-import { abrirNavegador, abrir, APARELHOS, cenario, conferir, rodar, espera } from 'slopkit/testes';
+import { launchBrowser, open, DEVICES, scenario, check, run, wait } from 'slopkit/testing';
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-const RAIZ = path.resolve(import.meta.dirname, '..');
-const DIST = path.join(RAIZ, 'dist');
+const ROOT = path.resolve(import.meta.dirname, '..');
+const DIST = path.join(ROOT, 'dist');
 
-const catalogo = readdirSync(path.join(RAIZ, 'jogos'))
+const catalog = readdirSync(path.join(ROOT, 'games'))
   .filter((slug) => {
     try {
-      return statSync(path.join(RAIZ, 'jogos', slug, 'jogo.json')).isFile();
+      return statSync(path.join(ROOT, 'games', slug, 'game.json')).isFile();
     } catch {
       return false;
     }
   })
-  .map((slug) => JSON.parse(readFileSync(path.join(RAIZ, 'jogos', slug, 'jogo.json'), 'utf8')));
+  .map((slug) => JSON.parse(readFileSync(path.join(ROOT, 'games', slug, 'game.json'), 'utf8')));
 
-const navegador = await abrirNavegador();
+const browser = await launchBrowser();
 
-for (const jogo of catalogo) {
-  const arquivo = path.join(DIST, jogo.slug, 'index.html');
+for (const game of catalog) {
+  const file = path.join(DIST, game.slug, 'index.html');
+  const label = `${game.emoji} ${game.name.pt}`;
 
-  cenario(`${jogo.emoji} ${jogo.nome}: abre por file:// e desenha`, async () => {
-    conferir(existsSync(arquivo), `${jogo.slug}: falta dist — rode npm run build`);
-    const j = await abrir(navegador, arquivo, APARELHOS.desktop, { esperaBoot: 2200 });
-    const pintou = await j.pagina.evaluate(() => {
+  scenario(`${label}: opens over file:// and draws`, async () => {
+    check(existsSync(file), `${game.slug}: no dist — run npm run build`);
+    const g = await open(browser, file, DEVICES.desktop, { bootWait: 2200 });
+    const painted = await g.page.evaluate(() => {
       const c = document.querySelector('canvas');
-      if (!c) return { erro: 'sem canvas' };
-      return { erro: null, w: c.width, h: c.height, titulo: document.title };
+      if (!c) return { error: 'no canvas' };
+      return { error: null, w: c.width, h: c.height, title: document.title };
     });
-    conferir(!pintou.erro, `${jogo.slug}: ${pintou.erro}`);
-    conferir(pintou.w > 0 && pintou.h > 0, `${jogo.slug}: canvas com tamanho zero`);
-    conferir(!!pintou.titulo, `${jogo.slug}: página sem <title>`);
-    j.exigirSemErros(jogo.slug);
-    await j.fechar();
+    check(!painted.error, `${game.slug}: ${painted.error}`);
+    check(painted.w > 0 && painted.h > 0, `${game.slug}: canvas with zero size`);
+    check(!!painted.title, `${game.slug}: page with no <title>`);
+    g.expectNoErrors(game.slug);
+    await g.close();
   });
 
-  cenario(`${jogo.emoji} ${jogo.nome}: é um arquivo só, sem buscar nada de fora`, async () => {
-    const html = readFileSync(arquivo, 'utf8');
-    const externo =
+  scenario(`${label}: is one file, fetching nothing from outside`, async () => {
+    const html = readFileSync(file, 'utf8');
+    const external =
       html.match(/<script\b[^>]*\bsrc=["']?(?!data:)[^"'>\s]+/i) ||
       html.match(/<link\b[^>]*\bstylesheet[^>]*\bhref=["']?(?!data:)[^"'>\s]+/i);
-    conferir(!externo, `${jogo.slug}: carrega recurso externo (${externo && externo[0].slice(0, 50)})`);
+    check(!external, `${game.slug}: loads an external resource (${external && external[0].slice(0, 50)})`);
   });
 
-  cenario(`${jogo.emoji} ${jogo.nome}: preenche a tela em qualquer proporção`, async () => {
-    for (const ap of [APARELHOS.desktop, APARELHOS.celular]) {
-      const j = await abrir(navegador, arquivo, ap, { esperaBoot: 1800 });
-      const m = await j.pagina.evaluate(() => {
+  scenario(`${label}: fills the screen at any ratio`, async () => {
+    for (const device of [DEVICES.desktop, DEVICES.phone]) {
+      const g = await open(browser, file, device, { bootWait: 1800 });
+      const m = await g.page.evaluate(() => {
         const c = document.querySelector('canvas');
         const r = c.getBoundingClientRect();
-        // em pé, alguns jogos escondem o canvas e pedem para girar: isso vale
-        const escondido = r.width === 0 && r.height === 0;
-        return { escondido, w: r.width, h: r.height, jw: window.innerWidth, jh: window.innerHeight };
+        // upright, some games hide the canvas and ask for a turn: that counts
+        const hidden = r.width === 0 && r.height === 0;
+        return { hidden, w: r.width, h: r.height, ww: window.innerWidth, wh: window.innerHeight };
       });
-      if (!m.escondido) {
-        const sobraH = m.jh - m.h;
-        const sobraW = m.jw - m.w;
-        conferir(
-          sobraH <= m.jh * 0.15 && sobraW <= m.jw * 0.15,
-          `${jogo.slug} em ${ap.nome}: sobrou ${Math.round(sobraW)}x${Math.round(sobraH)}px de borda`
+      if (!m.hidden) {
+        const spareH = m.wh - m.h;
+        const spareW = m.ww - m.w;
+        check(
+          spareH <= m.wh * 0.15 && spareW <= m.ww * 0.15,
+          `${game.slug} on ${device.name}: ${Math.round(spareW)}x${Math.round(spareH)}px of border left over`
         );
       }
-      await j.fechar();
+      await g.close();
     }
   });
-
 }
 
-cenario('girar o aparelho não quebra o toque', async () => {
-  // O sintoma que motivou este teste: abrir em pé, girar, e o jogo parar de
-  // responder ao dedo — enquanto quem abria já deitado jogava normalmente.
-  const j = await abrir(navegador, path.join(DIST, 'animais-vs-monstros/index.html'), APARELHOS.celularEmPe, {
-    esperaBoot: 900,
+scenario('rotating the device does not break touch', async () => {
+  // The symptom that motivated this test: open upright, rotate, and the game
+  // stops answering the finger — while whoever opened it already in landscape
+  // played normally.
+  const g = await open(browser, path.join(DIST, 'animais-vs-monstros/index.html'), DEVICES.phonePortrait, {
+    bootWait: 900,
   });
-  await j.pagina.setViewport({
+  await g.page.setViewport({
     width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true, isLandscape: true,
   });
-  await espera(700);
+  await wait(700);
 
-  const m = await j.pagina.evaluate(() => {
-    const t = window.__jogo.tela;
+  const m = await g.page.evaluate(() => {
+    const v = window.__game.viewport;
     return {
-      escala: +t.escala.toFixed(3),
-      esperada: +(window.innerHeight / 720).toFixed(3),
-      overlay: getComputedStyle(document.getElementById('gire')).pointerEvents,
+      scale: +v.scale.toFixed(3),
+      expected: +(window.innerHeight / 720).toFixed(3),
+      overlay: getComputedStyle(document.getElementById('rotate')).pointerEvents,
     };
   });
-  conferir(
-    m.escala === m.esperada,
-    `depois de girar a escala ficou ${m.escala}, devia ser ${m.esperada} — o toque cairia no lugar errado`
+  check(
+    m.scale === m.expected,
+    `after rotating the scale became ${m.scale}, it should be ${m.expected} — the touch would land in the wrong place`
   );
-  conferir(m.overlay === 'none', 'o aviso de girar não pode interceptar toque quando some');
-  await j.fechar();
+  check(m.overlay === 'none', 'the rotate notice must not intercept touch when it disappears');
+  await g.close();
 });
 
-cenario('o catálogo é instalável e o escopo cobre os jogos', async () => {
-  const j = await abrir(navegador, path.join(DIST, 'index.html'), APARELHOS.celular, { esperaBoot: 900 });
-  const m = await j.pagina.evaluate(async () => {
+scenario('the catalog is installable and its scope covers the games', async () => {
+  const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.phone, { bootWait: 900 });
+  const m = await g.page.evaluate(async () => {
     const link = document.querySelector('link[rel="manifest"]');
-    if (!link) return { erro: 'o índice não tem manifesto' };
+    if (!link) return { error: 'the index has no manifest' };
     let man;
     try {
       man = await (await fetch(link.href)).json();
     } catch (e) {
-      return { erro: 'manifesto ilegível: ' + e.message };
+      return { error: 'unreadable manifest: ' + e.message };
     }
     return {
-      erro: null,
-      nome: man.name,
-      escopo: man.scope,
-      inicio: man.start_url,
+      error: null,
+      name: man.name,
+      scope: man.scope,
+      start: man.start_url,
       display: man.display,
-      icones: (man.icons || []).length,
+      icons: (man.icons || []).length,
       ios: !!document.querySelector('meta[name="apple-mobile-web-app-capable"]'),
     };
   });
-  conferir(!m.erro, String(m.erro));
-  conferir(m.escopo === './', `escopo "${m.escopo}" precisa cobrir as subpastas dos jogos`);
-  conferir(m.display === 'standalone', `display é "${m.display}"`);
-  conferir(m.icones >= 2, 'precisa de ícone 192 e 512');
-  conferir(m.ios, 'falta a meta que o Safari do iOS usa');
-  j.exigirSemErros('catálogo');
-  await j.fechar();
+  check(!m.error, String(m.error));
+  check(m.scope === './', `scope "${m.scope}" has to cover the games' subfolders`);
+  check(m.display === 'standalone', `display is "${m.display}"`);
+  check(m.icons >= 2, 'it needs a 192 and a 512 icon');
+  check(m.ios, "the meta iOS Safari uses is missing");
+  g.expectNoErrors('catalog');
+  await g.close();
 });
 
-cenario('todo jogo tem saída para o catálogo na tela inicial', async () => {
-  for (const jogo of catalogo) {
-    const html = readFileSync(path.join(DIST, jogo.slug, 'index.html'), 'utf8');
-    const temDom = html.includes('data-voltar-catalogo');
-    const temCanvas = html.includes('__catalogo');
-    conferir(
-      temDom || temCanvas,
-      `${jogo.slug}: nenhuma saída para o catálogo — em modo app não há barra de navegador e o jogador fica preso`
+scenario('every game has an exit to the catalog on its home screen', async () => {
+  for (const game of catalog) {
+    const html = readFileSync(path.join(DIST, game.slug, 'index.html'), 'utf8');
+    // The injected activator mentions `__catalog` itself, so searching the whole
+    // file always finds it — and a game whose exit rotted would still pass. Cut
+    // the activator out first and ask what the *game* offers.
+    const own = html.replace(/window\.__catalog = '\.\.\/index\.html';[\s\S]*?<\/script>/, '');
+    const hasDom = own.includes('data-back-to-catalog');
+    const hasCanvas = own.includes('__catalog');
+    check(
+      hasDom || hasCanvas,
+      `${game.slug}: no exit to the catalog — in app mode there is no browser chrome and the player is stuck`
     );
-    // a definição, não a leitura: o Animais lê `window.__catalogo` no código
-    // dele, e isso não é o mesmo que o catálogo ter ativado a volta
-    conferir(
-      html.includes("window.__catalogo = '../index.html'"),
-      `${jogo.slug}: o build do catálogo não ativou a volta`
+    // the definition, not the read: Animals reads `window.__catalog` in its own
+    // code, and that is not the same as the catalog having switched the exit on
+    check(
+      html.includes("window.__catalog = '../index.html'"),
+      `${game.slug}: the catalog build did not switch the exit on`
     );
   }
 
-  // o arquivo do jogo fora do catálogo não recebe o ativador, então nada aparece
-  const solto = readFileSync(path.join(RAIZ, 'jogos', catalogo[0].slug, 'dist/index.html'), 'utf8');
-  conferir(
-    !solto.includes("window.__catalogo = '../index.html'"),
-    'quem baixa só o jogo não pode receber link para um catálogo que não tem'
+  // the game's file outside the catalog gets no activator, so nothing shows up
+  const loose = readFileSync(path.join(ROOT, 'games', catalog[0].slug, 'dist/index.html'), 'utf8');
+  check(
+    !loose.includes("window.__catalog = '../index.html'"),
+    'whoever downloads only the game must not get a link to a catalog they do not have'
   );
 });
 
-cenario('a saída aparece e leva de volta', async () => {
-  // os dois caminhos do contrato: link em DOM (todo jogo que tem menu em HTML)
-  // e botão desenhado em canvas
-  for (const jogo of catalogo) {
-    const arquivo = path.join(DIST, jogo.slug, 'index.html');
-    // o elemento declarado, não o seletor do script que o build injeta — esse
-    // aparece em todo jogo, inclusive nos que desenham a saída em canvas
-    if (!/<a\b[^>]*\bdata-voltar-catalogo\b/.test(readFileSync(arquivo, 'utf8'))) continue;
+scenario('the exit shows up and leads back', async () => {
+  // the two paths of the contract: a DOM link (every game with an HTML menu)
+  // and a button drawn on canvas
+  for (const game of catalog) {
+    const file = path.join(DIST, game.slug, 'index.html');
+    // the declared element, not the selector from the script the build injects —
+    // that one shows up in every game, including those drawing the exit on canvas
+    if (!/<a\b[^>]*\bdata-back-to-catalog\b/.test(readFileSync(file, 'utf8'))) continue;
 
-    const j = await abrir(navegador, arquivo, APARELHOS.desktop, { esperaBoot: 3200 });
-    const m = await j.pagina.evaluate(() => {
-      const l = document.querySelector('[data-voltar-catalogo]');
-      if (!l) return { erro: 'sem link' };
+    const g = await open(browser, file, DEVICES.desktop, { bootWait: 3200 });
+    const m = await g.page.evaluate(() => {
+      const l = document.querySelector('[data-back-to-catalog]');
+      if (!l) return { error: 'no link' };
       const r = l.getBoundingClientRect();
       return {
-        erro: null,
-        visivel: !l.hidden && r.width > 0,
-        naTela: r.y >= 0 && r.y + r.height <= innerHeight,
+        error: null,
+        visible: !l.hidden && r.width > 0,
+        onScreen: r.y >= 0 && r.y + r.height <= innerHeight,
         href: l.getAttribute('href'),
-        cor: getComputedStyle(l).color,
+        color: getComputedStyle(l).color,
       };
     });
-    conferir(!m.erro, `${jogo.slug}: ${m.erro}`);
-    conferir(m.visivel, `${jogo.slug}: a saída devia estar visível dentro do catálogo`);
-    conferir(m.naTela, `${jogo.slug}: a saída está fora da área visível`);
-    conferir(m.href === '../index.html', `${jogo.slug}: aponta para "${m.href}"`);
-    // Um <a> sem `color` no CSS herda o azul de link do navegador. Aqui isso
-    // já aconteceu nos três jogos de uma vez: sobre fundo escuro, ilegível.
-    // A saída tem que vestir o botão do próprio jogo.
-    conferir(
-      m.cor !== 'rgb(0, 0, 238)',
-      `${jogo.slug}: a saída ficou com o azul padrão de link — falta dar a ela o estilo do jogo`
+    check(!m.error, `${game.slug}: ${m.error}`);
+    check(m.visible, `${game.slug}: the exit should be visible inside the catalog`);
+    check(m.onScreen, `${game.slug}: the exit is outside the visible area`);
+    check(m.href === '../index.html', `${game.slug}: it points at "${m.href}"`);
+    // An <a> with no `color` in the CSS inherits the browser's link blue. That
+    // already happened here in three games at once: over a dark background,
+    // unreadable. The exit has to wear the game's own button.
+    check(
+      m.color !== 'rgb(0, 0, 238)',
+      `${game.slug}: the exit ended up the default link blue — it needs the game's own style`
     );
-    await j.fechar();
+    await g.close();
   }
 
-  // no Animais a saída é desenhada em canvas: confere que ela existe na barra
-  const a = await abrir(navegador, path.join(DIST, 'animais-vs-monstros/index.html'), APARELHOS.desktop, {
-    esperaBoot: 900,
+  // in Animals the exit is drawn on canvas: check that it exists on the bar
+  const a = await open(browser, path.join(DIST, 'animais-vs-monstros/index.html'), DEVICES.desktop, {
+    bootWait: 900,
   });
-  await a.executar((jogo) => {
-    jogo.estado().viuAbertura = true;
-    jogo.irParaMapa();
+  await a.exec((game) => {
+    game.state().sawIntro = true;
+    game.goToMap();
   });
-  await a.esperarQuadros(3);
-  const temBotao = await a.executar(
-    (jogo) => !!window.__catalogo && typeof jogo.atual().clique === 'function'
+  await a.waitFrames(3);
+  const hasButton = await a.exec(
+    (game) => !!window.__catalog && game.current().buttons().some((b) => b.action === 'catalog')
   );
-  conferir(temBotao, 'animais-vs-monstros: a barra do mapa devia oferecer a volta');
-  await a.fechar();
+  check(hasButton, 'animais-vs-monstros: the map bar should offer the way back');
+  await a.close();
 });
 
-cenario('o índice lista todos os jogos e cada link existe', async () => {
-  const j = await abrir(navegador, path.join(DIST, 'index.html'), APARELHOS.desktop, { esperaBoot: 800 });
-  const cards = await j.pagina.$$eval('.card', (els) => els.map((e) => e.getAttribute('href')));
-  conferir(cards.length === catalogo.length, `${cards.length} cards para ${catalogo.length} jogos`);
+scenario('the index lists every game and each link exists', async () => {
+  const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.desktop, { bootWait: 800 });
+  const cards = await g.page.$$eval('.card', (els) => els.map((e) => e.getAttribute('href')));
+  check(cards.length === catalog.length, `${cards.length} cards for ${catalog.length} games`);
   for (const href of cards) {
-    conferir(existsSync(path.join(DIST, href)), `link quebrado no índice: ${href}`);
+    check(existsSync(path.join(DIST, href)), `broken link on the index: ${href}`);
   }
-  j.exigirSemErros('índice');
-  await j.fechar();
+  g.expectNoErrors('index');
+  await g.close();
 });
 
-await rodar('catálogo');
-await navegador.close();
+// --------------------------------------------------------------------- i18n
+
+// One page per game, both checks on it: the suite already opens ~30 tabs, and
+// the 3D games hold a WebGL context each — an extra pass was enough to take
+// the browser down mid-run.
+scenario('every game offers the two flags and really switches', async () => {
+  for (const game of catalog) {
+    const file = path.join(DIST, game.slug, 'index.html');
+    const g = await open(browser, file, DEVICES.desktop, { bootWait: 2600 });
+
+    const before = await g.exec((gm) => (gm && gm.i18n ? gm.i18n.lang : null));
+    check(before, `${game.slug}: no i18n on the bridge — the flags cannot be tested`);
+
+    // the picker is either two DOM buttons or two flags drawn on the canvas;
+    // what every game owes is the *switch*, so that is what is checked here
+    const other = before === 'pt' ? 'en' : 'pt';
+    await g.setLang(other);
+    const after = await g.exec((gm) => gm.i18n.lang);
+    check(after === other, `${game.slug}: asked for "${other}" and stayed on "${after}"`);
+
+    // and the choice lands in the key the whole catalog shares
+    const stored = await g.page.evaluate(() => localStorage.getItem('slop:lang'));
+    check(stored === other, `${game.slug}: stored "${stored}" instead of "${other}"`);
+
+    if (readFileSync(file, 'utf8').includes('data-lang-picker')) {
+      const flags = await g.page.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-lang-picker] button')).map((b) => ({
+          visible: b.getBoundingClientRect().width > 0,
+          hasImage: !!b.querySelector('img') && b.querySelector('img').src.startsWith('data:image/png'),
+        }))
+      );
+      check(flags.length === 2, `${game.slug}: ${flags.length} flags instead of 2`);
+      check(flags.every((f) => f.visible), `${game.slug}: a flag rendered with zero width`);
+      // the flags are painted by code and inlined as a data URI — rule nº 5,
+      // and the reason the picker doesn't rely on the 🇧🇷 emoji
+      check(flags.every((f) => f.hasImage), `${game.slug}: a flag came without its drawn image`);
+    }
+
+    g.expectNoErrors(`${game.slug} language switch`);
+    await g.close();
+  }
+});
+
+scenario('the index ships in both languages and remembers the choice', async () => {
+  const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.desktop, { bootWait: 800 });
+
+  // one evaluate per step instead of several $eval: under the load of a full
+  // suite the extra protocol round trips were enough to lose the target
+  const first = await g.page.evaluate(() => ({
+    flags: Array.from(document.querySelectorAll('[data-lang-picker] button')).map((e) => e.dataset.lang),
+    name: document.querySelector('.card__name').textContent,
+  }));
+  check(first.flags.length === 2, `the index should offer two flags, it offered ${first.flags.length}`);
+  check(first.flags.includes('pt') && first.flags.includes('en'), `the flags are ${first.flags}`);
+
+  const second = await g.page.evaluate(() => {
+    document.querySelector('[data-lang-picker] button[data-lang="en"]').click();
+    return { name: document.querySelector('.card__name').textContent, stored: localStorage.getItem('slop:lang') };
+  });
+  check(first.name !== second.name, 'switching the flag should change the card name');
+  check(second.stored === 'en', `the choice should be stored under the shared key, it was "${second.stored}"`);
+
+  // and the language has to survive a reload — it is the same key every game reads
+  await g.page.reload({ waitUntil: 'load' });
+  await wait(500);
+  const afterReload = await g.page.evaluate(() => document.querySelector('.card__name').textContent);
+  check(afterReload === second.name, 'the chosen language has to be there on the next visit');
+  g.expectNoErrors('index i18n');
+  await g.close();
+});
+
+await run('catalog');
+await browser.close();

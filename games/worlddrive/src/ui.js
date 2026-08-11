@@ -1,29 +1,35 @@
-// Liga o DOM: menu, busca, loading, HUD, toasts
-import { fetchWithTimeout } from './net.js';
+// Wires up the DOM: menu, search, loading, HUD, toasts.
 
-const $ = id => document.getElementById(id);
+import { fetchWithTimeout } from './net.js';
+import { t, pick, i18n } from './i18n.js';
+
+const $ = (id) => document.getElementById(id);
 
 export const PRESETS = [
-  { label: '🇺🇸 São Francisco — Lombard St', lat: 37.80202, lon: -122.41955, hint: 'ladeiras!' },
-  { label: '🇲🇨 Mônaco — Monte Carlo', lat: 43.74025, lon: 7.42664 },
-  { label: '🇧🇷 Rio — Copacabana', lat: -22.96888, lon: -43.18647 },
-  { label: '🇫🇷 Paris — Arco do Triunfo', lat: 48.87380, lon: 2.29500 },
-  { label: '🇯🇵 Tóquio — Shibuya', lat: 35.65951, lon: 139.70049 },
-  { label: '🇺🇸 Nova York — Times Square', lat: 40.75797, lon: -73.98554 },
+  {
+    label: { pt: '🇺🇸 São Francisco — Lombard St', en: '🇺🇸 San Francisco — Lombard St' },
+    lat: 37.80202, lon: -122.41955,
+  },
+  { label: { pt: '🇲🇨 Mônaco — Monte Carlo', en: '🇲🇨 Monaco — Monte Carlo' }, lat: 43.74025, lon: 7.42664 },
+  { label: { pt: '🇧🇷 Rio — Copacabana', en: '🇧🇷 Rio — Copacabana' }, lat: -22.96888, lon: -43.18647 },
+  {
+    label: { pt: '🇫🇷 Paris — Arco do Triunfo', en: '🇫🇷 Paris — Arc de Triomphe' },
+    lat: 48.87380, lon: 2.29500,
+  },
+  { label: { pt: '🇯🇵 Tóquio — Shibuya', en: '🇯🇵 Tokyo — Shibuya' }, lat: 35.65951, lon: 139.70049 },
+  { label: { pt: '🇺🇸 Nova York — Times Square', en: '🇺🇸 New York — Times Square' }, lat: 40.75797, lon: -73.98554 },
 ];
 
-const STAGES = [
-  ['osm', 'Ruas e prédios (OpenStreetMap)'],
-  ['dem', 'Elevação do terreno (satélite)'],
-  ['sat', 'Imagens de satélite'],
-  ['build', 'Construindo o mundo 3D'],
-];
+const STAGES = ['osm', 'dem', 'sat', 'build'];
 const WEIGHTS = { osm: 0.4, dem: 0.12, sat: 0.33, build: 0.15 };
 
 export class UI {
   constructor() {
     this.progress = {};
     this._toastT = null;
+    // the preset chips and the loading steps are built in JS, so they are the
+    // two places that have to be repainted when the flag changes
+    i18n.onChange(() => this._repaint());
   }
 
   bind({ onDrive, picker }) {
@@ -35,10 +41,10 @@ export class UI {
       const b = document.createElement('button');
       b.className = 'chip';
       b.dataset.preset = i;
-      b.textContent = p.label;
+      b.textContent = pick(p.label);
       b.addEventListener('click', () => {
         picker.setCenter(p.lat, p.lon, 16);
-        onDrive(p.lat, p.lon, p.label.replace(/^..\s/, ''));
+        onDrive(p.lat, p.lon, pick(p.label).replace(/^..\s/, ''));
       });
       box.appendChild(b);
     });
@@ -50,7 +56,7 @@ export class UI {
     $('zin').addEventListener('click', () => picker.setZoom(picker.zoom + 1));
     $('zout').addEventListener('click', () => picker.setZoom(picker.zoom - 1));
 
-    // busca (Photon com fallback Nominatim)
+    // search (Photon, falling back to Nominatim)
     const inp = $('search');
     const res = $('results');
     let deb = null;
@@ -60,10 +66,10 @@ export class UI {
       if (q.length < 3) { res.classList.remove('show'); return; }
       deb = setTimeout(() => this._search(q), 450);
     });
-    inp.addEventListener('keydown', e => {
+    inp.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { clearTimeout(deb); this._search(inp.value.trim()); }
     });
-    document.addEventListener('click', e => {
+    document.addEventListener('click', (e) => {
       if (!res.contains(e.target) && e.target !== inp) res.classList.remove('show');
     });
 
@@ -71,29 +77,41 @@ export class UI {
     $('btn-load-back').addEventListener('click', () => { location.reload(); });
   }
 
+  /** Redraws what JavaScript built, after a language change. */
+  _repaint() {
+    for (const b of document.querySelectorAll('#presets .chip')) {
+      const p = PRESETS[+b.dataset.preset];
+      if (p) b.textContent = pick(p.label);
+    }
+    for (const key of STAGES) {
+      const li = $('st-' + key);
+      if (li) li.querySelector('span:last-of-type').textContent = t('load.' + key);
+    }
+  }
+
   async _search(q) {
     const res = $('results');
-    res.innerHTML = '<div class="ritem dim">Buscando…</div>';
+    res.innerHTML = `<div class="ritem dim">${t('search.searching')}</div>`;
     res.classList.add('show');
     let items = [];
     try {
       const r = await fetchWithTimeout('https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(q), {}, 9000);
       const j = await r.json();
-      items = (j.features || []).map(f => ({
+      items = (j.features || []).map((f) => ({
         lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
         label: [f.properties.name, f.properties.city || f.properties.county, f.properties.state, f.properties.country]
           .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', '),
       }));
-    } catch (e) { /* tenta nominatim */ }
+    } catch (e) { /* try nominatim */ }
     if (!items.length) {
       try {
         const r = await fetchWithTimeout('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=' + encodeURIComponent(q), {}, 9000);
         const j = await r.json();
-        items = j.map(f => ({ lat: +f.lat, lon: +f.lon, label: f.display_name }));
-      } catch (e) { /* nada */ }
+        items = j.map((f) => ({ lat: +f.lat, lon: +f.lon, label: f.display_name }));
+      } catch (e) { /* nothing */ }
     }
     if (!items.length) {
-      res.innerHTML = '<div class="ritem dim">Nada encontrado. Tente outro termo ou navegue no mapa.</div>';
+      res.innerHTML = `<div class="ritem dim">${t('search.empty')}</div>`;
       return;
     }
     res.innerHTML = '';
@@ -110,7 +128,7 @@ export class UI {
     }
   }
 
-  // ---- telas ----
+  // ---- screens ----
   showMenu() {
     $('menu').classList.remove('hide');
     $('loading').classList.add('hide');
@@ -126,13 +144,13 @@ export class UI {
     $('hud').classList.add('hide');
     $('load-err').classList.add('hide');
     $('load-steps').classList.remove('hide');
-    $('load-title').textContent = label ? `Indo para ${label}…` : 'Preparando o mundo…';
+    $('load-title').textContent = label ? t('load.goingTo', { place: label }) : t('load.title');
     const ul = $('load-steps');
     ul.innerHTML = '';
-    for (const [key, txt] of STAGES) {
+    for (const key of STAGES) {
       const li = document.createElement('li');
       li.id = 'st-' + key;
-      li.innerHTML = `<span class="dot"></span><span>${txt}</span><em></em>`;
+      li.innerHTML = `<span class="dot"></span><span>${t('load.' + key)}</span><em></em>`;
       ul.appendChild(li);
     }
     this.setBar(0);
@@ -157,8 +175,7 @@ export class UI {
   showLoadError(msg, retry) {
     this._retry = retry;
     $('load-steps').classList.add('hide');
-    const e = $('load-err');
-    e.classList.remove('hide');
+    $('load-err').classList.remove('hide');
     $('load-err-msg').textContent = msg;
   }
 
@@ -171,16 +188,16 @@ export class UI {
 
   setSpeed(kmh) { $('speed').textContent = Math.round(kmh); }
   setStreet(name, place) {
-    $('street').textContent = name || 'sem nome';
+    $('street').textContent = name || t('hud.noName');
     $('place').textContent = place || '';
   }
 
   toast(msg, ms = 2600) {
-    const t = $('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
     clearTimeout(this._toastT);
-    this._toastT = setTimeout(() => t.classList.remove('show'), ms);
+    this._toastT = setTimeout(() => el.classList.remove('show'), ms);
   }
 
   setEdgeWarning(on) { $('edge').classList.toggle('show', !!on); }

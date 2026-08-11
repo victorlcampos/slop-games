@@ -1,6 +1,6 @@
-// Fábricas de geometria para tudo que enfeita (e atrapalha) a descida.
-// Todas devolvem geometrias com atributo `color` para poderem ser mescladas
-// e desenhadas com um único material de vertex colors.
+// Geometry factories for everything that decorates (and obstructs) the run.
+// They all return geometries with a `color` attribute so they can be merged and
+// drawn with a single vertex-colour material.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -9,7 +9,7 @@ import { COLORS } from '../config.js';
 
 const _c = new THREE.Color();
 
-/** Pinta todos os vértices de uma cor sólida. */
+/** Paints every vertex a solid colour. */
 export function paint(geo, color) {
   const n = geo.attributes.position.count;
   const arr = new Float32Array(n * 3);
@@ -21,7 +21,7 @@ export function paint(geo, color) {
   return geo;
 }
 
-/** Pinta por vértice: fn(x, y, z, normalY, colorOut). */
+/** Paints per vertex: fn(x, y, z, normalY, colorOut). */
 export function paintBy(geo, fn) {
   const p = geo.attributes.position;
   const nAttr = geo.attributes.normal;
@@ -35,7 +35,7 @@ export function paintBy(geo, fn) {
   return geo;
 }
 
-/** Garante uv/normal para que o merge não reclame de atributos diferentes. */
+/** Ensures uv/normal so the merge doesn't complain about mismatched attributes. */
 function normalize(geo) {
   if (!geo.attributes.normal) geo.computeVertexNormals();
   if (!geo.attributes.uv) {
@@ -56,8 +56,7 @@ function merge(list) {
 
 // ============================================================== pinheiro
 /**
- * Pinheiro de conífera: tronco + camadas cônicas com neve acumulada
- * na parte de cima de cada camada.
+ * A conifer: a trunk plus conical layers with snow settled on top of each one.
  */
 export function makePineGeometry(seed = 1) {
   const rng = makeRng(seed);
@@ -65,9 +64,9 @@ export function makePineGeometry(seed = 1) {
 
   const height = 9 + rng() * 5.5;
   const trunkH = height * 0.30;
-  const lean = (rng() - 0.5) * 0.06;      // nenhuma árvore cresce reta
+  const lean = (rng() - 0.5) * 0.06;      // no tree grows straight
 
-  // ---- tronco: cônico, com casca irregular
+  // ---- trunk: conical, with uneven bark
   const trunk = new THREE.CylinderGeometry(0.13, 0.30, trunkH, 8, 3);
   {
     const p = trunk.attributes.position;
@@ -88,12 +87,12 @@ export function makePineGeometry(seed = 1) {
   });
   parts.push(trunk);
 
-  // ---- copa: camadas de galhos, cada uma um cone recortado em pontas
+  // ---- crown: layers of branches, each a cone notched into points
   const layers = 7;
   const dark = new THREE.Color(COLORS.pineDark);
   const light = new THREE.Color(COLORS.pineLight);
   const snow = new THREE.Color(0xf2f8ff);
-  const spokes = 5 + ((rng() * 3) | 0);   // quantos galhos por volta
+  const spokes = 5 + ((rng() * 3) | 0);   // how many branches per ring
 
   for (let i = 0; i < layers; i++) {
     const t = i / (layers - 1);
@@ -110,12 +109,12 @@ export function makePineGeometry(seed = 1) {
       const rad = Math.hypot(v.x, v.z);
       if (rad > 0.001) {
         const ang = Math.atan2(v.z, v.x);
-        // pontas de galho: recorta o cone em lóbulos
+        // branch tips: notch the cone into lobes
         const lobe = 0.66 + 0.34 * Math.pow(Math.abs(Math.cos(ang * spokes * 0.5 + phase)), 0.6);
         const rough = 1 + perlin2(v.x * 2.4 + i * 3, v.z * 2.4) * 0.12;
         const f = lobe * rough;
         v.x *= f; v.z *= f;
-        // galho pende nas pontas
+        // the branch droops at the tips
         v.y -= Math.pow(rad / r, 2.0) * h * 0.16;
       }
       p.setXYZ(k, v.x, v.y, v.z);
@@ -127,7 +126,7 @@ export function makePineGeometry(seed = 1) {
       const f = THREE.MathUtils.clamp(cy / h, 0, 1);
       const tint = perlin2(x * 2.2 + i, z * 2.2) * 0.5 + 0.5;
       out.copy(dark).lerp(light, tint * 0.7 + f * 0.3);
-      // neve pousa no que está virado para cima, e mais no alto da árvore
+      // snow settles on whatever faces up, and more towards the treetop
       const up = THREE.MathUtils.smoothstep(ny, 0.15, 0.72);
       out.lerp(snow, up * (0.30 + t * 0.45) * (0.7 + tint * 0.3));
     });
@@ -135,7 +134,7 @@ export function makePineGeometry(seed = 1) {
     parts.push(cone);
   }
 
-  // capuz de neve na ponta
+  // a snow cap on the tip
   const cap = new THREE.ConeGeometry(0.30, 0.85, 7, 1);
   cap.translate(0, height * 0.94, 0);
   paint(cap, 0xfbfdff);
@@ -159,7 +158,7 @@ export function makeRockGeometry(seed = 1) {
     const n1 = perlin2(v.x * 1.6 + seed, v.z * 1.6 - seed) * 0.34;
     const n2 = perlin2(v.x * 4.1, v.y * 4.1 + seed) * 0.14;
     v.multiplyScalar(1 + n1 + n2);
-    v.y *= 0.62 + rng() * 0.2;          // achatada, como pedra semienterrada
+    v.y *= 0.62 + rng() * 0.2;          // flattened, like a half-buried rock
     p.setXYZ(i, v.x, v.y, v.z);
   }
   geo.computeVertexNormals();
@@ -169,7 +168,7 @@ export function makeRockGeometry(seed = 1) {
   paintBy(geo, (x, y, z, ny, out) => {
     const grain = perlin2(x * 5.5, z * 5.5) * 0.5 + 0.5;
     out.copy(dark).lerp(rock, grain);
-    // touca de neve nas faces voltadas para cima
+    // a snow cap on the upward-facing faces
     const snowAmt = THREE.MathUtils.smoothstep(ny, 0.30, 0.72) * (0.82 + grain * 0.18);
     out.lerp(new THREE.Color(0xf7fbff), snowAmt);
   });
@@ -179,7 +178,7 @@ export function makeRockGeometry(seed = 1) {
 }
 
 // ================================================================ rampa
-/** Kicker de neve: perfil côncavo que cospe o esquiador para cima. */
+/** A snow kicker: a concave profile that spits the skier upwards. */
 export function makeRampGeometry(length = 9, width = 7.5, height = 2.4) {
   const shape = new THREE.Shape();
   const steps = 14;
@@ -199,7 +198,7 @@ export function makeRampGeometry(length = 9, width = 7.5, height = 2.4) {
   paintBy(geo, (x, y, z, ny, out) => {
     const t = THREE.MathUtils.clamp(y / height, 0, 1);
     out.set(0xffffff);
-    out.lerp(new THREE.Color(0xbcd8f0), 0.30 - t * 0.25);      // sombra na base
+    out.lerp(new THREE.Color(0xbcd8f0), 0.30 - t * 0.25);      // shadow at the base
     if (ny < 0.35) out.lerp(new THREE.Color(0x8fb4d6), 0.45);  // laterais escuras
   });
 
@@ -207,7 +206,7 @@ export function makeRampGeometry(length = 9, width = 7.5, height = 2.4) {
   return geo;
 }
 
-// =========================================================== teleférico
+// ============================================================ chairlift
 export function makeLiftTowerGeometry(height = 15) {
   const parts = [];
   const legR = 0.22;
@@ -216,7 +215,7 @@ export function makeLiftTowerGeometry(height = 15) {
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const leg = new THREE.CylinderGeometry(legR * 0.6, legR, height, 6);
     leg.translate(sx * spread * 0.5, height / 2, sz * spread * 0.5);
-    // inclina levemente as pernas para fora na base
+    // splay the legs slightly outwards at the base
     parts.push(leg);
   }
   // travessas
@@ -234,7 +233,7 @@ export function makeLiftTowerGeometry(height = 15) {
   }
   parts.forEach((g) => paint(g, 0xd94a3d));
 
-  // braço horizontal que segura o cabo
+  // the horizontal arm holding the cable
   const arm = new THREE.BoxGeometry(6.4, 0.34, 0.42);
   arm.translate(0, height + 0.2, 0);
   paint(arm, 0x8a9099);
@@ -278,7 +277,7 @@ export function makeChairGeometry() {
 }
 
 // ============================================================ bandeiras
-/** Bandeira de slalom: mastro + pano. O pano ondula no shader. */
+/** A slalom flag: pole + cloth. The cloth ripples in the shader. */
 export function makeFlagGeometry(color, height = 2.4) {
   const parts = [];
   const pole = new THREE.CylinderGeometry(0.045, 0.055, height, 6);
@@ -286,13 +285,13 @@ export function makeFlagGeometry(color, height = 2.4) {
   paint(pole, 0xf2f4f6);
   parts.push(pole);
 
-  // caixa fina, não plano: o plano tem face única e some quando visto por trás
+  // a thin box, not a plane: a plane is single-sided and vanishes from behind
   const cloth = new THREE.BoxGeometry(1.05, 0.72, 0.035);
   cloth.translate(0.545, height - 0.45, 0);
   paint(cloth, color);
   parts.push(cloth);
 
-  // dobra de tecido para não parecer uma placa
+  // a fold in the fabric so it doesn't look like a signboard
   const fold = new THREE.BoxGeometry(0.34, 0.72, 0.09);
   fold.translate(0.90, height - 0.47, 0.03);
   fold.rotateZ(-0.05);
@@ -304,7 +303,7 @@ export function makeFlagGeometry(color, height = 2.4) {
   return geo;
 }
 
-// =============================================================== chalé
+// =============================================================== chalet
 export function makeChaletGeometry(seed = 1) {
   const rng = makeRng(seed * 17 + 3);
   const parts = [];
@@ -318,7 +317,7 @@ export function makeChaletGeometry(seed = 1) {
   });
   parts.push(walls);
 
-  // telhado de duas águas com neve
+  // a gabled roof with snow
   const roof = new THREE.CylinderGeometry(d * 0.78, d * 0.78, w + 1.2, 3, 1, false);
   roof.rotateZ(Math.PI / 2);
   roof.rotateY(Math.PI / 2);
@@ -376,7 +375,7 @@ export function makeBushGeometry(seed = 1) {
 }
 
 // ================================================================ placa
-/** Placa de pista, com a seta do jogo original. */
+/** A piste sign, with the arrow from the original game. */
 export function makeSignGeometry(dir = 1) {
   const parts = [];
   const post = new THREE.CylinderGeometry(0.07, 0.07, 2.6, 6);
@@ -389,7 +388,7 @@ export function makeSignGeometry(dir = 1) {
   paint(board, dir > 0 ? 0x2a5bd7 : 0xd93b30);
   parts.push(board);
 
-  // seta branca em relevo
+  // a raised white arrow
   const shaft = new THREE.BoxGeometry(0.62, 0.16, 0.06);
   shaft.translate(-0.1 * dir, 2.2, 0.07);
   paint(shaft, 0xffffff);
@@ -404,8 +403,8 @@ export function makeSignGeometry(dir = 1) {
   return merge(parts);
 }
 
-// ============================================================ obstáculos
-/** Toco de árvore — pequeno, mas derruba igual. */
+// ============================================================ obstacles
+/** A tree stump — small, but it knocks you down all the same. */
 export function makeStumpGeometry() {
   const parts = [];
   const s = new THREE.CylinderGeometry(0.5, 0.62, 1.0, 9);

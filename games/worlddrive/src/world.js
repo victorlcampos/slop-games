@@ -1,4 +1,4 @@
-// Orquestra o carregamento e a construção do mundo em torno de um lat/lon
+// Orchestrates loading and building the world around a lat/lon
 import * as THREE from 'three';
 import { makeProjection, bboxAround, mercX, mercY, clamp, hashStr } from './geo.js';
 import { fetchOSM } from './overpass.js';
@@ -7,10 +7,11 @@ import { loadSatellite } from './satellite.js';
 import { buildRoads } from './roads.js';
 import { buildBuildings } from './buildings.js';
 import { buildTrees } from './trees.js';
+import { t } from './i18n.js';
 
-export const HALF = 640; // meia-aresta da área jogável, em metros
+export const HALF = 640; // half-edge of the playable area, in metres
 
-// Paredes de prédios e troncos de árvores para colisão
+// Building walls and tree trunks for collision
 export class CollisionGrid {
   constructor(cell = 16) { this.cell = cell; this.map = new Map(); }
   k(cx, cz) { return cx + ':' + cz; }
@@ -30,7 +31,7 @@ export class CollisionGrid {
     const cx = Math.floor(x / this.cell), cz = Math.floor(z / this.cell);
     this._push(cx, cz, { t: 2, x, z, r });
   }
-  // contatos de um círculo (px,pz,r): [{nx,nz,depth}]
+  // contacts of a circle (px,pz,r): [{nx,nz,depth}]
   collide(px, pz, r) {
     const c = this.cell;
     const cx = Math.floor(px / c), cz = Math.floor(pz / c);
@@ -62,7 +63,7 @@ export class CollisionGrid {
 function buildTerrainMesh(proj, heightAt, sat) {
   const SEG = 150;
   const geo = new THREE.PlaneGeometry(HALF * 2, HALF * 2, SEG, SEG);
-  geo.rotateX(-Math.PI / 2); // plano XZ, +y para cima
+  geo.rotateX(-Math.PI / 2); // XZ plane, +y up
   const posA = geo.attributes.position;
   const uvA = geo.attributes.uv;
   for (let i = 0; i < posA.count; i++) {
@@ -84,7 +85,7 @@ function buildTerrainMesh(proj, heightAt, sat) {
 // progress(stage, fraction[0..1], note?)
 export async function loadWorld(lat, lon, progress) {
   const bbox = bboxAround(lat, lon, HALF * 1.07);
-  const bboxT = bboxAround(lat, lon, HALF * 1.35); // margem extra para elevação
+  const bboxT = bboxAround(lat, lon, HALF * 1.35); // extra margin for elevation
 
   const pOSM = fetchOSM(bbox, (bytes, note) => progress('osm', Math.min(0.95, bytes / 4e6), note || fmtMB(bytes)));
   const pDem = loadTerrain(bboxT, (d, t) => progress('dem', d / t));
@@ -99,14 +100,14 @@ export async function loadWorld(lat, lon, progress) {
   progress('build', 0.05);
 
   if (!osm.roads.some(r => r.kind === 'car')) {
-    throw new Error('Não encontrei ruas dirigíveis nesse ponto. Escolha um lugar com estradas próximas (o pin precisa cair perto de uma rua).');
+    throw new Error(t('load.noRoads'));
   }
 
   const proj = makeProjection(lat, lon);
 
-  // Altura de referência (origem y=0 no centro) + clamp de água costeira
+  // Reference height (origin y=0 at the centre) + a clamp for coastal water
   const rawCenter = dem.sample(mercX(lon), mercY(lat));
-  const coastal = rawCenter > -2; // se o centro é terra "normal", batimetria vira nível do mar
+  const coastal = rawCenter > -2; // if the centre is "normal" land, bathymetry becomes sea level
   const heightRaw = (mx, my) => {
     let h = dem.sample(mx, my);
     if (coastal && h < -0.5) h = -0.5;
@@ -149,7 +150,7 @@ export async function loadWorld(lat, lon, progress) {
   group.add(treesB.group);
   progress('build', 1);
 
-  // spawn: rua dirigível mais próxima do centro (preferindo ruas com nome)
+  // spawn: the drivable street nearest the centre (preferring named streets)
   const sp = roadsB.index.nearest(0, 0, 220, true, true)
     || roadsB.index.nearest(0, 0, 900)
     || { x: 0, z: 0, heading: 0, name: null };

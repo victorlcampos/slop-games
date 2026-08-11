@@ -1,15 +1,15 @@
-// Teleférico: torres, cabo e cadeiras subindo a montanha.
-// As torres derrubam quem bate — como no jogo original.
+// The chairlift: towers, cable and chairs climbing the mountain.
+// The towers knock down whoever hits them — as in the original game.
 
 import * as THREE from 'three';
 import { makeLiftTowerGeometry, makeChairGeometry } from './geometries.js';
 import { createSkier, SKIER_PALETTES } from '../entities/skierModel.js';
 import { groundHeight, lerp } from '../config.js';
 
-const LIFT_X = -118;          // linha do teleférico
-const SPACING = 58;           // distância entre torres
+const LIFT_X = -118;          // the lift line
+const SPACING = 58;           // distance between towers
 const TOWER_H = 15;
-const CABLE_OFFSET = 2.9;     // separação entre cabo de subida e de descida
+const CABLE_OFFSET = 2.9;     // gap between the up cable and the down cable
 const AHEAD = 620;
 const BEHIND = 140;
 const CHAIR_COUNT = 16;
@@ -22,14 +22,14 @@ export function createLift(parent, material) {
   const towerGeo = makeLiftTowerGeometry(TOWER_H);
   const chairGeo = makeChairGeometry();
 
-  const towers = new Map();     // índice -> mesh
+  const towers = new Map();     // index -> mesh
   const towerPool = [];
   const cablePool = [];
   const dummy = new THREE.Object3D();
 
   // ------------------------------------------------------------- cabos
   const cableGeo = new THREE.CylinderGeometry(0.055, 0.055, 1, 5);
-  cableGeo.rotateX(Math.PI / 2);       // eixo ao longo de +Z
+  cableGeo.rotateX(Math.PI / 2);       // axis along +Z
   const cableMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.6, metalness: 0.5 });
 
   function getTower() {
@@ -57,7 +57,7 @@ export function createLift(parent, material) {
 
   const towerTopY = (idx) => groundHeight(LIFT_X, idx * SPACING) + TOWER_H + 0.2;
 
-  /** Altura do cabo em z (interpolação entre torres + leve barriga). */
+  /** Cable height at z (interpolation between towers + a slight sag). */
   function cableY(z) {
     const i = Math.floor(z / SPACING);
     const t = z / SPACING - i;
@@ -76,7 +76,7 @@ export function createLift(parent, material) {
     mesh.position.y = -2.6;
     g.add(mesh);
 
-    // metade das cadeiras leva passageiros
+    // half the chairs carry passengers
     let rider = null;
     if (i % 3 !== 2) {
       const pal = SKIER_PALETTES[i % SKIER_PALETTES.length];
@@ -103,7 +103,7 @@ export function createLift(parent, material) {
     const first = Math.floor((travel - BEHIND) / SPACING);
     const last = Math.ceil((travel + AHEAD) / SPACING);
 
-    // recicla torres fora do alcance
+    // recycle towers out of range
     for (const [idx, m] of towers) {
       if (idx < first || idx > last) {
         m.tower.visible = false;
@@ -115,7 +115,7 @@ export function createLift(parent, material) {
       }
     }
 
-    // cria as que faltam
+    // create the missing ones
     for (let i = first; i <= last; i++) {
       if (towers.has(i)) continue;
       const z = i * SPACING;
@@ -123,7 +123,7 @@ export function createLift(parent, material) {
       const tower = getTower();
       tower.position.set(LIFT_X, y, z);
 
-      // segmento de cabo até a próxima torre (ida e volta)
+      // a cable segment up to the next tower (out and back)
       const zNext = (i + 1) * SPACING;
       const y0 = towerTopY(i), y1 = towerTopY(i + 1);
       const len = Math.hypot(zNext - z, y1 - y0);

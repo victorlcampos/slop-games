@@ -1,4 +1,4 @@
-// Montagem da cena e o laço principal.
+// Scene assembly and the main loop.
 
 import * as THREE from 'three';
 import { createSave } from 'slopkit/save';
@@ -31,15 +31,16 @@ import { initAudio, resumeAudio, updateAudio, sfx, toggleMute, silence } from '.
 import { GodRaysShader, LensShader, updateSunScreenPosition } from './render/postfx.js';
 import { installAerialPerspective } from './render/atmosphere.js';
 import * as hud from './hud.js';
+import { t } from './i18n.js';
 
-// Sol baixo (12°) e à frente de quem desce: é a única posição em que o disco
-// cabe no enquadramento — a câmera olha encosta abaixo, então qualquer sol
-// alto fica fora da tela e não sobra nada para bloom nem para god rays.
-// De quebra rende luz rasante, sombras longas e contraluz nos cristais.
+// A low sun (12°) and ahead of whoever is descending: it is the only position
+// fits in the frame — the camera looks downhill, so any high sun ends up off
+// screen and leaves nothing for bloom or god rays.
+// It also throws grazing light, long shadows and rim light on the crystals.
 const SUN_DIR = new THREE.Vector3(-0.470, 0.342, 0.814).normalize();
 const CAMERA_MODES = ['chase', 'retro', 'close'];
-// Os recordes passam pelo slopkit: ganham normalização (recorde salvo com o
-// tipo errado não vira NaN na tela) e a mesma chave/validação dos outros jogos.
+// The best scores go through slopkit: they get normalisation (a record saved
+// with the wrong type doesn't turn into NaN on screen) and the same key and
 const cofre = createSave({
   game: 'skifree3d',
   version: 1,
@@ -48,7 +49,7 @@ const cofre = createSave({
   normalize: (bruto, base) => {
     if (!bruto || typeof bruto !== 'object') return base;
     const s = { ...base };
-    // só número finito entra: o resto é ruído de save editado à mão
+    // only a finite number gets in: the rest is noise from a hand-edited save
     for (const [k, v] of Object.entries(bruto)) {
       if (k === 'version' || k === 'updatedAt') continue;
       if (Number.isFinite(v)) s[k] = v;
@@ -58,8 +59,8 @@ const cofre = createSave({
 });
 
 export function createGame(container) {
-  // Precisa acontecer antes de qualquer material ser criado: mexe nos
-  // ShaderChunk globais que o three usa para montar os shaders.
+  // Has to happen before any material is created: it touches the global
+  // global ShaderChunks three uses to assemble its shaders.
   installAerialPerspective({
     sunDirection: SUN_DIR,
     sunColor: 0xffd9a0,
@@ -69,7 +70,7 @@ export function createGame(container) {
 
   // ------------------------------------------------------------ renderer
   const renderer = new THREE.WebGLRenderer({
-    antialias: false,          // MSAA vem do render target do composer
+    antialias: false,          // MSAA comes from the composer's render target
     powerPreference: 'high-performance',
     stencil: false,
   });
@@ -77,8 +78,8 @@ export function createGame(container) {
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  // Neutral (Khronos PBR Neutral) preserva o croma dos realces; o ACES
-  // lavava o azul do céu para branco nesta faixa de exposição.
+  // Neutral (Khronos PBR Neutral) preserves the chroma of the highlights; ACES
+  // washed the sky's blue to white at this exposure range.
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.06;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -90,17 +91,17 @@ export function createGame(container) {
   const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.5, VIEW_FAR);
   camera.position.set(0, 6, -10);
 
-  // iluminação ambiente vinda do próprio céu
+  // ambient light coming from the sky itself
   scene.environment = buildSkyEnvironment(renderer, SUN_DIR);
   scene.environmentIntensity = 0.5;
 
-  // grupo que carrega o mundo: desliza para manter o jogador na origem
+  // the group carrying the world: it slides to keep the player at the origin
   const worldGroup = new THREE.Group();
   scene.add(worldGroup);
 
   // ---------------------------------------------------------------- luz
-  // Sombras em cascata: nítidas junto ao esquiador e ainda presentes a 200 m,
-  // o que uma única shadow map deste alcance não consegue entregar.
+  // Cascaded shadows: crisp next to the skier and still there at 200 m, which
+  // a single shadow map of this range cannot deliver.
   const csm = new CSM({
     camera,
     parent: scene,
@@ -123,14 +124,14 @@ export function createGame(container) {
   const hemi = new THREE.HemisphereLight(0xb6d8f5, 0xf2f8ff, 0.42);
   scene.add(hemi);
 
-  // luz de preenchimento fria, vinda do lado oposto ao sol
+  // a cool fill light, from the side opposite the sun
   const fill = new THREE.DirectionalLight(0x9ec9ee, 0.55);
   fill.position.set(0.5, 0.55, -0.8);
   scene.add(fill);
 
   /**
-   * CSM.setupMaterial substitui onBeforeCompile — compõe com o hook próprio
-   * do material em vez de perdê-lo.
+   * CSM.setupMaterial replaces onBeforeCompile — compose with the material's
+   * own hook instead of losing it.
    */
   function enableCSM(material) {
     const own = material.onBeforeCompile;
@@ -147,7 +148,7 @@ export function createGame(container) {
 
   // ------------------------------------------------------------- mundos
   const sky = createSky(scene, SUN_DIR);
-  sky.group.userData.noAO = true;   // cenário infinito não gera oclusão
+  sky.group.userData.noAO = true;   // infinite scenery casts no occlusion
 
   const snowMat = createSnowMaterial(SUN_DIR);
   const terrain = createTerrain(worldGroup, snowMat);
@@ -170,17 +171,17 @@ export function createGame(container) {
   const trail = createTrail(worldGroup);
   const snowfall = createSnowfall(scene, { count: 2400 });
 
-  // ---------------------------------------------------- pós-processamento
+  // ------------------------------------------------------ post-processing
   const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
     type: THREE.HalfFloatType,
-    samples: 4,                 // MSAA: essencial para os cabos e galhos finos
+    samples: 4,                 // MSAA: essential for the cables and thin branches
     colorSpace: THREE.LinearSRGBColorSpace,
   });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
 
-  // oclusão de ambiente: é o que dá volume às pegadas, aos troncos e às
-  // dobras do relevo, que sem ela ficam "coladas" na neve
+  // ambient occlusion: it is what gives volume to the tracks, the trunks and
+  // the folds of the terrain, which without it look "stuck on" the snow
   const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
   gtao.output = GTAOPass.OUTPUT.Default;
   gtao.blendIntensity = 0.85;
@@ -193,9 +194,9 @@ export function createGame(container) {
     distanceFallOff: 1.0,
     screenSpaceRadius: false,
   });
-  // O gbuffer do GTAO só ignora Points e Lines. Sem este filtro, decalques
-  // transparentes (o rastro dos esquis, as nuvens) entram como parede sólida
-  // e desenham uma faixa de oclusão escura atrás do jogador.
+  // GTAO's gbuffer only ignores Points and Lines. Without this filter,
+  // transparent decals (the ski trail, the clouds) come in as a solid wall and
+  // draw a dark band of occlusion behind the player.
   gtao.overrideVisibility = function () {
     const cache = this._visibilityCache;
     this.scene.traverse((object) => {
@@ -211,13 +212,13 @@ export function createGame(container) {
   };
   composer.addPass(gtao);
 
-  // raios de sol atravessando a copa das árvores
+  // sun rays coming through the treetops
   const godRays = new ShaderPass(GodRaysShader);
   composer.addPass(godRays);
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight),
-    0.35,    // força
+    0.35,    // strength
     0.78,    // raio
     0.85     // limiar: medido — abaixo disso a neve inteira floresce
   );
@@ -225,7 +226,7 @@ export function createGame(container) {
 
   composer.addPass(new OutputPass());
 
-  // lente: borrão radial com a velocidade, aberração, vinheta, grão e grade
+  // lens: radial blur with speed, aberration, vignette, grain and grading
   const lens = new ShaderPass(LensShader);
   lens.uniforms.uResolution.value.set(innerWidth, innerHeight);
   composer.addPass(lens);
@@ -250,7 +251,7 @@ export function createGame(container) {
 
   const best = loadBest();
 
-  // arrays reutilizados por quadro (zero alocação no laço)
+  // arrays reused per frame (zero allocation in the loop)
   const propColliders = [];
   const ramps = [];
   const gates = [];
@@ -273,13 +274,13 @@ export function createGame(container) {
     cofre.save(best);
   }
 
-  /** Posição de um ponto do mundo no espaço da cena. */
+  /** Position of a world point in scene space. */
   function toScene(x, y, z, out) {
     return out.set(x + worldGroup.position.x, y + worldGroup.position.y, z + worldGroup.position.z);
   }
 
   function syncWorldOrigin() {
-    // mantém o jogador em z = 0 e perto de y = 0 na cena
+    // keeps the player at z = 0 and near y = 0 in the scene
     worldGroup.position.set(0, SLOPE * player.state.z, -player.state.z);
   }
 
@@ -316,7 +317,7 @@ export function createGame(container) {
     syncWorldOrigin();
     terrain.prime(player.state.x, player.state.z);
 
-    // posiciona a câmera já atrás do jogador (sem varrer a montanha)
+    // put the camera already behind the player (without sweeping the mountain)
     player.root.getWorldPosition(playerScene);
     smoothHeading = 0;
     camPos.set(playerScene.x, playerScene.y + 3.4 + SLOPE * 7, playerScene.z - 7);
@@ -384,9 +385,10 @@ export function createGame(container) {
           if (e.score > 0) {
             const pts = Math.round(e.score * state.style);
             state.score += pts;
-            if (e.names.length || e.airTime > 0.8) {
-              hud.toast(e.names.length ? e.names.join(' + ') : 'Voo', pts);
-              sfx.trick(e.names.length);
+            const names = trickNames(e.trick);
+            if (names.length || e.airTime > 0.8) {
+              hud.toast(names.length ? names.join(' + ') : t('trick.air'), pts);
+              sfx.trick(names.length);
             }
             state.style = Math.min(5, state.style + 0.2);
           }
@@ -413,23 +415,22 @@ export function createGame(container) {
     }
   }
 
+  /** The reason for the crash is an id; the phrase comes from the dictionary. */
+  const CRASHES = ['tree', 'rock', 'stump', 'tower', 'chalet', 'sign', 'skier', 'boarder', 'dog', 'landing'];
   function crashLabel(reason) {
-    switch (reason) {
-      case 'tree': return 'Árvore!';
-      case 'rock': return 'Pedra!';
-      case 'stump': return 'Toco!';
-      case 'tower': return 'Torre do teleférico!';
-      case 'chalet': return 'Isso era uma casa';
-      case 'sign': return 'A placa avisava…';
-      case 'skier': return 'Trombada!';
-      case 'boarder': return 'Snowboarder!';
-      case 'dog': return 'O cachorro!';
-      case 'landing': return 'Aterrissagem torta';
-      default: return 'Tombo!';
-    }
+    return t(CRASHES.includes(reason) ? `crash.${reason}` : 'crash.other');
   }
 
-  // ------------------------------------------------------------- portões
+  /** Turns the landing's numbers into the words on screen. */
+  function trickNames({ spins, flips, longAir } = {}) {
+    const names = [];
+    if (spins > 0) names.push(t('trick.spin', { degrees: spins * 360 }));
+    if (flips > 0) names.push(flips > 1 ? t('trick.flips', { n: flips }) : t('trick.flip'));
+    if (longAir) names.push(t('trick.longAir'));
+    return names;
+  }
+
+  // --------------------------------------------------------------- gates
   function updateGates(prevZ, z) {
     if (!modeCfg.gates) return;
     props.gatesNear(z, gates);
@@ -444,13 +445,13 @@ export function createGame(container) {
           const pts = Math.round(150 * state.style);
           state.score += pts;
           state.style = Math.min(5, state.style + 0.15);
-          hud.toast('Portão', pts, '#9ff0c8');
+          hud.toast(t('gate.hit'), pts, '#9ff0c8');
           sfx.gate();
         } else {
           state.gatesMissed++;
           state.score = Math.max(0, state.score - 120);
           state.style = 1;
-          hud.toast('Portão perdido', 0, '#ff8f85');
+          hud.toast(t('gate.missed'), 0, '#ff8f85');
           sfx.miss();
         }
       }
@@ -461,7 +462,7 @@ export function createGame(container) {
     });
   }
 
-  // -------------------------------------------------------------- câmera
+  // -------------------------------------------------------------- camera
   function updateCamera(dt) {
     player.root.getWorldPosition(playerScene);
     const p = player.state;
@@ -472,7 +473,7 @@ export function createGame(container) {
     const mode = CAMERA_MODES[state.cameraMode];
 
     if (state.phase === 'dying' && yeti.state.mode === 'eating') {
-      // durante o abraço do Yeti a câmera gira em volta dos dois
+      // during the Yeti's hug the camera circles the two of them
       toScene(yeti.state.x, yeti.state.y, yeti.state.z, tmp);
       const a = state.dyingTimer * 1.1 + 2.4;
       const r = lerp(9, 5.5, clamp(state.dyingTimer / 1.6, 0, 1));
@@ -481,7 +482,7 @@ export function createGame(container) {
       camPos.lerp(desiredPos, 1 - Math.exp(-5 * dt));
       camLook.lerp(desiredLook, 1 - Math.exp(-6 * dt));
     } else if (mode === 'retro') {
-      // homenagem à visão de cima do original
+      // a nod to the original's top-down view
       const dist = 20 + speedN * 6;
       const height = 24 + speedN * 5;
       desiredPos.set(playerScene.x, playerScene.y + height, playerScene.z - dist);
@@ -504,14 +505,14 @@ export function createGame(container) {
         playerScene.y + 1.25 - SLOPE * look,
         playerScene.z + hz * look
       );
-      // no ar a câmera abre um pouco para caber o salto
+      // in the air the camera opens up a bit to fit the jump
       if (p.airborne) desiredPos.y += clamp(p.y - groundHeight(p.x, p.z), 0, 8) * 0.55;
 
       camPos.lerp(desiredPos, 1 - Math.exp(-(close ? 9 : 6.5) * dt));
       camLook.lerp(desiredLook, 1 - Math.exp(-8 * dt));
     }
 
-    // tremida ao bater
+    // a shudder on impact
     if (state.shake > 0) {
       state.shake = Math.max(0, state.shake - dt * 2.2);
       const k = state.shake * state.shake * 0.85;
@@ -525,7 +526,7 @@ export function createGame(container) {
     }
     camera.lookAt(camLook);
 
-    // campo de visão puxa com a velocidade
+    // the field of view pulls with speed
     const targetFov = state.cameraMode === 1 ? 46 : 57 + speedN * 15 + (p.airborne ? 3 : 0);
     fov = damp(fov, targetFov, 4, dt);
     if (Math.abs(camera.fov - fov) > 0.01) {
@@ -534,8 +535,8 @@ export function createGame(container) {
     }
   }
 
-  // As cascatas seguem o frustum da câmera; basta atualizar depois de mover
-  // a câmera do quadro.
+  // The cascades follow the camera frustum; it is enough to update after
+  // moving the frame's camera.
   function updateShadows() {
     csm.update();
   }
@@ -549,7 +550,7 @@ export function createGame(container) {
     const amount = Math.floor(rate * 110 * dt) + (Math.random() < rate ? 1 : 0);
     if (amount <= 0) return;
     const dirX = Math.sin(p.heading), dirZ = Math.cos(p.heading);
-    // emite atrás dos dois esquis
+    // emits behind both skis
     for (const side of [-0.22, 0.22]) {
       spray.emitSpray(
         p.x + dirZ * side, p.y + 0.05, p.z - dirX * side,
@@ -559,8 +560,8 @@ export function createGame(container) {
   }
 
   // -------------------------------------------------- qualidade adaptativa
-  // O GTAO custa ~35% do quadro. Em vez de fixar um preset, mede os primeiros
-  // segundos reais e vai desligando o que for mais caro se não fechar a conta.
+  // GTAO costs ~35% of the frame. Instead of pinning a preset, it measures the first
+  // real seconds and turns off whatever is most expensive if the sum doesn't close.
   const perf = { frames: 0, accum: 0, level: 2, settled: false, grace: 1.5 };
 
   function setQualityLevel(level) {
@@ -603,7 +604,7 @@ export function createGame(container) {
     foliageMat.userData.uniforms.uTime.value = state.elapsed;
     lens.uniforms.uTime.value = state.elapsed;
 
-    // raios de sol e borrão de velocidade acompanham câmera e jogador
+    // sun rays and speed blur follow the camera and the player
     updateSunScreenPosition(SUN_DIR, camera, godRays.uniforms);
     const speedNorm = state.phase === 'playing'
       ? clamp((player.state.speed - 12) / (PLAYER.maxSpeed - 12), 0, 1)
@@ -611,7 +612,7 @@ export function createGame(container) {
     lens.uniforms.uSpeed.value = damp(lens.uniforms.uSpeed.value, speedNorm, 4, dt);
 
     if (state.phase === 'menu') {
-      // câmera passeia devagar sobre a montanha no menu
+      // the camera drifts slowly over the mountain on the menu
       menuIdle(dt);
     } else if (!state.paused) {
       step(dt);
@@ -625,7 +626,7 @@ export function createGame(container) {
 
   let menuAngle = 0;
   function menuIdle(dt) {
-    // sobrevoo lento da montanha atrás do menu
+    // a slow flyover of the mountain behind the menu
     menuAngle += dt * 0.075;
     const z = 160 + menuAngle * 26;
     const x = Math.sin(menuAngle * 0.9) * 60;
@@ -638,7 +639,7 @@ export function createGame(container) {
     terrain.update(x, z, 2);
     lift.update(z, dt);
 
-    // o ponto do mundo (x, solo, z) aparece na cena com z = 0
+    // the world point (x, ground, z) shows up in the scene at z = 0
     const sceneY = groundHeight(x, z) + SLOPE * z;
     camPos.set(x + Math.sin(menuAngle * 0.7) * 22, sceneY + 13, -34);
     camLook.set(x * 0.5, sceneY - 9, 34);
@@ -654,7 +655,7 @@ export function createGame(container) {
     const p = player.state;
     state.time += dt;
 
-    // ------------------------------------------------- mundo em volta
+    // ------------------------------------------------ the world around
     props.update(p.z);
     terrain.update(p.x, p.z, 2);
     const liftColliders = modeCfg.lift ? lift.update(p.z, dt) : [];
@@ -720,7 +721,7 @@ export function createGame(container) {
       silence();
     }
 
-    // pegadas do Yeti levantando neve
+    // the Yeti's footsteps kicking up snow
     if (yeti.state.visible && yeti.state.mode === 'chasing' && Math.random() < dt * 14) {
       spray.burst(
         yeti.state.x + (Math.random() - 0.5) * 1.2,
@@ -772,7 +773,7 @@ export function createGame(container) {
 
   function cycleCamera() {
     state.cameraMode = (state.cameraMode + 1) % CAMERA_MODES.length;
-    hud.toast(`Câmera: ${['perseguição', 'retrô', 'colada'][state.cameraMode]}`, 0, '#cfe8ff');
+    hud.toast(t('camera.changed', { mode: t(`camera.${CAMERA_MODES[state.cameraMode]}`) }), 0, '#cfe8ff');
   }
 
   function onResize() {
@@ -797,7 +798,7 @@ export function createGame(container) {
     onCommand('KeyC', () => { if (state.phase !== 'menu') cycleCamera(); });
     onCommand('KeyM', () => {
       const m = toggleMute();
-      hud.toast(m ? 'Som desligado' : 'Som ligado', 0, '#cfe8ff');
+      hud.toast(t(m ? 'sound.off' : 'sound.on'), 0, '#cfe8ff');
     });
     onCommand('KeyR', () => {
       if (state.phase === 'playing' || state.phase === 'dying' || state.phase === 'over') start(state.mode);
@@ -805,7 +806,7 @@ export function createGame(container) {
 
     addEventListener('resize', onResize);
 
-    // áudio só pode começar depois de um gesto do usuário
+    // audio can only start after a user gesture
     const unlock = () => {
       if (initAudio()) resumeAudio();
       removeEventListener('pointerdown', unlock);
@@ -814,14 +815,14 @@ export function createGame(container) {
     addEventListener('pointerdown', unlock);
     addEventListener('keydown', unlock);
 
-    // primeira montagem da montanha
+    // first assembly of the mountain
     player.state.z = 120;
     syncWorldOrigin();
     props.update(120);
     terrain.prime(0, 120);
     lift.update(120, 0.016);
 
-    // aquece os shaders antes do primeiro quadro visível
+    // warm up the shaders before the first visible frame
     renderer.compile(scene, camera);
     composer.render();
 
@@ -832,7 +833,7 @@ export function createGame(container) {
   return {
     init, start, backToMenu, togglePause, cycleCamera,
     state, renderer, scene, camera,
-    // expostos para inspeção no console
+    // exposed for poking at in the console
     player, yeti, npcs, props, lift, worldGroup, spray, csm, composer,
     bloom, godRays, lens, gtao, hemi, fill, snowMat, propMat, foliageMat, sky, perf, setQualityLevel,
     dispose() {

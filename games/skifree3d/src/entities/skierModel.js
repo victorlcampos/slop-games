@@ -1,6 +1,6 @@
-// Modelo articulado do esquiador — usado pelo jogador e pelos NPCs.
-// Todas as peças usam vertex colors e um único material compartilhado,
-// então dá para ter vários na tela sem trocar de material.
+// The skier's articulated model — used by the player and the NPCs.
+// Every piece uses vertex colours and one shared material, so several can be
+// on screen without a material swap.
 
 import * as THREE from 'three';
 import { paint, paintBy } from '../world/geometries.js';
@@ -12,12 +12,12 @@ export const characterMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.04,
 });
 
-// Proporções de um corpo de ~1,75 m: perna 0,72 · tronco 0,50 · cabeça 0,26
+// Proportions of a ~1.75 m body: leg 0.72 · torso 0.50 · head 0.26
 const THIGH = 0.36;
 const SHIN = 0.36;
 const ANKLE_Y = 0.13;
 const LEG_FULL = THIGH + SHIN;
-const SHOULDER_Y = 0.47;   // relativo ao pivô do tronco
+const SHOULDER_Y = 0.47;   // relative to the torso pivot
 const NECK_Y = 0.62;
 
 function mesh(geo, color) {
@@ -29,7 +29,7 @@ function mesh(geo, color) {
 }
 
 /**
- * @param {object} opts cores e variação
+ * @param {object} opts colours and variation
  * @returns {{group:THREE.Group, parts:object, pose:Function}}
  */
 export function createSkier(opts = {}) {
@@ -46,7 +46,7 @@ export function createSkier(opts = {}) {
   const group = new THREE.Group();
 
   // ------------------------------------------------------------- corpo
-  const body = new THREE.Group();          // inclina no carving
+  const body = new THREE.Group();          // leans while carving
   group.add(body);
 
   // --------------------------------------------------------- pranchas
@@ -141,13 +141,13 @@ export function createSkier(opts = {}) {
   chest.scale.set(1.08, 1, 0.80);
   torso.add(chest);
 
-  // faixa refletiva na jaqueta, só para quebrar a cor lisa
+  // a reflective stripe on the jacket, just to break up the flat colour
   const stripe = mesh(new THREE.CylinderGeometry(0.174, 0.174, 0.07, 12, 1, true), 0xffd54a);
   stripe.position.y = 0.27;
   stripe.scale.set(1.08, 1, 0.80);
   torso.add(stripe);
 
-  // ------------------------------------------------------------ braços
+  // -------------------------------------------------------------- arms
   function makeArm(side) {
     const shoulder = new THREE.Group();
     shoulder.position.set(side * 0.185, SHOULDER_Y, 0);
@@ -169,7 +169,7 @@ export function createSkier(opts = {}) {
     glove.position.y = -0.25;
     elbow.add(glove);
 
-    // bastão preso à mão — a pose reorienta para apontar para trás e baixo
+    // the pole is held in the hand — the pose re-orients it to point back and down
     const pole = new THREE.Group();
     pole.position.y = -0.25;
     elbow.add(pole);
@@ -190,7 +190,7 @@ export function createSkier(opts = {}) {
   const armL = makeArm(-1);
   const armR = makeArm(1);
 
-  // ------------------------------------------------------------ cabeça
+  // -------------------------------------------------------------- head
   const neck = new THREE.Group();
   neck.position.y = NECK_Y;
   torso.add(neck);
@@ -218,7 +218,7 @@ export function createSkier(opts = {}) {
   pompom.position.y = 0.272;
   neck.add(pompom);
 
-  // óculos de neve
+  // snow goggles
   const goggles = mesh(new THREE.BoxGeometry(0.215, 0.072, 0.05), 0x171c24);
   goggles.position.set(0, 0.115, 0.098);
   neck.add(goggles);
@@ -244,10 +244,10 @@ export function createSkier(opts = {}) {
 
   /**
    * @param {object} p
-   * @param {number} p.crouch 0 em pé .. 1 agachado
-   * @param {number} p.lean inclinação lateral (rad)
-   * @param {number} p.pitch inclinação frente/trás (rad)
-   * @param {number} p.t tempo (para balanço)
+   * @param {number} p.crouch 0 standing .. 1 tucked
+   * @param {number} p.lean sideways lean (rad)
+   * @param {number} p.pitch fore/aft lean (rad)
+   * @param {number} p.t time (for the sway)
    * @param {number} p.speed velocidade normalizada 0..1
    * @param {boolean} p.airborne
    * @param {number} p.crashed 0..1
@@ -262,7 +262,7 @@ export function createSkier(opts = {}) {
 
     state.crouch = crouch;
 
-    // pernas: comprimento efetivo controla a altura do quadril
+    // legs: effective length controls the hip height
     const hipLen = lerp(LEG_FULL, LEG_FULL * 0.56, crouch);
     const half = clamp(hipLen / (2 * THIGH), -1, 1);
     const theta = Math.acos(half);
@@ -272,21 +272,21 @@ export function createSkier(opts = {}) {
       leg.thigh.rotation.x = -theta;
       leg.knee.rotation.x = theta * 2;
     }
-    // pernas ligeiramente afastadas quando agachado
+    // legs slightly apart when tucked
     legL.thigh.rotation.z = crouch * 0.13;
     legR.thigh.rotation.z = -crouch * 0.13;
 
-    // tronco: dobra para frente ao agachar, mais aerodinâmico
+    // torso: folds forward in a tuck, more aerodynamic
     torso.rotation.x = lerp(0.10, 0.72, crouch) + pitch;
     torso.rotation.z = lean * 0.35;
 
-    // cabeça olha para a frente mesmo com o tronco dobrado
+    // the head looks forward even with the torso folded
     neck.rotation.x = -torso.rotation.x * 0.72;
 
-    // corpo inclina no carving
+    // the body leans while carving
     body.rotation.z = lean;
 
-    // braços: abertos para equilíbrio, mais colados quando agachado
+    // arms: out for balance, tucked in closer when crouched
     const bob = Math.sin(t * 7) * 0.06 * spd * (1 - crouch);
     const openness = lerp(0.38, 0.15, crouch);
     armL.shoulder.rotation.z = openness + lean * 0.5;
@@ -305,15 +305,15 @@ export function createSkier(opts = {}) {
       armR.elbow.rotation.x = 0.5;
     }
 
-    // bastões apontam para trás e para baixo, independentemente do braço:
-    // cancela a rotação acumulada de ombro + cotovelo + tronco
+    // poles point back and down, regardless of the arm:
+    // cancels the accumulated rotation of shoulder + elbow + torso
     const poleTilt = 0.55;
     armL.pole.rotation.x = poleTilt - (armL.shoulder.rotation.x + armL.elbow.rotation.x) - torso.rotation.x;
     armR.pole.rotation.x = poleTilt - (armR.shoulder.rotation.x + armR.elbow.rotation.x) - torso.rotation.x;
     armL.pole.rotation.z = -armL.shoulder.rotation.z;
     armR.pole.rotation.z = -armR.shoulder.rotation.z;
 
-    // pranchas seguem a direção do carve
+    // the skis follow the carve direction
     if (skis.children.length) {
       skis.rotation.y = -lean * 0.28;
       if (skiL && skiR) {
@@ -322,7 +322,7 @@ export function createSkier(opts = {}) {
       }
     }
 
-    // queda: dobra tudo e joga o corpo para o lado
+    // a crash: fold everything and throw the body sideways
     if (crashed > 0) {
       const c = clamp(crashed, 0, 1);
       body.rotation.z = lerp(body.rotation.z, 1.42, c);
@@ -343,7 +343,7 @@ export function createSkier(opts = {}) {
   return { group, parts, pose, state };
 }
 
-/** Variações de cor para os NPCs. */
+/** Colour variations for the NPCs. */
 export const SKIER_PALETTES = [
   { jacket: 0xe8412f, pants: 0x1f2a44, hat: 0xffd23f, ski: 0x30d0e0 },
   { jacket: 0x1fa85c, pants: 0x2b2f3a, hat: 0xff7a3d, ski: 0xffffff },

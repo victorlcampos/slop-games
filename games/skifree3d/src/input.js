@@ -1,4 +1,4 @@
-// Teclado + toque. Expõe um estado simples lido pelo jogador a cada quadro.
+// Keyboard + touch. Exposes a simple state the player reads every frame.
 
 export const input = {
   left: false,
@@ -6,7 +6,7 @@ export const input = {
   up: false,
   down: false,
   jump: false,
-  jumpPressed: false,   // borda de subida, consumida pelo jogador
+  jumpPressed: false,   // rising edge, consumed by the player
 };
 
 const actions = new Map([
@@ -19,7 +19,7 @@ const actions = new Map([
 
 const commandHandlers = new Map();
 
-/** Registra uma tecla de comando (pausa, câmera, etc). */
+/** Registers a command key (pause, camera, and so on). */
 export function onCommand(code, fn) {
   commandHandlers.set(code, fn);
 }
@@ -42,7 +42,7 @@ export function initInput(target = window) {
     if (a) { e.preventDefault(); input[a] = false; }
   }, { passive: false });
 
-  // solta tudo se a janela perder o foco (senão o esquiador vira sozinho)
+  // release everything if the window loses focus (or the skier turns by itself)
   target.addEventListener('blur', releaseAll);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) releaseAll();
@@ -68,7 +68,7 @@ function initTouch() {
   if (!isTouch || !pad) return;
 
   pad.classList.add('on');
-  const active = new Map();   // pointerId -> ação
+  const active = new Map();   // pointerId -> action
 
   const setAct = (act, on) => {
     if (act === 'jump') {
@@ -95,6 +95,6 @@ function initTouch() {
     zone.addEventListener('lostpointercapture', end);
   });
 
-  // arrastar para cima na metade superior = agachar
+  // dragging up in the top half = tuck
   window.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 }

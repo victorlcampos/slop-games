@@ -1,12 +1,12 @@
-// Rastro dos esquis: uma fita colada na neve que vai sumindo.
-// Guarda os últimos N pontos e reconstrói a faixa quando um ponto é somado.
+// The ski trail: a ribbon stuck to the snow that fades away.
+// Keeps the last N points and rebuilds the strip when one is added.
 
 import * as THREE from 'three';
 import { groundHeight, groundNormal } from '../config.js';
 
 const MAX_POINTS = 260;
-const STEP = 0.75;          // metros entre pontos
-const LIFT = 0.055;         // afasta do terreno para não brigar no z-buffer
+const STEP = 0.75;          // metres between points
+const LIFT = 0.055;         // lifts off the terrain to avoid fighting in the z-buffer
 
 const VERT = /* glsl */`
   attribute float aAlpha;
@@ -24,8 +24,8 @@ const FRAG = /* glsl */`
   varying vec2 vUv;
   uniform vec3 uColor;
   void main() {
-    // dois sulcos finos, um por esqui — sem faixa de fundo, que de longe
-    // virava um borrão escuro atrás do esquiador
+    // two thin grooves, one per ski — no backing strip, which from a distance
+    // turned into a dark smudge behind the skier
     float d = abs(vUv.x - 0.5) * 2.0;
     float groove = smoothstep(0.30, 0.52, d) * (1.0 - smoothstep(0.66, 0.88, d));
     float a = vAlpha * groove;
@@ -75,11 +75,11 @@ export function createTrail(parent, { width = 0.70, color = 0xa9c6e0 } = {}) {
   mesh.renderOrder = 2;
   parent.add(mesh);
 
-  const pts = [];        // {x,z,nx,nz} em coordenadas de mundo
+  const pts = [];        // {x,z,nx,nz} in world coordinates
   let lastX = null, lastZ = null;
   const nrm = new THREE.Vector3();
 
-  /** Chame por quadro com a posição do jogador; ela decide quando marcar. */
+  /** Call once per frame with the player's position; it decides when to mark. */
   function push(x, z, heading, enabled = true) {
     if (!enabled) { lastX = x; lastZ = z; return; }
     if (lastX !== null) {
@@ -88,7 +88,7 @@ export function createTrail(parent, { width = 0.70, color = 0xa9c6e0 } = {}) {
     }
     lastX = x; lastZ = z;
 
-    // vetor lateral a partir da direção
+    // side vector derived from the heading
     const sx = Math.cos(heading), sz = -Math.sin(heading);
     pts.push({ x, z, sx, sz });
     if (pts.length > MAX_POINTS) pts.shift();
@@ -110,7 +110,7 @@ export function createTrail(parent, { width = 0.70, color = 0xa9c6e0 } = {}) {
       positions[i0 + 4] = y;
       positions[i0 + 5] = p.z + p.sz * hw;
 
-      // mais novo = mais marcado; some nas duas pontas
+      // newer = stronger; it fades at both ends
       const age = i / Math.max(1, n - 1);
       const a = Math.min(1, age * 3.2) * (0.35 + age * 0.65);
       alphas[i * 2] = a;

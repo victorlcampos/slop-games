@@ -1,63 +1,63 @@
 /* ==========================================================================
-   4. CATÁLOGOS DE CONSTRUÇÃO
+   4. BUILDING CATALOGUES
    ========================================================================== */
 const FENCES = {
-  madeira: { n: 'Cerca de Madeira', em: '🪵', cost: 55, forca: 1, visao: 1, cor: '#a87a45', alt: 13 },
-  ferro: { n: 'Grade de Ferro', em: '🔩', cost: 130, forca: 3, visao: .92, cor: '#5e6068', alt: 19 },
-  pedra: { n: 'Muro de Pedra', em: '🧱', cost: 210, forca: 4, visao: .55, cor: '#9b9a94', alt: 20 },
-  vidro: { n: 'Vidro Blindado', em: '🪟', cost: 340, forca: 5, visao: 1, cor: '#a8d8e8', alt: 21 },
-  eletrica: { n: 'Cerca Elétrica', em: '⚡', cost: 430, forca: 6, visao: .96, cor: '#c9a83c', alt: 17 },
-  aviario: { n: 'Tela de Aviário', em: '🕸️', cost: 265, forca: 3, visao: .86, cor: '#8a9098', alt: 34, aereo: 1 },
-  aquario: { n: 'Vidro de Aquário', em: '🌊', cost: 520, forca: 6, visao: 1, cor: '#7ec4dd', alt: 24, aquatico: 1 },
+  madeira: { n: 'Cerca de Madeira|Wooden Fence', em: '🪵', cost: 55, strength: 1, sight: 1, colour: '#a87a45', height: 13 },
+  ferro: { n: 'Grade de Ferro|Iron Railing', em: '🔩', cost: 130, strength: 3, sight: .92, colour: '#5e6068', height: 19 },
+  pedra: { n: 'Muro de Pedra|Stone Wall', em: '🧱', cost: 210, strength: 4, sight: .55, colour: '#9b9a94', height: 20 },
+  vidro: { n: 'Vidro Blindado|Armoured Glass', em: '🪟', cost: 340, strength: 5, sight: 1, colour: '#a8d8e8', height: 21 },
+  eletrica: { n: 'Cerca Elétrica|Electric Fence', em: '⚡', cost: 430, strength: 6, sight: .96, colour: '#c9a83c', height: 17 },
+  aviario: { n: 'Tela de Aviário|Aviary Mesh', em: '🕸️', cost: 265, strength: 3, sight: .86, colour: '#8a9098', height: 34, aviary: 1 },
+  aquario: { n: 'Vidro de Aquário|Aquarium Glass', em: '🌊', cost: 520, strength: 6, sight: 1, colour: '#7ec4dd', height: 24, aquarium: 1 },
 };
 const BUILDINGS = {
-  lanchonete: { n: 'Lanchonete', em: '🍔', w: 2, h: 2, cost: 16000, salario: 140, cor: '#e2543f', supre: 'fome', valor: 26, custo: 7, forca: .45 },
-  restaurante: { n: 'Restaurante', em: '🍽️', w: 3, h: 3, cost: 58000, salario: 340, cor: '#b5502a', supre: 'fome', valor: 68, custo: 19, forca: 1 },
-  pizzaria: { n: 'Pizzaria', em: '🍕', w: 2, h: 3, cost: 38000, salario: 240, cor: '#d9782c', supre: 'fome', valor: 44, custo: 13, forca: .8 },
-  sorveteria: { n: 'Sorveteria', em: '🍦', w: 2, h: 2, cost: 19000, salario: 150, cor: '#f2a8c0', supre: 'fome', valor: 20, custo: 5, forca: .3 },
-  pipoca: { n: 'Carrinho de Pipoca', em: '🍿', w: 1, h: 1, cost: 6500, salario: 80, cor: '#f2d43c', supre: 'fome', valor: 12, custo: 3, forca: .22 },
-  bebidas: { n: 'Quiosque de Bebidas', em: '🥤', w: 1, h: 2, cost: 11000, salario: 110, cor: '#3fa5e2', supre: 'sede', valor: 15, custo: 3.5, forca: .9 },
-  cafe: { n: 'Cafeteria', em: '☕', w: 2, h: 2, cost: 24000, salario: 190, cor: '#8a5a2b', supre: 'sede', valor: 24, custo: 6, forca: 1 },
-  bebedouro: { n: 'Bebedouro', em: '⛲', w: 1, h: 1, cost: 2600, salario: 0, cor: '#7ec4dd', supre: 'sede', valor: 0, custo: 0, forca: .5 },
-  banheiro: { n: 'Banheiro', em: '🚻', w: 2, h: 2, cost: 13000, salario: 90, cor: '#7d8890', supre: 'banheiro', valor: 2, custo: .6, forca: 1 },
-  banco: { n: 'Banco de Praça', em: '🪑', w: 1, h: 1, cost: 900, salario: 0, cor: '#a87a45', supre: 'energia', valor: 0, custo: 0, forca: 1 },
-  souvenir: { n: 'Loja de Souvenirs', em: '🎁', w: 2, h: 2, cost: 27000, salario: 200, cor: '#9a6ad4', supre: 'diversao', valor: 42, custo: 11, forca: .6 },
-  playground: { n: 'Playground', em: '🛝', w: 3, h: 3, cost: 21000, salario: 60, cor: '#4fae4a', supre: 'diversao', valor: 0, custo: 0, forca: 1.4 },
-  lixeira: { n: 'Lixeira', em: '🗑️', w: 1, h: 1, cost: 450, salario: 0, cor: '#5e6a76', supre: null, valor: 0, custo: 0, forca: 0 },
-  info: { n: 'Quiosque de Informações', em: 'ℹ️', w: 1, h: 1, cost: 5200, salario: 70, cor: '#3fa5e2', supre: null, valor: 0, custo: 0, forca: 0 },
-  posto: { n: 'Posto Veterinário', em: '🏥', w: 2, h: 2, cost: 34000, salario: 0, cor: '#f4f2ec', supre: null, valor: 0, custo: 0, forca: 0 },
+  lanchonete: { n: 'Lanchonete|Snack Bar', em: '🍔', w: 2, h: 2, cost: 16000, wage: 140, colour: '#e2543f', supplies: 'fome', value: 26, unitCost: 7, strength: .45 },
+  restaurante: { n: 'Restaurante|Restaurant', em: '🍽️', w: 3, h: 3, cost: 58000, wage: 340, colour: '#b5502a', supplies: 'fome', value: 68, unitCost: 19, strength: 1 },
+  pizzaria: { n: 'Pizzaria|Pizzeria', em: '🍕', w: 2, h: 3, cost: 38000, wage: 240, colour: '#d9782c', supplies: 'fome', value: 44, unitCost: 13, strength: .8 },
+  sorveteria: { n: 'Sorveteria|Ice Cream Shop', em: '🍦', w: 2, h: 2, cost: 19000, wage: 150, colour: '#f2a8c0', supplies: 'fome', value: 20, unitCost: 5, strength: .3 },
+  pipoca: { n: 'Carrinho de Pipoca|Popcorn Cart', em: '🍿', w: 1, h: 1, cost: 6500, wage: 80, colour: '#f2d43c', supplies: 'fome', value: 12, unitCost: 3, strength: .22 },
+  bebidas: { n: 'Quiosque de Bebidas|Drinks Kiosk', em: '🥤', w: 1, h: 2, cost: 11000, wage: 110, colour: '#3fa5e2', supplies: 'sede', value: 15, unitCost: 3.5, strength: .9 },
+  cafe: { n: 'Cafeteria|Café', em: '☕', w: 2, h: 2, cost: 24000, wage: 190, colour: '#8a5a2b', supplies: 'sede', value: 24, unitCost: 6, strength: 1 },
+  bebedouro: { n: 'Bebedouro|Water Fountain', em: '⛲', w: 1, h: 1, cost: 2600, wage: 0, colour: '#7ec4dd', supplies: 'sede', value: 0, unitCost: 0, strength: .5 },
+  banheiro: { n: 'Banheiro|Restroom', em: '🚻', w: 2, h: 2, cost: 13000, wage: 90, colour: '#7d8890', supplies: 'banheiro', value: 2, unitCost: .6, strength: 1 },
+  banco: { n: 'Banco de Praça|Park Bench', em: '🪑', w: 1, h: 1, cost: 900, wage: 0, colour: '#a87a45', supplies: 'energia', value: 0, unitCost: 0, strength: 1 },
+  souvenir: { n: 'Loja de Souvenirs|Souvenir Shop', em: '🎁', w: 2, h: 2, cost: 27000, wage: 200, colour: '#9a6ad4', supplies: 'diversao', value: 42, unitCost: 11, strength: .6 },
+  playground: { n: 'Playground|Playground', em: '🛝', w: 3, h: 3, cost: 21000, wage: 60, colour: '#4fae4a', supplies: 'diversao', value: 0, unitCost: 0, strength: 1.4 },
+  lixeira: { n: 'Lixeira|Bin', em: '🗑️', w: 1, h: 1, cost: 450, wage: 0, colour: '#5e6a76', supplies: null, value: 0, unitCost: 0, strength: 0 },
+  info: { n: 'Quiosque de Informações|Information Kiosk', em: 'ℹ️', w: 1, h: 1, cost: 5200, wage: 70, colour: '#3fa5e2', supplies: null, value: 0, unitCost: 0, strength: 0 },
+  posto: { n: 'Posto Veterinário|Veterinary Post', em: '🏥', w: 2, h: 2, cost: 34000, wage: 0, colour: '#f4f2ec', supplies: null, value: 0, unitCost: 0, strength: 0 },
 };
 const DECOS = {
-  arvore: { n: 'Árvore', em: '🌳', cost: 380, beleza: 5, r: 4 },
-  pinheiro: { n: 'Pinheiro', em: '🌲', cost: 420, beleza: 5, r: 4 },
-  palmeira: { n: 'Palmeira', em: '🌴', cost: 520, beleza: 6, r: 4 },
-  arbusto: { n: 'Arbusto', em: '🌿', cost: 120, beleza: 2, r: 3 },
-  flores: { n: 'Canteiro de Flores', em: '🌸', cost: 190, beleza: 4, r: 3 },
-  pedra: { n: 'Rocha', em: '🪨', cost: 150, beleza: 1, r: 2 },
-  fonte: { n: 'Fonte', em: '⛲', cost: 4200, beleza: 14, r: 7 },
-  estatua: { n: 'Estátua', em: '🗿', cost: 3100, beleza: 11, r: 6 },
-  poste: { n: 'Poste de Luz', em: '💡', cost: 640, beleza: 3, r: 5 },
-  placa: { n: 'Placa Informativa', em: '🪧', cost: 260, beleza: 2, r: 2 },
+  arvore: { n: 'Árvore|Tree', em: '🌳', cost: 380, beauty: 5, r: 4 },
+  pinheiro: { n: 'Pinheiro|Pine', em: '🌲', cost: 420, beauty: 5, r: 4 },
+  palmeira: { n: 'Palmeira|Palm', em: '🌴', cost: 520, beauty: 6, r: 4 },
+  arbusto: { n: 'Arbusto|Bush', em: '🌿', cost: 120, beauty: 2, r: 3 },
+  flores: { n: 'Canteiro de Flores|Flower Bed', em: '🌸', cost: 190, beauty: 4, r: 3 },
+  pedra: { n: 'Rocha|Rock', em: '🪨', cost: 150, beauty: 1, r: 2 },
+  fonte: { n: 'Fonte|Fountain', em: '⛲', cost: 4200, beauty: 14, r: 7 },
+  estatua: { n: 'Estátua|Statue', em: '🗿', cost: 3100, beauty: 11, r: 6 },
+  poste: { n: 'Poste de Luz|Lamp Post', em: '💡', cost: 640, beauty: 3, r: 5 },
+  placa: { n: 'Placa Informativa|Information Sign', em: '🪧', cost: 260, beauty: 2, r: 2 },
 };
 const ENCOBJ = {
-  comedouro: { n: 'Comedouro', em: '🥣', cost: 900, tipo: 'comida' },
-  bebedouro2: { n: 'Bebedouro', em: '🚰', cost: 800, tipo: 'agua' },
-  abrigo: { n: 'Abrigo', em: '🛖', cost: 3200, tipo: 'abrigo', enr: 3 },
-  brinquedo: { n: 'Enriquecimento', em: '🎾', cost: 1400, tipo: 'enr', enr: 5 },
-  tronco: { n: 'Tronco', em: '🪵', cost: 700, tipo: 'enr', enr: 3 },
-  rochaE: { n: 'Formação Rochosa', em: '⛰️', cost: 1900, tipo: 'enr', enr: 4 },
-  plantaE: { n: 'Vegetação', em: '🪴', cost: 500, tipo: 'enr', enr: 2 },
-  piscina: { n: 'Piscina', em: '🏊', cost: 5200, tipo: 'enr', enr: 6 },
+  comedouro: { n: 'Comedouro|Feeder', em: '🥣', cost: 900, role: 'food' },
+  bebedouro2: { n: 'Bebedouro|Water Fountain', em: '🚰', cost: 800, role: 'water' },
+  abrigo: { n: 'Abrigo|Shelter', em: '🛖', cost: 3200, role: 'shelter', enr: 3 },
+  brinquedo: { n: 'Enriquecimento|Enrichment', em: '🎾', cost: 1400, role: 'enrich', enr: 5 },
+  tronco: { n: 'Tronco|Log', em: '🪵', cost: 700, role: 'enrich', enr: 3 },
+  rochaE: { n: 'Formação Rochosa|Rock Formation', em: '⛰️', cost: 1900, role: 'enrich', enr: 4 },
+  plantaE: { n: 'Vegetação|Planting', em: '🪴', cost: 500, role: 'enrich', enr: 2 },
+  piscina: { n: 'Piscina|Pool', em: '🏊', cost: 5200, role: 'enrich', enr: 6 },
 };
 const STAFF_TYPES = {
-  trat: { n: 'Tratador', em: '🧑‍🌾', salario: 1400, cor: '#4fae4a', desc: 'Alimenta os animais e limpa os recintos' },
-  vet: { n: 'Veterinário', em: '🧑‍⚕️', salario: 2600, cor: '#f4f2ec', desc: 'Cura animais doentes e feridos' },
-  fax: { n: 'Faxineiro', em: '🧹', salario: 900, cor: '#3fa5e2', desc: 'Recolhe lixo das trilhas' },
-  seg: { n: 'Segurança', em: '👮', salario: 1600, cor: '#33333a', desc: 'Recaptura fugas e acalma visitantes' },
+  trat: { n: 'Tratador|Keeper', em: '🧑‍🌾', wage: 1400, colour: '#4fae4a', desc: 'Alimenta os animais e limpa os recintos|Feeds the animals and cleans the enclosures' },
+  vet: { n: 'Veterinário|Vet', em: '🧑‍⚕️', wage: 2600, colour: '#f4f2ec', desc: 'Cura animais doentes e feridos|Treats sick and injured animals' },
+  fax: { n: 'Faxineiro|Cleaner', em: '🧹', wage: 900, colour: '#3fa5e2', desc: 'Recolhe lixo das trilhas|Picks litter off the paths' },
+  seg: { n: 'Segurança|Security', em: '👮', wage: 1600, colour: '#33333a', desc: 'Recaptura fugas e acalma visitantes|Recaptures escapees and calms visitors' },
 };
 
 /* ==========================================================================
-   5. MUNDO
+   5. WORLD
    ========================================================================== */
 const IDX = (x, y) => y * W + x;
 const inB = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
@@ -74,13 +74,13 @@ const objects = new Map();      // id -> objeto (prédio/deco/objeto de recinto)
 const enclosures = new Map();   // id -> recinto
 
 function genTerrain() {
-  const g = TKEYS.indexOf('grama');
+  const g = TKEYS.indexOf('grass');
   world.terr.fill(g);
   const blobs = [];
   for (let i = 0; i < 34; i++) {
     blobs.push({
       x: rnd(W), y: rnd(H), r: rnd(3, 9),
-      t: TKEYS.indexOf(pick(['mata', 'mata', 'terra', 'rocha', 'agua', 'areia', 'grama']))
+      t: TKEYS.indexOf(pick(['woods', 'woods', 'dirt', 'rock', 'water', 'sand', 'grass']))
     });
   }
   for (const b of blobs) {
@@ -92,7 +92,7 @@ function genTerrain() {
   }
   // praça de entrada limpa
   for (let y = H - 7; y < H; y++) for (let x = ENTRANCE.x - 4; x <= ENTRANCE.x + 4; x++)
-    if (inB(x, y)) world.terr[IDX(x, y)] = TKEYS.indexOf('grama');
+    if (inB(x, y)) world.terr[IDX(x, y)] = TKEYS.indexOf('grass');
 }
 
 function tileFree(x, y, { allowPath = false, allowEnc = false } = {}) {
@@ -126,7 +126,7 @@ function removePath(x, y) {
   // sem nenhum sinal visível. Não deixa apagar.
   if (x === ENTRANCE.x && y === ENTRANCE.y) return false;
   world.path[i] = 0; world.lixo[i] = 0;
-  world.terr[i] = TKEYS.indexOf('grama');
+  world.terr[i] = TKEYS.indexOf('grass');
   G.dirty.net = true; terrenoMudou();
   return true;
 }
@@ -144,8 +144,8 @@ const LADOS = [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']];
 function makeEnclosure(tiles, fenceKey) {
   const id = uid();
   const e = {
-    id, fence: fenceKey, nome: 'Recinto ' + id, tiles: new Set(),
-    animals: [], objs: [], limpeza: 1, comida: 1, agua: 1,
+    id, fence: fenceKey, name: 'Recinto ' + id, tiles: new Set(),
+    animals: [], objs: [], limpeza: 1, comida: 1, water: 1,
     happy: .7, alertas: [], integridade: 1,
   };
   enclosures.set(id, e);
@@ -250,9 +250,9 @@ function encEnrich(e) {
   let v = 0; for (const o of e.objs) v += ENCOBJ[o.kind].enr || 0;
   return clamp(v / (6 + encArea(e) * .18), 0, 1);
 }
-const encHasFeeder = e => e.objs.some(o => ENCOBJ[o.kind].tipo === 'comida');
-const encHasWater = e => e.objs.some(o => ENCOBJ[o.kind].tipo === 'agua');
-const encHasShelter = e => e.objs.some(o => ENCOBJ[o.kind].tipo === 'abrigo');
+const encHasFeeder = e => e.objs.some(o => ENCOBJ[o.kind].role === 'food');
+const encHasWater = e => e.objs.some(o => ENCOBJ[o.kind].role === 'water');
+const encHasShelter = e => e.objs.some(o => ENCOBJ[o.kind].role === 'shelter');
 
 /** Posições de trilha de onde se vê o recinto.
  *  Só vale trilha que o visitante consegue ALCANÇAR a partir do portão: uma
@@ -301,7 +301,7 @@ function applyBeauty(o, sign) {
   for (let y = Math.max(0, o.y - d.r); y <= Math.min(H - 1, o.y + d.r); y++)
     for (let x = Math.max(0, o.x - d.r); x <= Math.min(W - 1, o.x + d.r); x++) {
       const dd = dist(x, y, o.x, o.y);
-      if (dd <= d.r) world.bel[IDX(x, y)] += sign * d.beleza * (1 - dd / d.r) / 6;
+      if (dd <= d.r) world.bel[IDX(x, y)] += sign * d.beauty * (1 - dd / d.r) / 6;
     }
 }
 

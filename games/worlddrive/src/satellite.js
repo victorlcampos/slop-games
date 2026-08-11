@@ -1,4 +1,4 @@
-// Imagem de satélite: Esri World Imagery, mosaico em canvas
+// Satellite imagery: Esri World Imagery, mosaicked on a canvas
 import { lon2tx, lat2ty, tx2lon, ty2lat, mercX, mercY } from './geo.js';
 import { loadImage, pool } from './net.js';
 
@@ -6,7 +6,7 @@ const URL_S = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services
 
 // onProgress(done, total)
 export async function loadSatellite(bbox, onProgress) {
-  // Escolhe o maior zoom que caiba em ~90 tiles / 4096px
+  // Picks the largest zoom that fits in ~90 tiles / 4096px
   let z = 19, tx0, tx1, ty0, ty1;
   for (; z >= 14; z--) {
     tx0 = Math.floor(lon2tx(bbox.w, z)); tx1 = Math.floor(lon2tx(bbox.e, z));
@@ -32,7 +32,7 @@ export async function loadSatellite(bbox, onProgress) {
           const img = await loadImage(URL_S(zz, txx, tyy));
           ctx.drawImage(img, dx, dy);
         } catch (e) {
-          // fallback: quadrante do tile-pai ampliado
+          // fallback: an enlarged quadrant of the parent tile
           const img = await loadImage(URL_S(zz - 1, txx >> 1, tyy >> 1));
           ctx.drawImage(img, (txx % 2) * 128, (tyy % 2) * 128, 128, 128, dx, dy, 256, 256);
         }

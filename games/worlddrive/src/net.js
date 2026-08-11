@@ -1,5 +1,5 @@
-// Helpers de rede: fetch com timeout, imagens com CORS, pool de concorrência
-// O timeout cobre apenas a espera pelos headers — um download em andamento não é abortado.
+// Network helpers: fetch with a timeout, images with CORS, a concurrency pool
+// The timeout only covers the wait for headers — a download in flight is not aborted.
 export function fetchWithTimeout(url, opts = {}, ms = 25000) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
@@ -12,13 +12,13 @@ export function loadImage(url, ms = 25000) {
     img.crossOrigin = 'anonymous';
     const t = setTimeout(() => { img.src = ''; reject(new Error('timeout: ' + url)); }, ms);
     img.onload = () => { clearTimeout(t); resolve(img); };
-    img.onerror = () => { clearTimeout(t); reject(new Error('falha ao carregar: ' + url)); };
+    img.onerror = () => { clearTimeout(t); reject(new Error('failed to load: ' + url)); };
     img.src = url;
   });
 }
 
-// Executa `tasks` (fns que retornam Promise) com no máximo `n` simultâneas.
-// Erros individuais viram { __err } no resultado — nunca rejeita o todo.
+// Runs `tasks` (fns returning a Promise) with at most `n` at a time.
+// Individual errors become { __err } in the result — it never rejects the whole.
 export async function pool(tasks, n, onDone) {
   let i = 0, done = 0;
   const results = new Array(tasks.length);

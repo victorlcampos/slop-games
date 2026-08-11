@@ -1,5 +1,5 @@
-// Som 100% sintetizado na WebAudio: vento, atrito dos esquis, batidas,
-// portões e o rugido do Yeti. Nenhum arquivo de áudio envolvido.
+// Sound 100% synthesised in WebAudio: wind, ski friction, impacts, gates and
+// the Yeti's roar. No audio file involved.
 
 let ctx = null;
 let master = null;
@@ -16,7 +16,7 @@ function makeNoiseBuffer(seconds = 2) {
   let last = 0;
   for (let i = 0; i < len; i++) {
     const white = Math.random() * 2 - 1;
-    // ruído levemente rosa: mais grave, menos chiado
+    // slightly pink noise: lower, less hiss
     last = (last + 0.02 * white) / 1.02;
     d[i] = last * 3.5;
   }
@@ -73,7 +73,7 @@ export function toggleMute() {
 
 export function isMuted() { return muted; }
 
-/** Ajusta os loops contínuos ao estado do jogador. */
+/** Fits the continuous loops to the player's state. */
 export function updateAudio(dt, { speed = 0, maxSpeed = 34, carve = 0, airborne = false, crashed = false }) {
   if (!started || ctx.state !== 'running') return;
   const t = ctx.currentTime;
@@ -164,7 +164,7 @@ export const sfx = {
     if (!started || ctx.state !== 'running') return;
     const t = ctx.currentTime;
 
-    // corpo grave com vibrato
+    // a low body with vibrato
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(92, t);
@@ -192,7 +192,7 @@ export const sfx = {
     osc.start(t); vib.start(t);
     osc.stop(t + 1.45); vib.stop(t + 1.45);
 
-    // rosnado por cima
+    // a growl on top
     burst({ duration: 1.1, freq: 420, q: 0.8, vol: 0.3, type: 'lowpass' });
   },
   chomp() {

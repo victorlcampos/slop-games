@@ -1,5 +1,5 @@
-// O esquiador do jogador: física de descida, saltos, manobras no ar,
-// quedas e a máquina de estados que o HUD e o áudio consomem.
+// The player's skier: downhill physics, jumps, air tricks, crashes and the
+// state machine the HUD and the audio consume.
 
 import * as THREE from 'three';
 import { createSkier } from './skierModel.js';
@@ -10,7 +10,7 @@ import {
 
 const TWO_PI = Math.PI * 2;
 
-/** Altura da superfície levando as rampas em conta. */
+/** Surface height with the ramps taken into account. */
 export function surfaceHeight(x, z, ramps) {
   let h = groundHeight(x, z);
   for (let i = 0; i < ramps.length; i++) {
@@ -109,23 +109,25 @@ export function createPlayer(parent) {
     s.vy = 0;
 
     if (!clean && (spins > 0 || flips > 0 || s.airTime > 0.55)) {
-      // rodou demais e não fechou: cai
+      // spun too far and didn't close it: down you go
       s.spin = s.flip = 0;
       crash('landing');
       return;
     }
 
+    // The trick comes out as numbers, not as a phrase. Physics has no business
+    // knowing which language the player picked — game.js turns `spins` and
+    // `flips` into words at the moment it draws them.
     let score = airBonus;
-    const names = [];
-    if (spins > 0) { score += spins * 180; names.push(`${spins * 360}°`); }
-    if (flips > 0) { score += flips * 260; names.push(flips > 1 ? `${flips}× mortal` : 'Mortal'); }
-    if (s.airTime > 1.1) names.push('Voo longo');
+    if (spins > 0) score += spins * 180;
+    if (flips > 0) score += flips * 260;
+    const trick = { spins, flips, longAir: s.airTime > 1.1 };
 
     s.spin = s.flip = 0;
     trickPivot.rotation.set(0, 0, 0);
 
     events.push({
-      type: 'land', clean, score, names, airTime: s.airTime,
+      type: 'land', clean, score, trick, airTime: s.airTime,
       x: s.x, y: s.groundY, z: s.z,
     });
     s.airTime = 0;
@@ -134,7 +136,7 @@ export function createPlayer(parent) {
   /**
    * @param {number} dt
    * @param {object} world  { ramps, colliders }
-   * @returns {Array} eventos do quadro
+   * @returns {Array} the frame's events
    */
   function update(dt, world) {
     events.length = 0;
@@ -156,7 +158,7 @@ export function createPlayer(parent) {
         s.speed = Math.max(s.speed, 4);
       }
     } else if (!s.airborne) {
-      // manobrabilidade cai um pouco em alta velocidade
+      // handling drops a little at high speed
       const agility = lerp(1.25, 0.72, clamp(s.speed / PLAYER.maxSpeed, 0, 1));
       s.heading += turn * PLAYER.turnRate * agility * dt;
       s.heading = clamp(s.heading, -PLAYER.maxTurn, PLAYER.maxTurn);
@@ -176,12 +178,12 @@ export function createPlayer(parent) {
       const cap = PLAYER.maxSpeed * (tucking ? PLAYER.tuckBonus : 1);
       s.speed = clamp(s.speed, 0, cap);
 
-      // pulo de vontade própria
+      // a jump of your own doing
       if (consumeJump() && s.speed > 2) {
         takeOff(PLAYER.jumpImpulse * lerp(0.62, 1, clamp(s.speed / 20, 0, 1)), 'hop');
       }
     } else {
-      // ------------------------------------------------------- no ar
+      // ----------------------------------------------------- in the air
       s.airTime += dt;
       s.spin += turn * PLAYER.spinRate * dt;
       const flipIn = (input.down ? 1 : 0) - (input.up ? 1 : 0);
@@ -215,7 +217,7 @@ export function createPlayer(parent) {
       s.airMax = Math.max(s.airMax, s.y - groundHeight(s.x, s.z));
     } else {
       s.y = s.groundY;
-      // decolagem natural: a trajetória balística passa por cima do terreno?
+      // a natural take-off: does the ballistic arc clear the terrain?
       if (s.crashed <= 0 && s.speed > 7) {
         const T = 0.14;
         const ax = s.x + dirX * s.speed * T;
@@ -229,7 +231,7 @@ export function createPlayer(parent) {
       }
     }
 
-    // -------------------------------------------------------- colisões
+    // ------------------------------------------------------- collisions
     const colliders = world.colliders || [];
     if (s.crashed <= 0 && s.invuln <= 0) {
       const air = s.y - groundHeight(s.x, s.z);
@@ -239,9 +241,9 @@ export function createPlayer(parent) {
         const rr = c.r + PLAYER.radius;
         const d2 = dx * dx + dz * dz;
         if (d2 > rr * rr) continue;
-        if (air > (c.h ?? colliderHeight(c))) continue;      // passou por cima
+        if (air > (c.h ?? colliderHeight(c))) continue;      // cleared it
         if (crash(c.type)) {
-          // empurra para fora do obstáculo: sem isso o boneco cai dentro dele
+          // push out of the obstacle: without this the figure falls inside it
           const d = Math.sqrt(d2) || 0.001;
           const push = rr - d + 0.05;
           s.x -= (dx / d) * push;
@@ -265,7 +267,7 @@ export function createPlayer(parent) {
     const targetLean = s.crashed > 0 ? 0 : -turn * 0.42 * clamp(0.35 + speedN, 0, 1);
     s.lean = damp(s.lean, targetLean, 7, dt);
 
-    // inclinação para acompanhar o terreno
+    // tilt to follow the terrain
     groundNormal(s.x, s.z, nrm);
     const terrainPitch = Math.atan2(-nrm.z, nrm.y);
     s.pitch = damp(s.pitch, s.airborne ? terrainPitch * 0.3 : terrainPitch, 8, dt);
@@ -295,7 +297,7 @@ export function createPlayer(parent) {
   };
 }
 
-/** Altura efetiva de cada tipo de obstáculo — define o que dá para saltar. */
+/** Effective height of each obstacle type — decides what can be jumped. */
 export function colliderHeight(c) {
   switch (c.type) {
     case 'tree': return 99;

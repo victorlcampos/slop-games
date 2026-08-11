@@ -1,12 +1,12 @@
-// Ruído determinístico sem dependências externas.
-// Perlin 2D clássico + fbm, e um hash inteiro para spawn reprodutível.
+// Deterministic noise with no external dependencies.
+// Classic 2D Perlin + fbm, plus an integer hash for reproducible spawning.
 
 const PERM = new Uint8Array(512);
 const GRAD_X = new Float32Array(512);
 const GRAD_Y = new Float32Array(512);
 
 (function buildPermutation() {
-  // LCG determinístico: mesmo terreno em qualquer máquina, sem Math.random.
+  // A deterministic LCG: the same terrain on any machine, no Math.random.
   let s = 1337;
   const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 
@@ -27,7 +27,7 @@ const GRAD_Y = new Float32Array(512);
 
 const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
 
-/** Perlin 2D no intervalo aproximado [-1, 1]. */
+/** 2D Perlin in roughly the [-1, 1] range. */
 export function perlin2(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y);
   const xf = x - xi, yf = y - yi;
@@ -61,7 +61,7 @@ export function fbm2(x, y, octaves = 4, lacunarity = 2.02, gain = 0.5) {
   return sum / norm;
 }
 
-/** Ruído de células (ridged) — bom para lombadas e cristas de neve. */
+/** Cell (ridged) noise — good for bumps and snow ridges. */
 export function ridged2(x, y, octaves = 3) {
   let amp = 1, freq = 1, sum = 0, norm = 0;
   for (let i = 0; i < octaves; i++) {
@@ -75,7 +75,7 @@ export function ridged2(x, y, octaves = 3) {
 
 // ---------------------------------------------------------------- hashing
 
-/** Hash inteiro -> [0,1). Usado para decidir spawn de props por faixa. */
+/** Integer hash -> [0,1). Used to decide prop spawning per band. */
 export function hash1(n) {
   let h = n | 0;
   h = Math.imul(h ^ (h >>> 16), 2246822507);
@@ -88,7 +88,7 @@ export function hash2(a, b) {
   return hash1((a | 0) * 73856093 ^ (b | 0) * 19349663);
 }
 
-/** Gerador pseudoaleatório reprodutível a partir de uma semente inteira. */
+/** A reproducible pseudorandom generator from an integer seed. */
 export function makeRng(seed) {
   let s = (seed | 0) || 1;
   return function rng() {

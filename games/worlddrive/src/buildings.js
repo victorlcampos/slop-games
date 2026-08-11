@@ -1,8 +1,8 @@
-// Prédios extrudados dos footprints OSM, mesclados numa única malha
+// Buildings extruded from OSM footprints, merged into a single mesh
 import * as THREE from 'three';
 import { hashStr } from './geo.js';
 
-// Garante orientação horária na tela (norte para cima => shoelace > 0 no nosso sistema x-leste/z-sul)
+// Ensures clockwise orientation on screen (north up => shoelace > 0 in our east-x/south-z system)
 function ensureCW(ring) {
   let s = 0;
   for (let i = 0; i < ring.length; i++) {
@@ -28,7 +28,7 @@ export function buildBuildings(buildings, proj, heightAt, half, collision) {
     if (!inside) continue;
     count++;
 
-    // tom da parede varia por prédio; teto mais escuro
+    // the wall tone varies per building; the roof is darker
     const h0 = hashStr(b.id);
     const hue = 0.07 + ((h0 % 100) / 100) * 0.06;
     const sat = 0.04 + ((h0 >> 3) % 100) / 100 * 0.1;
@@ -43,8 +43,8 @@ export function buildBuildings(buildings, proj, heightAt, half, collision) {
         if (h < yMin) yMin = h;
         if (h > yMax) yMax = h;
       }
-      const yBase = yMin - 1.5;             // afunda no terreno
-      const yTop = yMin + b.height;         // altura contada do pé mais baixo
+      const yBase = yMin - 1.5;             // sinks into the terrain
+      const yTop = yMin + b.height;         // height measured from the lowest foot
       if (yTop - yBase < 1) continue;
 
       // paredes
@@ -53,7 +53,7 @@ export function buildBuildings(buildings, proj, heightAt, half, collision) {
         const dx = c[0] - a[0], dz = c[1] - a[1];
         const len = Math.hypot(dx, dz);
         if (len < 0.05) continue;
-        // com anel CW na tela, a normal externa é (dz, -dx)
+        // with a CW ring on screen, the outward normal is (dz, -dx)
         const nx = dz / len, nz = -dx / len;
         const vb = pos.length / 3;
         pos.push(a[0], yBase, a[1], c[0], yBase, c[1], c[0], yTop, c[1], a[0], yTop, a[1]);
@@ -62,7 +62,7 @@ export function buildBuildings(buildings, proj, heightAt, half, collision) {
         collision.addSeg(a[0], a[1], c[0], c[1]);
       }
 
-      // teto (triangulação; material DoubleSide cobre winding)
+      // roof (triangulation; a DoubleSide material covers the winding)
       try {
         const contour = ring.map(([x, z]) => new THREE.Vector2(x, z));
         const faces = THREE.ShapeUtils.triangulateShape(contour, []);
@@ -73,7 +73,7 @@ export function buildBuildings(buildings, proj, heightAt, half, collision) {
           col.push(roof.r, roof.g, roof.b);
         }
         for (const f of faces) idx.push(vb + f[0], vb + f[1], vb + f[2]);
-      } catch (e) { /* footprint degenerado: fica sem teto */ }
+      } catch (e) { /* degenerate footprint: it goes without a roof */ }
     }
   }
 

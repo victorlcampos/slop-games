@@ -1,5 +1,6 @@
-// Gente (e bicho) na pista: esquiadores em ziguezague, snowboarders que
-// não olham por onde andam, e o cachorro que atravessa a montanha na sua frente.
+// People (and an animal) on the slope: skiers zigzagging, snowboarders who
+// don't watch where they're going, and the dog that crosses the mountain right
+// in front of you.
 
 import * as THREE from 'three';
 import { createSkier, SKIER_PALETTES, characterMaterial } from './skierModel.js';
@@ -150,7 +151,7 @@ export function createNpcs(parent, props) {
     dog.model.group.visible = true;
   }
 
-  /** Desvio grosseiro: se tem árvore no caminho, vira para o outro lado. */
+  /** Crude avoidance: if there is a tree in the way, turn the other way. */
   function avoid(entity, dt) {
     if (entity.avoidTimer > 0) { entity.avoidTimer -= dt; return; }
     props.collidersNear(entity.z + 10, tmpColliders);
@@ -193,7 +194,7 @@ export function createNpcs(parent, props) {
       } else {
         s.phase += dt * s.freq * 2.4;
         const target = Math.sin(s.phase) * s.amp;
-        // snowboarder mira em quem está na frente
+        // the snowboarder aims at whoever is in front
         if (s.kind === 'boarder') {
           const dx = player.x - s.x;
           const dz = player.z - s.z;
@@ -244,7 +245,7 @@ export function createNpcs(parent, props) {
         dog.speed = damp(dog.speed, 11, 2, dt);
         if (dog.timer <= 0) { dog.mode = 'mark'; dog.timer = 2.4; }
       } else {
-        // marca território, igual ao cachorro do jogo original
+        // marks its territory, just like the dog in the original game
         dog.speed = damp(dog.speed, 0, 6, dt);
         if (dog.timer <= 0) { dog.mode = 'run'; dog.timer = 5 + Math.random() * 5; dog.dir *= -1; }
       }
@@ -265,7 +266,7 @@ export function createNpcs(parent, props) {
       dog.model.tail.rotation.z = Math.sin(dog.anim * 9) * 0.5;
 
       if (dog.mode === 'mark') {
-        // levanta a pata e olha para o lado
+        // lifts a leg and looks to the side
         dog.model.legs[3].rotation.x = -0.2;
         dog.model.legs[3].rotation.z = -1.1;
         dog.model.neck.rotation.y = 0.5;

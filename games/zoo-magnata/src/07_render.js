@@ -32,8 +32,8 @@ function centerOn(x, y) { cam.x = VW / 2 - (x - y) * (TW / 2) * cam.z; cam.y = V
    Tudo aqui é redesenhado só quando G.dirty.terr liga; o frame a frame apenas
    blita o canvas. Três camadas: base (losangos + textura), franjas orgânicas
    entre terrenos, e a rede de trilhas com meio-fio, curvas e entradas de loja. */
-const T_GRAMA = TKEYS.indexOf('grama'), T_AGUA = TKEYS.indexOf('agua'), T_PISO = TKEYS.indexOf('piso');
-const AGUA_FUNDA = shade(TERRAIN.agua.c2, -.12);
+const T_GRAMA = TKEYS.indexOf('grass'), T_AGUA = TKEYS.indexOf('water'), T_PISO = TKEYS.indexOf('piso');
+const AGUA_FUNDA = shade(TERRAIN.water.c2, -.12);
 /* tom alternativo amaciado: o c2 puro fazia um xadrez forte demais no gramado */
 const TOM2 = {}; for (const k of TKEYS) TOM2[k] = mixc(TERRAIN[k].c, TERRAIN[k].c2, .6);
 const PISO_C = TERRAIN.piso.c, PISO_C2 = TERRAIN.piso.c2;
@@ -42,7 +42,7 @@ const PONTE_C = '#b08a55', PONTE_G = '#5e4326';  // trilha sobre água = ponte d
 const LARG = .56;                                // largura da trilha, em fração de tile
 /* quem tem prioridade maior avança franjas sobre o vizinho (piso fica de fora:
    calçada tem borda reta) */
-const FRANJA_PRIO = { agua: 0, areia: 1, terra: 2, rocha: 3, neve: 4, grama: 5, mata: 6 };
+const FRANJA_PRIO = { water: 0, sand: 1, dirt: 2, rock: 3, snow: 4, grass: 5, woods: 6 };
 const _eff = new Uint8Array(W * H);              // terreno "efetivo": trilha herda o entorno
 /* replica a escolha de tom c/c2 do tile i (mesma semente da passada base) */
 const tileAlt = i => mulberry(i * 2654435761 >>> 0)() < .5;
@@ -90,19 +90,19 @@ function buildTerrain() {
     c.beginPath();
     c.moveTo(sx, sy - TH / 2); c.lineTo(sx + TW / 2, sy); c.lineTo(sx, sy + TH / 2); c.lineTo(sx - TW / 2, sy); c.closePath();
     const alt = r() < .5;
-    const funda = tk === 'agua' && agua(x, y - 1) && agua(x + 1, y) && agua(x, y + 1) && agua(x - 1, y);
+    const funda = tk === 'water' && agua(x, y - 1) && agua(x + 1, y) && agua(x, y + 1) && agua(x - 1, y);
     const corBase = funda ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
     c.fillStyle = corBase;
     c.fill();
     // textura
     c.save(); c.clip();
-    if (tk === 'grama' || tk === 'mata') {
-      c.strokeStyle = shade(T.c, tk === 'mata' ? -.16 : .1); c.lineWidth = 1.6;
-      for (let k = 0; k < (tk === 'mata' ? 6 : 4); k++) {
+    if (tk === 'grass' || tk === 'woods') {
+      c.strokeStyle = shade(T.c, tk === 'woods' ? -.16 : .1); c.lineWidth = 1.6;
+      for (let k = 0; k < (tk === 'woods' ? 6 : 4); k++) {
         const px = sx - 26 + r() * 52, py = sy - 12 + r() * 24;
         c.beginPath(); c.moveTo(px, py + 4); c.lineTo(px + (r() - .5) * 4, py - 3); c.stroke();
       }
-      if (tk === 'mata') {                       // dossel: manchas de sombra
+      if (tk === 'woods') {                       // dossel: manchas de sombra
         c.fillStyle = 'rgba(20,40,16,.10)';
         for (let k = 0; k < 2; k++) { c.beginPath(); c.ellipse(sx - 18 + r() * 36, sy - 8 + r() * 16, 7 + r() * 5, 4 + r() * 3, r(), 0, TAU); c.fill(); }
       } else if (r() < .1) {                     // florzinha ocasional
@@ -114,7 +114,7 @@ function buildTerrain() {
         c.fillStyle = 'rgba(90,95,80,.4)';
         c.beginPath(); c.ellipse(sx - 18 + r() * 36, sy - 8 + r() * 16, 2.2, 1.4, r(), 0, TAU); c.fill();
       }
-    } else if (tk === 'agua') {
+    } else if (tk === 'water') {
       c.strokeStyle = 'rgba(255,255,255,.42)'; c.lineWidth = 2;
       for (let k = 0; k < 2; k++) {
         const py = sy - 6 + k * 9 + r() * 3;
@@ -136,13 +136,13 @@ function buildTerrain() {
           if (r() < .3) { c.fillStyle = '#f2a8c0'; c.beginPath(); c.arc(px + 1, py - 1.4, 1.3, 0, TAU); c.fill(); }
         }
       }
-    } else if (tk === 'areia') {
+    } else if (tk === 'sand') {
       c.fillStyle = shade(T.c, -.1);
       for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(sx - 24 + r() * 48, sy - 11 + r() * 22, 1.3, 0, TAU); c.fill(); }
-    } else if (tk === 'rocha') {
+    } else if (tk === 'rock') {
       c.fillStyle = shade(T.c, -.14);
       for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(sx - 20 + r() * 40, sy - 8 + r() * 16, 5 + r() * 4, 3 + r() * 2, r(), 0, TAU); c.fill(); }
-    } else if (tk === 'neve') {
+    } else if (tk === 'snow') {
       c.fillStyle = 'rgba(255,255,255,.75)';
       for (let k = 0; k < 4; k++) { c.beginPath(); c.arc(sx - 22 + r() * 44, sy - 10 + r() * 20, 1.6 + r() * 2, 0, TAU); c.fill(); }
       if (r() < .3) {                            // cintilância
@@ -157,7 +157,7 @@ function buildTerrain() {
       c.beginPath(); c.moveTo(sx - TW / 2 + 2, sy); c.lineTo(sx, sy - TH / 2 + 1); c.lineTo(sx + TW / 2 - 2, sy); c.stroke();
       c.strokeStyle = 'rgba(0,0,0,.1)';
       c.beginPath(); c.moveTo(sx - TW / 2 + 2, sy); c.lineTo(sx, sy + TH / 2 - 1); c.lineTo(sx + TW / 2 - 2, sy); c.stroke();
-    } else if (tk === 'terra') {
+    } else if (tk === 'dirt') {
       c.fillStyle = shade(T.c, -.12);
       for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(sx - 20 + r() * 40, sy - 8 + r() * 16, 4, 2, 0, 0, TAU); c.fill(); }
     }
@@ -474,14 +474,14 @@ function entradasDeLoja(c) {
       const ponte = _eff[i] === T_AGUA;             // trilha sobre água: deck de madeira
       flareDeEntrada(c, spec.S.c - .5, Y, spec.S.c + .5, Y, 0, 1,
         ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
-      capacho(c, spec.S.c, Y, 1, 0, 0, 1, shade(B.cor, -.18));
+      capacho(c, spec.S.c, Y, 1, 0, 0, 1, shade(B.colour, -.18));
     }
     if (spec.E) {
       const i = IDX(X, spec.E.tiles[0]);
       const ponte = _eff[i] === T_AGUA;
       flareDeEntrada(c, X, spec.E.c - .5, X, spec.E.c + .5, 1, 0,
         ponte ? PONTE_C : tileAlt(i) ? PISO_C : PISO_C2, ponte ? PONTE_G : GUIA);
-      capacho(c, X, spec.E.c, 0, 1, 1, 0, shade(B.cor, -.18));
+      capacho(c, X, spec.E.c, 0, 1, 1, 0, shade(B.colour, -.18));
     }
   }
   // tapete vermelho do portão
@@ -635,19 +635,19 @@ function drawBuilding(c, o, z) {
   if (o.kind === 'bebedouro') return drawBebedouroPub(c, o, z);
   if (o.kind === 'playground') return drawPlayground(c, o, z);
   const hgt = o.kind === 'pipoca' ? 22 : 30 + (o.h > 2 ? 8 : 0);
-  const g = drawIsoBox(c, o.x, o.y, o.w, o.h, hgt, B.cor, shade(B.cor, .26), z);
+  const g = drawIsoBox(c, o.x, o.y, o.w, o.h, hgt, B.colour, shade(B.colour, .26), z);
   const decorado = o.kind !== 'lixeira' && o.kind !== 'banco';
   const spec = decorado ? portaSpec(o) : { S: null, E: null };
   const aceso = G.hour < 6.5 || G.hour > 18;
   // janelas nas faces visíveis (acendem à noite)
   if (hgt >= 24 && decorado) {
     const wLo = g.up * .32, wHi = g.up * .58;
-    const winFill = aceso ? '#ffdf8f' : shade(B.cor, -.36);
+    const winFill = aceso ? '#ffdf8f' : shade(B.colour, -.36);
     const janela = (ax, ay, bx, by) => {
       const A = [w2sx(ax, ay), w2sy(ax, ay)], D = [w2sx(bx, by), w2sy(bx, by)];
       isoPoly(c, [[A[0], A[1] - wLo], [D[0], D[1] - wLo], [D[0], D[1] - wHi], [A[0], A[1] - wHi]]);
       c.fillStyle = winFill; c.fill();
-      c.strokeStyle = shade(B.cor, -.55); c.lineWidth = 1.3 * z; c.stroke();
+      c.strokeStyle = shade(B.colour, -.55); c.lineWidth = 1.3 * z; c.stroke();
     };
     for (let t = 0; t < o.w; t++) {
       const tx = o.x + t;
@@ -676,19 +676,19 @@ function drawBuilding(c, o, z) {
     const porta = (ax, ay, bx, by) => {
       const A = [w2sx(ax, ay), w2sy(ax, ay)], D = [w2sx(bx, by), w2sy(bx, by)];
       isoPoly(c, [A, D, [D[0], D[1] - pAlt], [A[0], A[1] - pAlt]]);
-      c.fillStyle = shade(B.cor, -.48); c.fill();
-      c.strokeStyle = shade(B.cor, -.62); c.lineWidth = 1.6 * z; c.stroke();
+      c.fillStyle = shade(B.colour, -.48); c.fill();
+      c.strokeStyle = shade(B.colour, -.62); c.lineWidth = 1.6 * z; c.stroke();
     };
     if (spec.S) porta(spec.S.c - .22, o.y + o.h, spec.S.c + .22, o.y + o.h);
     if (spec.E) porta(o.x + o.w, spec.E.c - .22, o.x + o.w, spec.E.c + .22);
   }
   // toldo listrado nas lojas, nas duas faces da frente
-  if (B.valor > 0 && hgt > 20) {
+  if (B.value > 0 && hgt > 20) {
     const toldoFace = (P, Q) => {
       c.save();
       isoPoly(c, [[P[0], P[1] - g.up], [Q[0], Q[1] - g.up], [Q[0], Q[1] - g.up + 10 * z], [P[0], P[1] - g.up + 10 * z]]);
       c.clip(); c.fillStyle = '#f6f3ea'; c.fill();
-      c.fillStyle = mixc(B.cor, '#ffffff', .35);
+      c.fillStyle = mixc(B.colour, '#ffffff', .35);
       const n = Math.max(4, Math.round(Math.hypot(Q[0] - P[0], Q[1] - P[1]) / (9 * z)) & ~1);
       for (let i = 0; i < n; i += 2) {
         const t0 = i / n, t1 = (i + 1) / n;
@@ -698,7 +698,7 @@ function drawBuilding(c, o, z) {
         c.lineTo(bx, by + 10 * z); c.lineTo(ax, ay + 10 * z); c.closePath(); c.fill();
       }
       c.restore();
-      c.strokeStyle = shade(B.cor, -.4); c.lineWidth = 1.5 * z;
+      c.strokeStyle = shade(B.colour, -.4); c.lineWidth = 1.5 * z;
       c.beginPath(); c.moveTo(P[0], P[1] - g.up + 10 * z); c.lineTo(Q[0], Q[1] - g.up + 10 * z); c.stroke();
     };
     toldoFace(g.R, g.B); toldoFace(g.L, g.B);
@@ -708,18 +708,18 @@ function drawBuilding(c, o, z) {
     const e = .08;
     const ro = [[o.x - e, o.y - e], [o.x + o.w + e, o.y - e], [o.x + o.w + e, o.y + o.h + e], [o.x - e, o.y + o.h + e]]
       .map(p => [w2sx(p[0], p[1]), w2sy(p[0], p[1]) - g.up]);
-    c.lineWidth = Math.max(1.2, 2.4 * z); c.strokeStyle = shade(B.cor, -.55); c.lineJoin = 'round';
-    isoPoly(c, ro); c.fillStyle = shade(B.cor, .26); c.fill(); c.stroke();
+    c.lineWidth = Math.max(1.2, 2.4 * z); c.strokeStyle = shade(B.colour, -.55); c.lineJoin = 'round';
+    isoPoly(c, ro); c.fillStyle = shade(B.colour, .26); c.fill(); c.stroke();
     const ri = [[o.x + .18, o.y + .18], [o.x + o.w - .18, o.y + .18], [o.x + o.w - .18, o.y + o.h - .18], [o.x + .18, o.y + o.h - .18]]
       .map(p => [w2sx(p[0], p[1]), w2sy(p[0], p[1]) - g.up]);
     isoPoly(c, ri); c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1.5 * z; c.stroke();
   }
   // chaminé com fumaça nas cozinhas
-  if (B.supre === 'fome' && o.kind !== 'sorveteria' && hgt >= 22) {
+  if (B.supplies === 'fome' && o.kind !== 'sorveteria' && hgt >= 22) {
     const px = w2sx(o.x + .36, o.y + .36), py = w2sy(o.x + .36, o.y + .36) - g.up;
-    c.fillStyle = shade(B.cor, -.28); c.strokeStyle = shade(B.cor, -.58); c.lineWidth = 1.4 * z;
+    c.fillStyle = shade(B.colour, -.28); c.strokeStyle = shade(B.colour, -.58); c.lineWidth = 1.4 * z;
     roundRectP(c, px - 3 * z, py - 10 * z, 6 * z, 11 * z, 1.6 * z); c.fill(); c.stroke();
-    c.fillStyle = shade(B.cor, -.45);
+    c.fillStyle = shade(B.colour, -.45);
     roundRectP(c, px - 3.8 * z, py - 11.6 * z, 7.6 * z, 2.6 * z, 1.2 * z); c.fill();
     if (z > .45) {
       for (let kf = 0; kf < 3; kf++) {
@@ -896,7 +896,7 @@ function drawEncObj(c, o, z) {
     }
   } else if (o.kind === 'bebedouro2') {
     baciaIso(c, sx, sy - 2 * s, 12.5 * s, 6 * s, 6 * s, '#8b8a84', '#9b9a94', '#4a4e55', s);
-    const nivel = e ? e.agua : 1;
+    const nivel = e ? e.water : 1;
     if (nivel > .05) {
       c.fillStyle = '#4fa8db';
       ellipse(c, sx, sy - 8.5 * s - nivel * 1.2 * s, 9 * s, 4 * s); c.fill();
@@ -1039,7 +1039,7 @@ function drawFenceTile(c, x, y, e, z, lados) {
   }
   const dano = 1 - e.integridade;
   for (const [A, B] of segs) {
-    if (F.aquatico || F.cor === '#a8d8e8') { // vidro
+    if (F.aquarium || F.colour === '#a8d8e8') { // vidro
       isoPoly(c, [A, B, [B[0], B[1] - alt], [A[0], A[1] - alt]]);
       c.fillStyle = 'rgba(168,216,232,.34)'; c.fill();
       c.strokeStyle = '#7ec4dd'; c.lineWidth = 2 * z; c.stroke();
@@ -1048,9 +1048,9 @@ function drawFenceTile(c, x, y, e, z, lados) {
       c.lineTo(A[0] + (B[0] - A[0]) * .35, A[1] + (B[1] - A[1]) * .35 - alt + 4 * z); c.stroke();
     } else if (e.fence === 'pedra') {
       isoPoly(c, [A, B, [B[0], B[1] - alt], [A[0], A[1] - alt]]);
-      c.fillStyle = F.cor; c.fill();
-      c.strokeStyle = shade(F.cor, -.35); c.lineWidth = 1.8 * z; c.stroke();
-      c.strokeStyle = shade(F.cor, -.2); c.lineWidth = 1.2 * z;
+      c.fillStyle = F.colour; c.fill();
+      c.strokeStyle = shade(F.colour, -.35); c.lineWidth = 1.8 * z; c.stroke();
+      c.strokeStyle = shade(F.colour, -.2); c.lineWidth = 1.2 * z;
       for (let i = 1; i < 3; i++) {
         const t = i / 3;
         c.beginPath(); c.moveTo(A[0], A[1] - alt * t); c.lineTo(B[0], B[1] - alt * t); c.stroke();
@@ -1068,21 +1068,21 @@ function drawFenceTile(c, x, y, e, z, lados) {
       c.strokeStyle = '#5e6068'; c.lineWidth = 2.6 * z;
       c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(A[0], A[1] - alt); c.stroke();
     } else { // madeira / ferro / elétrica
-      c.strokeStyle = shade(F.cor, -.42); c.lineWidth = 4.2 * z; c.lineCap = 'round';
+      c.strokeStyle = shade(F.colour, -.42); c.lineWidth = 4.2 * z; c.lineCap = 'round';
       c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(A[0], A[1] - alt); c.stroke();
       c.beginPath(); c.moveTo(B[0], B[1]); c.lineTo(B[0], B[1] - alt); c.stroke();
-      c.strokeStyle = F.cor; c.lineWidth = 2.6 * z;
+      c.strokeStyle = F.colour; c.lineWidth = 2.6 * z;
       c.beginPath(); c.moveTo(A[0], A[1] - 1); c.lineTo(A[0], A[1] - alt); c.stroke();
       c.beginPath(); c.moveTo(B[0], B[1] - 1); c.lineTo(B[0], B[1] - alt); c.stroke();
       const nb = e.fence === 'ferro' ? 4 : 2;
       for (let i = 1; i <= nb; i++) {
         const yy = alt * (i / (nb + .6)) + 2 * z;
-        c.strokeStyle = e.fence === 'eletrica' ? '#f2d43c' : F.cor;
+        c.strokeStyle = e.fence === 'eletrica' ? '#f2d43c' : F.colour;
         c.lineWidth = (e.fence === 'eletrica' ? 1.6 : 3) * z;
         c.beginPath(); c.moveTo(A[0], A[1] - yy); c.lineTo(B[0], B[1] - yy); c.stroke();
       }
       if (e.fence === 'ferro') {
-        c.strokeStyle = F.cor; c.lineWidth = 1.8 * z;
+        c.strokeStyle = F.colour; c.lineWidth = 1.8 * z;
         for (let i = 1; i < 4; i++) {
           const t = i / 4, px = A[0] + (B[0] - A[0]) * t, py = A[1] + (B[1] - A[1]) * t;
           c.beginPath(); c.moveTo(px, py); c.lineTo(px, py - alt); c.stroke();
@@ -1124,14 +1124,14 @@ function drawAnimal(c, a, z) {
   const sx = w2sx(a.x, a.y), sy = w2sy(a.x, a.y);
   const hp = spriteH(a.sp);              // altura base em px (zoom 1)
   // filhote nasce com metade do porte e cresce até ~1/4 da vida
-  const cres = clamp(.5 + .5 * a.idade / (a.sp.vida * .22), .5, 1);
+  const cres = clamp(.5 + .5 * a.idade / (a.sp.lifespan * .22), .5, 1);
   const alt = hp * z * cres;             // altura na tela
   const px = clamp(Math.round(alt / 8) * 8, 24, 240); // resolução do cache, em degraus
   // em que ele está pisando? (água pintada ou piscina de recinto)
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const oc = world.occ[ti] && objects.get(world.occ[ti]);
   const naAgua = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
-  const nadando = naAgua && a.sp.plano !== 'pernalta';   // pernalta vadeia; o resto nada
+  const nadando = naAgua && a.sp.plan !== 'wader';   // pernalta vadeia; o resto nada
   const parado = a.estado === 'parado' || a.estado === 'brincando' || a.estado === 'comendo';
   const spr = getSprite(a.sp, parado && !nadando ? 0 : a.frame, px);
   if (nadando) {
@@ -1452,7 +1452,7 @@ function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
       ellipse(c, sx, sy, 42 * z, 21 * z); c.fill();
     } else if (o.cat === 'build') {
       const B = BUILDINGS[o.kind];
-      if (!B.salario && B.valor <= 0) continue;   // só o que tem gente dentro
+      if (!B.wage && B.value <= 0) continue;   // só o que tem gente dentro
       const px = o.x + o.w * .82, py = o.y + o.h * .82;   // quina da frente
       c.fillStyle = 'rgba(255,224,138,' + (.10 * k).toFixed(3) + ')';
       ellipse(c, w2sx(px, py), w2sy(px, py) + 6 * z, (o.w + o.h) * 11 * z, (o.w + o.h) * 5 * z);
@@ -1554,7 +1554,7 @@ function drawAvisos(c, z) {
 function drawSelection(c, z) {
   const s = G.sel; if (!s) return;
   c.strokeStyle = '#ffc23c'; c.lineWidth = 3 * z; c.setLineDash([7 * z, 5 * z]);
-  if (s.tipo === 'enc') {
+  if (s.kind === 'enc') {
     const e = s.ref;
     c.beginPath();
     for (const [k, lados] of encSegPorTile(e)) {
@@ -1567,14 +1567,14 @@ function drawSelection(c, z) {
       }
     }
     c.stroke();
-  } else if (s.tipo === 'obj') {
+  } else if (s.kind === 'obj') {
     const o = s.ref;
     isoPoly(c, [[w2sx(o.x, o.y), w2sy(o.x, o.y)], [w2sx(o.x + o.w, o.y), w2sy(o.x + o.w, o.y)],
     [w2sx(o.x + o.w, o.y + o.h), w2sy(o.x + o.w, o.y + o.h)], [w2sx(o.x, o.y + o.h), w2sy(o.x, o.y + o.h)]]);
     c.stroke();
-  } else if (s.tipo === 'animal' || s.tipo === 'staff' || s.tipo === 'vis') {
+  } else if (s.kind === 'animal' || s.kind === 'staff' || s.kind === 'vis') {
     const a = s.ref;
-    const r = s.tipo === 'animal' ? 22 : 13;
+    const r = s.kind === 'animal' ? 22 : 13;
     c.beginPath(); c.ellipse(w2sx(a.x, a.y), w2sy(a.x, a.y), r * z, r * .5 * z, 0, 0, TAU); c.stroke();
   }
   c.setLineDash([]);
@@ -1604,8 +1604,8 @@ function drawGhost(c, z) {
     [w2sx(r.x + r.w, r.y + r.h), w2sy(r.x + r.w, r.y + r.h)], [w2sx(r.x, r.y + r.h), w2sy(r.x, r.y + r.h)]]);
     c.stroke();
     c.globalAlpha = 1;
-    const rot = p.acao === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.custo)}`
-      : p.acao === 'ampliar' ? `Ampliar ${p.alvo.nome} · +${p.tiles.length} tiles · ${moneyFull(p.custo)}`
+    const rot = p.acao === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+      : p.acao === 'ampliar' ? `Ampliar ${p.alvo.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
         : p.motivo;
     c.fillStyle = cor[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
     c.textAlign = 'center';
@@ -1653,7 +1653,7 @@ function renderMini() {
   // prédios e portão
   for (const o of objects.values()) {
     if (o.cat !== 'build') continue;
-    mctx.fillStyle = BUILDINGS[o.kind].cor;
+    mctx.fillStyle = BUILDINGS[o.kind].colour;
     mctx.fillRect(o.x * S, o.y * S, Math.max(2.4, o.w * S), Math.max(2.4, o.h * S));
   }
   mctx.fillStyle = '#ffc23c';

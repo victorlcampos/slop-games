@@ -1,7 +1,7 @@
-// Terreno infinito: grade de blocos reciclados conforme o jogador desce.
-// As alturas vêm de config.groundHeight, então física e malha nunca divergem.
-// As normais são calculadas com uma borda extra para não haver costura visível
-// entre blocos vizinhos.
+// Infinite terrain: a grid of chunks recycled as the player descends.
+// The heights come from config.groundHeight, so physics and mesh never differ.
+// The normals are computed with an extra border so there is no visible seam
+// between neighbouring chunks.
 
 import * as THREE from 'three';
 import {
@@ -11,21 +11,21 @@ import {
 import { fbm2 } from '../lib/noise.js';
 
 const SEG = CHUNK_SEG;
-const VERTS = SEG + 1;            // vértices por lado
+const VERTS = SEG + 1;            // vertices per side
 const EXT = VERTS + 2;            // grade estendida (1 anel extra p/ normais)
 const STEP = CHUNK_SIZE / SEG;
 
-// Metros por repetição do normal map. Precisa dividir CHUNK_SIZE em partes
-// inteiras: assim a UV de um bloco continua exatamente onde a do vizinho
-// parou. Dobrar a UV por dentro do bloco (com um % nas coordenadas de mundo)
-// comprime a textura inteira num quad e desenha uma costura visível.
+// Metres per repetition of the normal map. It has to divide CHUNK_SIZE into
+// whole parts: that way a chunk's UV continues exactly where its neighbour's
+// stopped. Folding the UV inside the chunk (with a % on world coordinates)
+// compresses the whole texture into one quad and draws a visible seam.
 const TILE = 20;
-const TILE_WRAP = 64;   // limite do valor de UV, para não perder precisão
+const TILE_WRAP = 64;   // UV value limit, so precision isn't lost
 
-// paleta da neve em vértice
+// the snow palette per vertex
 const C_SNOW = new THREE.Color(0xffffff);
-const C_SHADE = new THREE.Color(0x6d9bd0);   // sombra azulada nos vales
-const C_ICE = new THREE.Color(0xcfe4f5);     // neve compacta em rampas
+const C_SHADE = new THREE.Color(0x6d9bd0);   // bluish shadow in the hollows
+const C_ICE = new THREE.Color(0xcfe4f5);     // packed snow on the ramps
 const C_ROCK = new THREE.Color(0x6d7883);    // rocha exposta
 
 function buildIndices() {
@@ -62,20 +62,20 @@ class Chunk {
     this.gz = null;
   }
 
-  /** Recalcula o bloco para a célula (gx, gz) da grade infinita. */
+  /** Recomputes the chunk for cell (gx, gz) of the infinite grid. */
   build(gx, gz, heights) {
     this.gx = gx; this.gz = gz;
 
-    const ox = gx * CHUNK_SIZE;      // canto do bloco em coords de mundo
+    const ox = gx * CHUNK_SIZE;      // the chunk's corner in world coords
     const oz = gz * CHUNK_SIZE;
 
-    // origem da UV do bloco: inteira em unidades de ladrilho, então casa com
-    // o bloco vizinho sem costura
+    // the chunk's UV origin: whole in tile units, so it matches the
+    // neighbouring chunk with no seam
     const uBase = (((ox / TILE) % TILE_WRAP) + TILE_WRAP) % TILE_WRAP;
     const vBase = (((oz / TILE) % TILE_WRAP) + TILE_WRAP) % TILE_WRAP;
     const originY = groundHeight(ox + CHUNK_SIZE * 0.5, oz + CHUNK_SIZE * 0.5);
 
-    // alturas na grade estendida (índices -1 .. SEG+1)
+    // heights on the extended grid (indices -1 .. SEG+1)
     for (let z = 0; z < EXT; z++) {
       const wz = oz + (z - 1) * STEP;
       for (let x = 0; x < EXT; x++) {
@@ -101,12 +101,12 @@ class Chunk {
         const wx = ox + x * STEP;
         const wz = oz + z * STEP;
 
-        // ---- posição (relativa ao centro do bloco: preserva precisão)
+        // ---- position (relative to the chunk centre: preserves precision)
         pos[i * 3] = x * STEP - CHUNK_SIZE * 0.5;
         pos[i * 3 + 1] = h - originY;
         pos[i * 3 + 2] = z * STEP - CHUNK_SIZE * 0.5;
 
-        // ---- normal por diferença central (contínua entre blocos)
+        // ---- normal by central difference (continuous between chunks)
         const hL = heights[e - 1], hR = heights[e + 1];
         const hD = heights[e - EXT], hU = heights[e + EXT];
         let nx = (hL - hR) * inv2;
@@ -117,16 +117,16 @@ class Chunk {
         nor[i * 3 + 1] = ny / len;
         nor[i * 3 + 2] = nz / len;
 
-        // ---- uv contínua dentro do bloco e alinhada com os vizinhos
+        // ---- uv continuous within the chunk and aligned with the neighbours
         uv[i * 2] = uBase + (x * STEP) / TILE;
         uv[i * 2 + 1] = vBase + (z * STEP) / TILE;
 
-        // ---- cor: sombra nos vales, gelo nas rampas, rocha no muito íngreme
+        // ---- colour: shadow in the hollows, ice on the ramps, rock where steep
         const slopeAmt = 1 - ny / len;                       // 0 plano .. 1 vertical
         const grain = fbm2(wx * 0.06, wz * 0.06, 2) * 0.5 + 0.5;
 
         c.copy(C_SNOW);
-        // concavidade aproximada pelo laplaciano: vales ficam azulados
+        // concavity approximated by the laplacian: hollows go bluish
         const lap = (hL + hR + hD + hU) * 0.25 - h;
         c.lerp(C_SHADE, THREE.MathUtils.clamp(lap * 0.55 + 0.12, 0, 0.66));
         c.lerp(C_ICE, THREE.MathUtils.clamp(slopeAmt * 1.5 - 0.10, 0, 0.5));
@@ -134,7 +134,7 @@ class Chunk {
           const rockAmt = THREE.MathUtils.clamp((slopeAmt - 0.42) * 2.6, 0, 0.85);
           c.lerp(C_ROCK, rockAmt * (0.55 + grain * 0.45));
         }
-        // fora da pista a neve é mais crua/acinzentada
+        // off the piste the snow is rawer and greyer
         const outside = THREE.MathUtils.clamp((Math.abs(wx) - TRACK_HALF_WIDTH) / 90, 0, 1);
         c.lerp(C_SHADE, outside * 0.22);
         // granulado geral
@@ -158,7 +158,7 @@ class Chunk {
 export function createTerrain(parent, material) {
   const chunks = [];
   const heights = new Float32Array(EXT * EXT);
-  const pending = [];              // fila de reconstrução (espalha o custo)
+  const pending = [];              // rebuild queue (spreads the cost)
   const live = new Map();          // "gx,gz" -> chunk
 
   for (let i = 0; i < GRID_X * GRID_Z; i++) {
@@ -182,12 +182,12 @@ export function createTerrain(parent, material) {
     return cells;
   }
 
-  /** Recalcula a grade em torno do jogador. */
+  /** Recomputes the grid around the player. */
   function update(px, pz, budget = 2) {
     const cells = desiredCells(px, pz);
     const wanted = new Set(cells.map(([x, z]) => x + ',' + z));
 
-    // devolve blocos que saíram da grade
+    // give back chunks that left the grid
     for (const [key, ch] of live) {
       if (!wanted.has(key)) {
         live.delete(key);
@@ -196,7 +196,7 @@ export function createTerrain(parent, material) {
       }
     }
 
-    // enfileira os que faltam, priorizando os mais próximos do jogador
+    // queue the missing ones, nearest to the player first
     for (const [gx, gz] of cells) {
       const key = gx + ',' + gz;
       if (live.has(key) || pending.some((p) => p.key === key)) continue;
@@ -218,7 +218,7 @@ export function createTerrain(parent, material) {
     }
   }
 
-  /** Preenche a grade inteira de uma vez (usado no início da partida). */
+  /** Fills the entire grid at once (used at the start of a run). */
   function prime(px, pz) {
     update(px, pz, GRID_X * GRID_Z);
     while (pending.length) update(px, pz, GRID_X * GRID_Z);

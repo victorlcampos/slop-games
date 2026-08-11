@@ -1,7 +1,7 @@
-// Povoamento da montanha: árvores, pedras, rampas, bandeiras, chalés.
-// O mundo é dividido em faixas de 25 m; cada faixa é gerada de forma
-// determinística a partir do seu índice, então a montanha é sempre a mesma
-// e pode ser recriada sem guardar estado.
+// Populating the mountain: trees, rocks, ramps, flags, chalets.
+// The world is divided into 25 m bands; each band is generated
+// deterministically from its index, so the mountain is always the same and can
+// be rebuilt without storing any state.
 
 import * as THREE from 'three';
 import {
@@ -14,9 +14,9 @@ import { groundHeight, groundNormal, TRACK_HALF_WIDTH } from '../config.js';
 export const BAND = 25;
 const AHEAD = 640;
 const BEHIND = 110;
-const SAFE_START = 70;      // primeiros metros livres de obstáculo
+const SAFE_START = 70;      // the first metres kept clear of obstacles
 
-/** Centro do corredor livre (usado no modo floresta) e do traçado do slalom. */
+/** Centre of the clear corridor (used in forest mode) and of the slalom line. */
 export function corridorCenter(z) {
   return Math.sin(z * 0.0075) * 42 + Math.sin(z * 0.0207 + 1.4) * 16;
 }
@@ -40,8 +40,8 @@ class InstancePool {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.zero = zero;
 
-    // cada instância recebe um leve desvio de cor, senão a floresta inteira
-    // parece o mesmo modelo copiado
+    // every instance gets a slight colour offset, or the whole forest looks
+    // like the same model copied over
     if (tint > 0) {
       const c = new THREE.Color();
       for (let i = 0; i < capacity; i++) {
@@ -141,7 +141,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
     return y;
   }
 
-  // -------------------------------------------------------- geração
+  // ----------------------------------------------------- generation
   function tooClose(list, x, z, minDist) {
     const m2 = minDist * minDist;
     for (let i = 0; i < list.length; i++) {
@@ -170,8 +170,8 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
 
     const inCorridor = (x) => corridor > 0 && Math.abs(x - cCenter) < corridor * 0.5;
 
-    // ---------------------------------------------- floresta das laterais
-    // Densidade cresce para fora: a mata fecha e delimita a pista.
+    // ------------------------------------------------- forest at the sides
+    // Density grows outwards: the woods close in and bound the piste.
     for (let side = -1; side <= 1; side += 2) {
       const count = 7;
       for (let i = 0; i < count; i++) {
@@ -188,7 +188,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
     }
 
     if (z0 > SAFE_START) {
-      // ------------------------------------------------ árvores na pista
+      // --------------------------------------------- trees on the piste
       const treeCount = Math.round((rng() * 1.6 + 0.9) * (cfg.treeDensity ?? 1));
       for (let i = 0; i < treeCount; i++) {
         const x = (rng() * 2 - 1) * (TRACK_HALF_WIDTH - 6);
@@ -222,7 +222,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
           const s = 0.7 + rng() * 0.7;
           placeAligned(x, z, s, rng() * Math.PI * 2);
           add(pools.bush);
-          // arbusto não derruba: é só enfeite
+          // a bush knocks nobody down: it is only decoration
         }
       }
 
@@ -253,7 +253,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
         }
       }
 
-      // ----------------------------------------------------------- chalé
+      // ---------------------------------------------------------- chalet
       if (rng() < 0.035) {
         const side = rng() < 0.5 ? -1 : 1;
         const x = side * (TRACK_HALF_WIDTH + 25 + rng() * 55);
@@ -279,8 +279,8 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
       }
     }
 
-    // ------------------------------------------------------ portões
-    // Um portão a cada GATE_SPACING metros; cada faixa hospeda no máximo um.
+    // -------------------------------------------------------- gates
+    // One gate every GATE_SPACING metres; each band hosts at most one.
     if (cfg.gates) {
       const GATE_SPACING = 42;
       const gateIndex = Math.ceil(z0 / GATE_SPACING);
@@ -290,7 +290,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
         const cx = Math.sin(gateIndex * 0.78) * 38 + Math.sin(gateIndex * 1.9) * 12 + (h - 0.5) * 10;
         const halfW = 4.8 + h * 2.2;
 
-        // panos apontando para dentro do portão, de frente para quem desce
+        // cloths pointing into the gate, facing whoever is coming down
         placeUpright(cx - halfW, gz, 1, 0);
         add(pools.flagRed);
         placeUpright(cx + halfW, gz, 1, Math.PI);
@@ -323,7 +323,7 @@ export function createProps(parent, material, options = {}, foliageMaterial = nu
     }
   }
 
-  /** Colisores nas faixas próximas a z. */
+  /** Colliders in the bands near z. */
   function collidersNear(z, out) {
     out.length = 0;
     const c = Math.floor(z / BAND);

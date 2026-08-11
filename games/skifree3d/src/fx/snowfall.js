@@ -1,5 +1,5 @@
-// Nevasca ambiente. Toda a animação acontece no vertex shader: as partículas
-// vivem numa caixa que se enrola em volta da câmera, então nunca acabam.
+// Ambient snowfall. All the animation happens in the vertex shader: the
+// particles live in a box that wraps around the camera, so they never run out.
 
 import * as THREE from 'three';
 
@@ -19,12 +19,12 @@ const VERT = /* glsl */`
   void main() {
     vec3 p = position;
 
-    // queda contínua + bamboleio lateral
+    // continuous fall + sideways wobble
     p.y -= uTime * aSpeed;
     p.x += sin(uTime * 0.9 + aPhase) * 0.9 + uTime * uWind;
     p.z += cos(uTime * 0.7 + aPhase * 1.3) * 0.7;
 
-    // enrola em torno da câmera nos três eixos
+    // wraps around the camera on all three axes
     vec3 rel = p - uCenter;
     rel = mod(rel + uBox * 0.5, uBox) - uBox * 0.5;
     vec3 world = uCenter + rel;
@@ -32,7 +32,7 @@ const VERT = /* glsl */`
     vec4 mv = modelViewMatrix * vec4(world, 1.0);
     float dist = -mv.z;
 
-    // some quando muito perto (não vira borrão na lente) e ao longe
+    // fades when very close (so it doesn't blur the lens) and far away
     vFade = smoothstep(1.5, 6.0, dist) * (1.0 - smoothstep(uBox.z * 0.30, uBox.z * 0.52, dist));
 
     gl_Position = projectionMatrix * mv;
@@ -104,7 +104,7 @@ export function createSnowfall(scene, { count = 2600, box = new THREE.Vector3(15
     update(camera, elapsed) {
       uniforms.uTime.value = elapsed;
       camera.getWorldPosition(tmp);
-      // desloca a caixa para a frente da câmera: mais flocos onde se olha
+      // shifts the box ahead of the camera: more flakes where you are looking
       uniforms.uCenter.value.set(tmp.x, tmp.y + 8, tmp.z + box.z * 0.22);
     },
     dispose() {

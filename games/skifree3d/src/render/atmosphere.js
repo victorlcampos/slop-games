@@ -1,10 +1,11 @@
-// Perspectiva aérea: substitui o fog chapado do three por um que muda de cor
-// conforme a direção do olhar. Olhando para o sol o ar fica dourado; de costas,
-// azul. É o que amarra o terreno distante ao céu em vez de deixar uma faixa
+// Aerial perspective: replaces three's flat fog with one that changes colour
+// with the viewing direction. Looking at the sun the air turns golden; with
+// your back to it, blue. It is what ties the far terrain to the sky instead of
+// leaving a band
 // azulada colada sobre um horizonte dourado.
 //
-// O patch é feito nos ShaderChunk globais, então PRECISA rodar antes de
-// qualquer material ser criado.
+// The patch is applied to the global ShaderChunks, so it MUST run before
+// any material is created.
 
 import * as THREE from 'three';
 
@@ -21,8 +22,8 @@ export function installAerialPerspective({ sunDirection, sunColor, skyColor, str
   if (patched) return uniforms;
   patched = true;
 
-  // Os uniforms entram na biblioteca de fog: todo material com fog passa a
-  // recebê-los automaticamente, sem precisar de onBeforeCompile em cada um.
+  // The uniforms go into the fog library: every material with fog receives
+  // them automatically, with no onBeforeCompile needed on each one.
   Object.assign(THREE.UniformsLib.fog, uniforms);
 
   THREE.ShaderChunk.fog_pars_vertex += `
@@ -52,7 +53,7 @@ uniform float uAerialStrength;
   vec3 aerialDir = normalize(vAerialDir);
   float sunAmt = max(dot(aerialDir, normalize(uAerialSunDir)), 0.0);
 
-  // dois lóbulos: um largo (Rayleigh) e um estreito em volta do sol (Mie)
+  // two lobes: a wide one (Rayleigh) and a narrow one around the sun (Mie)
   vec3 aerial = mix(uAerialSkyColor, uAerialSunColor, pow(sunAmt, 2.0) * 0.55);
   aerial += uAerialSunColor * pow(sunAmt, 9.0) * 0.55;
 

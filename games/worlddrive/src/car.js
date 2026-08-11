@@ -1,4 +1,4 @@
-// Carro: modelo low-poly procedural + física arcade (modelo bicicleta com drift)
+// The car: a procedural low-poly model + arcade physics (bicycle model with drift)
 import * as THREE from 'three';
 import { clamp, lerp } from './geo.js';
 
@@ -8,12 +8,12 @@ const VMAX_REV = 9;
 const ACCEL = 10.5;
 const BRAKE = 17;
 const GRIP = 7.5;       // amortecimento lateral normal (1/s)
-const GRIP_HB = 1.3;    // com freio de mão
-const BODY_R = 0.95;    // raio dos círculos de colisão
+const GRIP_HB = 1.3;    // with the handbrake
+const BODY_R = 0.95;    // radius of the collision circles
 
 function buildModel() {
-  const g = new THREE.Group();          // raiz: posição+orientação no terreno
-  const tilt = new THREE.Group();       // inclinação do chassi (roll/pitch)
+  const g = new THREE.Group();          // root: position + orientation on the terrain
+  const tilt = new THREE.Group();       // chassis lean (roll/pitch)
   g.add(tilt);
 
   const paint = new THREE.MeshPhongMaterial({ color: 0xd8332c, shininess: 70, specular: 0x555555 });
@@ -48,8 +48,8 @@ function buildModel() {
   hubGeo.rotateZ(Math.PI / 2);
   const hubMat = new THREE.MeshPhongMaterial({ color: 0x8f9499, shininess: 80 });
 
-  const wheels = [];      // rodas (giro no eixo)
-  const steers = [];      // pivôs de esterço dianteiros
+  const wheels = [];      // wheels (spin on their axis)
+  const steers = [];      // front steering pivots
   for (const [x, z, front] of [[-0.82, -1.32, 1], [0.82, -1.32, 1], [-0.82, 1.32, 0], [0.82, 1.32, 0]]) {
     const pivot = new THREE.Group();
     pivot.position.set(x, 0.34, z);
@@ -102,7 +102,7 @@ export class Car {
   }
 
   _step(dt, input, world) {
-    // esterço: ângulo máximo cai com a velocidade
+    // steering: the maximum angle drops with speed
     const speed = Math.abs(this.vF);
     const maxSteer = 0.56 / (1 + speed * 0.045);
     const target = (input.steer || 0) * maxSteer;
@@ -112,7 +112,7 @@ export class Car {
     const fx = sinH, fz = -cosH;        // frente (heading 0 = norte = -z)
     const rx = -fz, rz = fx;            // direita
 
-    // decompõe velocidade
+    // decompose the velocity
     let vF = this.vx * fx + this.vz * fz;
     let vL = this.vx * rx + this.vz * rz;
 
@@ -124,9 +124,9 @@ export class Car {
     } else if (th < -0.01) {
       a = (vF > 0.5) ? BRAKE * th : ACCEL * 0.6 * th * (1 - clamp(-vF / VMAX_REV, 0, 1));
     }
-    // arrasto + resistência de rolagem
+    // drag + rolling resistance
     a -= 0.35 * vF * 0.08 + 0.0045 * vF * Math.abs(vF) + Math.sign(vF) * 0.35;
-    // ladeira: componente da gravidade ao longo da direção
+    // slope: the component of gravity along the heading
     const [gx, gz] = world.slopeAt(this.x, this.z);
     a -= 9.81 * (fx * gx + fz * gz) * 0.9;
     if (input.handbrake) a -= Math.sign(vF) * 6;
@@ -137,18 +137,18 @@ export class Car {
     vF = clamp(vF, -VMAX_REV, VMAX);
     this.accelMeasured = lerp(this.accelMeasured, (vF - vFprev) / dt, 0.2);
 
-    // aderência lateral (drift com freio de mão)
+    // lateral grip (drift with the handbrake)
     const grip = input.handbrake ? GRIP_HB : GRIP;
     vL *= Math.exp(-grip * dt);
 
-    // rotação (modelo bicicleta)
+    // rotation (bicycle model)
     if (Math.abs(vF) > 0.05) {
       const omega = (vF / WHEELBASE) * Math.tan(this.steer) * (input.handbrake ? 1.25 : 1);
       this.heading += omega * dt;
       this._omega = omega;
     } else this._omega = 0;
 
-    // recompõe com o novo heading
+    // recompose with the new heading
     const sin2 = Math.sin(this.heading), cos2 = Math.cos(this.heading);
     const f2x = sin2, f2z = -cos2, r2x = cos2, r2z = sin2;
     this.vx = f2x * vF + r2x * vL;
@@ -158,7 +158,7 @@ export class Car {
     this.x += this.vx * dt;
     this.z += this.vz * dt;
 
-    // colisões (dois círculos: dianteira e traseira)
+    // collisions (two circles: front and rear)
     for (const off of [-1.25, 1.25]) {
       const px = this.x + f2x * off, pz = this.z + f2z * off;
       const contacts = world.collision.collide(px, pz, BODY_R);
@@ -175,14 +175,14 @@ export class Car {
       }
     }
 
-    // limites da área
+    // area bounds
     const lim = world.half - 3;
     if (Math.abs(this.x) > lim) { this.x = clamp(this.x, -lim, lim); this.vx *= -0.25; }
     if (Math.abs(this.z) > lim) { this.z = clamp(this.z, -lim, lim); this.vz *= -0.25; }
   }
 
   _pose(world, dt) {
-    // gruda no terreno
+    // stick to the terrain
     const ty = world.heightAt(this.x, this.z);
     this.y = dt > 0 ? lerp(this.y, ty, 1 - Math.exp(-18 * dt)) : ty;
 
@@ -190,7 +190,7 @@ export class Car {
     if (dt > 0) this.smoothNormal.lerp(n, 1 - Math.exp(-8 * dt)).normalize();
     else this.smoothNormal.copy(n);
 
-    // base ortonormal: frente projetada no plano do terreno
+    // orthonormal basis: the front projected onto the terrain plane
     const up = this.smoothNormal;
     const f = new THREE.Vector3(Math.sin(this.heading), 0, -Math.cos(this.heading));
     f.addScaledVector(up, -f.dot(up)).normalize();
@@ -201,12 +201,12 @@ export class Car {
     this.group.quaternion.copy(this._q);
     this.group.position.set(this.x, this.y, this.z);
 
-    // rodas: giro + esterço
+    // wheels: spin + steering
     const spin = (this.vF / 0.34) * (dt || 0.016);
     for (const w of this.wheels) w.rotation.x += spin;
     for (const p of this.steers) p.rotation.y = -this.steer * 1.15;
 
-    // inclinação do chassi
+    // chassis lean
     const rollTarget = clamp((this._omega || 0) * this.vF * 0.0045, -0.09, 0.09);
     const pitchTarget = clamp(this.accelMeasured * 0.006, -0.05, 0.06);
     this.tilt.rotation.z = lerp(this.tilt.rotation.z, rollTarget, 0.12);

@@ -1,5 +1,5 @@
-// O Abominável Homem das Neves. Acorda depois de 2 000 m, persegue sem
-// cansar, e é o único jeito de a corrida acabar de verdade.
+// The Abominable Snowman. Wakes after 2,000 m, chases without tiring, and is
+// the only way the run really ends.
 
 import * as THREE from 'three';
 import { paint, paintBy } from '../world/geometries.js';
@@ -10,7 +10,7 @@ import { YETI, groundHeight, clamp, lerp, damp } from '../config.js';
 const FUR_LIGHT = new THREE.Color(0xf3f7fb);
 const FUR_SHADE = new THREE.Color(0xa9b8c9);
 
-/** Deforma uma geometria para dar aspecto de pelo emaranhado. */
+/** Warps a geometry to give it the look of matted fur. */
 function furrify(geo, amount = 0.09, freq = 5.0) {
   const p = geo.attributes.position;
   const v = new THREE.Vector3();
@@ -49,7 +49,7 @@ function buildYetiModel() {
   torso.position.y = 1.45;
   body.add(torso);
 
-  // barriga mais clara
+  // a lighter belly
   const bellyGeo = new THREE.SphereGeometry(0.70, 14, 10);
   bellyGeo.scale(1, 1.02, 0.6);
   paint(bellyGeo, 0xe6edf5);
@@ -57,14 +57,14 @@ function buildYetiModel() {
   belly.position.set(0, 1.32, 0.44);
   body.add(belly);
 
-  // pescoço curto e grosso ligando tronco e cabeça
+  // a short thick neck joining torso and head
   const neckGeo = new THREE.CylinderGeometry(0.40, 0.55, 0.42, 10);
   furrify(neckGeo, 0.08, 7.0);
   const neck = new THREE.Mesh(neckGeo, characterMaterial);
   neck.position.set(0, 2.52, 0.04);
   body.add(neck);
 
-  // ------------------------------------------------------------ cabeça
+  // -------------------------------------------------------------- head
   const headPivot = new THREE.Group();
   headPivot.position.set(0, 2.86, 0.06);
   body.add(headPivot);
@@ -76,7 +76,7 @@ function buildYetiModel() {
   head.castShadow = true;
   headPivot.add(head);
 
-  // sobrancelha pesada — é o que dá a cara de bravo do sprite original
+  // a heavy brow — it is what gives the original sprite its angry face
   const brow = part(new THREE.BoxGeometry(0.92, 0.15, 0.26), 0x7e91a6);
   brow.position.set(0, 0.20, 0.44);
   brow.rotation.x = -0.22;
@@ -102,7 +102,7 @@ function buildYetiModel() {
   nose.position.set(0, -0.06, 0.62);
   headPivot.add(nose);
 
-  // gengiva superior fica na cabeça; a inferior desce com a mandíbula
+  // the upper gum stays on the head; the lower one drops with the jaw
   const upperGum = part(new THREE.BoxGeometry(0.60, 0.10, 0.26), 0x7d2b2b);
   upperGum.position.set(0, -0.28, 0.46);
   headPivot.add(upperGum);
@@ -116,7 +116,7 @@ function buildYetiModel() {
     headPivot.add(up);
   }
 
-  // presas maiores nos cantos
+  // bigger fangs at the corners
   for (const sx of [-1, 1]) {
     const fang = part(new THREE.ConeGeometry(0.07, 0.28, 5), 0xfffaf0);
     fang.position.set(sx * 0.26, -0.34, 0.48);
@@ -124,7 +124,7 @@ function buildYetiModel() {
     headPivot.add(fang);
   }
 
-  // mandíbula que abre
+  // a jaw that opens
   const jaw = new THREE.Group();
   jaw.position.set(0, -0.30, 0.18);
   headPivot.add(jaw);
@@ -152,7 +152,7 @@ function buildYetiModel() {
     headPivot.add(horn);
   }
 
-  // ------------------------------------------------------------ braços
+  // -------------------------------------------------------------- arms
   function makeArm(side) {
     const shoulder = new THREE.Group();
     shoulder.position.set(side * 0.92, 2.05, 0);
@@ -176,7 +176,7 @@ function buildYetiModel() {
     fore.position.y = -0.42;
     elbow.add(fore);
 
-    // mão com garras
+    // a clawed hand
     const hand = part(new THREE.SphereGeometry(0.28, 10, 8), 0xdfe8f2);
     hand.position.y = -0.82;
     elbow.add(hand);
@@ -237,7 +237,7 @@ function buildYetiModel() {
   return { group, body, headPivot, jaw, armL, armR, legL, legR, eyeMat, torso };
 }
 
-// =============================================================== lógica
+// ================================================================ logic
 export function createYeti(parent) {
   const model = buildYetiModel();
   model.group.visible = false;
@@ -251,7 +251,7 @@ export function createYeti(parent) {
     timer: 0,
     heading: 0,
     anim: 0,
-    aggression: 0,         // sobe a cada retorno
+    aggression: 0,         // climbs on every return
     eatTime: 0,
     visible: false,
     distance: Infinity,
@@ -288,7 +288,7 @@ export function createYeti(parent) {
    * @param {number} dt
    * @param {object} player  {x, z, travel, speed, crashed}
    * @param {number} wakeDistance
-   * @returns {'none'|'caught'} evento do quadro
+   * @returns {'none'|'caught'} the frame's event
    */
   function update(dt, player, wakeDistance) {
     state.anim += dt;
@@ -302,7 +302,7 @@ export function createYeti(parent) {
 
     if (state.mode === 'retreating') {
       state.timer -= dt;
-      // afunda na neve enquanto se afasta
+      // sinks into the snow as he backs off
       state.z -= 12 * dt;
       const k = clamp(state.timer / 1.2, 0, 1);
       model.group.scale.setScalar(1.15 * k);
@@ -339,12 +339,12 @@ export function createYeti(parent) {
 
     if (state.mode === 'done') { placeModel(); return event; }
 
-    // ------------------------------------------------------- perseguição
+    // ------------------------------------------------------------- chase
     state.chaseTime += dt;
     const target = YETI.baseSpeed + state.aggression * 4.5 + state.chaseTime * YETI.rampUp;
     state.speed = Math.min(YETI.maxSpeed, target);
 
-    // um empurrãozinho quando o jogador está muito longe (mantém a tensão)
+    // a small nudge when the player is very far away (keeps the tension)
     const dx = player.x - state.x;
     const dz = player.z - state.z;
     const dist = Math.hypot(dx, dz);

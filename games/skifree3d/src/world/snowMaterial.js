@@ -1,25 +1,25 @@
-// Material da neve: MeshPhysical com sheen (o aveludado da neve fofa),
-// clearcoat leve (a crosta de gelo), normal map procedural em duas escalas
-// e cintilância especular de cristais.
+// The snow material: MeshPhysical with sheen (the velvet of fresh powder),
+// light clearcoat (the ice crust), a procedural normal map at two scales and
+// the specular twinkle of crystals.
 
 import * as THREE from 'three';
 import { fbm2 } from '../lib/noise.js';
 
-/** Normal map de neve gerada por ruído: grãos finos + sastrugi de vento. */
+/** A snow normal map generated from noise: fine grain + wind sastrugi. */
 export function makeSnowNormalTexture(size = 512) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(size, size);
 
-  // campo de altura tileável: usa coordenadas em torus para casar as bordas
+  // a tileable height field: uses torus coordinates so the edges match
   const H = new Float32Array(size * size);
-  const S = 6.0;   // ciclos por textura (inteiro => tileável)
+  const S = 6.0;   // cycles per texture (an integer => tileable)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const u = (x / size) * Math.PI * 2;
       const v = (y / size) * Math.PI * 2;
-      // amostragem em espaço 2D "enrolado" — aproxima tileabilidade
+      // sampling in "wrapped" 2D space — approximates tileability
       const nx = Math.cos(u) * S + Math.sin(v * 0.5) * 0.4;
       const nz = Math.sin(u) * S + Math.cos(v * 0.5) * 0.4;
       const mx = Math.cos(v) * S;
@@ -27,7 +27,7 @@ export function makeSnowNormalTexture(size = 512) {
 
       let h = fbm2(nx * 1.7, mz * 1.7, 4) * 0.55;
       h += fbm2(mx * 4.1 + 11, nz * 4.1 - 7, 3) * 0.3;
-      // sastrugi: cristas alongadas na direção do vento
+      // sastrugi: ridges stretched along the wind direction
       h += Math.sin((x / size) * Math.PI * 2 * 3 + h * 6.0) * 0.045;
       H[y * size + x] = h;
     }
@@ -55,13 +55,13 @@ export function makeSnowNormalTexture(size = 512) {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 16;
-  tex.colorSpace = THREE.NoColorSpace;   // dado geométrico, não cor
+  tex.colorSpace = THREE.NoColorSpace;   // geometric data, not colour
   return tex;
 }
 
 /**
- * Cria o material da neve. `uniforms.uTime` deve ser atualizado por quadro
- * para a cintilância piscar.
+ * Creates the snow material. `uniforms.uTime` must be updated every frame for
+ * the twinkle to flicker.
  */
 export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
   const normalMap = makeSnowNormalTexture(512);
@@ -75,8 +75,8 @@ export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
     normalScale: new THREE.Vector2(0.34, 0.34),
     envMapIntensity: 0.8,
 
-    // Neve fofa espalha luz nas bordas. Doses altas de sheen/clearcoat
-    // explodem em contraluz rasante — ofuscamento realista, ilegível em jogo.
+    // Fresh snow scatters light at the edges. High doses of sheen/clearcoat
+    // blow out in grazing backlight — realistic glare, unreadable in a game.
     sheen: 0.20,
     sheenColor: new THREE.Color(0xbcd9f2),
     sheenRoughness: 0.95,
@@ -104,7 +104,7 @@ export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      // segunda oitava do normal map: mata a repetição visível do ladrilho
+      // second octave of the normal map: kills the visible tile repetition
       .replace('#include <normal_fragment_maps>', /* glsl */`
         #include <normal_fragment_maps>
         {
@@ -128,7 +128,7 @@ export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
       .replace('#include <dithering_fragment>', /* glsl */`
         #include <dithering_fragment>
 
-        // ---- cintilância: cristais isolados que só acendem no ângulo certo
+        // ---- twinkle: isolated crystals that only light at the right angle
         {
           vec3 cell = floor(vWorldPos * 30.0);
           float r = snowHash(cell);
@@ -146,7 +146,7 @@ export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
       `);
   };
 
-  // força recompilação quando o material é reutilizado entre cenas
+  // force a recompile when the material is reused between scenes
   mat.customProgramCacheKey = () => 'snow-v2';
   mat.userData.uniforms = uniforms;
   mat.userData.normalMap = normalMap;
@@ -154,8 +154,8 @@ export function createSnowMaterial(sunDirection, { sparkle = 1.0 } = {}) {
 }
 
 /**
- * Material de folhagem: mesma base dos props, mas com balanço de vento no
- * vertex shader. A força cresce com a altura acima da base da instância.
+ * Foliage material: the same base as the props, but with wind sway in the
+ * vertex shader. The strength grows with height above the instance's base.
  */
 export function createFoliageMaterial() {
   const mat = new THREE.MeshStandardMaterial({
@@ -173,7 +173,7 @@ export function createFoliageMaterial() {
       .replace('#include <begin_vertex>', /* glsl */`
         #include <begin_vertex>
         {
-          // posição de mundo da instância: cada árvore balança fora de fase
+          // the instance's world position: each tree sways out of phase
           #ifdef USE_INSTANCING
             vec3 instOrigin = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
           #else

@@ -1,4 +1,4 @@
-// Projeções e matemática de tiles (Web Mercator)
+// Projections and tile maths (Web Mercator)
 export const R = 6378137;
 
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -21,8 +21,8 @@ export function ty2lat(y, z) {
   return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
 }
 
-// Projeção local: metros reais ao redor de (lat0, lon0).
-// x = leste, z = sul (norte é -z), y = altura.
+// Local projection: real metres around (lat0, lon0).
+// x = east, z = south (north is -z), y = height.
 export function makeProjection(lat0, lon0) {
   const k = Math.cos(lat0 * Math.PI / 180); // fator de escala Mercator -> metros reais
   const mx0 = mercX(lon0), my0 = mercY(lat0);
@@ -34,7 +34,7 @@ export function makeProjection(lat0, lon0) {
   };
 }
 
-// bbox geográfica de um quadrado de `half` metros reais ao redor do ponto
+// geographic bbox of a square `half` real metres around the point
 export function bboxAround(lat0, lon0, half) {
   const k = Math.cos(lat0 * Math.PI / 180);
   const dm = half / k;
@@ -45,7 +45,7 @@ export function bboxAround(lat0, lon0, half) {
   };
 }
 
-// PRNG determinístico
+// deterministic PRNG
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {

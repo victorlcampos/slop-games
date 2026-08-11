@@ -1,4 +1,6 @@
-// Toda a manipulação de DOM fica aqui: HUD, avisos, menu e tela final.
+// All DOM handling lives here: HUD, warnings, menu and the end screen.
+
+import { t, num, i18n } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,6 +22,11 @@ const SPD_ARC = 193;
 
 let lastDist = -1, lastScore = -1, lastSpeed = -1, lastStyle = -1;
 
+// The end screen is the one place that keeps rendered numbers around after the
+// language can change under it, so it remembers what it drew and redraws on a
+// flag switch. Everything else is repainted every frame anyway.
+let lastGameOver = null;
+
 export function showHud(on) {
   el.hud.classList.toggle('on', on);
 }
@@ -29,7 +36,7 @@ export function setStats({ dist, time, score, style }) {
   if (d !== lastDist) { el.dist.innerHTML = `${d}<small>m</small>`; lastDist = d; }
   el.time.innerHTML = `${time.toFixed(1)}<small>s</small>`;
   const sc = Math.floor(score);
-  if (sc !== lastScore) { el.score.textContent = sc.toLocaleString('pt-BR'); lastScore = sc; }
+  if (sc !== lastScore) { el.score.textContent = num(sc); lastScore = sc; }
   const st = Math.round(style * 10) / 10;
   if (st !== lastStyle) { el.style.textContent = `×${st.toFixed(1)}`; lastStyle = st; }
 }
@@ -40,8 +47,8 @@ export function setSpeed(kmh) {
     el.speed.textContent = v;
     lastSpeed = v;
   }
-  const t = Math.min(kmh / 140, 1);
-  el.spdBar.style.strokeDashoffset = String(SPD_ARC * (1 - t));
+  const t2 = Math.min(kmh / 140, 1);
+  el.spdBar.style.strokeDashoffset = String(SPD_ARC * (1 - t2));
 }
 
 export function setGates({ visible, hit, total, missed }) {
@@ -73,7 +80,7 @@ export function toast(text, points = 0, color = null) {
   if (color) div.style.color = color;
   el.toasts.appendChild(div);
   setTimeout(() => div.remove(), 1500);
-  // segura o tamanho da fila
+  // keep the queue short
   while (el.toasts.children.length > 5) el.toasts.firstChild.remove();
 }
 
@@ -100,26 +107,34 @@ export function showOverlay(which) {
   el.over.style.display = which === 'over' ? '' : 'none';
 }
 
-const TITLES = {
-  yeti: ['Você foi devorado', 'O Yeti sempre vence. Mas você chegou longe.'],
-  quit: ['Descida encerrada', 'Volte quando quiser mais neve.'],
-};
+export function showGameOver(result) {
+  lastGameOver = result;
+  paintGameOver(result);
+  showOverlay('over');
+}
 
-export function showGameOver({ dist, score, speed, time, gates, gatesTotal, showGates, best, reason }) {
-  const [title, sub] = TITLES[reason] || TITLES.yeti;
-  el.overTitle.textContent = title;
-  el.overSub.textContent = sub;
-  el.oDist.textContent = Math.floor(dist).toLocaleString('pt-BR');
-  el.oScore.textContent = Math.floor(score).toLocaleString('pt-BR');
+function paintGameOver({ dist, score, speed, time, gates, gatesTotal, showGates, best, reason }) {
+  const key = reason === 'quit' ? 'quit' : 'yeti';
+  el.overTitle.textContent = t(`over.${key}.title`);
+  el.overSub.textContent = t(`over.${key}.sub`);
+  el.oDist.textContent = num(dist);
+  el.oScore.textContent = num(score);
   el.oSpeed.textContent = Math.round(speed);
   el.oTime.textContent = Math.round(time);
   el.oGateCell.style.display = showGates ? '' : 'none';
   el.oGates.textContent = showGates ? `${gates}/${gatesTotal}` : '—';
   el.oBest.textContent = best.isNew
-    ? `🏔️ Novo recorde neste modo! (antes: ${Math.floor(best.previous).toLocaleString('pt-BR')})`
-    : `Seu recorde neste modo: ${Math.floor(best.value).toLocaleString('pt-BR')} pontos`;
-  showOverlay('over');
+    ? t('over.newBest', { previous: num(best.previous) })
+    : t('over.best', { value: num(best.value) });
 }
+
+i18n.onChange(() => {
+  if (lastGameOver) paintGameOver(lastGameOver);
+  // the live counters carry a formatted number too; forcing a repaint next
+  // frame is cheaper than teaching each one to notice
+  lastScore = -1;
+  lastDist = -1;
+});
 
 export function bindMenu({ onStart, onAgain, onMenu, onMode }) {
   const modeButtons = Array.from(document.querySelectorAll('.mode'));

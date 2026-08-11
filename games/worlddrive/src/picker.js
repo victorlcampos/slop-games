@@ -1,4 +1,4 @@
-// Mini "slippy map" para escolher o ponto de largada (tiles OSM, pan/zoom)
+// A mini "slippy map" for picking the start point (OSM tiles, pan/zoom)
 import { lon2tx, lat2ty, tx2lon, ty2lat, clamp } from './geo.js';
 
 const TILE_URL = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;

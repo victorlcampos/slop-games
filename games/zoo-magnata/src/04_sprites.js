@@ -15,26 +15,26 @@ function inkFor(c1) { return lum(c1) > .28 ? shade(c1, -.62) : '#16120e'; }
 
 /* ---- presets de quadrúpede por plano ---- */
 const QUAD = {
-  felino: { bL: 46, bH: 24, bY: 50, legL: 26, legW: 8, neckL: 15, neckA: -.55, neckW: 15, headR: 14, snoutL: 10, snoutH: 10, ear: 'redonda', earS: 9, tail: 'longa', tailL: 40, hump: 3 },
-  canino: { bL: 44, bH: 21, bY: 48, legL: 27, legW: 7, neckL: 15, neckA: -.6, neckW: 13, headR: 12, snoutL: 15, snoutH: 8, ear: 'ponta', earS: 11, tail: 'peluda', tailL: 32, hump: 2 },
-  urso: { bL: 50, bH: 33, bY: 50, legL: 22, legW: 12, neckL: 8, neckA: -.5, neckW: 20, headR: 16, snoutL: 13, snoutH: 12, ear: 'redonda', earS: 8, tail: 'curta', tailL: 8, hump: 7 },
-  ungulado: { bL: 44, bH: 22, bY: 60, legL: 40, legW: 5, neckL: 26, neckA: -.95, neckW: 11, headR: 11, snoutL: 14, snoutH: 8, ear: 'longa', earS: 11, tail: 'curta', tailL: 12, hump: 3 },
-  bovino: { bL: 52, bH: 30, bY: 54, legL: 30, legW: 9, neckL: 13, neckA: -.5, neckW: 21, headR: 14, snoutL: 14, snoutH: 12, ear: 'longa', earS: 9, tail: 'tufo', tailL: 26, hump: 9 },
-  equino: { bL: 50, bH: 25, bY: 60, legL: 40, legW: 6, neckL: 26, neckA: -.85, neckW: 14, headR: 11, snoutL: 17, snoutH: 9, ear: 'ponta', earS: 10, tail: 'crina', tailL: 30, hump: 4 },
-  suino: { bL: 44, bH: 25, bY: 44, legL: 20, legW: 7, neckL: 8, neckA: -.35, neckW: 17, headR: 12, snoutL: 15, snoutH: 10, ear: 'caida', earS: 10, tail: 'fina', tailL: 12, hump: 6 },
-  roedor: { bL: 36, bH: 26, bY: 40, legL: 14, legW: 6, neckL: 5, neckA: -.5, neckW: 16, headR: 14, snoutL: 8, snoutH: 8, ear: 'redonda', earS: 8, tail: 'fina', tailL: 16, hump: 4 },
-  camelideo: { bL: 46, bH: 24, bY: 60, legL: 40, legW: 6, neckL: 30, neckA: -1.0, neckW: 11, headR: 10, snoutL: 12, snoutH: 8, ear: 'ponta', earS: 7, tail: 'fina', tailL: 14, hump: 4 },
-  musteli: { bL: 44, bH: 18, bY: 32, legL: 12, legW: 6, neckL: 9, neckA: -.5, neckW: 13, headR: 11, snoutL: 10, snoutH: 7, ear: 'redonda', earS: 7, tail: 'peluda', tailL: 28, hump: 2 },
-  preguica: { bL: 42, bH: 26, bY: 42, legL: 18, legW: 8, neckL: 10, neckA: -.4, neckW: 15, headR: 12, snoutL: 14, snoutH: 8, ear: 'pequena', earS: 5, tail: 'curta', tailL: 10, hump: 5 },
-  hipo: { bL: 58, bH: 34, bY: 42, legL: 15, legW: 13, neckL: 6, neckA: -.2, neckW: 24, headR: 17, snoutL: 18, snoutH: 16, ear: 'pequena', earS: 6, tail: 'fina', tailL: 10, hump: 3 },
-  rino: { bL: 58, bH: 34, bY: 48, legL: 22, legW: 13, neckL: 8, neckA: -.3, neckW: 23, headR: 14, snoutL: 20, snoutH: 12, ear: 'ponta', earS: 8, tail: 'fina', tailL: 14, hump: 8 },
-  elefante: { bL: 60, bH: 42, bY: 56, legL: 30, legW: 16, neckL: 6, neckA: -.35, neckW: 28, headR: 20, snoutL: 0, snoutH: 0, ear: 'gigante', earS: 22, tail: 'fina', tailL: 20, hump: 5 },
-  girafa: { bL: 44, bH: 26, bY: 66, legL: 44, legW: 6, neckL: 56, neckA: -1.15, neckW: 12, headR: 10, snoutL: 12, snoutH: 7, ear: 'ponta', earS: 8, tail: 'fina', tailL: 22, hump: 8 },
+  feline: { bL: 46, bH: 24, bY: 50, legL: 26, legW: 8, neckL: 15, neckA: -.55, neckW: 15, headR: 14, snoutL: 10, snoutH: 10, ear: 'redonda', earS: 9, tail: 'long', tailL: 40, hump: 3 },
+  canine: { bL: 44, bH: 21, bY: 48, legL: 27, legW: 7, neckL: 15, neckA: -.6, neckW: 13, headR: 12, snoutL: 15, snoutH: 8, ear: 'ponta', earS: 11, tail: 'bushy', tailL: 32, hump: 2 },
+  bear: { bL: 50, bH: 33, bY: 50, legL: 22, legW: 12, neckL: 8, neckA: -.5, neckW: 20, headR: 16, snoutL: 13, snoutH: 12, ear: 'redonda', earS: 8, tail: 'short', tailL: 8, hump: 7 },
+  ungulate: { bL: 44, bH: 22, bY: 60, legL: 40, legW: 5, neckL: 26, neckA: -.95, neckW: 11, headR: 11, snoutL: 14, snoutH: 8, ear: 'long', earS: 11, tail: 'short', tailL: 12, hump: 3 },
+  bovine: { bL: 52, bH: 30, bY: 54, legL: 30, legW: 9, neckL: 13, neckA: -.5, neckW: 21, headR: 14, snoutL: 14, snoutH: 12, ear: 'long', earS: 9, tail: 'tuft', tailL: 26, hump: 9 },
+  equine: { bL: 50, bH: 25, bY: 60, legL: 40, legW: 6, neckL: 26, neckA: -.85, neckW: 14, headR: 11, snoutL: 17, snoutH: 9, ear: 'ponta', earS: 10, tail: 'crina', tailL: 30, hump: 4 },
+  swine: { bL: 44, bH: 25, bY: 44, legL: 20, legW: 7, neckL: 8, neckA: -.35, neckW: 17, headR: 12, snoutL: 15, snoutH: 10, ear: 'caida', earS: 10, tail: 'fina', tailL: 12, hump: 6 },
+  rodent: { bL: 36, bH: 26, bY: 40, legL: 14, legW: 6, neckL: 5, neckA: -.5, neckW: 16, headR: 14, snoutL: 8, snoutH: 8, ear: 'redonda', earS: 8, tail: 'fina', tailL: 16, hump: 4 },
+  camelid: { bL: 46, bH: 24, bY: 60, legL: 40, legW: 6, neckL: 30, neckA: -1.0, neckW: 11, headR: 10, snoutL: 12, snoutH: 8, ear: 'ponta', earS: 7, tail: 'fina', tailL: 14, hump: 4 },
+  mustelid: { bL: 44, bH: 18, bY: 32, legL: 12, legW: 6, neckL: 9, neckA: -.5, neckW: 13, headR: 11, snoutL: 10, snoutH: 7, ear: 'redonda', earS: 7, tail: 'bushy', tailL: 28, hump: 2 },
+  sloth: { bL: 42, bH: 26, bY: 42, legL: 18, legW: 8, neckL: 10, neckA: -.4, neckW: 15, headR: 12, snoutL: 14, snoutH: 8, ear: 'pequena', earS: 5, tail: 'short', tailL: 10, hump: 5 },
+  hippo: { bL: 58, bH: 34, bY: 42, legL: 15, legW: 13, neckL: 6, neckA: -.2, neckW: 24, headR: 17, snoutL: 18, snoutH: 16, ear: 'pequena', earS: 6, tail: 'fina', tailL: 10, hump: 3 },
+  rhino: { bL: 58, bH: 34, bY: 48, legL: 22, legW: 13, neckL: 8, neckA: -.3, neckW: 23, headR: 14, snoutL: 20, snoutH: 12, ear: 'ponta', earS: 8, tail: 'fina', tailL: 14, hump: 8 },
+  elephant: { bL: 60, bH: 42, bY: 56, legL: 30, legW: 16, neckL: 6, neckA: -.35, neckW: 28, headR: 20, snoutL: 0, snoutH: 0, ear: 'giant', earS: 22, tail: 'fina', tailL: 20, hump: 5 },
+  giraffe: { bL: 44, bH: 26, bY: 66, legL: 44, legW: 6, neckL: 56, neckA: -1.15, neckW: 12, headR: 10, snoutL: 12, snoutH: 7, ear: 'ponta', earS: 8, tail: 'fina', tailL: 22, hump: 8 },
 };
 
 /* ---- padrões ---- */
 function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
-  const p = sp.padrao, c2 = sp.c2, rr = mulberry(hashStr(sp.nome) + 7);
+  const p = sp.pattern, c2 = sp.c2, rr = mulberry(hashStr(sp.key) + 7);
   const wdt = x1 - x0, hgt = y1 - y0;
   c.save(); bodyPath(); c.clip();
   c.globalAlpha = .92;
@@ -61,25 +61,25 @@ function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
       c.lineWidth = 1.9; ellipse(c, x, y, r, r * .85); c.stroke();
       ellipse(c, x, y, r * .3, r * .3); c.fill();
     }
-  } else if (p === 'patches' || p === 'mask' || p === 'gola' || p === 'colar' || p === 'face' || p === 'cabecaBranca') {
+  } else if (p === 'patches' || p === 'mask' || p === 'ruff' || p === 'collar' || p === 'face' || p === 'whiteHead') {
     c.fillStyle = c2;
     for (let i = 0; i < 4; i++) {
       const x = x0 + rr() * wdt, y = y0 + rr() * hgt;
       ellipse(c, x, y, wdt * (.13 + rr() * .16), hgt * (.2 + rr() * .3), rr() * 3); c.fill();
     }
-  } else if (p === 'placas') {
+  } else if (p === 'plates') {
     c.strokeStyle = shade(sp.c1, -.3); c.lineWidth = 3;
     for (let i = 0; i < 5; i++) {
       const x = x0 + (i + .5) / 5 * wdt;
       c.beginPath(); c.moveTo(x, y0 - 4); c.quadraticCurveTo(x + 5, y0 + hgt / 2, x, y1 + 4); c.stroke();
     }
-  } else if (p === 'zebrado') {
+  } else if (p === 'zebra') {
     c.strokeStyle = c2; c.lineWidth = 4; c.lineCap = 'round';
     for (let i = 0; i < 6; i++) {
       const y = y0 + (i + .5) / 6 * hgt;
       c.beginPath(); c.moveTo(x0 - 3, y); c.lineTo(x0 + wdt * .38, y); c.stroke();
     }
-  } else if (p === 'rede' || p === 'losango' || p === 'escama') {
+  } else if (p === 'net' || p === 'diamond' || p === 'scale') {
     c.strokeStyle = c2; c.lineWidth = 1.8;
     for (let i = -6; i < 20; i++) {
       c.beginPath(); c.moveTo(x0 + i * 9, y0 - 6); c.lineTo(x0 + i * 9 + hgt + 12, y1 + 6); c.stroke();
@@ -93,7 +93,7 @@ function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
     }
   }
   // barriga mais clara (quase todos)
-  if (p !== 'patches' && p !== 'zebrado') {
+  if (p !== 'patches' && p !== 'zebra') {
     c.globalAlpha = .35; c.fillStyle = shade(sp.c1, .42);
     ellipse(c, (x0 + x1) / 2, y1 - hgt * .04, wdt * .42, hgt * .3); c.fill();
   }
@@ -104,28 +104,28 @@ function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
 function drawHorn(c, x, y, tipo, s, col) {
   c.save(); c.translate(x, y); c._ink = '#3a2f22';
   const k = col || '#e2d6b8';
-  if (tipo === 'reto') { limb(c, 0, 0, 2 * s, -22 * s, 4.5 * s, k); limb(c, -4, 0, -2 * s, -20 * s, 4.5 * s, k); }
-  else if (tipo === 'lira') { limb2(c, 0, 0, 9 * s, -14 * s, -2 * s, -24 * s, 4.5 * s, k); limb2(c, -5, 1, 3 * s, -13 * s, -8 * s, -22 * s, 4.5 * s, k); }
-  else if (tipo === 'curvo') { limb2(c, 0, 0, 11 * s, -6 * s, 14 * s, -17 * s, 5 * s, k); limb2(c, -4, 1, -11 * s, -6 * s, -14 * s, -16 * s, 5 * s, k); }
-  else if (tipo === 'lua') { limb2(c, 0, 0, 15 * s, -3 * s, 19 * s, -14 * s, 4.5 * s, k); limb2(c, -3, 1, -14 * s, -3 * s, -18 * s, -13 * s, 4.5 * s, k); }
+  if (tipo === 'straight') { limb(c, 0, 0, 2 * s, -22 * s, 4.5 * s, k); limb(c, -4, 0, -2 * s, -20 * s, 4.5 * s, k); }
+  else if (tipo === 'lyre') { limb2(c, 0, 0, 9 * s, -14 * s, -2 * s, -24 * s, 4.5 * s, k); limb2(c, -5, 1, 3 * s, -13 * s, -8 * s, -22 * s, 4.5 * s, k); }
+  else if (tipo === 'curved') { limb2(c, 0, 0, 11 * s, -6 * s, 14 * s, -17 * s, 5 * s, k); limb2(c, -4, 1, -11 * s, -6 * s, -14 * s, -16 * s, 5 * s, k); }
+  else if (tipo === 'moon') { limb2(c, 0, 0, 15 * s, -3 * s, 19 * s, -14 * s, 4.5 * s, k); limb2(c, -3, 1, -14 * s, -3 * s, -18 * s, -13 * s, 4.5 * s, k); }
   else if (tipo === 'boss') {
     c.fillStyle = shade(k, -.35); ellipse(c, 0, -2, 11 * s, 6 * s); c.fill();
     limb2(c, 8 * s, -2, 16 * s, 2 * s, 18 * s, -9 * s, 4.5 * s, k);
     limb2(c, -8 * s, -2, -16 * s, 2 * s, -18 * s, -9 * s, 4.5 * s, k);
-  } else if (tipo === 'espiral') {
+  } else if (tipo === 'spiral') {
     for (const dir of [1, -1]) {
       c.beginPath(); c.moveTo(dir * 2, 0);
       for (let i = 0; i <= 22; i++) { const t = i / 22; c.lineTo(dir * (2 + Math.sin(t * 9) * 6 * s), -t * 30 * s); }
       c.lineWidth = 6 * s; c.strokeStyle = '#3a2f22'; c.lineCap = 'round'; c.stroke();
       c.lineWidth = 3.6 * s; c.strokeStyle = k; c.stroke();
     }
-  } else if (tipo === 'galho') {
+  } else if (tipo === 'branched') {
     for (const dir of [1, -1]) {
       limb(c, dir * 3, 0, dir * 8 * s, -24 * s, 4 * s, k);
       limb(c, dir * 6 * s, -12 * s, dir * 16 * s, -18 * s, 3 * s, k);
       limb(c, dir * 7 * s, -19 * s, dir * 17 * s, -28 * s, 3 * s, k);
     }
-  } else if (tipo === 'pa') {
+  } else if (tipo === 'palm') {
     for (const dir of [1, -1]) {
       limb(c, dir * 3, 0, dir * 12 * s, -16 * s, 4 * s, k);
       c.beginPath(); c.ellipse(dir * 19 * s, -20 * s, 11 * s, 7 * s, dir * .5, 0, TAU);
@@ -136,20 +136,20 @@ function drawHorn(c, x, y, tipo, s, col) {
 }
 function drawEar(c, x, y, tipo, s, fill, inner) {
   c._ink = inkFor(fill);
-  if (tipo === 'ponta' || tipo === 'tufo') {
+  if (tipo === 'ponta' || tipo === 'tuft') {
     // base mais larga e ponta mais baixa: assim a orelha encosta no crânio em
     // vez de flutuar como um triângulo solto acima da cabeça
     c.beginPath(); c.moveTo(x - s * .8, y + s * .7); c.lineTo(x + s * .1, y - s * 1.02); c.lineTo(x + s * .9, y + s * .55); c.closePath();
     ink(c, fill, 3.6);
     c.beginPath(); c.moveTo(x - s * .3, y + s * .4); c.lineTo(x + s * .08, y - s * .55); c.lineTo(x + s * .48, y + s * .34); c.closePath();
     c.fillStyle = inner; c.fill();
-    if (tipo === 'tufo') limb(c, x + s * .1, y - s * .98, x + s * .3, y - s * 1.85, 2.4, inkFor(fill));
-  } else if (tipo === 'gigante') {
+    if (tipo === 'tuft') limb(c, x + s * .1, y - s * .98, x + s * .3, y - s * 1.85, 2.4, inkFor(fill));
+  } else if (tipo === 'giant') {
     ellipse(c, x, y - s * .2, s * .78, s * 1.05, .25); ink(c, fill, 3.6);
     ellipse(c, x, y - s * .2, s * .44, s * .68, .25); c.fillStyle = inner; c.fill();
   } else if (tipo === 'caida') {
     ellipse(c, x, y + s * .5, s * .5, s * .95, .35); ink(c, fill, 3.6);
-  } else if (tipo === 'longa') {
+  } else if (tipo === 'long') {
     ellipse(c, x, y - s * .1, s * .38, s * 1.0, .35); ink(c, fill, 3.6);
     ellipse(c, x, y - s * .1, s * .18, s * .6, .35); c.fillStyle = inner; c.fill();
   } else { // redonda / pequena
@@ -160,33 +160,33 @@ function drawEar(c, x, y, tipo, s, fill, inner) {
 function drawTail(c, x, y, tipo, len, col, dark, wag) {
   c._ink = inkFor(col);
   const w = wag || 0;
-  if (tipo === 'sem') return;
-  if (tipo === 'peluda') {
+  if (tipo === 'none') return;
+  if (tipo === 'bushy') {
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .6, y - len * .35 + w, x - len, y - len * .55 + w * 1.6);
     c.lineWidth = 13; c.strokeStyle = c._ink; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 9; c.strokeStyle = col; c.stroke();
-  } else if (tipo === 'anelada') {
+  } else if (tipo === 'ringed') {
     const n = 7;
     for (let i = 0; i < n; i++) {
       const t = i / n, tx = x - len * t, ty = y - len * .55 * Math.sin(t * 2.1) + w * t;
       const t2 = (i + 1) / n, tx2 = x - len * t2, ty2 = y - len * .55 * Math.sin(t2 * 2.1) + w * t2;
       limb(c, tx, ty, tx2, ty2, 8, i % 2 ? dark : col);
     }
-  } else if (tipo === 'tufo') {
+  } else if (tipo === 'tuft') {
     limb(c, x, y, x - len * .85, y - len * .3 + w, 5, col);
     ellipse(c, x - len * .9, y - len * .34 + w, 6, 6); ink(c, dark, 3.4);
   } else if (tipo === 'crina') {
     for (let i = 0; i < 6; i++) limb(c, x, y, x - len * (.7 + i * .05), y + len * (.2 + i * .13) + w, 4, i % 2 ? dark : col);
-  } else if (tipo === 'remo') {
+  } else if (tipo === 'paddle') {
     ellipse(c, x - len * .7, y - 2 + w, len * .55, len * .3, -.3); ink(c, dark, 3.6);
-  } else if (tipo === 'bandeira') {
+  } else if (tipo === 'banner') {
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .7, y - len * .1, x - len, y - len * .5 + w);
     c.lineWidth = 22; c.strokeStyle = c._ink; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 17; c.strokeStyle = dark; c.stroke();
-  } else if (tipo === 'curta' || tipo === 'fina') {
-    limb(c, x, y, x - len * .8, y - len * .5 + w, tipo === 'curta' ? 6 : 3.5, col);
+  } else if (tipo === 'short' || tipo === 'fina') {
+    limb(c, x, y, x - len * .8, y - len * .5 + w, tipo === 'short' ? 6 : 3.5, col);
   } else { // longa
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .75, y + len * .12, x - len * .95, y - len * .5 + w);
@@ -197,10 +197,10 @@ function drawTail(c, x, y, tipo, len, col, dark, wag) {
 
 /* ---- QUADRÚPEDE (o desenhista principal) ---- */
 function drawQuad(c, sp, t) {
-  const P = QUAD[sp.plano] || QUAD.felino, o = sp.o;
+  const P = QUAD[sp.plan] || QUAD.feline, o = sp.o;
   const c1 = sp.c1, c2 = sp.c2, dk = shade(c1, -.26), ik = inkFor(c1);
   c._ink = ik;
-  const legL = P.legL * (o.pernaLonga || 1);
+  const legL = P.legL * (o.longLeg || 1);
   const bCY = GND - legL - P.bH * .5 - 2;
   const bCX = 62;
   const x0 = bCX - P.bL / 2, x1 = bCX + P.bL / 2;
@@ -220,10 +220,10 @@ function drawQuad(c, sp, t) {
   limb2(c, hipX, bCY + 4 - bob, hipX - 5 + sw2 * 5, GND - legL * .5, hipX + sw2 * 8, GND, P.legW, dk);
   limb2(c, shoX, bCY + 4 - bob, shoX + sw * 4, GND - legL * .5, shoX + sw * 8, GND, P.legW, dk);
   // cauda atrás do corpo
-  if (P.tail !== 'longa') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.cauda || P.tail, P.tailL, c1, c2, sw * 3);
+  if (P.tail !== 'long') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.tail || P.tail, P.tailL, c1, c2, sw * 3);
   // corpo
   bodyPath(); ink(c, c1, 4.6);
-  if (o.peludo) { // pelagem longa
+  if (o.furry) { // pelagem longa
     c.strokeStyle = shade(c1, -.18); c.lineWidth = 2.2;
     for (let i = 0; i < 9; i++) {
       const x = x0 + i / 8 * P.bL;
@@ -231,7 +231,7 @@ function drawQuad(c, sp, t) {
     }
   }
   applyPattern(c, sp, bodyPath, x0, bCY - P.bH * .6 - bob, x1, bCY + P.bH * .6 - bob);
-  if (o.espinho) { // porco-espinho
+  if (o.spine) { // porco-espinho
     c.strokeStyle = '#f0eadd'; c.lineWidth = 2.6; c.lineCap = 'round';
     for (let i = 0; i < 16; i++) {
       const x = x0 + rndSeeded(sp, i) * P.bL, y = bCY - P.bH * .5 - bob;
@@ -241,25 +241,25 @@ function drawQuad(c, sp, t) {
   // patas dianteiras
   limb2(c, hipX + 5, bCY + 3 - bob, hipX + sw * 5, GND - legL * .5, hipX + sw * 9, GND, P.legW, c1);
   limb2(c, shoX - 3, bCY + 3 - bob, shoX + sw2 * 4, GND - legL * .5, shoX + sw2 * 9, GND, P.legW, c1);
-  if (P.tail === 'longa') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.cauda || P.tail, P.tailL, c1, c2, sw * 4);
+  if (P.tail === 'long') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.tail || P.tail, P.tailL, c1, c2, sw * 4);
 
   // pescoço + cabeça
   const hr = P.headR;
-  const nA = P.neckA, nL = P.neckL * (o.pescoco !== undefined ? o.pescoco : 1);
+  const nA = P.neckA, nL = P.neckL * (o.neck !== undefined ? o.neck : 1);
   const nx = x1 - 4, ny = bCY - P.bH * .35 - bob;
   const hx = nx + Math.cos(nA) * nL, hy = ny + Math.sin(nA) * nL;
   limb(c, nx, ny, hx, hy, P.neckW, c1);
-  if (o.juba) { // juba / crina
+  if (o.mane) { // juba / crina
     const jc = c2;
-    if (sp.plano === 'equino') {
+    if (sp.plan === 'equine') {
       for (let i = 0; i <= 7; i++) {
         const t2 = i / 7, px = lerp(nx, hx, t2), py = lerp(ny, hy, t2);
-        limb(c, px, py - P.neckW * .35, px - 5, py - P.neckW * .35 - 9 * o.juba, 4.5, jc);
+        limb(c, px, py - P.neckW * .35, px - 5, py - P.neckW * .35 - 9 * o.mane, 4.5, jc);
       }
     } else {
       // coroa de tufos ao redor do pescoço/cabeça, com contorno, para a juba
       // aparecer de verdade no tamanho em que o bicho é visto no mapa
-      const R = (P.neckW * .42 + 11 * o.juba);
+      const R = (P.neckW * .42 + 11 * o.mane);
       c.beginPath();
       for (let i = 0; i < 11; i++) {
         const a = i / 11 * TAU;
@@ -270,48 +270,48 @@ function drawQuad(c, sp, t) {
     }
   }
   // corcovas de camelo
-  if (o.corcova) {
-    for (let i = 0; i < o.corcova; i++) {
-      const cx2 = bCX + (o.corcova === 1 ? 0 : (i ? 13 : -13));
+  if (o.hump) {
+    for (let i = 0; i < o.hump; i++) {
+      const cx2 = bCX + (o.hump === 1 ? 0 : (i ? 13 : -13));
       ellipse(c, cx2, bCY - P.bH * .55 - bob, 13, 12); ink(c, c1, 4.4);
     }
   }
   // a orelha do elefante vai ATRÁS da cabeça, senão vira um disco cobrindo o rosto
-  if (sp.plano === 'elefante') drawEar(c, hx - hr * .5, hy - hr * .05, 'gigante', P.earS, shade(c1, -.1), shade(c1, -.28));
+  if (sp.plan === 'elephant') drawEar(c, hx - hr * .5, hy - hr * .05, 'giant', P.earS, shade(c1, -.1), shade(c1, -.28));
   ellipse(c, hx, hy, hr, hr * .92); ink(c, c1, 4.4);
   // focinho
-  const fl = P.snoutL * (o.focinhoLongo || 1);
+  const fl = P.snoutL * (o.longSnout || 1);
   if (fl > 0) {
     ellipse(c, hx + hr * .72 + fl * .3, hy + hr * .22, fl * .62, P.snoutH * .55, .12); ink(c, mixc(c1, '#ffffff', .12), 4);
     ellipse(c, hx + hr * .72 + fl * .62, hy + hr * .16, 3, 2.4); c.fillStyle = ik; c.fill();
   }
-  if (o.presa && sp.plano !== 'elefante') { // presas (o elefante desenha as suas junto da tromba)
-    for (const d of [0, 1]) limb(c, hx + hr * .6, hy + hr * .5, hx + hr * .5 + 10 * o.presa, hy + hr * .5 - 12 * o.presa - d * 3, 4.5, '#f2ece0');
+  if (o.tusk && sp.plan !== 'elephant') { // presas (o elefante desenha as suas junto da tromba)
+    for (const d of [0, 1]) limb(c, hx + hr * .6, hy + hr * .5, hx + hr * .5 + 10 * o.tusk, hy + hr * .5 - 12 * o.tusk - d * 3, 4.5, '#f2ece0');
   }
-  if (o.corno) { // rinoceronte
+  if (o.prong) { // rinoceronte
     c.beginPath(); c.moveTo(hx + hr * .95 + fl * .3, hy + hr * .3);
-    c.quadraticCurveTo(hx + hr * 1.5, hy - 12 * o.corno, hx + hr * .95, hy - 22 * o.corno);
+    c.quadraticCurveTo(hx + hr * 1.5, hy - 12 * o.prong, hx + hr * .95, hy - 22 * o.prong);
     c.lineTo(hx + hr * .55, hy - 2); c.closePath(); ink(c, '#d9d2c2', 4);
   }
-  if (o.chifre) drawHorn(c, hx - 2, hy - hr * .78, o.chifre, o.chifreT || 1);
-  if (sp.plano !== 'elefante')
-    drawEar(c, hx - hr * .34, hy - hr * .78, o.orelha || P.ear, P.earS, c1, shade(c1, -.3));
+  if (o.horn) drawHorn(c, hx - 2, hy - hr * .78, o.horn, o.hornSize || 1);
+  if (sp.plan !== 'elephant')
+    drawEar(c, hx - hr * .34, hy - hr * .78, o.ear || P.ear, P.earS, c1, shade(c1, -.3));
   // tromba do elefante
-  if (sp.plano === 'elefante') {
+  if (sp.plan === 'elephant') {
     const swg = Math.sin(t * TAU) * 5;
     c.beginPath(); c.moveTo(hx + hr * .5, hy + hr * .3);
     c.quadraticCurveTo(hx + hr * 1.5 + swg, hy + hr * 1.3, hx + hr * 1.05 + swg * 1.6, GND - 6);
     c.lineWidth = 17; c.strokeStyle = ik; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 12.5; c.strokeStyle = c1; c.stroke();
-    for (const d of [0, 1]) limb(c, hx + hr * .55, hy + hr * .75, hx + hr * 1.05 + d * 3, hy + hr * 1.5 + 12 * (o.presa || 1), 5.5, '#f4efe2');
+    for (const d of [0, 1]) limb(c, hx + hr * .55, hy + hr * .75, hx + hr * 1.05 + d * 3, hy + hr * 1.5 + 12 * (o.tusk || 1), 5.5, '#f4efe2');
   }
-  if (sp.plano === 'girafa') { // ossicones
+  if (sp.plan === 'giraffe') { // ossicones
     for (const d of [-1, 1]) { limb(c, hx + d * 4, hy - hr * .8, hx + d * 5, hy - hr * 1.9, 3.4, c1); ellipse(c, hx + d * 5, hy - hr * 1.95, 3.2, 3.2); ink(c, c2, 2.6); }
   }
-  eye(c, hx + hr * .42, hy - hr * .18, hr * .3 * (o.olhoGrande ? 1.5 : 1));
-  if (o.ereto) { /* suricato em pé — marcador */ }
+  eye(c, hx + hr * .42, hy - hr * .18, hr * .3 * (o.bigEye ? 1.5 : 1));
+  if (o.upright) { /* suricato em pé — marcador */ }
 }
-function rndSeeded(sp, i) { return mulberry(hashStr(sp.nome) + i * 31)(); }
+function rndSeeded(sp, i) { return mulberry(hashStr(sp.key) + i * 31)(); }
 
 /* ---- PRIMATA ---- */
 function drawPrimate(c, sp, t) {
@@ -327,24 +327,24 @@ function drawPrimate(c, sp, t) {
   ink(c, c1, 4.6);
   const bodyPath = () => ellipse(c, bx, hipY - 22, 20, 26);
   applyPattern(c, sp, bodyPath, bx - 20, hipY - 46, bx + 20, hipY + 2);
-  if (sp.o.costas === 'prata') { c.save(); bodyPath(); c.clip(); c.fillStyle = '#b8b4ac'; ellipse(c, bx - 3, hipY - 30, 17, 12); c.fill(); c.restore(); }
+  if (sp.o.back === 'silver') { c.save(); bodyPath(); c.clip(); c.fillStyle = '#b8b4ac'; ellipse(c, bx - 3, hipY - 30, 17, 12); c.fill(); c.restore(); }
   // braços
-  const aL = sp.o.bracoLongo ? 42 : 30;
+  const aL = sp.o.longArm ? 42 : 30;
   limb2(c, bx - 13, hipY - 36, bx - 24, hipY - 36 + aL * .5, bx - 21 + sw * 5, hipY - 36 + aL, 8, c1);
   limb2(c, bx + 13, hipY - 36, bx + 24, hipY - 36 + aL * .5, bx + 21 - sw * 5, hipY - 36 + aL, 8, c1);
   // cabeça
   const hy = hipY - 58, hx = bx + 2;
   ellipse(c, hx, hy, 15, 15.5); ink(c, c1, 4.4);
   ellipse(c, hx + 2, hy + 5, 10, 8); ink(c, mixc(c2, '#ffffff', .1), 3.4);
-  if (sp.o.juba) { for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; ellipse(c, hx + Math.cos(a) * 15, hy + Math.sin(a) * 15, 7 * sp.o.juba, 7 * sp.o.juba); c.fillStyle = c2; c.fill(); } ellipse(c, hx, hy, 15, 15.5); ink(c, c1, 4.4); ellipse(c, hx + 2, hy + 5, 10, 8); ink(c, mixc(c2, '#fff', .1), 3.4); }
-  if (sp.padrao === 'face') { // mandril
+  if (sp.o.mane) { for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; ellipse(c, hx + Math.cos(a) * 15, hy + Math.sin(a) * 15, 7 * sp.o.mane, 7 * sp.o.mane); c.fillStyle = c2; c.fill(); } ellipse(c, hx, hy, 15, 15.5); ink(c, c1, 4.4); ellipse(c, hx + 2, hy + 5, 10, 8); ink(c, mixc(c2, '#fff', .1), 3.4); }
+  if (sp.pattern === 'face') { // mandril
     c.fillStyle = c2; ellipse(c, hx - 3, hy + 4, 3.5, 7); c.fill(); ellipse(c, hx + 8, hy + 4, 3.5, 7); c.fill();
     c.fillStyle = '#d64a2a'; ellipse(c, hx + 3, hy + 8, 3, 7); c.fill();
   }
   drawEar(c, hx - 14, hy - 2, 'redonda', 8, c1, shade(c1, -.3));
   drawEar(c, hx + 14, hy - 2, 'redonda', 8, c1, shade(c1, -.3));
   eye(c, hx - 2, hy - 1, 4); eye(c, hx + 7, hy - 1, 4);
-  if (sp.o.cauda === 'anelada') drawTail(c, bx - 15, hipY - 6, 'anelada', 38, c1, sp.c2, sw * 4);
+  if (sp.o.tail === 'ringed') drawTail(c, bx - 15, hipY - 6, 'ringed', 38, c1, sp.c2, sw * 4);
 }
 
 /* ---- CANGURU ---- */
@@ -352,7 +352,7 @@ function drawKangaroo(c, sp, t) {
   const c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 60, hop = Math.abs(Math.sin(t * TAU)) * 7;
   const hipY = GND - 30 - hop;
-  drawTail(c, bx - 20, hipY + 6, 'curta', 8, c1, c2, 0);
+  drawTail(c, bx - 20, hipY + 6, 'short', 8, c1, c2, 0);
   c.beginPath(); c.moveTo(bx - 22, hipY + 8); c.quadraticCurveTo(bx - 46, hipY + 22, bx - 52, GND - 2);
   c.lineWidth = 16; c.strokeStyle = ik; c.lineCap = 'round'; c.stroke(); c.lineWidth = 11.5; c.strokeStyle = c1; c.stroke();
   limb2(c, bx - 6, hipY + 4, bx - 16, hipY + 22 + hop * .3, bx + 6, GND, 12, shade(c1, -.2));
@@ -367,35 +367,35 @@ function drawKangaroo(c, sp, t) {
   ellipse(c, hx, hy, 11, 10); ink(c, c1, 4.2);
   ellipse(c, hx + 10, hy + 3, 8, 5.5, .1); ink(c, mixc(c1, '#fff', .1), 3.6);
   ellipse(c, hx + 16, hy + 2, 2.4, 2); c.fillStyle = ik; c.fill();
-  drawEar(c, hx - 3, hy - 12, 'longa', 12, c1, shade(c1, -.3));
-  drawEar(c, hx + 5, hy - 13, 'longa', 12, c1, shade(c1, -.3));
+  drawEar(c, hx - 3, hy - 12, 'long', 12, c1, shade(c1, -.3));
+  drawEar(c, hx + 5, hy - 13, 'long', 12, c1, shade(c1, -.3));
   eye(c, hx + 5, hy - 2, 3.6);
 }
 
 /* ---- AVE (terrestre, voadora, aquática) ---- */
 function drawBird(c, sp, t) {
   const o = sp.o, c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
-  const legL = 16 * (o.pernaLonga || 1), sw = Math.sin(t * TAU);
+  const legL = 16 * (o.longLeg || 1), sw = Math.sin(t * TAU);
   const bY = GND - legL - 14, bx = 62;
   limb2(c, bx - 3, bY + 6, bx - 5 + sw * 4, GND - legL * .45, bx - 6 + sw * 7, GND, 4, '#e0a83c');
   limb2(c, bx + 3, bY + 6, bx + 5 - sw * 4, GND - legL * .45, bx + 6 - sw * 7, GND, 4, '#e0a83c');
-  if (o.nada) { ellipse(c, bx, GND - 4, 26, 6); c.fillStyle = 'rgba(80,150,190,.5)'; c.fill(); }
+  if (o.swims) { ellipse(c, bx, GND - 4, 26, 6); c.fillStyle = 'rgba(80,150,190,.5)'; c.fill(); }
   // corpo
   ellipse(c, bx, bY, 24, 17, -.12); ink(c, c1, 4.6);
   const bp = () => { c.beginPath(); c.ellipse(bx, bY, 24, 17, -.12, 0, TAU); };
   applyPattern(c, sp, bp, bx - 24, bY - 17, bx + 24, bY + 17);
   // asa
-  const asa = o.asa || 1;
+  const asa = o.wing || 1;
   c.save(); c.translate(bx - 2, bY - 2); c.rotate(sw * .12);
   ellipse(c, 0, 0, 15 * asa, 9 * asa, -.25); ink(c, shade(c1, -.16), 3.6);
   c.restore();
-  if (o.cauda === 'leque') { // pavão
+  if (o.tail === 'fan') { // pavão
     for (let i = 0; i < 9; i++) {
       const a = -2.3 + i / 8 * 1.9;
       limb(c, bx - 18, bY + 4, bx - 18 + Math.cos(a) * 46, bY + 4 + Math.sin(a) * 46, 5, i % 2 ? c1 : c2);
       ellipse(c, bx - 18 + Math.cos(a) * 46, bY + 4 + Math.sin(a) * 46, 5, 5); ink(c, '#2f8a7a', 2.4);
     }
-  } else if (o.cauda === 'longa' || o.cauda === 'pluma') {
+  } else if (o.tail === 'long' || o.tail === 'plume') {
     // penas retrizes: leque curto e largo, não uma lança fina
     for (let i = 0; i < 4; i++) {
       const ang = .18 + i * .16;
@@ -405,27 +405,27 @@ function drawBird(c, sp, t) {
     ellipse(c, bx - 24, bY + 3, 11, 7, .35); ink(c, shade(c1, -.2), 3.6);
   }
   // pescoço + cabeça
-  const nl = 16 * (o.pescoco || 1);
+  const nl = 16 * (o.neck || 1);
   const hx = bx + 17, hy = bY - 10 - nl;
-  limb(c, bx + 12, bY - 6, hx, hy + 4, 9 * (o.pescoco > 1.2 ? .8 : 1), c1);
-  ellipse(c, hx, hy, 10, 9.5); ink(c, o.carecaC || c1, 4.2);
-  if (o.crista) {
-    for (let i = 0; i < 5; i++) limb(c, hx - 2 + i, hy - 8, hx - 6 + i * 3, hy - 8 - 12 * o.crista, 3, c2);
+  limb(c, bx + 12, bY - 6, hx, hy + 4, 9 * (o.neck > 1.2 ? .8 : 1), c1);
+  ellipse(c, hx, hy, 10, 9.5); ink(c, o.baldHead || c1, 4.2);
+  if (o.crest) {
+    for (let i = 0; i < 5; i++) limb(c, hx - 2 + i, hy - 8, hx - 6 + i * 3, hy - 8 - 12 * o.crest, 3, c2);
   }
   // bico
-  const bk = o.bico || 'reto', bc = '#e8a82c';
+  const bk = o.beak || 'straight', bc = '#e8a82c';
   c.beginPath();
-  if (bk === 'gancho') { c.moveTo(hx + 6, hy - 4); c.lineTo(hx + 20, hy - 1); c.quadraticCurveTo(hx + 18, hy + 9, hx + 8, hy + 5); c.closePath(); ink(c, '#e8b83c', 3.4); }
-  else if (bk === 'tucano') { c.moveTo(hx + 5, hy - 6); c.quadraticCurveTo(hx + 40, hy - 4, hx + 34, hy + 7); c.quadraticCurveTo(hx + 18, hy + 10, hx + 6, hy + 6); c.closePath(); ink(c, c2, 3.6); }
-  else if (bk === 'calau') { c.moveTo(hx + 5, hy - 5); c.quadraticCurveTo(hx + 34, hy - 2, hx + 28, hy + 8); c.quadraticCurveTo(hx + 15, hy + 9, hx + 6, hy + 6); c.closePath(); ink(c, c2, 3.6); c.beginPath(); c.ellipse(hx + 16, hy - 9, 12, 5, 0, 0, TAU); ink(c, c2, 3.2); }
-  else if (bk === 'longo') { c.moveTo(hx + 5, hy - 3); c.lineTo(hx + 32, hy + 1); c.lineTo(hx + 5, hy + 5); c.closePath(); ink(c, bc, 3.2); }
-  else if (bk === 'curvo') { c.moveTo(hx + 4, hy - 4); c.quadraticCurveTo(hx + 22, hy + 2, hx + 14, hy + 16); c.quadraticCurveTo(hx + 8, hy + 6, hx + 3, hy + 4); c.closePath(); ink(c, '#33302c', 3.2); }
-  else if (bk === 'colher') { c.moveTo(hx + 4, hy - 3); c.lineTo(hx + 22, hy); c.lineTo(hx + 4, hy + 5); c.closePath(); ink(c, '#33302c', 3); c.beginPath(); c.ellipse(hx + 25, hy + 1, 7, 5, 0, 0, TAU); ink(c, '#33302c', 3); }
-  else if (bk === 'bolsa') { c.moveTo(hx + 4, hy - 4); c.lineTo(hx + 34, hy + 2); c.quadraticCurveTo(hx + 22, hy + 20, hx + 4, hy + 6); c.closePath(); ink(c, bc, 3.4); }
-  else if (bk === 'pato') { c.moveTo(hx + 4, hy - 4); c.quadraticCurveTo(hx + 20, hy - 3, hx + 20, hy + 2); c.quadraticCurveTo(hx + 18, hy + 7, hx + 4, hy + 6); c.closePath(); ink(c, c2, 3.4); }
+  if (bk === 'hooked') { c.moveTo(hx + 6, hy - 4); c.lineTo(hx + 20, hy - 1); c.quadraticCurveTo(hx + 18, hy + 9, hx + 8, hy + 5); c.closePath(); ink(c, '#e8b83c', 3.4); }
+  else if (bk === 'toucan') { c.moveTo(hx + 5, hy - 6); c.quadraticCurveTo(hx + 40, hy - 4, hx + 34, hy + 7); c.quadraticCurveTo(hx + 18, hy + 10, hx + 6, hy + 6); c.closePath(); ink(c, c2, 3.6); }
+  else if (bk === 'hornbill') { c.moveTo(hx + 5, hy - 5); c.quadraticCurveTo(hx + 34, hy - 2, hx + 28, hy + 8); c.quadraticCurveTo(hx + 15, hy + 9, hx + 6, hy + 6); c.closePath(); ink(c, c2, 3.6); c.beginPath(); c.ellipse(hx + 16, hy - 9, 12, 5, 0, 0, TAU); ink(c, c2, 3.2); }
+  else if (bk === 'long') { c.moveTo(hx + 5, hy - 3); c.lineTo(hx + 32, hy + 1); c.lineTo(hx + 5, hy + 5); c.closePath(); ink(c, bc, 3.2); }
+  else if (bk === 'curved') { c.moveTo(hx + 4, hy - 4); c.quadraticCurveTo(hx + 22, hy + 2, hx + 14, hy + 16); c.quadraticCurveTo(hx + 8, hy + 6, hx + 3, hy + 4); c.closePath(); ink(c, '#33302c', 3.2); }
+  else if (bk === 'spoon') { c.moveTo(hx + 4, hy - 3); c.lineTo(hx + 22, hy); c.lineTo(hx + 4, hy + 5); c.closePath(); ink(c, '#33302c', 3); c.beginPath(); c.ellipse(hx + 25, hy + 1, 7, 5, 0, 0, TAU); ink(c, '#33302c', 3); }
+  else if (bk === 'pouch') { c.moveTo(hx + 4, hy - 4); c.lineTo(hx + 34, hy + 2); c.quadraticCurveTo(hx + 22, hy + 20, hx + 4, hy + 6); c.closePath(); ink(c, bc, 3.4); }
+  else if (bk === 'duck') { c.moveTo(hx + 4, hy - 4); c.quadraticCurveTo(hx + 20, hy - 3, hx + 20, hy + 2); c.quadraticCurveTo(hx + 18, hy + 7, hx + 4, hy + 6); c.closePath(); ink(c, c2, 3.4); }
   else if (bk === 'puffin') { c.moveTo(hx + 5, hy - 6); c.quadraticCurveTo(hx + 20, hy, hx + 6, hy + 7); c.closePath(); ink(c, '#e8641c', 3.4); }
   else { c.moveTo(hx + 5, hy - 4); c.lineTo(hx + 19, hy + 1); c.lineTo(hx + 5, hy + 5); c.closePath(); ink(c, bc, 3.2); }
-  eye(c, hx + 2, hy - 2, o.olhoGrande ? 5.5 : 3.4);
+  eye(c, hx + 2, hy - 2, o.bigEye ? 5.5 : 3.4);
 }
 
 /* ---- PINGUIM ---- */
@@ -439,8 +439,8 @@ function drawPenguin(c, sp, t) {
   const hy = bY - 34;
   ellipse(c, bx + 1, hy, 15, 14); ink(c, c1, 4.4);
   ellipse(c, bx + 6, hy + 4, 9, 8); ink(c, c2, 3);
-  if (sp.o.gola) { c.beginPath(); c.ellipse(bx + 12, hy + 6, 7, 6, 0, 0, TAU); c.fillStyle = sp.o.gola; c.fill(); }
-  if (sp.o.crista) { for (let i = 0; i < 4; i++) limb(c, bx + 2 - i * 2, hy - 8, bx - 12 - i * 4, hy - 16 - i * 2, 3, '#f2d43c'); }
+  if (sp.o.ruff) { c.beginPath(); c.ellipse(bx + 12, hy + 6, 7, 6, 0, 0, TAU); c.fillStyle = sp.o.ruff; c.fill(); }
+  if (sp.o.crest) { for (let i = 0; i < 4; i++) limb(c, bx + 2 - i * 2, hy - 8, bx - 12 - i * 4, hy - 16 - i * 2, 3, '#f2d43c'); }
   c.beginPath(); c.moveTo(bx + 12, hy + 1); c.lineTo(bx + 26, hy + 4); c.lineTo(bx + 12, hy + 7); c.closePath(); ink(c, '#e8922c', 3.2);
   eye(c, bx + 9, hy - 2, 3.4);
 }
@@ -461,12 +461,12 @@ function drawLizard(c, sp, t) {
   const bp = () => { c.beginPath(); c.ellipse(bx, bY, bL * .5, bH, 0, 0, TAU); };
   bp(); ink(c, c1, 4.4);
   applyPattern(c, sp, bp, bx - bL * .5, bY - bH, bx + bL * .5, bY + bH);
-  if (croc || o.crista) { // crista dorsal
+  if (croc || o.crest) { // crista dorsal
     c.fillStyle = shade(c1, -.3);
     for (let i = 0; i < 9; i++) { const x = bx - bL * .42 + i / 8 * bL * .8; c.beginPath(); c.moveTo(x - 3, bY - bH + 2); c.lineTo(x, bY - bH - 6); c.lineTo(x + 3, bY - bH + 2); c.closePath(); c.fill(); }
   }
   // cabeça
-  const fl = (o.focinhoLongo || 1), hx = bx + bL * .52 + (croc ? 12 : 8), hy = bY - 3;
+  const fl = (o.longSnout || 1), hx = bx + bL * .52 + (croc ? 12 : 8), hy = bY - 3;
   if (croc) {
     c.beginPath(); c.moveTo(hx - 14, hy - 7); c.lineTo(hx + 22 * fl, hy - 3); c.lineTo(hx + 22 * fl, hy + 3); c.lineTo(hx - 14, hy + 8); c.closePath(); ink(c, c1, 4.2);
     c.strokeStyle = '#fff'; c.lineWidth = 1.6;
@@ -475,8 +475,8 @@ function drawLizard(c, sp, t) {
     dotEye(c, hx - 8, hy - 9, 2.6);
   } else {
     ellipse(c, hx, hy, 12 * fl, 8.5); ink(c, c1, 4.2);
-    if (o.colar) { c.beginPath(); c.ellipse(hx - 4, hy, 16, 15, 0, 0, TAU); ink(c, c2, 3.4); ellipse(c, hx, hy, 12 * fl, 8.5); ink(c, c1, 4.2); }
-    if (o.corno) for (const d of [0, 1]) limb(c, hx + 6 + d * 5, hy - 4, hx + 12 + d * 6, hy - 12, 3, c2);
+    if (o.collar) { c.beginPath(); c.ellipse(hx - 4, hy, 16, 15, 0, 0, TAU); ink(c, c2, 3.4); ellipse(c, hx, hy, 12 * fl, 8.5); ink(c, c1, 4.2); }
+    if (o.prong) for (const d of [0, 1]) limb(c, hx + 6 + d * 5, hy - 4, hx + 12 + d * 6, hy - 12, 3, c2);
     dotEye(c, hx + 3, hy - 3, 3);
     limb(c, hx + 11 * fl, hy + 3, hx + 17 * fl, hy + 3, 2, '#d64a4a');
   }
@@ -501,18 +501,18 @@ function drawSnake(c, sp, t) {
   for (let i = 0; i < 22; i++) { const p = pts[i]; c.beginPath(); c.arc(p[0], p[1], 5, 0, TAU); c.stroke(); }
   c.restore();
   const hp = pts[pts.length - 1], hx = hp[0], hy = hp[1];
-  if (sp.o.capuz) { ellipse(c, hx - 6, hy + 2, 15, 13); ink(c, shade(c1, -.12), 4); }
+  if (sp.o.hood) { ellipse(c, hx - 6, hy + 2, 15, 13); ink(c, shade(c1, -.12), 4); }
   ellipse(c, hx, hy, 11, 8, -.3); ink(c, c1, 4.2);
   dotEye(c, hx + 3, hy - 3, 2.6);
   c.strokeStyle = '#d64a4a'; c.lineWidth = 2; c.beginPath(); c.moveTo(hx + 9, hy + 1); c.lineTo(hx + 18, hy - 2); c.moveTo(hx + 14, hy - .5); c.lineTo(hx + 18, hy + 3); c.stroke();
-  if (sp.o.chocalho) { ellipse(c, pts[0][0], pts[0][1], 5, 4); ink(c, '#c9b58a', 3); }
+  if (sp.o.rattle) { ellipse(c, pts[0][0], pts[0][1], 5, 4); ink(c, '#c9b58a', 3); }
 }
 
 /* ---- TARTARUGA ---- */
 function drawTurtle(c, sp, t) {
   const c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 60, bY = GND - 16, sw = Math.sin(t * TAU);
-  if (sp.o.nadadeira) {
+  if (sp.o.flipper) {
     for (const d of [-1, 1]) { c.save(); c.translate(bx + d * 20, bY + 6); c.rotate(d * (.6 + sw * .3)); ellipse(c, 0, 8, 6, 16); ink(c, shade(c1, -.15), 3.4); c.restore(); }
   } else {
     for (const d of [-1, 1]) { ellipse(c, bx + d * 18 + sw * d * 3, GND - 4, 8, 5); ink(c, shade(c1, -.15), 3.4); }
@@ -540,17 +540,17 @@ function drawFrog(c, sp, t) {
   ellipse(c, bx, bY, 24, 17); ink(c, c1, 4.6);
   const bp = () => { c.beginPath(); c.ellipse(bx, bY, 24, 17, 0, 0, TAU); };
   applyPattern(c, sp, bp, bx - 24, bY - 17, bx + 24, bY + 17);
-  const er = sp.o.olhoGrande ? 9 : 7;
-  for (const d of [-1, 1]) { ellipse(c, bx + d * 9 - 2, bY - 16, er, er); ink(c, c1, 3.6); ellipse(c, bx + d * 9 - 2, bY - 16, er * .62, er * .62); c.fillStyle = sp.o.olhoGrande ? c2 : '#f2ead8'; c.fill(); ellipse(c, bx + d * 9 - 2, bY - 16, er * .3, er * .42); c.fillStyle = '#191512'; c.fill(); }
+  const er = sp.o.bigEye ? 9 : 7;
+  for (const d of [-1, 1]) { ellipse(c, bx + d * 9 - 2, bY - 16, er, er); ink(c, c1, 3.6); ellipse(c, bx + d * 9 - 2, bY - 16, er * .62, er * .62); c.fillStyle = sp.o.bigEye ? c2 : '#f2ead8'; c.fill(); ellipse(c, bx + d * 9 - 2, bY - 16, er * .3, er * .42); c.fillStyle = '#191512'; c.fill(); }
   c.strokeStyle = ik; c.lineWidth = 2.4; c.beginPath(); c.arc(bx + 2, bY - 2, 13, .15, 1.0); c.stroke();
-  if (sp.o.branquia) for (const d of [-1, 1]) for (let i = 0; i < 3; i++) limb(c, bx + d * 14, bY - 10 + i * 4, bx + d * 26, bY - 16 + i * 6, 3, c2);
+  if (sp.o.gills) for (const d of [-1, 1]) for (let i = 0; i < 3; i++) limb(c, bx + d * 14, bY - 10 + i * 4, bx + d * 26, bY - 16 + i * 6, 3, c2);
 }
 
 /* ---- PEIXE / CETÁCEO / RAIA ---- */
 function drawFish(c, sp, t) {
   const o = sp.o, c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 62, bY = GND - 34, sw = Math.sin(t * TAU);
-  if (o.raia) { // arraia manta — vista frontal, asas batendo
+  if (o.ray) { // arraia manta — vista frontal, asas batendo
     c.save(); c.translate(bx, bY);
     const flap = sw * 7;
     // cauda varre para trás; apontada para baixo ela encostava no chão e a
@@ -573,29 +573,29 @@ function drawFish(c, sp, t) {
     dotEye(c, -12, -6, 2.8); dotEye(c, 12, -6, 2.8);
     c.restore(); return;
   }
-  const L = o.golfinho ? 34 : 28, Hh = o.mola ? 26 : 16;
+  const L = o.dolphin ? 34 : 28, Hh = o.spring ? 26 : 16;
   // cauda
   c.save(); c.translate(bx - L, bY); c.rotate(sw * .25);
   c.beginPath();
-  if (o.golfinho) { c.moveTo(4, 0); c.lineTo(-16, -9); c.quadraticCurveTo(-8, 0, -16, 9); c.closePath(); }
+  if (o.dolphin) { c.moveTo(4, 0); c.lineTo(-16, -9); c.quadraticCurveTo(-8, 0, -16, 9); c.closePath(); }
   else { c.moveTo(4, 0); c.lineTo(-15, -13); c.lineTo(-9, 0); c.lineTo(-15, 13); c.closePath(); }
   ink(c, shade(c1, -.12), 3.8); c.restore();
   // corpo
   c.beginPath();
   c.moveTo(bx - L, bY);
-  c.bezierCurveTo(bx - L * .5, bY - Hh, bx + L * .5, bY - Hh * .9, bx + L * (o.focinhoLongo ? 1.35 : 1.05), bY - (o.golfinho ? 2 : 0));
+  c.bezierCurveTo(bx - L * .5, bY - Hh, bx + L * .5, bY - Hh * .9, bx + L * (o.longSnout ? 1.35 : 1.05), bY - (o.dolphin ? 2 : 0));
   c.bezierCurveTo(bx + L * .5, bY + Hh * .8, bx - L * .5, bY + Hh, bx - L, bY); c.closePath();
   ink(c, c1, 4.6);
   const bp = () => { c.beginPath(); c.ellipse(bx, bY, L, Hh * .85, 0, 0, TAU); };
   applyPattern(c, sp, bp, bx - L, bY - Hh, bx + L, bY + Hh);
   // barbatana dorsal
-  if (o.barbatana !== 0) {
-    const bs = o.barbatana || 1;
+  if (o.dorsal !== 0) {
+    const bs = o.dorsal || 1;
     c.beginPath(); c.moveTo(bx - 6, bY - Hh * .8); c.quadraticCurveTo(bx + 4, bY - Hh - 14 * bs, bx + 12, bY - Hh * .7); c.closePath(); ink(c, shade(c1, -.15), 3.8);
   }
   // nadadeira peitoral
   c.save(); c.translate(bx + 4, bY + 6); c.rotate(.5 + sw * .2); ellipse(c, 0, 6, 5, 13); ink(c, shade(c1, -.15), 3.4); c.restore();
-  if (o.golfinho) { c.strokeStyle = ik; c.lineWidth = 2.4; c.beginPath(); c.arc(bx + L * .78, bY + 2, 9, -.3, .9); c.stroke(); }
+  if (o.dolphin) { c.strokeStyle = ik; c.lineWidth = 2.4; c.beginPath(); c.arc(bx + L * .78, bY + 2, 9, -.3, .9); c.stroke(); }
   else { c.strokeStyle = ik; c.lineWidth = 2.4; c.beginPath(); c.arc(bx + L * .74, bY + 1, 8, -.2, 1.1); c.stroke(); }
   eye(c, bx + L * .66, bY - 4, 3.4);
 }
@@ -615,11 +615,11 @@ function drawSeal(c, sp, t) {
   const hx = bx + 24, hy = bY - 32 - sw * 2;
   limb(c, bx + 16, bY - 20, hx, hy + 4, 14, c1);
   ellipse(c, hx, hy, 12, 11); ink(c, c1, 4.2);
-  if (sp.o.juba) { for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ellipse(c, hx + Math.cos(a) * 11, hy + Math.sin(a) * 11, 6, 6); c.fillStyle = shade(c1, -.22); c.fill(); } ellipse(c, hx, hy, 12, 11); ink(c, c1, 4.2); }
+  if (sp.o.mane) { for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ellipse(c, hx + Math.cos(a) * 11, hy + Math.sin(a) * 11, 6, 6); c.fillStyle = shade(c1, -.22); c.fill(); } ellipse(c, hx, hy, 12, 11); ink(c, c1, 4.2); }
   ellipse(c, hx + 8, hy + 4, 7, 5.5); ink(c, mixc(c1, '#fff', .15), 3.2);
   ellipse(c, hx + 13, hy + 3, 2.6, 2.2); c.fillStyle = ik; c.fill();
-  if (sp.o.presa) for (const d of [0, 1]) limb(c, hx + 8, hy + 7, hx + 6 + d * 5, hy + 7 + 16 * sp.o.presa, 4, '#f2ece0');
-  if (sp.o.bigode) { c.strokeStyle = '#f2ece0'; c.lineWidth = 1.4; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(hx + 9, hy + 3); c.lineTo(hx + 22, hy - 2 + i * 3); c.stroke(); } }
+  if (sp.o.tusk) for (const d of [0, 1]) limb(c, hx + 8, hy + 7, hx + 6 + d * 5, hy + 7 + 16 * sp.o.tusk, 4, '#f2ece0');
+  if (sp.o.whiskers) { c.strokeStyle = '#f2ece0'; c.lineWidth = 1.4; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(hx + 9, hy + 3); c.lineTo(hx + 22, hy - 2 + i * 3); c.stroke(); } }
   eye(c, hx + 5, hy - 2, 3.8);
 }
 
@@ -650,7 +650,7 @@ function drawBat(c, sp, t) {
 function drawBug(c, sp, t) {
   const o = sp.o, c1 = sp.c1, c2 = sp.c2, ik = inkFor(c1); c._ink = ik;
   const bx = 62, bY = GND - 18, sw = Math.sin(t * TAU);
-  if (o.borboleta) {
+  if (o.butterfly) {
     for (const d of [-1, 1]) {
       c.save(); c.translate(bx, bY - 6); c.scale(d, 1); c.rotate(sw * .2);
       c.beginPath(); c.ellipse(16, -10, 17, 13, -.3, 0, TAU); ink(c, c1, 3.6);
@@ -661,14 +661,14 @@ function drawBug(c, sp, t) {
     for (const d of [-1, 1]) limb(c, bx, bY - 18, bx + d * 9, bY - 30, 2, '#2f2a24');
     return;
   }
-  if (o.aranha || o.escorpiao) {
+  if (o.spider || o.scorpion) {
     for (let i = 0; i < 4; i++) for (const d of [-1, 1]) {
       const a = -.5 + i * .38;
       limb2(c, bx, bY, bx + d * (16 + i * 3), bY - 12 + i * 4 + sw * 2, bx + d * (24 + i * 5), GND - 2, 3.4, c1);
     }
     ellipse(c, bx - 8, bY, 15, 12); ink(c, c1, 4);
     ellipse(c, bx + 10, bY - 2, 10, 9); ink(c, shade(c1, .1), 3.6);
-    if (o.escorpiao) {
+    if (o.scorpion) {
       for (const d of [-1, 1]) { limb(c, bx + 14, bY + d * 4, bx + 26, bY + d * 9, 4, c2); ellipse(c, bx + 30, bY + d * 11, 6, 4, d * .4); ink(c, c2, 3); }
       const pts = [[bx - 18, bY - 4], [bx - 28, bY - 16], [bx - 26, bY - 30], [bx - 14, bY - 34]];
       for (let i = 0; i < 3; i++) limb(c, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 6, c2);
@@ -676,12 +676,12 @@ function drawBug(c, sp, t) {
     } else { dotEye(c, bx + 14, bY - 5, 2); dotEye(c, bx + 16, bY - 1, 1.8); }
     return;
   }
-  if (o.pau) {
+  if (o.stick) {
     limb(c, bx - 26, bY + 6, bx + 24, bY - 8, 5, c1);
     for (let i = 0; i < 3; i++) for (const d of [-1, 1]) limb(c, bx - 14 + i * 13, bY + 2 - i * 3, bx - 20 + i * 16, bY + d * 18 - i * 3, 2.4, c2);
     dotEye(c, bx + 22, bY - 9, 2); return;
   }
-  if (o.louva) {
+  if (o.mantis) {
     limb2(c, bx - 4, bY + 4, bx - 14, bY + 12, bx - 20, GND, 3, c1);
     limb2(c, bx + 2, bY + 4, bx + 12, bY + 12, bx + 16, GND, 3, c1);
     c.save(); c.translate(bx, bY); c.rotate(-.35);
@@ -703,7 +703,7 @@ function drawBug(c, sp, t) {
 
 /* ---- PREGUIÇA / TAMANDUÁ / TATU ---- */
 function drawXenarthra(c, sp, t) {
-  if (sp.o.placas) { // tatu
+  if (sp.o.plates) { // tatu
     const c1 = sp.c1, ik = inkFor(c1); c._ink = ik;
     const bx = 60, bY = GND - 16, sw = Math.sin(t * TAU);
     for (const d of [-1, 1]) limb(c, bx + d * 14, bY + 6, bx + d * 15 + sw * d * 3, GND, 6, shade(c1, -.2));
@@ -712,7 +712,7 @@ function drawXenarthra(c, sp, t) {
     for (let i = 1; i < 6; i++) { const x = bx - 22 + i * 8; c.beginPath(); c.moveTo(x, bY + 1); c.lineTo(x - 2, bY - 18 + Math.abs(i - 3) * 3); c.stroke(); }
     const hx = bx + 30;
     ellipse(c, hx, bY - 4, 11, 7, .12); ink(c, c1, 4);
-    drawEar(c, hx - 4, bY - 12, 'longa', 7, c1, shade(c1, -.3));
+    drawEar(c, hx - 4, bY - 12, 'long', 7, c1, shade(c1, -.3));
     dotEye(c, hx + 4, bY - 6, 2.4);
     drawTail(c, bx - 27, bY - 2, 'fina', 20, c1, sp.c2, sw * 3);
     return;
@@ -722,15 +722,15 @@ function drawXenarthra(c, sp, t) {
 
 /* ---- ROTEADOR ---- */
 const DRAWER = {
-  primata: drawPrimate, canguru: drawKangaroo, ave: drawBird, pinguim: drawPenguin,
-  lagarto: drawLizard, cobra: drawSnake, tartaruga: drawTurtle, anfibio: drawFrog,
-  peixe: drawFish, foca: drawSeal, morcego: drawBat, inseto: drawBug,
-  pernalta: drawBird, preguica: drawXenarthra,
+  primate: drawPrimate, kangaroo: drawKangaroo, bird: drawBird, penguin: drawPenguin,
+  lizard: drawLizard, snake: drawSnake, turtle: drawTurtle, amphibian: drawFrog,
+  fish: drawFish, seal: drawSeal, bat: drawBat, insect: drawBug,
+  wader: drawBird, sloth: drawXenarthra,
 };
 function drawSpecies(c, sp, frame) {
   const t = (frame % FRAMES) / FRAMES;
   c.lineJoin = 'round'; c.lineCap = 'round';
-  (DRAWER[sp.plano] || drawQuad)(c, sp, t);
+  (DRAWER[sp.plan] || drawQuad)(c, sp, t);
 }
 
 /** Mede a linha opaca mais alta do sprite e guarda como fração da altura da
@@ -771,7 +771,7 @@ function getSprite(sp, frame, px) {
 }
 /** altura desejada do sprite no mundo (px a zoom 1).
  *  O expoente comprime os gigantes: linear, um elefante cobria meio recinto. */
-const spriteH = sp => Math.round(26 + 52 * Math.pow(Math.min(sp.esc, 2.3), .85));
+const spriteH = sp => Math.round(26 + 52 * Math.pow(Math.min(sp.scale, 2.3), .85));
 
 /** canvas NOVO com o retrato da espécie — para colocar no DOM.
  *  Nunca devolva um canvas do spriteCache para a UI: anexá-lo ao DOM o

@@ -1,6 +1,7 @@
-// Busca e parse de dados do OpenStreetMap via Overpass API
+// Fetching and parsing OpenStreetMap data through the Overpass API
 import { fetchWithTimeout } from './net.js';
 import { clamp, hashStr } from './geo.js';
+import { t } from './i18n.js';
 
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -40,7 +41,7 @@ export async function fetchOSM(bbox, onProgress) {
           body,
         }, 30000);
         if (!res.ok) throw new Error('Overpass HTTP ' + res.status);
-        // stream para reportar progresso em bytes
+        // stream so progress can be reported in bytes
         const reader = res.body && res.body.getReader ? res.body.getReader() : null;
         if (!reader) {
           const j = await res.json();
@@ -65,7 +66,7 @@ export async function fetchOSM(bbox, onProgress) {
       }
     }
   }
-  throw new Error('Os servidores públicos do OpenStreetMap estão ocupados agora (' + (lastErr && lastErr.message) + '). Aguarde alguns segundos e tente de novo.');
+  throw new Error(t('load.overpassBusy', { detail: (lastErr && lastErr.message) || '?' }));
 }
 
 const CAR_KINDS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'service', 'road', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link']);
@@ -88,7 +89,7 @@ function buildingHeight(tags, id) {
     const lv = parseFloat(tags['building:levels']);
     if (isFinite(lv) && lv > 0) h = lv * 3.1 + 1;
   }
-  if (!isFinite(h)) h = 5.5 + (hashStr(id) % 90) / 10; // 5.5..14.5m determinístico
+  if (!isFinite(h)) h = 5.5 + (hashStr(id) % 90) / 10; // a deterministic 5.5..14.5m
   return clamp(h, 2.6, 500);
 }
 
@@ -100,7 +101,7 @@ function closeRing(pts) {
   return ring.length >= 3 ? ring : null;
 }
 
-// Monta anéis a partir de fragmentos de ways (members outer de multipolygon)
+// Builds rings from way fragments (outer members of a multipolygon)
 function assembleRings(segments) {
   const segs = segments.filter(s => s && s.length >= 2).map(s => s.slice());
   const rings = [];

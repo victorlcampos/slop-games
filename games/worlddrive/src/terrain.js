@@ -1,6 +1,7 @@
-// Elevação: AWS Terrain Tiles (formato terrarium), z=15 (~4.8 m/px)
+// Elevation: AWS Terrain Tiles (terrarium format), z=15 (~4.8 m/px)
 import { lon2tx, lat2ty, tx2lon, ty2lat, mercX, mercY, clamp } from './geo.js';
 import { loadImage, pool } from './net.js';
+import { t } from './i18n.js';
 
 const URL_T = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 
@@ -30,7 +31,7 @@ export async function loadTerrain(bbox, onProgress) {
   }
   const results = await pool(tasks, 6, onProgress);
   const failures = results.filter(r => r && r.__err).length;
-  if (failures === results.length) throw new Error('Não consegui baixar os dados de elevação.');
+  if (failures === results.length) throw new Error(t('load.noElevation'));
 
   const px = ctx.getImageData(0, 0, W, H).data;
   let data = new Float32Array(W * H);
@@ -38,10 +39,10 @@ export async function loadTerrain(bbox, onProgress) {
     data[i] = (px[j] * 256 + px[j + 1] + px[j + 2] / 256) - 32768;
   }
 
-  // Suaviza 1 passe (box 3x3) — SRTM urbano tem ruído de edificações
+  // One smoothing pass (3x3 box) — urban SRTM has building noise
   data = blur3(data, W, H);
 
-  // Bounds do mosaico em metros Mercator
+  // Mosaic bounds in Mercator metres
   const mxMin = mercX(tx2lon(tx0, z));
   const mxMax = mercX(tx2lon(tx1 + 1, z));
   const myMax = mercY(ty2lat(ty0, z));
@@ -49,7 +50,7 @@ export async function loadTerrain(bbox, onProgress) {
   const sx = W / (mxMax - mxMin);
   const sy = H / (myMax - myMin);
 
-  // Amostragem bilinear em coordenadas Mercator
+  // Bilinear sampling in Mercator coordinates
   function sample(mx, my) {
     const fx = clamp((mx - mxMin) * sx, 0, W - 1.001);
     const fy = clamp((myMax - my) * sy, 0, H - 1.001);

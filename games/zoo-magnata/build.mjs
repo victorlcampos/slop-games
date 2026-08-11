@@ -9,6 +9,7 @@ await build({
   mode: 'concat',
   globals: { Slop: 'slopkit' },
   files: [
+    'src/01_i18n.js',
     'src/02_util.js',
     'src/03_species.js',
     'src/04_sprites.js',

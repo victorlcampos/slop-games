@@ -1,10 +1,10 @@
 // Smoke test: abre dist/index.html via file://, escolhe um preset e espera o jogo carregar
-// URL=https://... testa um deploy publicado em vez do build local
+// URL=https://... tests a published deploy instead of the local build
 import puppeteer from 'puppeteer-core';
 import path from 'node:path';
 import { acharChrome } from 'slopkit/testing';
 
-// caminho do Chrome vem do kit: cobre macOS, Linux do CI e Windows
+// the Chrome path comes from the kit: covers macOS, CI Linux and Windows
 const CHROME = acharChrome();
 const url = process.env.URL || 'file://' + path.resolve('dist/index.html');
 const shotDir = process.env.SHOT_DIR || 'test';
@@ -18,8 +18,8 @@ const browser = await puppeteer.launch({
 });
 
 const page = await browser.newPage();
-// o WAF do Overpass devolve 406 para "HeadlessChrome" (UA e client hints);
-// usuários reais têm browser normal — aqui disfarçamos o headless para simular isso
+// the Overpass WAF returns 406 for "HeadlessChrome" (UA and client hints);
+// real users have a normal browser — here we disguise headless to mimic that
 const ua = (await browser.userAgent()).replace('HeadlessChrome', 'Chrome');
 const m = ua.match(/Chrome\/(\d+)/);
 const major = m ? m[1] : '131';
@@ -46,33 +46,33 @@ page.on('console', m => {
 try {
   await page.goto(url, { waitUntil: 'load', timeout: 30000 });
   await page.waitForSelector('#menu:not(.hide)', { timeout: 15000 });
-  await new Promise(r => setTimeout(r, 2500)); // tiles do picker
+  await new Promise(r => setTimeout(r, 2500)); // picker tiles
   await page.screenshot({ path: path.join(shotDir, 'shot-menu.png') });
   console.log('✓ menu ok');
 
   const preset = process.env.PRESET || '0';
   await page.click(`[data-preset="${preset}"]`);
-  console.log('… carregando mundo (rede real, pode demorar)');
+  console.log('… loading world (real network, may take a while)');
 
   await page.waitForFunction(() => window.WD && window.WD.state === 'driving', { timeout: 180000, polling: 500 });
   console.log('✓ estado driving');
   const stats = await page.evaluate(() => window.WD.world.stats);
   console.log('  stats:', JSON.stringify(stats));
 
-  // dirige um pouco para a frente
+  // drive forward a little
   await page.keyboard.down('KeyW');
   await new Promise(r => setTimeout(r, 3500));
   await page.keyboard.up('KeyW');
   const speed = await page.evaluate(() => document.getElementById('speed').textContent);
   const street = await page.evaluate(() => document.getElementById('street').textContent);
-  console.log(`✓ dirigiu: ${speed} km/h na rua "${street}"`);
+  console.log(`✓ drove: ${speed} km/h on the street "${street}"`);
   await page.screenshot({ path: path.join(shotDir, 'shot-drive.png') });
 
   const pos = await page.evaluate(() => {
     const w = window.WD;
     return { state: w.state, kmh: +document.getElementById('speed').textContent };
   });
-  if (pos.kmh < 5) throw new Error('carro não andou (velocidade ' + pos.kmh + ')');
+  if (pos.kmh < 5) throw new Error('the car did not move (speed ' + pos.kmh + ')');
 
   const relevant = errors.filter(e => !e.includes('favicon'));
   if (relevant.length) {

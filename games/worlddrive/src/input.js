@@ -2,7 +2,7 @@
 export class Input {
   constructor() {
     this.keys = new Set();
-    this.handlers = {};   // ação -> cb (reset, camera, reload, mute, help, menu)
+    this.handlers = {};   // action -> cb (reset, camera, reload, mute, help, menu)
     this.touch = { throttle: 0, steer: 0, handbrake: false, active: false };
 
     window.addEventListener('keydown', e => {
@@ -21,10 +21,13 @@ export class Input {
   on(action, cb) { this.handlers[action] = cb; }
 
   bindTouch(el) {
-    // el contém botões [data-t]: left,right,gas,brake,hb
+    // el holds [data-touch] buttons: left, right, gas, brake, hb.
+    // The attribute is `data-touch` and not `data-t` because `data-t` is the
+    // kit's convention for a dictionary key — bindText would overwrite ◀ with
+    // the word "left".
     const state = { left: false, right: false, gas: false, brake: false, hb: false };
-    for (const btn of el.querySelectorAll('[data-t]')) {
-      const k = btn.dataset.t;
+    for (const btn of el.querySelectorAll('[data-touch]')) {
+      const k = btn.dataset.touch;
       const on = e => { e.preventDefault(); state[k] = true; btn.classList.add('on'); this.touch.active = true; };
       const off = e => { e.preventDefault(); state[k] = false; btn.classList.remove('on'); };
       btn.addEventListener('pointerdown', on);

@@ -1,10 +1,10 @@
-// Constrói as malhas das ruas: fitas trianguladas que seguem o terreno
+// Builds the street meshes: triangulated ribbons that follow the terrain
 import * as THREE from 'three';
 import { clamp } from './geo.js';
 
-const STEP = 6; // resample: um vértice a cada ~6m
+const STEP = 6; // resample: one vertex every ~6m
 
-// Índice espacial de segmentos de rua (para spawn, reset, nome da rua, minimapa)
+// Spatial index of street segments (for spawn, reset, street name, minimap)
 export class RoadIndex {
   constructor(cell = 30) { this.cell = cell; this.map = new Map(); this.segs = []; }
   key(cx, cz) { return cx + ':' + cz; }
@@ -21,7 +21,7 @@ export class RoadIndex {
       arr.push(idx);
     }
   }
-  // rua mais próxima; anéis crescentes de células até maxR
+  // nearest street; growing rings of cells up to maxR
   nearest(x, z, maxR = 400, drivableOnly = true, namedOnly = false) {
     const c = this.cell;
     const cx = Math.floor(x / c), cz = Math.floor(z / c);
@@ -42,7 +42,7 @@ export class RoadIndex {
           }
         }
       }
-      // achou algo e o anel seguinte já não pode melhorar
+      // found something and the next ring cannot improve on it
       if (best && Math.sqrt(best.d2) < (ring - 1) * c) break;
     }
     if (!best || best.d2 > maxR * maxR) return null;
@@ -81,18 +81,18 @@ function asphaltTexture(withLine) {
   const g = c.getContext('2d');
   g.fillStyle = '#33363b';
   g.fillRect(0, 0, 256, 64);
-  // ruído sutil
+  // subtle noise
   for (let i = 0; i < 900; i++) {
     const v = 40 + Math.random() * 30;
     g.fillStyle = `rgba(${v},${v},${v + 4},${0.16 + Math.random() * 0.2})`;
     g.fillRect(Math.random() * 256, Math.random() * 64, 1.5, 1.5);
   }
-  // bordas levemente claras (sensação de meio-fio/acostamento)
+  // slightly lighter edges (the feel of a kerb/shoulder)
   g.fillStyle = 'rgba(190,190,196,0.32)';
   g.fillRect(0, 0, 256, 2);
   g.fillRect(0, 62, 256, 2);
   if (withLine) {
-    // tracejado central: textura cobre 8m ao longo (u), traço de ~3.4m
+    // centre dashes: the texture covers 8m along (u), a ~3.4m dash
     g.fillStyle = 'rgba(235,235,225,0.85)';
     g.fillRect(12, 30, 110, 3);
   }
@@ -122,7 +122,7 @@ function pathTexture() {
   return tex;
 }
 
-// Uma fita por rua; três buckets de material
+// One ribbon per street; three material buckets
 export function buildRoads(roads, proj, heightAt, half) {
   const buckets = {
     lined: { pos: [], uv: [], idx: [] },
@@ -135,7 +135,7 @@ export function buildRoads(roads, proj, heightAt, half) {
 
   for (const road of roads) {
     let pts = road.pts.map(p => proj.toLocal(p.lat, p.lon));
-    // recorta ruas totalmente fora da área
+    // cuts streets entirely outside the area
     if (!pts.some(([x, z]) => Math.abs(x) < half + 40 && Math.abs(z) < half + 40)) continue;
     pts = resample(pts);
     if (pts.length < 2) continue;
@@ -154,7 +154,7 @@ export function buildRoads(roads, proj, heightAt, half) {
       let dx = pNext[0] - pPrev[0], dz = pNext[1] - pPrev[1];
       const dl = Math.hypot(dx, dz) || 1;
       dx /= dl; dz /= dl;
-      // perpendicular (esquerda da direção)
+      // perpendicular (left of the heading)
       const px = dz, pz = -dx;
       if (i > 0) along += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
       const lx = p[0] + px * w2, lz = p[1] + pz * w2;
@@ -166,7 +166,7 @@ export function buildRoads(roads, proj, heightAt, half) {
         const a = base + (i - 1) * 2;
         bucket.idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
       }
-      // índice espacial (somente segmentos, sem geometria)
+      // spatial index (segments only, no geometry)
       if (i > 0) {
         const q = pts[i - 1];
         index.addSeg(q[0], q[1], p[0], p[1], road.name, !isPath);

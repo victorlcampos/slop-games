@@ -60,7 +60,7 @@
   #stats .v { font-family: var(--mono); font-size: 22px; font-weight: 600; line-height: 1.15; }
   #stats .v small { font-size: 11px; opacity: .55; font-weight: 400; margin-left: 2px; }
 
-  /* velocímetro */
+  /* speedometer */
   #speedo {
     bottom: 24px; right: 24px; width: 132px; height: 132px;
     display: grid; place-items: center; border-radius: 50%;
@@ -73,7 +73,7 @@
   #speedo .num b { display: block; font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1; }
   #speedo .num span { font-size: 9px; letter-spacing: .18em; color: rgba(255,255,255,.5); }
 
-  /* aviso do yeti */
+  /* yeti warning */
   #yeti-warn {
     top: 50%; left: 50%; transform: translate(-50%,-50%);
     padding: 14px 28px; border-radius: 999px;
@@ -85,7 +85,7 @@
   #yeti-warn.on { opacity: 1; animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { transform: translate(-50%,-50%) scale(1.06); opacity: .72; } }
 
-  /* barra de perigo do yeti */
+  /* yeti danger bar */
   #yeti-bar {
     top: 18px; left: 50%; transform: translateX(-50%);
     width: 260px; padding: 9px 14px; opacity: 0; transition: opacity .3s;
@@ -103,7 +103,7 @@
     box-shadow: 0 0 12px rgba(255,60,40,.7);
   }
 
-  /* mensagens de truque / eventos */
+  /* trick / event messages */
   #toasts {
     position: absolute; left: 50%; bottom: 28%; transform: translateX(-50%);
     display: flex; flex-direction: column-reverse; align-items: center; gap: 6px;
@@ -122,13 +122,13 @@
     100% { opacity: 0; transform: translateY(-40px); }
   }
 
-  /* gates de slalom */
+  /* slalom gates */
   #gates { top: 18px; right: 18px; padding: 11px 15px; text-align: right; }
   #gates .k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
   #gates .v { font-family: var(--mono); font-size: 20px; font-weight: 600; }
   #gates .miss { color: #ff6b60; }
 
-  /* dica de controles */
+  /* control hints */
   #hint {
     bottom: 24px; left: 24px; padding: 10px 14px;
     font-size: 11px; color: rgba(255,255,255,.62); line-height: 1.9;
@@ -260,7 +260,7 @@
     color: rgba(255,255,255,.75); font-weight: 700;
   }
 
-  /* controles touch */
+  /* touch controls */
   #touch { position: fixed; inset: auto 0 0 0; height: 42%; display: none; z-index: 5; }
   #touch.on { display: block; }
   #touch .zone { position: absolute; bottom: 0; height: 100%; width: 34%; }
@@ -277,11 +277,15 @@
     .card { padding: 26px 22px; }
   }
 
-  /* Saída para o catálogo — só aparece quando o jogo roda dentro dele.
-     O visual vem de .btn.ghost, que é o botão secundário desta tela: um <a>
-     sem `color` próprio herda o azul de link do navegador, ilegível aqui. */
-  .voltar-jogos { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
-  .voltar-jogos[hidden] { display: none; }
+  /* The exit to the catalog — only appears when the game runs inside it.
+     The look comes from .btn.ghost, this screen's secondary button: an <a>
+     with no `color` of its own inherits the browser's link blue, unreadable here. */
+  .back-to-games { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .back-to-games[hidden] { display: none; }
+
+  /* the flag pair, top right of the menu card */
+  .langs { position: absolute; top: 18px; right: 18px; pointer-events: auto; }
+  .card { position: relative; }
 </style>
 </head>
 <body>
@@ -290,18 +294,18 @@
 <!-- ============================== HUD ============================== -->
 <div id="hud">
   <div id="stats" class="panel">
-    <span class="k">Distância</span><span class="k">Tempo</span>
+    <span class="k" data-pt="Distância" data-en="Distance">Distância</span><span class="k" data-pt="Tempo" data-en="Time">Tempo</span>
     <span class="v" id="s-dist">0<small>m</small></span>
     <span class="v" id="s-time">0.0<small>s</small></span>
-    <span class="k" style="margin-top:6px">Pontos</span><span class="k" style="margin-top:6px">Estilo</span>
+    <span class="k" style="margin-top:6px" data-pt="Pontos" data-en="Score">Pontos</span><span class="k" style="margin-top:6px" data-pt="Estilo" data-en="Style">Estilo</span>
     <span class="v" id="s-score">0</span>
     <span class="v" id="s-style">×1.0</span>
   </div>
 
   <div id="gates" class="panel">
-    <div class="k">Portões</div>
+    <div class="k" data-pt="Portões" data-en="Gates">Portões</div>
     <div class="v"><span id="g-hit">0</span><span style="opacity:.4">/</span><span id="g-tot">0</span></div>
-    <div class="k miss" id="g-missline" style="margin-top:4px">Perdidos <span id="g-miss">0</span></div>
+    <div class="k miss" id="g-missline" style="margin-top:4px"><span data-pt="Perdidos" data-en="Missed">Perdidos</span> <span id="g-miss">0</span></div>
   </div>
 
   <div id="yeti-bar" class="panel">
@@ -309,7 +313,7 @@
     <div class="rail"><div class="fill" id="y-fill"></div></div>
   </div>
 
-  <div id="yeti-warn" class="panel">O Yeti acordou</div>
+  <div id="yeti-warn" class="panel" data-pt="O Yeti acordou" data-en="The Yeti woke up">O Yeti acordou</div>
 
   <div id="toasts"></div>
 
@@ -329,13 +333,20 @@
   </div>
 
   <div id="hint" class="panel">
-    <kbd>←</kbd><kbd>→</kbd> virar &nbsp; <kbd>↑</kbd> agachar &nbsp; <kbd>↓</kbd> frear &nbsp; <kbd>espaço</kbd> pular<br>
-    no ar: <kbd>←</kbd><kbd>→</kbd> giro &nbsp; <kbd>↑</kbd><kbd>↓</kbd> mortal &nbsp;·&nbsp;
-    <kbd>C</kbd> câmera &nbsp; <kbd>P</kbd> pausa &nbsp; <kbd>M</kbd> som
+    <kbd>←</kbd><kbd>→</kbd> <span data-pt="virar" data-en="turn">virar</span> &nbsp;
+    <kbd>↑</kbd> <span data-pt="agachar" data-en="tuck">agachar</span> &nbsp;
+    <kbd>↓</kbd> <span data-pt="frear" data-en="brake">frear</span> &nbsp;
+    <kbd data-pt="espaço" data-en="space">espaço</kbd> <span data-pt="pular" data-en="jump">pular</span><br>
+    <span data-pt="no ar:" data-en="in the air:">no ar:</span>
+    <kbd>←</kbd><kbd>→</kbd> <span data-pt="giro" data-en="spin">giro</span> &nbsp;
+    <kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal" data-en="flip">mortal</span> &nbsp;·&nbsp;
+    <kbd>C</kbd> <span data-pt="câmera" data-en="camera">câmera</span> &nbsp;
+    <kbd>P</kbd> <span data-pt="pausa" data-en="pause">pausa</span> &nbsp;
+    <kbd>M</kbd> <span data-pt="som" data-en="sound">som</span>
   </div>
 </div>
 
-<div id="paused"><div class="p">Pausado — <kbd>P</kbd> para continuar</div></div>
+<div id="paused"><div class="p"><span data-pt="Pausado" data-en="Paused">Pausado</span> — <kbd>P</kbd> <span data-pt="para continuar" data-en="to continue">para continuar</span></div></div>
 
 <div id="touch">
   <div class="zone l" data-act="left"></div>
@@ -347,50 +358,62 @@
 <div id="overlay">
   <!-- MENU -->
   <div class="card" id="menu">
+    <div class="langs" data-lang-picker></div>
     <h1 class="logo">SkiFree<em>3D</em></h1>
-    <p class="tagline">Lembra desse jogo?</p>
+    <p class="tagline" data-pt="Lembra desse jogo?" data-en="Remember this game?">Lembra desse jogo?</p>
 
     <div class="modes" id="modes">
       <button class="mode sel" data-mode="free">
         <div class="ico">🏔️</div>
-        <div class="nm">Descida Livre</div>
-        <div class="ds">Sem regras. Desça o máximo que aguentar — até o Yeti acordar.</div>
+        <div class="nm" data-pt="Descida Livre" data-en="Free Ride">Descida Livre</div>
+        <div class="ds"
+             data-pt="Sem regras. Desça o máximo que aguentar — até o Yeti acordar."
+             data-en="No rules. Go as far down as you can take — until the Yeti wakes up.">Sem regras. Desça o máximo que aguentar — até o Yeti acordar.</div>
       </button>
       <button class="mode" data-mode="slalom">
         <div class="ico">🚩</div>
-        <div class="nm">Slalom</div>
-        <div class="ds">Passe entre as bandeiras vermelha e azul. Errar custa caro.</div>
+        <div class="nm" data-pt="Slalom" data-en="Slalom">Slalom</div>
+        <div class="ds"
+             data-pt="Passe entre as bandeiras vermelha e azul. Errar custa caro."
+             data-en="Pass between the red and blue flags. Missing costs you.">Passe entre as bandeiras vermelha e azul. Errar custa caro.</div>
       </button>
       <button class="mode" data-mode="trees">
         <div class="ico">🌲</div>
-        <div class="nm">Slalom na Floresta</div>
-        <div class="ds">Mata fechada, corredor estreito e zero perdão.</div>
+        <div class="nm" data-pt="Slalom na Floresta" data-en="Forest Slalom">Slalom na Floresta</div>
+        <div class="ds"
+             data-pt="Mata fechada, corredor estreito e zero perdão."
+             data-en="Thick woods, a narrow corridor and zero forgiveness.">Mata fechada, corredor estreito e zero perdão.</div>
       </button>
       <button class="mode" data-mode="freestyle">
         <div class="ico">🤸</div>
-        <div class="nm">Estilo Livre</div>
-        <div class="ds">Rampas por toda parte. Gire, dê mortais e pontue no ar.</div>
+        <div class="nm" data-pt="Estilo Livre" data-en="Freestyle">Estilo Livre</div>
+        <div class="ds"
+             data-pt="Rampas por toda parte. Gire, dê mortais e pontue no ar."
+             data-en="Ramps everywhere. Spin, flip and score in the air.">Rampas por toda parte. Gire, dê mortais e pontue no ar.</div>
       </button>
     </div>
 
     <div class="keys">
-      <div><kbd>←</kbd><kbd>→</kbd> virar / girar no ar</div>
-      <div><kbd>↑</kbd> agachar (mais rápido)</div>
-      <div><kbd>↓</kbd> frear em cunha</div>
-      <div><kbd>espaço</kbd> pular da neve</div>
-      <div><kbd>↑</kbd><kbd>↓</kbd> mortal no ar</div>
-      <div><kbd>C</kbd> trocar câmera</div>
-      <div><kbd>P</kbd> pausar &nbsp; <kbd>M</kbd> som</div>
-      <div><kbd>R</kbd> recomeçar</div>
+      <div><kbd>←</kbd><kbd>→</kbd> <span data-pt="virar / girar no ar" data-en="turn / spin in the air">virar / girar no ar</span></div>
+      <div><kbd>↑</kbd> <span data-pt="agachar (mais rápido)" data-en="tuck (faster)">agachar (mais rápido)</span></div>
+      <div><kbd>↓</kbd> <span data-pt="frear em cunha" data-en="snowplough brake">frear em cunha</span></div>
+      <div><kbd data-pt="espaço" data-en="space">espaço</kbd> <span data-pt="pular da neve" data-en="jump off the snow">pular da neve</span></div>
+      <div><kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal no ar" data-en="flip in the air">mortal no ar</span></div>
+      <div><kbd>C</kbd> <span data-pt="trocar câmera" data-en="change camera">trocar câmera</span></div>
+      <div><kbd>P</kbd> <span data-pt="pausar" data-en="pause">pausar</span> &nbsp; <kbd>M</kbd> <span data-pt="som" data-en="sound">som</span></div>
+      <div><kbd>R</kbd> <span data-pt="recomeçar" data-en="restart">recomeçar</span></div>
     </div>
 
     <div class="btnrow">
-      <button class="btn" id="btn-start">Descer a montanha</button>
-      <a class="btn ghost voltar-jogos" data-voltar-catalogo hidden>🕹️ todos os jogos</a>
+      <button class="btn" id="btn-start" data-pt="Descer a montanha" data-en="Ride the mountain">Descer a montanha</button>
+      <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden>🕹️ todos os jogos</a>
     </div>
     <p class="foot">
-      Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores.<br>
-      Depois de <b>2 000 m</b> o Abominável Homem das Neves entra na pista. Ele não cansa.
+      <span data-pt="Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores."
+            data-en="Watch out for trees, rocks, lift towers, dogs and other skiers.">Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores.</span><br>
+      <span data-pt="Depois de" data-en="After">Depois de</span> <b>2 000 m</b>
+      <span data-pt="o Abominável Homem das Neves entra na pista. Ele não cansa."
+            data-en="the Abominable Snowman joins the slope. He never tires.">o Abominável Homem das Neves entra na pista. Ele não cansa.</span>
     </p>
   </div>
 
@@ -399,21 +422,21 @@
     <h2 class="title" id="over-title">Você foi devorado</h2>
     <p class="sub" id="over-sub">O Yeti sempre vence. Mas você chegou longe.</p>
     <div class="scoregrid">
-      <div class="cell"><div class="k">Distância</div><div class="v"><span id="o-dist">0</span><small>m</small></div></div>
-      <div class="cell"><div class="k">Pontos</div><div class="v" id="o-score">0</div></div>
-      <div class="cell"><div class="k">Vel. máx</div><div class="v"><span id="o-speed">0</span><small>km/h</small></div></div>
-      <div class="cell"><div class="k">Tempo</div><div class="v"><span id="o-time">0</span><small>s</small></div></div>
-      <div class="cell" id="o-gatecell"><div class="k">Portões</div><div class="v" id="o-gates">0</div></div>
+      <div class="cell"><div class="k" data-pt="Distância" data-en="Distance">Distância</div><div class="v"><span id="o-dist">0</span><small>m</small></div></div>
+      <div class="cell"><div class="k" data-pt="Pontos" data-en="Score">Pontos</div><div class="v" id="o-score">0</div></div>
+      <div class="cell"><div class="k" data-pt="Vel. máx" data-en="Top speed">Vel. máx</div><div class="v"><span id="o-speed">0</span><small>km/h</small></div></div>
+      <div class="cell"><div class="k" data-pt="Tempo" data-en="Time">Tempo</div><div class="v"><span id="o-time">0</span><small>s</small></div></div>
+      <div class="cell" id="o-gatecell"><div class="k" data-pt="Portões" data-en="Gates">Portões</div><div class="v" id="o-gates">0</div></div>
     </div>
     <div class="best" id="o-best"></div>
     <div class="btnrow">
-      <button class="btn" id="btn-again">Tentar de novo</button>
-      <button class="btn ghost" id="btn-menu">Trocar de modo</button>
+      <button class="btn" id="btn-again" data-pt="Tentar de novo" data-en="Try again">Tentar de novo</button>
+      <button class="btn ghost" id="btn-menu" data-pt="Trocar de modo" data-en="Change mode">Trocar de modo</button>
     </div>
   </div>
 </div>
 
-<div id="boot"><div class="b"><div class="sp"></div><div class="t">Preparando a montanha…</div></div></div>
+<div id="boot"><div class="b"><div class="sp"></div><div class="t" data-pt="Preparando a montanha…" data-en="Preparing the mountain…">Preparando a montanha…</div></div></div>
 
 
 <script>/*__APP__*/</script>
