@@ -6,6 +6,7 @@
 // armadura  absorve dano fixo por acerto, até ser quebrada
 // voa       só toma dano de animal com `aereo`
 // aquatico  só entra pelas fileiras alagadas — e lá briga como todo mundo
+// troca     anfíbio: muda de fileira e toma a forma do terreno novo
 // oculto    invisível até uma Coruja revelar (ou até morder alguém)
 //
 // `voa` e `aquatico` não se misturam: quem voa sobre a água fica fora do
@@ -81,6 +82,21 @@ export const MONSTROS = [
     intervalo: 1.3,
     aquatico: true,
     valor: 28,
+  },
+  {
+    id: 'boto',
+    nome: 'Boto',
+    lenda: 'No rio é bicho. Na festa é moço de terno branco que não tira o chapéu por nada — e ninguém desconfia do porquê.',
+    vida: 300,
+    velocidade: 24,
+    dano: 22,
+    intervalo: 1.2,
+    // O único que atravessa a linha da água: de tempo em tempo passa para a
+    // fileira do lado e toma a forma do terreno — boto no rio, homem na terra.
+    // Muralha numa fileira só não segura ele, e é isso que ele cobra do
+    // jogador: defender a água **e** a margem.
+    troca: { intervalo: 5 },
+    valor: 30,
   },
   {
     id: 'maedeouro',

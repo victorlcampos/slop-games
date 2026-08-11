@@ -112,11 +112,13 @@ Abelha, Cobra, Escorpião, Coruja, Morcego e Águia atiram; Tartaruga, Ouriço,
 Elefante e Hipopótamo seguram a linha; Onça, Canguru e Jacaré batem de perto;
 Leão atordoa e Urso Polar congela; Gambá explode uma vez só.
 
-**12 monstros do folclore brasileiro**, cada um com um truque: o **Saci** pula a
+**13 monstros do folclore brasileiro**, cada um com um truque: o **Saci** pula a
 primeira defesa, o **Curupira** chega antes do que você calculou, a **Mula sem
 Cabeça** usa armadura, a **Iara** só desce pelas fileiras alagadas (e lá quem
-segura é Jacaré ou Hipopótamo), a **Mãe-de-Ouro** cruza o céu e não olha para o
-chão — parede nenhuma segura ela, só quem alcança o alto —, o
+segura é Jacaré ou Hipopótamo), o **Boto** atravessa a linha da água trocando de
+forma — bicho no rio, moço de chapéu branco na margem —, a **Mãe-de-Ouro** cruza
+o céu e não olha para o chão — parede nenhuma segura ela, só quem alcança o
+alto —, o
 **Boitatá** queima de longe, o **Lobisomem** acelera quando apanha, o
 **Bicho-papão** anda invisível no escuro, e a **Cuca** — a chefona — chama
 reforço enquanto vem.
@@ -132,8 +134,8 @@ Cada uma muda o cenário, uma regra de tabuleiro e o elenco inimigo ao mesmo tem
 | 3 | Cerrado | inimigos rápidos e de longe |
 | 4 | Pantanal | duas fileiras alagadas: só bicho aquático · Iara |
 | 5 | Caatinga | a seca corta sua produção de sementes · Mapinguari |
-| 6 | Amazônia | névoa esconde o campo — precisa de Coruja |
-| 7 | Litoral do Nordeste | noite + água · Bicho-papão invisível |
+| 6 | Amazônia | névoa esconde o campo — precisa de Coruja · **o Boto** |
+| 7 | Litoral do Nordeste | noite + duas fileiras de água · Bicho-papão invisível |
 | 8 | Centro de São Paulo | hordas grandes |
 | 9 | Serra da Mantiqueira | névoa · a Mãe-de-Ouro voa por cima da defesa |
 | 10 | Cristo Redentor | **a Cuca** |
@@ -166,7 +168,7 @@ src/
   audio.js          Web Audio na mão — efeitos e trilha, nenhum arquivo
   save.js           localStorage + baixar/carregar .json
   dados/            animais (com níveis), monstros, fases e a economia
-  desenho/          os 30 sprites, os cenários e o mapa-múndi
+  desenho/          os 33 sprites, os cenários e o mapa-múndi
   telas/            cutscene, mapa, batalha e loja
   main.js           máquina de telas
 ```

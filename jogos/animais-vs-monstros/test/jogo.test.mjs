@@ -252,6 +252,58 @@ cenario('a Mãe-de-Ouro voa por cima da defesa e só cai para quem alcança o al
   await j.fechar();
 });
 
+/**
+ * O Boto é o único que atravessa a linha da água. Na Amazônia só a fileira 4 é
+ * rio, então o vaivém dele é determinístico: 4 (bicho) → 3 (moço) → 4 de novo.
+ */
+cenario('o Boto atravessa a linha da água e troca de forma', async () => {
+  const j = await comJogoAberto(APARELHOS.desktop, async (jj) => {
+    await jj.executar((jogo) => jogo.irParaBatalha(6)); // Amazônia: fileira 4 alagada
+    await espera(500);
+    await jj.executar((jogo) => {
+      const e = jogo.atual().est;
+      e.aviso = null;
+      e.monstros.length = 0;
+      e.naFila.length = 0;
+      e.proximaOnda = 999;
+      e.naFila.push({ tipo: 'boto', quando: 0, fila: 4 });
+    });
+  });
+
+  await j.esperarAte((jogo) => jogo.atual().est.monstros.length === 1, { oQue: 'o Boto entrar' });
+  const noRio = await j.executar((jogo) => {
+    const e = jogo.atual().est;
+    const m = e.monstros[0];
+    m.cdTroca = 0.05; // sem esperar os 5s do relógio dele
+    return { fila: m.fila, forma: m.forma, sprite: m.sprite, agua: e.fase.agua };
+  });
+  conferirIgual(noRio.agua, [4], 'a Amazônia devia ter só a fileira 4 alagada');
+  conferirIgual(noRio.fila, 4, 'ele entrou pela água, que é onde foi chamado');
+  conferirIgual(noRio.forma, 'boto', 'no rio ele é bicho');
+  conferirIgual(noRio.sprite, 'boto', 'e o desenho é o do bicho');
+
+  await j.esperarAte((jogo) => jogo.atual().est.monstros[0].forma === 'homem', {
+    oQue: 'o Boto sair na margem virado moço',
+    limite: 8000,
+  });
+  const naMargem = await j.executar((jogo) => {
+    const m = jogo.atual().est.monstros[0];
+    m.cdTroca = 0.05;
+    return { fila: m.fila, sprite: m.sprite };
+  });
+  conferirIgual(naMargem.fila, 3, 'a única margem do rio da Amazônia é a fileira 3');
+  conferirIgual(naMargem.sprite, 'botohomem', 'e o desenho troca junto com a forma');
+
+  await j.esperarAte((jogo) => jogo.atual().est.monstros[0].forma === 'boto', {
+    oQue: 'o Boto voltar para o rio',
+    limite: 8000,
+  });
+  conferirIgual(await j.executar((jogo) => jogo.atual().est.monstros[0].fila), 4, 'de volta à água');
+
+  j.exigirSemErros('boto');
+  await j.fechar();
+});
+
 cenario('o save persiste entre recarregamentos', async () => {
   const j = await comJogoAberto(APARELHOS.desktop);
   // este cenário depende do storage sobreviver ao reload — o `abrir` limpa

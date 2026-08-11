@@ -155,6 +155,65 @@ const desenhos = {
     }
   },
 
+  // ------------------------------------------------------- boto (no rio)
+  boto(ctx, s) {
+    const pele = '#e2949f';
+    const barriga = '#f6d3d6';
+    // o arco de água de onde ele saiu — sem isso ele parece um peixe voando
+    forma(ctx, pontosElipse(70, 112, 46, 11, 14), { cor: null, preenche: 'rgba(109, 168, 196, 0.55)', semente: s + 1 });
+    for (let i = 0; i < 4; i++) {
+      circulo(ctx, 34 + i * 24, 100 - (i % 2) * 12, 3 + (i % 2) * 2, {
+        cor: null, preenche: 'rgba(180, 214, 228, 0.8)', semente: s + 30 + i,
+      });
+    }
+    // nadadeira da cauda, atrás
+    forma(ctx, [[96, 60], [124, 42], [116, 62], [126, 80], [98, 74]], { ...P, largura: 2.2, preenche: tom(pele, -0.18), semente: s + 2 });
+    corpo(ctx, 68, 64, 33, 21, pele, s + 3);
+    // barriga clara e a giba baixa das costas: o boto não tem barbatana alta
+    forma(ctx, pontosElipse(66, 74, 24, 9, 12), { cor: null, preenche: barriga, semente: s + 4 });
+    forma(ctx, [[58, 44], [82, 41], [88, 50]], { ...P, largura: 2, preenche: tom(pele, -0.14), semente: s + 5 });
+    // peitoral
+    forma(ctx, [[54, 76], [38, 92], [64, 84]], { ...P, largura: 2, preenche: tom(pele, -0.14), semente: s + 6 });
+    // o bico comprido, que é o que separa ele de um golfinho de desenho
+    forma(ctx, [[42, 56], [8, 66], [8, 76], [44, 74]], { ...P, largura: 2.2, preenche: pele, semente: s + 7 });
+    traco(ctx, [[10, 72], [42, 70]], { cor: tom(pele, -0.4), largura: 1.6, passadas: 1, semente: s + 8 });
+    olho(ctx, 48, 58, 5, s + 9, { olhar: [-0.5, 0], cor: '#f6ece2' });
+    // o sopro
+    for (let i = 0; i < 3; i++) {
+      circulo(ctx, 62 + i * 4, 34 - i * 9, 3 + i, { cor: null, preenche: `rgba(200, 226, 236, ${0.7 - i * 0.16})`, semente: s + 40 + i });
+    }
+  },
+
+  // --------------------------------------------------- boto (moço da festa)
+  botohomem(ctx, s) {
+    const roupa = '#f4eee2';
+    const pele = '#c08a6e';
+    // calça e sapato
+    traco(ctx, [[66, 92], [62, 110], [58, 120]], { cor: roupa, largura: 9, semente: s + 1 });
+    traco(ctx, [[82, 92], [86, 110], [82, 120]], { cor: roupa, largura: 9, semente: s + 2 });
+    forma(ctx, [[48, 118], [62, 116], [62, 124], [48, 124]], { ...P, largura: 2, preenche: '#3f3128', semente: s + 3 });
+    forma(ctx, [[72, 118], [86, 116], [86, 124], [72, 124]], { ...P, largura: 2, preenche: '#3f3128', semente: s + 4 });
+    // paletó branco
+    forma(ctx, [[56, 48], [92, 46], [96, 96], [54, 98]], { ...P, largura: 2.6, preenche: roupa, semente: s + 5 });
+    forma(ctx, [[68, 47], [76, 47], [74, 74], [70, 74]], { cor: null, preenche: tom(roupa, -0.1), semente: s + 6 });
+    traco(ctx, [[56, 52], [38, 70], [34, 88]], { cor: roupa, largura: 7, semente: s + 7 });
+    traco(ctx, [[94, 52], [110, 68], [108, 86]], { cor: roupa, largura: 7, semente: s + 8 });
+    corpo(ctx, 74, 34, 18, 18, pele, s + 9);
+    // olho de gente, não de bicho: o encanto dele é justamente não assustar
+    olho(ctx, 66, 33, 5.5, s + 10, { olhar: [-0.5, 0] });
+    olho(ctx, 82, 32, 5.5, s + 11, { olhar: [-0.5, 0] });
+    traco(ctx, [[66, 44], [74, 47], [82, 43]], { cor: TINTA, largura: 2, semente: s + 12 });
+    // O chapéu que ele não tira nunca — é ele que esconde o buraco do sopro.
+    // Sem o chapéu, este sprite é só um moço de terno.
+    forma(ctx, [[44, 16], [104, 14], [102, 23], [46, 25]], { ...P, largura: 2.4, preenche: roupa, semente: s + 13 });
+    forma(ctx, [[56, 17], [92, 15], [88, -2], [60, 0]], { ...P, largura: 2.4, preenche: roupa, semente: s + 14 });
+    forma(ctx, [[56, 12], [91, 10], [91, 16], [56, 18]], { cor: null, preenche: '#8a6a45', semente: s + 15 });
+    // pingando: ele saiu do rio faz cinco minutos
+    for (let i = 0; i < 3; i++) {
+      circulo(ctx, 50 + i * 26, 104 + (i % 2) * 10, 2.5, { cor: null, preenche: 'rgba(109, 168, 196, 0.75)', semente: s + 40 + i });
+    }
+  },
+
   // ------------------------------------------------------------- mãe-de-ouro
   maedeouro(ctx, s) {
     // Ela não pisa no chão, então o desenho todo mora na metade de cima do

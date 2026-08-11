@@ -121,12 +121,12 @@ export const FASES = [
     humanos: 25,
     moedas: 310,
     sementesIniciais: 150,
-    novidade: { monstro: 'boitata', aviso: 'A névoa esconde o meio do campo. Uma Coruja na fileira levanta o véu. E o Boitatá queima de longe.' },
+    novidade: { monstro: 'boto', aviso: 'A névoa esconde o meio do campo — uma Coruja na fileira levanta o véu. O Boitatá queima de longe. E o Boto troca de fileira: entra n\'água virado bicho e sai na margem virado moço.' },
     ondas: [
       { espera: 12, monstros: [['corposeco', 4]] },
-      { espera: 18, monstros: [['boitata', 1], ['curupira', 3]] },
+      { espera: 18, monstros: [['boitata', 1], ['boto', 1], ['curupira', 3]] },
       { espera: 20, monstros: [['boitata', 2], ['iara', 2]] },
-      { espera: 22, monstros: [['mula', 2], ['boitata', 2], ['saci', 3]] },
+      { espera: 22, monstros: [['mula', 2], ['boto', 2], ['boitata', 2], ['saci', 3]] },
       { espera: 26, monstros: [['boitata', 3], ['mapinguari', 1], ['curupira', 4]] },
     ],
   },
@@ -145,7 +145,9 @@ export const FASES = [
     novidade: { monstro: 'bichopapao', aviso: 'No escuro o Bicho-papão anda invisível. Sem alguém que enxergue à noite, você só percebe quando ele morde.' },
     ondas: [
       { espera: 12, monstros: [['corposeco', 4], ['iara', 2]] },
-      { espera: 18, monstros: [['boitata', 2], ['mula', 2]] },
+      // duas fileiras de água, uma em cada ponta: é o tabuleiro onde o Boto
+      // mais incomoda, porque tem margem dos dois lados para ele pular
+      { espera: 18, monstros: [['boitata', 2], ['boto', 3], ['mula', 2]] },
       { espera: 20, monstros: [['iara', 4], ['cabecadecuia', 3]] },
       { espera: 22, monstros: [['curupira', 5], ['saci', 4]] },
       { espera: 28, monstros: [['bichopapao', 1], ['mula', 3], ['boitata', 2]] },

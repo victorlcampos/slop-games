@@ -85,6 +85,18 @@ cenario('quem vem pela água não é imune a quem defende a água', () => {
   }
 });
 
+cenario('o anfíbio estreia onde há água para ele trocar de forma', () => {
+  for (const id in MONSTRO_POR_ID) {
+    if (!MONSTRO_POR_ID[id].troca) continue;
+    const estreia = FASES.find((f) => f.ondas.some((o) => o.monstros.some(([m]) => m === id)));
+    conferir(estreia, `${id} muda de forma e não é chamado por fase nenhuma`);
+    conferir(
+      estreia.agua && estreia.agua.length,
+      `${id} estreia na fase ${estreia.n}, que não tem água — a troca de forma nunca apareceria`
+    );
+  }
+});
+
 cenario('quem voa tem resposta comprável antes de aparecer', () => {
   // um voador ignora defesa de chão inteira: só as cartas `aereo` respondem.
   // Se ele estreia antes de o jogador ter podido comprar uma, a fase não é

@@ -244,8 +244,46 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
     const sortear = (filas) => (filas.length ? filas[Math.floor(Math.random() * filas.length)] : null);
     const todas = [...Array(FILEIRAS).keys()];
     if (def.aquatico) return ehAgua(sugerida) ? sugerida : sortear(todas.filter((f) => ehAgua(f)));
+    if (def.troca) return sugerida; // o anfíbio entra por onde der: vira o que o terreno pedir
     if (!ehAgua(sugerida)) return sugerida;
     return sortear(todas.filter((f) => !ehAgua(f))) ?? sugerida;
+  }
+
+  /** A forma que o anfíbio toma numa fileira: no rio é bicho, na terra é gente. */
+  function formaNaFila(fila) {
+    return ehAgua(fila) ? 'boto' : 'homem';
+  }
+
+  const spriteDaForma = (fila) => (formaNaFila(fila) === 'boto' ? 'boto' : 'botohomem');
+
+  /**
+   * O Boto passa para a fileira do lado e vira o que o terreno pedir.
+   *
+   * Ele **prefere** a fileira que muda a forma dele: é a lenda em campo (entra
+   * n'água e sai moço na margem) e, do lado do jogador, é o que cobra defender
+   * a água e a margem em vez de empilhar tudo numa fileira só. Sem vizinha que
+   * troque o terreno, ele muda de fileira do mesmo jeito — dodge é metade da
+   * ameaça dele.
+   */
+  function trocarDeFila(m) {
+    const vizinhas = [m.fila - 1, m.fila + 1].filter((f) => f >= 0 && f < FILEIRAS);
+    if (!vizinhas.length) return;
+    const trocamTerreno = vizinhas.filter((f) => ehAgua(f) !== ehAgua(m.fila));
+    const candidatas = trocamTerreno.length ? trocamTerreno : vizinhas;
+    const destino = candidatas[Math.floor(Math.random() * candidatas.length)];
+
+    const antes = m.forma;
+    m.fila = destino;
+    m.y = centroY(destino);
+    m.mordendo = false;
+    m.forma = formaNaFila(destino);
+    m.sprite = spriteDaForma(destino);
+    if (m.forma !== antes) {
+      faisca(m.x, m.y, m.forma === 'boto' ? CORES.agua : '#efe4cc', 16, 130);
+      som.mergulho();
+    } else {
+      faisca(m.x, m.y, '#cfd8c8', 6, 70);
+    }
   }
 
   function nascerMonstro(tipo, filaSugerida) {
@@ -270,6 +308,10 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
       bravo: false,
       faseChefe: 0,
       cdInvoca: 6,
+      cdTroca: def.troca ? def.troca.intervalo : 0,
+      // o anfíbio entra já com a cara do terreno onde caiu
+      sprite: def.troca ? spriteDaForma(fila) : def.id,
+      forma: def.troca ? formaNaFila(fila) : null,
       tremor: 0,
       passo: Math.random() * 10,
     });
@@ -512,6 +554,16 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
       }
 
       if (m.atordoado > 0) continue;
+
+      // o anfíbio muda de fileira antes de procurar alvo: se ele acabou de
+      // pular para a margem, quem manda é a defesa da fileira nova
+      if (d.troca) {
+        m.cdTroca -= dt;
+        if (m.cdTroca <= 0) {
+          m.cdTroca = d.troca.intervalo;
+          trocarDeFila(m);
+        }
+      }
 
       // quem está na frente dele nesta fileira?
       const alvo = est.plantados.find(
@@ -931,7 +983,7 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
         // invisível: só um vulto que denuncia a posição de leve
         ctx.save();
         ctx.globalAlpha = 0.16;
-        porSprite(ctx, spriteMonstro(d.id, 128), m.x, m.y, (d.escala || 1) * 0.85);
+        porSprite(ctx, spriteMonstro(m.sprite || d.id, 128), m.x, m.y, (d.escala || 1) * 0.85);
         ctx.restore();
         continue;
       }
@@ -945,7 +997,8 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
       if (m.congelado > 0) {
         ctx.filter = 'saturate(0.4)';
       }
-      porSprite(ctx, spriteMonstro(d.id, 128), m.x + tremorX, m.y + balanço + pulo, escala, false, m.atordoado > 0 ? 0.75 : 1);
+      // `m.sprite` só existe para quem muda de forma (o Boto); o resto é o id
+      porSprite(ctx, spriteMonstro(m.sprite || d.id, 128), m.x + tremorX, m.y + balanço + pulo, escala, false, m.atordoado > 0 ? 0.75 : 1);
       ctx.restore();
 
       if (m.congelado > 0) {

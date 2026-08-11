@@ -119,6 +119,12 @@ export const som = {
     ruido(0.12, { corte: 900, volume: 0.26 });
     tom(140, 0.1, { tipo: 'sawtooth', volume: 0.16, deslize: -60 });
   },
+  // o Boto entrando ou saindo do rio. A subida do tom é o que faz o ruído
+  // grave soar como respingo em vez de pancada
+  mergulho: () => {
+    ruido(0.18, { corte: 700, volume: 0.2 });
+    tom(180, 0.16, { tipo: 'sine', volume: 0.14, deslize: 260 });
+  },
   morte: () => {
     tom(300, 0.3, { tipo: 'sawtooth', volume: 0.2, deslize: -240 });
     ruido(0.28, { corte: 600, volume: 0.18 });

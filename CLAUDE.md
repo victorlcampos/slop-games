@@ -32,7 +32,7 @@ a ideia muda — não a regra.
    Zoo Magnata desenha 219 espécies a partir de 28 planos corporais
    parametrizados, o SkiFree 3D gera terreno e neve por ruído, o World Drive
    monta o cenário a partir de dados vetoriais, e o Animais vs Monstros desenha
-   30 criaturas com um motor de traço torto de 200 linhas.
+   33 criaturas com um motor de traço torto de 200 linhas.
 
 ### "Roda no cliente" ≠ "roda offline"
 
