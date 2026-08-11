@@ -79,6 +79,10 @@ Two more are strongly recommended, and the catalog test uses them when present:
   exposes `W` and `H` (the logical measurements). That is how the test turns a
   touch into a coordinate without guessing — see section 6 — and it is through
   `i18n` that it checks the flag really switches.
+- **`screenText()`** on that same bridge, for a game that draws its interface
+  instead of marking it up. It returns the strings the last frame wrote, which is
+  the only way a test can see what a canvas is saying — including whether the
+  words followed the flag.
 
 The **slug stays as it is**, even in Portuguese: it is the published URL
 (`/animais-vs-monstros/`), and the game already carries both names through
@@ -241,8 +245,17 @@ names:
 |---|---|---|
 | static copy of an HTML menu | `data-pt` / `data-en` on the element itself | SkiFree, World Drive, the index |
 | an attribute (title, placeholder) | `data-pt-title="…"` | World Drive, Zoo |
-| a field in a dense data table | `'Savanna\|Savana'`, read by the game's `LN()` | Zoo (219 species) |
+| a field in a dense data table | `'Savana\|Savanna'`, read by the game's `LN()` | Zoo (219 species) |
 | a sentence assembled at runtime | dictionary + `t('key', { n })` | all of them |
+
+**The bar is `pt|en`, and every reader of it must agree.** The Zoo splits those
+strings in three places — `LN()` for a field, ``BI`` `` for an interpolated
+sentence, `KEY()` for the stable identity behind a sprite seed. `LN` and `BI`
+once disagreed about which side was which: the flag flipped, the text flipped
+with it, and each player got the language they had just turned off. Nineteen
+green scenarios never noticed, because they checked `i18n.lang` and not the
+words. If you add a third reader, it reads `pt|en` too — and the test that
+proves it is the one that scores the screen, not the one that reads the tag.
 
 `bindText(i18n)` handles the first two forms: it finds the marked elements and
 swaps the text on every flag change. Because the text is in the HTML, it shows up
@@ -278,7 +291,7 @@ animals.
 | For | Use | Why |
 |---|---|---|
 | 3D | **three.js** (`npm i three`) | It is what the 3D games here use. The bundler tree-shakes it. |
-| 2D | **plain Canvas 2D** | No 2D library justifies its weight. Zoo Tycoon is 291 KB **with** 219 drawn species; Animals vs Monsters, 138 KB with 33. |
+| 2D | **plain Canvas 2D** | No 2D library justifies its weight. Zoo Tycoon is 302 KB **with** 219 drawn species; Animals vs Monsters, 138 KB with 33. |
 | Sound | **Web Audio API** by hand | Oscillators and synthesised noise. Never an audio file. |
 | UI/HUD | **plain DOM + CSS** | Overlaid on the canvas. Faster to change than UI drawn inside the canvas. |
 | Saved state | **`localStorage`** | The only storage available with no backend. |
@@ -298,7 +311,7 @@ animals.
 
 ### File weight
 
-Current reference: Animals vs Monsters 138 KB and Zoo Tycoon 291 KB (both with no
+Current reference: Animals vs Monsters 138 KB and Zoo Tycoon 302 KB (both with no
 libraries), World Drive 596 KB and SkiFree 3D 702 KB (three.js minified in). The
 last two carry all of three — that is the price of 3D.
 
@@ -553,7 +566,7 @@ They were duplicated across two different builds before this became one thing:
 | Game | Before | After | |
 |---|---|---|---|
 | SkiFree 3D | 1622 KB | **702 KB** | the homegrown bundler didn't minify |
-| Zoo Tycoon | 377 KB | **291 KB** | `cat` didn't minify |
+| Zoo Tycoon | 377 KB | **302 KB** | `cat` didn't minify |
 | World Drive | 581 KB | 596 KB | already esbuild |
 | Animals vs Monsters | 111 KB | 138 KB | already esbuild |
 
@@ -627,6 +640,12 @@ drawing. It is worth exposing: **a screen's list of clickable buttons only exist
 after it draws**, so switching screen and clicking in the same instant hits a
 screen with no buttons at all. That is how a test here started failing only
 inside the suite.
+
+`screenText()` is the same idea for a game whose UI is drawn, not marked up.
+Animais vs Monstros has no DOM to read, so its `text()` helper keeps the strings
+it wrote this frame and the bridge hands them back. Without it the check that
+the flag really changes the words on screen has nothing to look at, and skips
+the one game where the whole interface is a canvas.
 
 **Changing state is not the same as being drawn.** This is the mistake that has
 shown up twice here, the second time only on CI:
