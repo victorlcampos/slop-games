@@ -1,11 +1,11 @@
 // Entre uma fase e outra: o que você ganhou e três cartas sorteadas para
-// comprar. O sorteio só tira do que você ainda não tem — quando o baralho
-// fica completo, a recompensa vira moeda extra.
+// comprar. Quem sorteia é `sortearCartas`, em dados/animais.js — é conta pura,
+// e conta pura fica onde o teste de unidade alcança.
 
 import { forma, circulo, linha, caixa, texto, quebrarTexto, papel, porSprite } from '../rabisco.js';
 import { TINTA, TINTA_FRACA, CORES, PAPEL, PAPEL_ESCURO, alfa } from '../paleta.js';
 import { spriteAnimal } from '../desenho/animais.js';
-import { ANIMAIS, POR_ID, cartaNoNivel, custoDeTreino, NIVEL_MAX, NIVEIS } from '../dados/animais.js';
+import { POR_ID, cartaNoNivel, custoDeTreino, NIVEL_MAX, NIVEIS } from '../dados/animais.js';
 import { vp, ALTURA, aplicarMoldura, pontoNaMoldura, larguraMenu } from '../viewport.js';
 import { som } from '../audio.js';
 
@@ -30,39 +30,6 @@ const PAPEIS = {
   area: 'efeito em área',
   bomba: 'explode uma vez',
 };
-
-/**
- * Sorteia até 3 cartas que o jogador ainda não tem.
- *
- * O sorteio olha o bolso: se ele pode pagar por alguma coisa, ao menos uma das
- * ofertas é comprável agora. Sortear os três recrutas caros logo na primeira
- * fase transforma a recompensa em vitrine — o jogador vence e não leva nada.
- */
-export function sortearCartas(baralho, quantas = 3, moedas = 0) {
-  const faltam = ANIMAIS.filter((a) => a.preco > 0 && !baralho.includes(a.id));
-  if (!faltam.length) return [];
-
-  const sorteadas = [];
-  const acessiveis = faltam.filter((a) => a.preco <= moedas);
-  if (acessiveis.length) {
-    sorteadas.push(acessiveis[Math.floor(Math.random() * acessiveis.length)].id);
-  }
-
-  // o resto sai da metade mais barata do que sobrou, para a vitrine ficar
-  // ambiciosa sem virar impossível
-  const pilha = faltam.filter((a) => !sorteadas.includes(a.id)).sort((a, b) => a.preco - b.preco);
-  const janela = pilha.slice(0, Math.max(quantas, Math.ceil(pilha.length * 0.65)));
-  while (sorteadas.length < quantas && janela.length) {
-    sorteadas.push(janela.splice(Math.floor(Math.random() * janela.length), 1)[0].id);
-  }
-
-  // se a janela acabou antes, completa com qualquer uma que reste
-  const sobra = faltam.filter((a) => !sorteadas.includes(a.id));
-  while (sorteadas.length < quantas && sobra.length) {
-    sorteadas.push(sobra.splice(Math.floor(Math.random() * sobra.length), 1)[0].id);
-  }
-  return sorteadas;
-}
 
 export function criarLoja(resultado, estado, aoContinuar) {
   let MENU_L = larguraMenu();

@@ -79,7 +79,7 @@ export const FASES = [
     humanos: 12,
     moedas: 230,
     sementesIniciais: 125,
-    novidade: { monstro: 'iara', aviso: 'Fileira alagada só aceita bicho aquático. E a Iara flutua: só quem alcança o alto acerta nela.' },
+    novidade: { monstro: 'iara', aviso: 'Fileira alagada só aceita bicho aquático — e é por ela que a Iara desce. Rio sem Jacaré nem Hipopótamo é estrada aberta até a cerca.' },
     ondas: [
       { espera: 12, monstros: [['corposeco', 3]] },
       { espera: 18, monstros: [['iara', 1], ['curupira', 2]] },
@@ -183,7 +183,9 @@ export const FASES = [
     ondas: [
       { espera: 10, monstros: [['mula', 3], ['curupira', 4]] },
       { espera: 16, monstros: [['mapinguari', 2], ['boitata', 3]] },
-      { espera: 18, monstros: [['lobisomem', 4], ['iara', 4]] },
+      // a Iara só entra por fileira alagada e na serra não tem rio: quem faz a
+      // pressão desta onda é o Cabeça de Cuia, que cospe de longe
+      { espera: 18, monstros: [['lobisomem', 4], ['cabecadecuia', 4]] },
       { espera: 20, monstros: [['mapinguari', 3], ['saci', 5], ['cabecadecuia', 4]] },
       { espera: 24, monstros: [['mapinguari', 4], ['lobisomem', 5], ['mula', 4]] },
     ],

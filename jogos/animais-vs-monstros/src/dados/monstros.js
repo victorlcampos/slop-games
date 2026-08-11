@@ -5,7 +5,16 @@
 // velocidade em pixels por segundo (uma coluna do tabuleiro tem ~112px)
 // armadura  absorve dano fixo por acerto, até ser quebrada
 // voa       só toma dano de animal com `aereo`
+// aquatico  só entra pelas fileiras alagadas — e lá briga como todo mundo
 // oculto    invisível até uma Coruja revelar (ou até morder alguém)
+//
+// `voa` e `aquatico` não se misturam: quem voa sobre a água fica fora do
+// alcance de todo mundo, porque fileira alagada só aceita bicho aquático e
+// nenhum bicho aquático é `aereo`. Era o que acontecia com a Iara.
+//
+// Hoje nenhum monstro voa — a regra continua implementada e vale para quando
+// entrar um voador de terra firme, que é onde os bichos `aereo` do baralho
+// (Abelha, Morcego, Coruja, Águia) voltam a ter alvo exclusivo.
 
 export const MONSTROS = [
   {
@@ -70,7 +79,7 @@ export const MONSTROS = [
     velocidade: 27,
     dano: 20,
     intervalo: 1.3,
-    voa: true,
+    aquatico: true,
     valor: 28,
   },
   {

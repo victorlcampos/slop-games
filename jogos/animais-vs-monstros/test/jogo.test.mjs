@@ -110,6 +110,76 @@ cenario('arrastar o dedo recolhe as sementes do caminho', async () => {
   await j.fechar();
 });
 
+/**
+ * Os dois buracos da Iara, que só apareciam jogando: ela entrava por qualquer
+ * fileira (inclusive as secas, onde bicho de rio não tem o que fazer) e, dentro
+ * da água, ninguém alcançava ela — fileira alagada só aceita bicho aquático, e
+ * nenhum bicho aquático acertava quem flutuava.
+ */
+cenario('a Iara só desce pela água — e lá o Jacaré alcança ela', async () => {
+  const j = await comJogoAberto(APARELHOS.desktop, async (jj) => {
+    await jj.executar((jogo) => {
+      // só o Jacaré no baralho: assim a única carta do HUD é ele
+      jogo.estado().baralho = ['jacare'];
+      jogo.irParaBatalha(4); // Pantanal: fileiras 1 e 3 alagadas
+    });
+    await espera(500);
+    await jj.executar((jogo) => {
+      const e = jogo.atual().est;
+      e.sementes = 9999;
+      e.aviso = null;
+      e.monstros.length = 0;
+      e.naFila.length = 0;
+      e.proximaOnda = 999; // silencia as ondas da fase: quem entra em campo é só o teste
+      // uma Iara pedida para cada fileira, secas inclusive
+      for (let f = 0; f < 5; f++) e.naFila.push({ tipo: 'iara', quando: 0, fila: f });
+    });
+  });
+
+  await j.esperarAte((jogo) => jogo.atual().est.monstros.length === 5, { oQue: 'as cinco Iaras entrarem' });
+  const entrada = await j.executar((jogo) => {
+    const e = jogo.atual().est;
+    return { filas: e.monstros.map((m) => m.fila), agua: e.fase.agua };
+  });
+  conferir(
+    entrada.filas.every((f) => entrada.agua.includes(f)),
+    `Iara devia entrar só por fileira alagada (${entrada.agua}); entrou em ${entrada.filas}`
+  );
+
+  // sobra uma, na água, e o Jacaré vai plantado na mesma fileira
+  const alvo = await j.executar((jogo) => {
+    const e = jogo.atual().est;
+    e.monstros = [e.monstros[0]];
+    return { y: e.monstros[0].y, id: e.monstros[0].id };
+  });
+  await j.tocar(...j.pontos(240, 50)); // a única carta
+  await j.tocar(...j.pontos(600, alvo.y));
+
+  const plantado = await j.executar((jogo) => {
+    const p = jogo.atual().est.plantados[0];
+    return p ? { id: p.def.id, fila: p.fila, x: p.x } : null;
+  });
+  conferir(plantado && plantado.id === 'jacare', 'o Jacaré devia ter entrado na fileira alagada');
+  conferir(entrada.agua.includes(plantado.fila), 'e devia estar mesmo dentro da água');
+
+  // encosta a Iara nele — é a mordida que o jogo não dava
+  await j.executar((jogo, id, x) => {
+    const m = jogo.atual().est.monstros.find((mm) => mm.id === id);
+    m.x = x + 40;
+  }, alvo.id, plantado.x);
+
+  await j.esperarAte(
+    (jogo, id) => {
+      const m = jogo.atual().est.monstros.find((mm) => mm.id === id);
+      return !m || m.vida < m.vidaMax;
+    },
+    { args: [alvo.id], oQue: 'o Jacaré machucar a Iara' }
+  );
+
+  j.exigirSemErros('iara na água');
+  await j.fechar();
+});
+
 cenario('o save persiste entre recarregamentos', async () => {
   const j = await comJogoAberto(APARELHOS.desktop);
   // este cenário depende do storage sobreviver ao reload — o `abrir` limpa

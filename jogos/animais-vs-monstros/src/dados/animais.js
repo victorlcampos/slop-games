@@ -291,6 +291,65 @@ export const POR_ID = Object.fromEntries(ANIMAIS.map((a) => [a.id, a]));
 /** As três cartas com que todo mundo começa. */
 export const BARALHO_INICIAL = ANIMAIS.filter((a) => a.preco === 0).map((a) => a.id);
 
+/**
+ * As cartas que a vitrine da loja **precisa** oferecer antes de uma fase.
+ *
+ * Hoje só a água manda alguma coisa aqui, e manda por um motivo duro: a partir
+ * da fase 4 a Iara desce pela fileira alagada, e ali só entra bicho aquático.
+ * Quem chega sem nenhum não tem o que plantar naquela fileira — a vitrine é
+ * sorteada e pode simplesmente nunca ter mostrado um Jacaré.
+ *
+ * Devolve vazio quando o baralho já resolve a exigência.
+ */
+export function cartasExigidas(fase, baralho = []) {
+  if (!fase || !fase.agua || !fase.agua.length) return [];
+  const aquaticos = ANIMAIS.filter((a) => a.aquatico);
+  if (aquaticos.some((a) => baralho.includes(a.id))) return [];
+  return aquaticos.map((a) => a.id);
+}
+
+/**
+ * Sorteia até 3 cartas que o jogador ainda não tem.
+ *
+ * O sorteio olha o bolso: se ele pode pagar por alguma coisa, ao menos uma das
+ * ofertas é comprável agora. Sortear os três recrutas caros logo na primeira
+ * fase transforma a recompensa em vitrine — o jogador vence e não leva nada.
+ *
+ * `exigidas` fura a fila: são as cartas sem as quais a próxima fase não tem
+ * defesa possível (hoje, o bicho aquático antes da fase da água). Sorte não
+ * pode ser o que decide se a fase seguinte é jogável.
+ */
+export function sortearCartas(baralho, quantas = 3, moedas = 0, exigidas = []) {
+  const faltam = ANIMAIS.filter((a) => a.preco > 0 && !baralho.includes(a.id));
+  if (!faltam.length) return [];
+
+  const sorteadas = [];
+  const obrigatorias = faltam.filter((a) => exigidas.includes(a.id));
+  if (obrigatorias.length) {
+    sorteadas.push(obrigatorias[Math.floor(Math.random() * obrigatorias.length)].id);
+  }
+
+  const acessiveis = faltam.filter((a) => a.preco <= moedas && !sorteadas.includes(a.id));
+  if (acessiveis.length && sorteadas.length < quantas) {
+    sorteadas.push(acessiveis[Math.floor(Math.random() * acessiveis.length)].id);
+  }
+
+  // o resto sai da metade mais barata do que sobrou, para a vitrine ficar
+  // ambiciosa sem virar impossível
+  const pilha = faltam.filter((a) => !sorteadas.includes(a.id)).sort((a, b) => a.preco - b.preco);
+  const janela = pilha.slice(0, Math.max(quantas, Math.ceil(pilha.length * 0.65)));
+  while (sorteadas.length < quantas && janela.length) {
+    sorteadas.push(janela.splice(Math.floor(Math.random() * janela.length), 1)[0].id);
+  }
+
+  // se a janela acabou antes, completa com qualquer uma que reste
+  const sobra = faltam.filter((a) => !sorteadas.includes(a.id));
+  while (sorteadas.length < quantas && sobra.length) {
+    sorteadas.push(sobra.splice(Math.floor(Math.random() * sobra.length), 1)[0].id);
+  }
+  return sorteadas;
+}
+
 // ------------------------------------------------------------------- níveis
 
 /**

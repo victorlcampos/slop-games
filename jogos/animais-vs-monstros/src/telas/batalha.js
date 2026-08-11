@@ -224,15 +224,31 @@ export function criarBatalha(fase, baralho, aoTerminar, niveis = {}) {
     });
   }
 
+  /**
+   * Por onde este monstro entra no tabuleiro.
+   *
+   * A água separa dois mundos, e nos dois sentidos: bicho de terra não entra
+   * por fileira alagada, e bicho de rio **só** entra por ela. Sem a segunda
+   * metade a Iara aparecia no meio do pasto, onde ninguém a espera.
+   *
+   * Devolve `null` quando não existe fileira possível — só acontece se uma fase
+   * sem água chamar um monstro aquático, o que o elenco das fases não faz (e o
+   * teste de dados cobra).
+   */
+  function filaDeEntrada(def, sugerida) {
+    const sortear = (filas) => (filas.length ? filas[Math.floor(Math.random() * filas.length)] : null);
+    const todas = [...Array(FILEIRAS).keys()];
+    if (def.aquatico) return ehAgua(sugerida) ? sugerida : sortear(todas.filter((f) => ehAgua(f)));
+    if (def.voa) return sugerida; // quem voa passa por cima de qualquer terreno
+    if (!ehAgua(sugerida)) return sugerida;
+    return sortear(todas.filter((f) => !ehAgua(f))) ?? sugerida;
+  }
+
   function nascerMonstro(tipo, filaSugerida) {
     const def = MONSTRO_POR_ID[tipo];
     if (!def) return;
-    let fila = filaSugerida;
-    // quem não voa nem nada não entra por fileira alagada
-    if (ehAgua(fila) && !def.voa) {
-      const secas = [...Array(FILEIRAS).keys()].filter((f) => !ehAgua(f));
-      fila = secas[Math.floor(Math.random() * secas.length)] ?? fila;
-    }
+    const fila = filaDeEntrada(def, filaSugerida);
+    if (fila === null) return;
     est.monstros.push({
       id: idSeq++,
       def,

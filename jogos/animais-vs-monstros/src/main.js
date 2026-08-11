@@ -7,9 +7,10 @@ import { TINTA, TINTA_FRACA, CORES, PAPEL, PAPEL_ESCURO } from './paleta.js';
 import { criarCutscene } from './telas/cutscene.js';
 import { criarMapa } from './telas/mapa.js';
 import { criarBatalha } from './telas/batalha.js';
-import { criarLoja, sortearCartas } from './telas/loja.js';
+import { criarLoja } from './telas/loja.js';
 import { spriteMonstro } from './desenho/monstros.js';
 import { FASES } from './dados/fases.js';
+import { cartasExigidas, sortearCartas } from './dados/animais.js';
 import { calcularRecompensa } from './dados/economia.js';
 import { vp, ALTURA, ajustar, preparar, pontoLogico, aplicarMoldura, pontoNaMoldura, larguraMenu } from './viewport.js';
 import { criarLaco } from 'slopkit/laco';
@@ -125,8 +126,11 @@ function perdeuFase(fase, resumo) {
 
 /** A tela entre fases: recrutar cartas novas ou treinar as que já tem. */
 function irParaQuartel(resultado) {
-  const ofertas = sortearCartas(estado.baralho, 3, estado.moedas);
   const proxima = estado.vencidas.length >= FASES.length ? null : estado.faseAtual;
+  // o que a próxima fase exige entra na vitrine na marra: chegar na fase da
+  // água sem bicho aquático é chegar sem defesa na fileira por onde a Iara vem
+  const exigidas = cartasExigidas(FASES.find((f) => f.n === proxima), estado.baralho);
+  const ofertas = sortearCartas(estado.baralho, 3, estado.moedas, exigidas);
   atual = criarLoja({ ...resultado, ofertas, proximaFase: proxima }, estado, () => {
     Save.salvar(estado);
     irParaMapa();
@@ -236,7 +240,7 @@ function dicaDaFase(fase) {
   if (fase.chefe) return 'A Cuca chama reforço enquanto anda. Segure as fileiras com paredes e concentre o dano nela — quem para de atirar na Cuca perde o campo.';
   if (fase.nevoa) return 'A névoa esconde o meio do campo: uma Coruja em qualquer fileira levanta o véu do tabuleiro inteiro.';
   if (fase.noite) return 'No escuro tem coisa que anda invisível. Sem alguém que enxergue à noite, você só descobre quando já está sendo mordido.';
-  if (fase.agua && fase.agua.length) return 'Fileira alagada só aceita bicho aquático — Jacaré e Hipopótamo. Deixar a água vazia é abrir uma estrada.';
+  if (fase.agua && fase.agua.length) return 'Fileira alagada só aceita bicho aquático — Jacaré e Hipopótamo. É por ela que a Iara desce: água vazia é estrada aberta até a cerca.';
   if (fase.fatorSementes) return 'Na seca as sementes demoram mais. Plante geradores antes de qualquer outra coisa e aguente o começo com uma parede só.';
   return 'Comece pelos geradores: sem semente entrando, nada mais entra em campo. Duas fileiras de defesa valem mais que uma cheia de bicho caro.';
 }

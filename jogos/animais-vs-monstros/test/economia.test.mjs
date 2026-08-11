@@ -6,7 +6,10 @@
 
 import { cenario, conferir, conferirIgual, rodar } from 'slopkit/testes';
 import { calcularRecompensa } from '../src/dados/economia.js';
-import { ANIMAIS, POR_ID, cartaNoNivel, custoDeTreino, NIVEL_MAX } from '../src/dados/animais.js';
+import {
+  ANIMAIS, POR_ID, BARALHO_INICIAL, cartaNoNivel, custoDeTreino, cartasExigidas, sortearCartas, NIVEL_MAX,
+} from '../src/dados/animais.js';
+import { MONSTRO_POR_ID } from '../src/dados/monstros.js';
 import { FASES } from '../src/dados/fases.js';
 
 const faseTeste = { moedas: 300, ondas: [1, 2, 3, 4, 5] };
@@ -47,6 +50,68 @@ cenario('treinar fica mais caro a cada nível, e cartas melhores custam mais', (
   conferir(custoDeTreino('macaco', 2) > custoDeTreino('macaco', 1), '2→3 custa mais que 1→2');
   conferir(custoDeTreino('elefante', 1) > custoDeTreino('abelha', 1), 'treinar o Elefante custa mais que a Abelha');
   conferirIgual(custoDeTreino('macaco', NIVEL_MAX), null, 'no nível máximo não há o que comprar');
+});
+
+// ------------------------------------------------------------ água e elenco
+
+cenario('monstro aquático só é chamado por fase que tem água', () => {
+  for (const fase of FASES) {
+    const temAgua = !!(fase.agua && fase.agua.length);
+    for (const onda of fase.ondas) {
+      for (const [id] of onda.monstros) {
+        const def = MONSTRO_POR_ID[id];
+        conferir(def, `fase ${fase.n} chama um monstro que não existe: ${id}`);
+        if (def.aquatico) {
+          conferir(temAgua, `fase ${fase.n} chama ${id}, que só entra pela água, e não tem fileira alagada`);
+        }
+      }
+    }
+  }
+});
+
+cenario('quem vem pela água não é imune a quem defende a água', () => {
+  // fileira alagada só aceita bicho aquático, e nenhum bicho aquático é aéreo:
+  // um monstro que voasse **e** nadasse ficaria fora do alcance de todo mundo.
+  // Era exatamente o buraco da Iara.
+  const aquaticos = ANIMAIS.filter((a) => a.aquatico);
+  conferir(aquaticos.length >= 2, 'precisa haver bicho aquático para defender a água');
+  conferir(
+    aquaticos.some((a) => typeof a.dano === 'number' && a.dano > 0),
+    'pelo menos um bicho aquático precisa causar dano — parede sozinha só adia'
+  );
+  for (const id in MONSTRO_POR_ID) {
+    const def = MONSTRO_POR_ID[id];
+    conferir(!(def.aquatico && def.voa), `${id} voa e nada ao mesmo tempo: ninguém alcança ele`);
+  }
+});
+
+cenario('a vitrine garante bicho aquático antes da fase da água', () => {
+  const pantanal = FASES.find((f) => f.n === 4);
+  const semAquatico = ['esquilo', 'macaco', 'tartaruga'];
+  const exigidas = cartasExigidas(pantanal, semAquatico);
+  conferir(exigidas.length > 0, 'quem chega no Pantanal sem bicho de água precisa ver um na loja');
+  conferir(exigidas.every((id) => POR_ID[id].aquatico), 'a exigência da água só pede bicho de água');
+
+  conferirIgual(cartasExigidas(pantanal, [...semAquatico, 'jacare']), [], 'quem já tem Jacaré não precisa de empurrão');
+  conferirIgual(cartasExigidas(FASES.find((f) => f.n === 1), semAquatico), [], 'fase sem água não exige nada');
+  conferirIgual(cartasExigidas(null, semAquatico), [], 'sem próxima fase, sem exigência');
+
+  // e a exigência tem de aparecer na vitrine em toda tentativa, não na média
+  for (let i = 0; i < 200; i++) {
+    const ofertas = sortearCartas(BARALHO_INICIAL, 3, 600, exigidas);
+    conferirIgual(ofertas.length, 3, 'a vitrine continua com três cartas');
+    conferir(new Set(ofertas).size === 3, 'e sem carta repetida');
+    conferir(ofertas.some((id) => exigidas.includes(id)), 'toda vitrine antes da água precisa ter um bicho de água');
+  }
+});
+
+cenario('a vitrine continua olhando o bolso quando não há exigência', () => {
+  for (let i = 0; i < 200; i++) {
+    // 140 paga a segunda carta mais barata: sempre há algo comprável para ofertar
+    const ofertas = sortearCartas(BARALHO_INICIAL, 3, 140);
+    conferirIgual(ofertas.length, 3, 'três ofertas');
+    conferir(ofertas.some((id) => POR_ID[id].preco <= 140), 'ao menos uma oferta comprável agora');
+  }
 });
 
 // -------------------------------------------------------------- recompensa

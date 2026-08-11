@@ -114,7 +114,8 @@ Leão atordoa e Urso Polar congela; Gambá explode uma vez só.
 
 **11 monstros do folclore brasileiro**, cada um com um truque: o **Saci** pula a
 primeira defesa, o **Curupira** chega antes do que você calculou, a **Mula sem
-Cabeça** usa armadura, a **Iara** flutua (só quem acerta o alto pega nela), o
+Cabeça** usa armadura, a **Iara** só desce pelas fileiras alagadas (e lá quem
+segura é Jacaré ou Hipopótamo), o
 **Boitatá** queima de longe, o **Lobisomem** acelera quando apanha, o
 **Bicho-papão** anda invisível no escuro, e a **Cuca** — a chefona — chama
 reforço enquanto vem.
@@ -128,7 +129,7 @@ Cada uma muda o cenário, uma regra de tabuleiro e o elenco inimigo ao mesmo tem
 | 1 | Sítio do Interior | o básico |
 | 2 | Mata Atlântica | Saci pula defesas |
 | 3 | Cerrado | inimigos rápidos e de longe |
-| 4 | Pantanal | duas fileiras alagadas: só bicho aquático |
+| 4 | Pantanal | duas fileiras alagadas: só bicho aquático · Iara |
 | 5 | Caatinga | a seca corta sua produção de sementes · Mapinguari |
 | 6 | Amazônia | névoa esconde o campo — precisa de Coruja |
 | 7 | Litoral do Nordeste | noite + água · Bicho-papão invisível |
