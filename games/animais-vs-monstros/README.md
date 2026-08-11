@@ -1,189 +1,201 @@
-# 🐆 Animais vs Monstros
+# 🐆 Animals vs Monsters
 
-Defesa de fileiras no espírito de *Plants vs. Zombies*, em um único HTML que
-abre com duplo clique. Tudo é desenhado em código — não há uma imagem sequer no
-arquivo.
+Lane defence in the spirit of *Plants vs. Zombies*, in a single HTML file that
+opens on a double click. Everything is drawn in code — there is not one image in
+the file.
 
-▶️ **[Jogar](https://victorlcampos.github.io/slop-games/animais-vs-monstros/)**
+▶️ **[Play](https://victorlcampos.github.io/slop-games/animais-vs-monstros/)**
+
+Plays in **English and Portuguese** — the flags are on the map screen, top
+right, and the choice carries over from the catalog.
 
 ---
 
-## A ideia
+## The idea
 
-As lendas se cansaram de ser só histórias e ganharam corpo. Não foi uma guerra:
-quem cresceu ouvindo aqueles nomes **trava de medo** na hora de correr, e é por
-isso que a humanidade perdeu em três dias — cada povo preso exatamente pelo que
-ele mesmo inventou.
+The legends got tired of being only stories and took flesh. It was not a war:
+anyone who grew up hearing those names **freezes with fear** at the moment of
+running, and that is why humanity lost in three days — every people trapped by
+exactly what they themselves invented.
 
-Só que ninguém nunca contou essas histórias para os bichos. Um tatu não sabe o
-que é uma Cuca. Uma abelha nunca ouviu falar de lobisomem. **Não dá para
-paralisar de medo quem nunca aprendeu a ter** — e é por isso que a resistência
-é dos animais.
+Except nobody ever told those stories to the animals. An armadillo doesn't know
+what a Cuca is. A bee has never heard of a werewolf. **You cannot freeze with
+fear someone who never learned to have any** — and that is why the resistance
+belongs to the animals.
 
-Daí a campanha ser país a país: os animais vêm do mundo inteiro, os monstros são
-sempre os do lugar. A primeira campanha é o **Brasil**, onde o inimigo é o
-folclore.
+Hence a campaign country by country: the animals come from all over, the
+monsters are always the local ones. The first campaign is **Brazil**, where the
+enemy is its folklore.
 
-## Como se joga
+## How you play
 
-Cada fase é um tabuleiro de **5 fileiras por 9 colunas**. Os monstros entram
-pela direita; se algum cruzar a cerca da esquerda, a fase acabou.
+Every stage is a board of **5 rows by 9 columns**. Monsters come in from the
+right; if one crosses the fence on the left, the stage is over.
 
-1. **Plante geradores.** Sem semente entrando, nada mais entra em campo.
-2. **Clique nas sementes** que caem no chão para recolhê-las.
-3. **Monte a fileira**: parede na frente, quem atira atrás.
-4. **Mate rápido** — todo monstro derrubado devolve semente.
-5. Entre as fases, gaste **moedas** recrutando cartas novas ou treinando as que já tem.
+1. **Plant generators.** With no seed coming in, nothing else reaches the field.
+2. **Click the seeds** that fall on the ground to collect them.
+3. **Build the lane**: a wall in front, the shooters behind.
+4. **Kill fast** — every monster you drop returns seed.
+5. Between stages, spend **coins** recruiting new cards or training the ones you have.
 
-### A economia
+### The economy
 
-Semente vem de **duas fontes que se equilibram**:
+Seed comes from **two sources that balance each other**:
 
-| Fonte | Como chega | O que ela premia |
+| Source | How it arrives | What it rewards |
 |---|---|---|
-| **Gerador** | cai no chão, você clica | investir cedo e aceitar risco enquanto está indefeso |
-| **Monstro morto** | vai direto para o saldo | matar rápido, e não deixar a onda acumular |
+| **Generator** | falls on the ground, you click it | investing early and accepting risk while undefended |
+| **Dead monster** | straight into the balance | killing fast, and not letting the wave pile up |
 
-A assimetria é de propósito: no meio de uma horda ninguém tem mão livre para
-clicar em cada gota, então o que vem do combate entra sozinho. E é o que impede
-a espiral de derrota — quem foi obrigado a gastar tudo em defesa cedo ainda tem
-como se financiar, desde que segure a linha.
+The asymmetry is deliberate: in the middle of a horde nobody has a spare hand to
+click each drop, so what comes from combat comes in on its own. And that is what
+stops the death spiral — whoever was forced to spend everything on defence early
+can still finance themselves, as long as they hold the line.
 
-O peso vira ao longo da campanha: na fase 1 os monstros são 14% da sua renda; na
-fase 10, 60%. Você começa dependendo de plantar e termina se sustentando do que
-mata.
+The weight flips over the campaign: on stage 1 monsters are 14% of your income;
+on stage 10, 60%. You start out depending on planting and end up living off what
+you kill.
 
-Duas regras menores fecham o sistema: a **pá devolve metade** do custo (errar o
-lugar não pode custar a fase), e a **semente que sobrou vira moeda** no fim, a
-5 por 1 — com teto de 35% do prêmio da fase, para não transformar "não plantar"
-em estratégia.
+Two smaller rules close the system: the **shovel refunds half** the cost (getting
+the placement wrong can't cost the stage), and **leftover seed becomes coin** at
+the end, 5 to 1 — with a ceiling of 35% of the stage prize, so that "don't
+plant" never becomes a strategy.
 
-### Entre as fases: moedas
+### Between stages: coins
 
-Vencer paga o prêmio cheio da fase. **Perder também paga** — proporcional a
-quantas ondas você segurou, de 12% a 35% do prêmio. Tentar uma fase difícil não
-pode ser tempo jogado fora, mas perder nunca rende mais que vencer. Refazer fase
-já vencida rende 30%, senão a fase 1 vira caixa eletrônico.
+Winning pays the stage's full prize. **Losing pays too** — in proportion to how
+many waves you held, from 12% to 35% of the prize. Trying a hard stage can't be
+time thrown away, but losing never pays more than winning. Replaying a stage
+already won pays 30%, or stage 1 becomes a cash machine.
 
-No quartel, as moedas vão para dois lugares:
+At the barracks, coins go to two places:
 
-- **Recrutar** — três cartas sorteadas, das que você ainda não tem.
-- **Treinar** — subir de nível uma carta do baralho (até o nível 3).
+- **Recruit** — three cards rolled from the ones you don't have yet.
+- **Train** — take a card in your deck up a level (to level 3).
 
-Treinar aumenta o que a carta já faz e **não muda o custo em sementes**: a mesma
-semente em campo passa a render mais. No nível 3 a carta também volta mais
-rápido. Um Esquilo treinado produz 25 → 34 → 45 sementes; um Macaco bate 22 →
-30 → 40.
+Training raises what the card already does and **does not change its seed cost**:
+the same seed on the field now buys more. At level 3 the card also comes back
+sooner. A trained Squirrel produces 25 → 34 → 45 seeds; a Monkey hits 22 → 30 →
+40.
 
-O treino custa a partir do valor da própria carta, então aprofundar um Elefante
-sai mais caro que recrutar uma carta média. E a conta não fecha para os dois:
-**recrutar tudo custa 4030, treinar tudo 8512, e a campanha rende cerca de
-3800**. Ou você abre o leque, ou aprofunda o que já usa — o baralho de cada
-jogador acaba diferente por causa dessa escolha.
+Training is priced off the card's own value, so deepening an Elephant costs more
+than recruiting an average card. And the budget doesn't cover both: **recruiting
+everything costs 4030, training everything 8512, and the campaign pays around
+3800**. Either you widen the spread or you deepen what you already use — every
+player's deck ends up different because of that choice.
 
-| Ação | No computador | No celular |
+| Action | On a computer | On a phone |
 |---|---|---|
-| escolher o bicho | clique na carta | toque na carta |
-| plantar | clique na casa | arraste até a casa e solte |
-| recolher semente | clique nela | toque **ou** arraste o dedo por cima |
-| tirar um bicho | ⛏ e clique nele | ⛏ e toque nele |
-| som | `M` | botão no mapa |
-| pular a abertura | `Esc` | toque para avançar |
+| pick an animal | click the card | tap the card |
+| plant | click the cell | drag to the cell and let go |
+| collect seed | click it | tap it **or** drag a finger over it |
+| remove an animal | ⛏ then click it | ⛏ then tap it |
+| sound | `M` | button on the map |
+| skip the intro | `Esc` | tap to advance |
 
-### Tela
+### The screen
 
-O jogo ocupa a janela inteira, em qualquer proporção. A altura lógica é fixa —
-é ela que define o tamanho de bicho, fileira e fonte — e a **largura acompanha o
-formato da tela**: num monitor ultrawide você enxerga mais campo à frente, num
-4:3 menos. Não há barra preta nem imagem esticada.
+The game fills the whole window at any aspect ratio. The logical height is fixed
+— it is what sets the size of animal, lane and font — and the **width follows the
+shape of the screen**: on an ultrawide monitor you see more field ahead, on a 4:3
+less. There is no letterboxing and no stretched image.
 
-O tabuleiro em si tem tamanho de casa com teto, então a largura que sobra vira
-**pista de aproximação** à direita: em tela grande você vê a horda chegando de
-longe, o que é vantagem sem mexer no equilíbrio da fase.
+The board itself has a cell-size ceiling, so the leftover width becomes an
+**approach track** on the right: on a big screen you see the horde coming from
+far off, which is an advantage that doesn't touch the stage's balance.
 
-No celular o jogo pede para virar o aparelho — nove colunas não cabem em pé — e
-as cartas crescem para o dedo, quebrando em duas linhas quando o baralho fica
-grande demais para uma.
+On a phone the game asks you to turn the device — nine columns don't fit upright
+— and the cards grow for a finger, breaking into two rows when the deck gets too
+big for one.
 
-## O elenco
+## The cast
 
-**19 animais**, de todo canto: Esquilo e Castor produzem sementes; Macaco,
-Abelha, Cobra, Escorpião, Coruja, Morcego e Águia atiram; Tartaruga, Ouriço,
-Elefante e Hipopótamo seguram a linha; Onça, Canguru e Jacaré batem de perto;
-Leão atordoa e Urso Polar congela; Gambá explode uma vez só.
+**19 animals**, from everywhere: Squirrel and Beaver produce seeds; Monkey, Bee,
+Snake, Scorpion, Owl, Bat and Eagle shoot; Turtle, Hedgehog, Elephant and Hippo
+hold the line; Jaguar, Kangaroo and Alligator hit up close; Lion stuns and Polar
+Bear freezes; Skunk blows up once.
 
-**13 monstros do folclore brasileiro**, cada um com um truque: o **Saci** pula a
-primeira defesa, o **Curupira** chega antes do que você calculou, a **Mula sem
-Cabeça** usa armadura, a **Iara** só desce pelas fileiras alagadas (e lá quem
-segura é Jacaré ou Hipopótamo), o **Boto** atravessa a linha da água trocando de
-forma — bicho no rio, moço de chapéu branco na margem —, a **Mãe-de-Ouro** cruza
-o céu e não olha para o chão — parede nenhuma segura ela, só quem alcança o
-alto —, o
-**Boitatá** queima de longe, o **Lobisomem** acelera quando apanha, o
-**Bicho-papão** anda invisível no escuro, e a **Cuca** — a chefona — chama
-reforço enquanto vem.
+**13 monsters from Brazilian folklore**, each with a trick: the **Saci** jumps
+the first defence, the **Curupira** arrives sooner than you worked out, the
+**Headless Mule** wears armour, the **Iara** only comes down the flooded lanes
+(and there it is an Alligator or a Hippo that holds her), the **Boto** crosses
+the waterline changing shape — a dolphin in the river, a young man in a white hat
+on the bank — the **Mother of Gold** crosses the sky and never looks down (no
+wall holds her, only those who reach high), the **Boitatá** burns from a
+distance, the **Werewolf** speeds up as it takes hits, the **Bogeyman** walks
+invisible in the dark, and the **Cuca** — the boss — calls reinforcements as she
+comes.
 
-## As 10 fases
+The folklore names stay as they are in both languages. Translating a Saci would
+be inventing a creature that doesn't exist; what is translated is the legend that
+describes him.
 
-Cada uma muda o cenário, uma regra de tabuleiro e o elenco inimigo ao mesmo tempo.
+## The 10 stages
 
-| # | Fase | O que muda |
+Each one changes the scenery, a board rule and the enemy cast at the same time.
+
+| # | Stage | What changes |
 |---|---|---|
-| 1 | Sítio do Interior | o básico |
-| 2 | Mata Atlântica | Saci pula defesas |
-| 3 | Cerrado | inimigos rápidos e de longe |
-| 4 | Pantanal | duas fileiras alagadas: só bicho aquático · Iara |
-| 5 | Caatinga | a seca corta sua produção de sementes · Mapinguari |
-| 6 | Amazônia | névoa esconde o campo — precisa de Coruja · **o Boto** |
-| 7 | Litoral do Nordeste | noite + duas fileiras de água · Bicho-papão invisível |
-| 8 | Centro de São Paulo | hordas grandes |
-| 9 | Serra da Mantiqueira | névoa · a Mãe-de-Ouro voa por cima da defesa |
-| 10 | Cristo Redentor | **a Cuca** |
+| 1 | Backcountry Farm | the basics |
+| 2 | Atlantic Forest | the Saci jumps defences |
+| 3 | Cerrado | fast enemies, and ranged ones |
+| 4 | Pantanal | two flooded lanes: aquatic animals only · Iara |
+| 5 | Caatinga | the drought cuts your seed production · Mapinguari |
+| 6 | Amazon | fog hides the field — you need an Owl · **the Boto** |
+| 7 | Northeast Coast | night + two lanes of water · the invisible Bogeyman |
+| 8 | Downtown São Paulo | big hordes |
+| 9 | Mantiqueira Range | fog · the Mother of Gold flies over the defence |
+| 10 | Christ the Redeemer | **the Cuca** |
 
-## Save
+## Saves
 
-O progresso salva sozinho no navegador. Como o jogo roda por `file://` — onde
-cada pasta é uma origem diferente —, o botão **baixar save** gera um `.json`
-que você guarda onde quiser e recarrega com **carregar** em qualquer máquina.
+Progress saves itself in the browser. Because the game runs over `file://` —
+where each folder is a different origin — the **download save** button produces a
+`.json` you keep wherever you like and reload with **load** on any machine.
 
-**Recomeçar** apaga tudo e volta à abertura. A confirmação mostra o que se
-perde em números — fases, cartas, moedas e humanos libertados — e lembra de
-baixar o save antes, porque essa é a única ação do jogo que não dá para
-desfazer.
+**Restart** wipes everything and goes back to the intro. The confirmation shows
+what is lost in numbers — stages, cards, coins and humans freed — and reminds you
+to download the save first, because it is the only action in the game that can't
+be undone.
 
-## Mexer no código
+## Working on the code
 
 ```bash
-npm install       # na raiz do slop-games
+npm install       # at the slop-games root
 npm run build     # → dist/index.html
 ```
 
-O código vive em `src/` como módulos ES, empacotados por esbuild num HTML só.
+The code lives in `src/` as ES modules, bundled by esbuild into a single HTML.
 
 ```
 src/
-  rabisco.js        motor de traço torto: nada é reto, nada é redondo
-  viewport.js       tela elástica: altura fixa, largura conforme o monitor
-  paleta.js         cores de lápis
-  audio.js          Web Audio na mão — efeitos e trilha, nenhum arquivo
-  save.js           localStorage + baixar/carregar .json
-  dados/            animais (com níveis), monstros, fases e a economia
-  desenho/          os 33 sprites, os cenários e o mapa-múndi
-  telas/            cutscene, mapa, batalha e loja
-  main.js           máquina de telas
+  scribble.js       the crooked-line engine: nothing straight, nothing round
+  viewport.js       elastic screen: fixed height, width follows the monitor
+  palette.js        pencil colours
+  audio.js          Web Audio by hand — effects and score, no files
+  save.js           localStorage + download/load .json
+  i18n.js           the two languages: the instance and `pick()`
+  data/             animals (with levels), monsters, stages and the economy
+  draw/             the 33 sprites, the scenery and the world map
+  screens/          cutscene, map, battle and shop
+  main.js           the screen machine
 ```
 
-Dois detalhes que valem saber antes de mexer:
+Four details worth knowing before you touch it:
 
-- **O traço não pode tremer sozinho.** Todo desvio vem de um PRNG com semente
-  fixa (`rabisco.js`), não de `Math.random()`. Se trocar, a tela inteira ferve.
-- **Sprite se desenha uma vez.** Cada bicho é pintado num canvas fora da tela e
-  reusado; redesenhar 40 criaturas rabiscadas por quadro derruba o fps, porque
-  cada traço são duas passadas de curva de Bézier.
-- **A largura da tela é variável, a altura não.** Desenhe sempre contra
-  `ALTURA` (720) e leia `vp.L` para a largura. As telas de menu foram compostas
-  numa prancheta de 1280 e ficam centradas por `margem()`; a batalha, não — lá
-  a largura extra é campo de verdade.
+- **The line must not wobble on its own.** Every deviation comes from a
+  fixed-seed PRNG (`scribble.js`), never `Math.random()`. Swap it and the whole
+  screen boils.
+- **A sprite is drawn once.** Each animal is painted on an offscreen canvas and
+  reused; redrawing 40 scribbled creatures per frame tanks the frame rate,
+  because every stroke is two passes of Bézier curve.
+- **The screen's width varies, its height doesn't.** Always draw against `HEIGHT`
+  (720) and read `vp.W` for the width. The menu screens were composed on a
+  1280-wide board and are centred by `applyFrame()`; the battle is not — there
+  the extra width is real field.
+- **Text lives next to what it names.** Card names and monster lore carry both
+  languages in `src/data/`; screen copy is a local `T` in each screen file. A
+  unit test fails on any field that exists in one language only.
 
-Para adicionar um bicho: descreva-o em `src/dados/animais.js`, desenhe-o em
-`src/desenho/animais.js` e pronto — a loja passa a sorteá-lo sozinha.
+To add an animal: describe it in `src/data/animals.js`, draw it in
+`src/draw/animals.js`, and that's it — the shop starts rolling it on its own.

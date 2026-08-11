@@ -115,7 +115,7 @@ function addPath(x, y) {
   if (world.path[i] || world.occ[i] || world.enc[i]) return false;
   world.path[i] = 1;
   world.terr[i] = TKEYS.indexOf('piso');
-  G.dirty.net = true; terrenoMudou();
+  G.dirty.net = true; terrainChanged();
   return true;
 }
 function removePath(x, y) {
@@ -127,7 +127,7 @@ function removePath(x, y) {
   if (x === ENTRANCE.x && y === ENTRANCE.y) return false;
   world.path[i] = 0; world.lixo[i] = 0;
   world.terr[i] = TKEYS.indexOf('grass');
-  G.dirty.net = true; terrenoMudou();
+  G.dirty.net = true; terrainChanged();
   return true;
 }
 
@@ -145,8 +145,8 @@ function makeEnclosure(tiles, fenceKey) {
   const id = uid();
   const e = {
     id, fence: fenceKey, name: 'Recinto ' + id, tiles: new Set(),
-    animals: [], objs: [], limpeza: 1, comida: 1, water: 1,
-    happy: .7, alertas: [], integridade: 1,
+    animals: [], objs: [], cleanliness: 1, food: 1, water: 1,
+    happy: .7, alerts: [], integrity: 1,
   };
   enclosures.set(id, e);
   encAddTiles(e, tiles);
@@ -162,14 +162,14 @@ function encAddTiles(e, tiles) {
 /** derruba os caches derivados da forma */
 function encInvalida(e) {
   e._seg = e._segTile = e._bb = e._arr = e._vs = e._mix = null;
-  G.dirty.net = true; terrenoMudou();
+  G.dirty.net = true; terrainChanged();
 }
 function deleteEnclosure(id) {
   const e = enclosures.get(id); if (!e) return;
   for (const k of e.tiles) world.enc[k] = 0;
   for (const o of e.objs) objects.delete(o.id);
   enclosures.delete(id);
-  G.dirty.net = true; terrenoMudou();
+  G.dirty.net = true; terrainChanged();
 }
 const encArea = e => e.tiles.size;
 const encTilesArr = e => e._arr || (e._arr = [...e.tiles]);
@@ -186,7 +186,7 @@ function encBBox(e) {
   return e._bb = { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
 }
 /** quantas arestas de um conjunto de tiles dão para fora (= tamanho da cerca) */
-function contarSegmentos(set) {
+function countSegments(set) {
   let n = 0;
   for (const k of set) {
     const x = k % W, y = (k / W) | 0;
@@ -236,7 +236,7 @@ function encMix(e) {
   return m;
 }
 /** marca que o terreno mudou (invalida caches derivados dele) */
-function terrenoMudou() { G.terrVer++; G.dirty.terr = true; }
+function terrainChanged() { G.terrVer++; G.dirty.terr = true; }
 /** 0..1 — quão bem o terreno atende o bioma da espécie */
 function terrainScore(e, sp) {
   const m = encMix(e); let s = 0, tot = 0;
@@ -280,7 +280,7 @@ function placeObject(kind, cat, x, y) {
   const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
   const w = def.w || 1, h = def.h || 1;
   const id = uid();
-  const o = { id, kind, cat, x, y, w, h, fila: [], receita: 0, vendas: 0, estoque: 1, sujo: 0, hp: 1 };
+  const o = { id, kind, cat, x, y, w, h, queue: [], revenue: 0, sales: 0, estoque: 1, dirty: 0, hp: 1 };
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) world.occ[IDX(x + i, y + j)] = id;
   objects.set(id, o);
   if (cat === 'deco') applyBeauty(o, +1);

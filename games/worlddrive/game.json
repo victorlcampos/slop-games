@@ -1,20 +1,26 @@
 {
   "slug": "worlddrive",
   "name": {
-    "pt": "World Drive",
-    "en": "World Drive"
+    "en": "World Drive",
+    "pt": "World Drive"
   },
   "emoji": "🚗",
   "description": {
-    "pt": "Dirija por qualquer rua do mundo. O cenário 3D é montado ao vivo a partir de dados reais do OpenStreetMap.",
-    "en": "Drive down any street in the world. The 3D scenery is built live from real OpenStreetMap data."
+    "en": "Drive down any street in the world. The 3D scenery is built live from real OpenStreetMap data.",
+    "pt": "Dirija por qualquer rua do mundo. O cenário 3D é montado ao vivo a partir de dados reais do OpenStreetMap."
   },
-  "tags": ["3d", "racing", "open-world"],
-  "libs": ["three.js"],
+  "tags": [
+    "3d",
+    "racing",
+    "open-world"
+  ],
+  "libs": [
+    "three.js"
+  ],
   "offline": false,
   "note": {
-    "pt": "Precisa de internet: busca as ruas na API do Overpass ao escolher o local.",
-    "en": "Needs the internet: it fetches the streets from the Overpass API when you pick a place."
+    "en": "Needs the internet: it fetches the streets from the Overpass API when you pick a place.",
+    "pt": "Precisa de internet: busca as ruas na API do Overpass ao escolher o local."
   },
   "year": 2026
 }

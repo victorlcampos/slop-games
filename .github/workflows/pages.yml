@@ -1,4 +1,4 @@
-name: Testar e publicar
+name: Test and publish
 
 on:
   push:
@@ -11,19 +11,20 @@ permissions:
   pages: write
   id-token: write
 
-# Uma publicação por vez; não cancela a que já está no ar.
+# One publish at a time; it does not cancel the one already going out.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Constrói e testa. O artefato que sobe daqui é exatamente o que foi testado —
-  # o job de publicação não rebuilda, só publica. Assim não existe a hipótese de
-  # ir ao ar um build diferente do que passou.
+  # Builds and tests. The artifact that goes up from here is exactly the one
+  # that was tested — the publishing job rebuilds nothing, it only publishes.
+  # That way there is no chance of shipping a build different from the one that
+  # passed.
   # ---------------------------------------------------------------------------
-  testar:
-    name: Testes
+  test:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,58 +36,60 @@ jobs:
 
       - run: npm ci
 
-      # `puppeteer-core` não baixa navegador (é o que mantém o repositório leve),
-      # então o Chrome vem do runner. O `acharChrome` do slopkit encontra sozinho;
-      # este passo existe para falhar com mensagem clara se um dia sumir.
-      - name: Conferir o Chrome do runner
+      # `puppeteer-core` does not download a browser (that is what keeps this
+      # repository light), so Chrome comes from the runner. slopkit's
+      # `findChrome` locates it on its own; this step exists to fail with a
+      # clear message the day it goes missing.
+      - name: Check the runner's Chrome
         run: |
-          CAMINHO="$(command -v google-chrome || command -v chromium || true)"
-          if [ -z "$CAMINHO" ]; then
-            echo "::error::nenhum Chrome no runner — os testes de navegador não podem rodar"
+          CHROME_PATH="$(command -v google-chrome || command -v chromium || true)"
+          if [ -z "$CHROME_PATH" ]; then
+            echo "::error::no Chrome on the runner — the browser tests cannot run"
             exit 1
           fi
-          echo "Chrome em $CAMINHO — $("$CAMINHO" --version)"
+          echo "Chrome at $CHROME_PATH — $("$CHROME_PATH" --version)"
 
-      - name: Construir os jogos e o índice
+      - name: Build the games and the index
         run: npm run build
 
-      - name: Testes de unidade e do catálogo
+      - name: Unit and catalog tests
         run: npm test
 
-      - name: Testes de cada jogo
+      - name: Each game's own tests
         run: npm run test --workspace games/animais-vs-monstros
 
-      # Este dirige de verdade num mapa real do OpenStreetMap. É um bom teste e
-      # um péssimo portão: depende de uma API pública de terceiros, que cai e
-      # limita requisição. Roda para dar visibilidade, sem poder barrar o deploy.
-      - name: Teste de integração com rede (não bloqueia)
+      # This one really drives on a real OpenStreetMap map. It is a good test
+      # and a terrible gate: it depends on a third-party public API that goes
+      # down and rate-limits. It runs for visibility, without being able to
+      # block the deploy.
+      - name: Network integration test (non-blocking)
         continue-on-error: true
         run: npm run test --workspace games/worlddrive
 
-      # quando algo quebra, a imagem da tela vale mais que o log
-      - name: Guardar as telas em caso de falha
+      # when something breaks, the screenshot is worth more than the log
+      - name: Keep the screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: telas-da-falha
+          name: failure-screenshots
           path: |
             games/*/test/*.png
             test/*.png
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Empacotar o dist testado
+      - name: Package the tested dist
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   # ---------------------------------------------------------------------------
-  # Só publica se os testes passaram, e só a partir da main.
+  # Only publishes if the tests passed, and only from main.
   # ---------------------------------------------------------------------------
-  publicar:
-    name: Publicar no Pages
-    needs: testar
+  publish:
+    name: Publish to Pages
+    needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:

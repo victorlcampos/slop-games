@@ -35,7 +35,7 @@ function medirHud() {
 }
 
 function toast(msg, kind) {
-  SFX.toca(kind === 'good' ? 'compra' : kind === 'money' ? 'moeda' : kind === 'bad' ? 'erro' : 'ui');
+  SFX.play(kind === 'good' ? 'compra' : kind === 'money' ? 'moeda' : kind === 'bad' ? 'erro' : 'ui');
   const t = el('div', 'toast ' + (kind || ''), msg);
   UI.toasts.appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .4s,transform .4s'; t.style.opacity = 0; t.style.transform = 'translateX(30px)'; }, 4200);
@@ -50,10 +50,10 @@ function updateHUD() {
   $('#stMoney').classList.toggle('neg', G.money < 0);
   $('#vDay').textContent = G.day;
   $('#vVis').textContent = G.visitors.length;
-  const vivos = G.animals.filter(a => !a.morto);
+  const vivos = G.animals.filter(a => !a.dead);
   $('#vAni').textContent = vivos.length;
-  const hp = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.felicidade;
-  G.stats.felicidade = hp;
+  const hp = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.happiness;
+  G.stats.happiness = hp;
   $('#vHappy').textContent = Math.round(hp * 100) + '%';
   $('#vRep').textContent = G.rep.toFixed(1) + '★';
   $('#clockBadge').textContent = relTime(G.hour) + (G.hour >= OPEN_H && G.hour < CLOSE_H ? '' : ' 🌙');
@@ -62,14 +62,14 @@ function updateHUD() {
   // você acabou de cortar a trilha, o pessoal que já entrou continua saindo e o
   // alerta ficava escondido justamente na hora em que ele importa.
   const w = $('#stWarn');
-  const diag = diagnosticoPublico();
+  const diag = crowdDiagnosis();
   const mostra = !!diag && diag.key !== 'closed';
   w.classList.toggle('show', mostra);
   if (mostra) {
-    $('#vWarn').textContent = diag.curto;
+    $('#vWarn').textContent = diag.short;
     w.querySelector('.ic').textContent = diag.em;
   }
-  renderAlertas();
+  renderAlerts();
 }
 
 /* ---- barra de alertas do gerente ----
@@ -77,46 +77,46 @@ function updateHUD() {
    centraliza a câmera no alvo; clicar de novo cicla entre os casos. */
 const ALERTA_DEF = {
   fuga: { em: '🚨', n: 'Animal solto', sev: 3 },
-  doente: { em: '🤒', n: 'Animal doente', sev: 3 },
-  saude: { em: '🆘', n: 'Saúde crítica', sev: 3 },
-  fome: { em: '🍖', n: 'Recinto sem comida', sev: 2 },
+  sick: { em: '🤒', n: 'Animal doente', sev: 3 },
+  health: { em: '🆘', n: 'Saúde crítica', sev: 3 },
+  hunger: { em: '🍖', n: 'Recinto sem comida', sev: 2 },
   water: { em: '💧', n: 'Recinto sem água', sev: 2 },
   cerca: { em: '🔧', n: 'Cerca se rompendo', sev: 2 },
   idoso: { em: '⏳', n: 'Animal no fim da vida', sev: 1 },
-  sujo: { em: '🧹', n: 'Recinto imundo', sev: 1 },
+  dirty: { em: '🧹', n: 'Recinto imundo', sev: 1 },
   vista: { em: '👀', n: 'Recinto sem trilha', sev: 1 },
 };
 let _alSig = '';
 const _alCursor = {};
-function coletarAlertas() {
+function collectAlerts() {
   const grupos = new Map();
-  const add = (tipo, alvo, rotulo) => {
-    let g = grupos.get(tipo);
-    if (!g) grupos.set(tipo, g = { tipo, alvos: [], rotulos: [] });
-    g.alvos.push(alvo); g.rotulos.push(rotulo);
+  const add = (kind, target, label) => {
+    let g = grupos.get(kind);
+    if (!g) grupos.set(kind, g = { kind, alvos: [], rotulos: [] });
+    g.alvos.push(target); g.rotulos.push(label);
   };
-  for (const a of G.escaped) if (!a.morto) add('fuga', [a.x, a.y], LN(a.sp.name));
+  for (const a of G.escaped) if (!a.dead) add('fuga', [a.x, a.y], LN(a.sp.name));
   for (const a of G.animals) {
-    if (a.morto || a.fugiu) continue;
-    if (a.doente) add('doente', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
-    else if (a.saude < .3) add('saude', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
-    if (a.idade > a.sp.lifespan * .85) add('idoso', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
+    if (a.dead || a.escaped) continue;
+    if (a.sick) add('doente', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
+    else if (a.health < .3) add('saude', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
+    if (a.age > a.sp.lifespan * .85) add('idoso', [a.x, a.y], a.name + ' (' + LN(a.sp.name) + ')');
   }
   for (const e of enclosures.values()) {
-    if (!e.animals.some(a => !a.morto)) continue;
-    const bb = encBBox(e), alvo = [bb.cx, bb.cy];
-    if (!encHasFeeder(e) || e.comida < .12) add('fome', alvo, e.name);
-    if (!encHasWater(e) || e.water < .12) add('water', alvo, e.name);
-    if (e.integridade < .5) add('cerca', alvo, e.name);
-    if (e.limpeza < .3) add('sujo', alvo, e.name);
-    if (!encViewSpots(e).length) add('vista', alvo, e.name);
+    if (!e.animals.some(a => !a.dead)) continue;
+    const bb = encBBox(e), target = [bb.cx, bb.cy];
+    if (!encHasFeeder(e) || e.food < .12) add('fome', target, e.name);
+    if (!encHasWater(e) || e.water < .12) add('water', target, e.name);
+    if (e.integrity < .5) add('cerca', target, e.name);
+    if (e.cleanliness < .3) add('sujo', target, e.name);
+    if (!encViewSpots(e).length) add('vista', target, e.name);
   }
   return [...grupos.values()]
     .sort((a, b) => ALERTA_DEF[b.kind].sev - ALERTA_DEF[a.kind].sev || b.alvos.length - a.alvos.length);
 }
-function renderAlertas() {
+function renderAlerts() {
   const ab = $('#alertbar'); if (!ab) return;
-  const grupos = coletarAlertas().slice(0, 6);
+  const grupos = collectAlerts().slice(0, 6);
   const sig = grupos.map(g => g.kind + ':' + g.alvos.length).join('|');
   if (sig === _alSig) return;                 // sem mudança, sem reconstruir
   _alSig = sig;
@@ -154,32 +154,32 @@ function buildDock() {
   for (const c of CATS) {
     const b = el('button', 'btn', `<i>${c.em}</i>${LN(c.n)}`);
     b.dataset.cat = c.k;
-    b.onclick = () => abrirCategoria(c.k);
+    b.onclick = () => openCategory(c.k);
     UI.dock.appendChild(b);
   }
   const bh = el('button', 'btn', '<i>❓</i>Ajuda');
   bh.onclick = openHelp; UI.dock.appendChild(bh);
 }
-function abrirCategoria(k) {
-  if (UI.cat === k) { fecharPaleta(); return; }
+function openCategory(k) {
+  if (UI.cat === k) { closePalette(); return; }
   UI.cat = k;
   $$('#dock .btn').forEach(b => b.classList.toggle('on', b.dataset.cat === k));
-  if (k === 'animal') { fecharPaleta(); openShop(); return; }
-  if (k === 'equipe') { fecharPaleta(); openStaff(); return; }
-  if (k === 'financas') { fecharPaleta(); openFinance(); return; }
-  if (k === 'demolir') { fecharPaleta(); setTool({ cat: 'demolir', em: '🔨', n: 'Demolir|Demolish' }); return; }
-  montarPaleta(k);
+  if (k === 'animal') { closePalette(); openShop(); return; }
+  if (k === 'equipe') { closePalette(); openStaff(); return; }
+  if (k === 'financas') { closePalette(); openFinance(); return; }
+  if (k === 'demolir') { closePalette(); setTool({ cat: 'demolir', em: '🔨', n: 'Demolir|Demolish' }); return; }
+  buildPalette(k);
 }
-function fecharPaleta() {
+function closePalette() {
   UI.pal.classList.remove('show'); UI.cat = null;
   $$('#dock .btn').forEach(b => b.classList.remove('on'));
-  atualizarMini();
+  refreshMinimap();
 }
 
-function montarPaleta(k) {
+function buildPalette(k) {
   if (painelUnico()) deselect();
   UI.pal.classList.add('show');
-  atualizarMini();
+  refreshMinimap();
   UI.pal.innerHTML = '';
   const title = el('div', '', ''); title.id = 'palTitle';
   UI.pal.appendChild(title);
@@ -233,10 +233,10 @@ function montarPaleta(k) {
   }
 }
 function setTool(t) {
-  if (t) SFX.toca('aba');
+  if (t) SFX.play('aba');
   G.tool = t; G.drag = null;
   if (!t) { hint(null); return; }
-  const dicas = {
+  const tips = {
     caminho: LN('Arraste para desenhar a trilha.|Drag to draw the path.'),
     recinto: t.ampliando
       ? LN('Arraste <b>encostando no recinto</b> para ampliá-lo. Pode repetir para fazer L, T ou U.|Drag <b>touching the enclosure</b> to extend it. Repeat to make an L, a T or a U.')
@@ -248,21 +248,21 @@ function setTool(t) {
     animal: BI`Toque num recinto para soltar <b>${t.sp ? LN(t.LN(sp.name)) : ''}</b> lá dentro.|Tap an enclosure to release <b>${t.sp ? LN(t.LN(sp.name)) : ''}</b> into it.`,
     demolir: LN('Toque no que quiser remover. Recintos devolvem metade do valor da cerca.|Tap whatever you want removed. Enclosures refund half the fence value.'),
   };
-  hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${LN(t.n || '')}</b> — ${dicas[t.cat] || ''}` +
+  hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${LN(t.n || '')}</b> — ${tips[t.cat] || ''}` +
     `<button class="btn r sm" id="hintX" title="Cancelar ferramenta">✕</button>`);
 }
 
 /* ---- modais ---- */
 function openModal(title, bodyHTML, footHTML) {
-  SFX.toca('abrir');
+  SFX.play('abrir');
   UI.mTitle.textContent = title;
   UI.mBody.innerHTML = bodyHTML || '';
   UI.mFoot.innerHTML = footHTML || '';
   UI.modalBg.classList.add('show');
 }
 function closeModal() {
-  if (UI.modalBg.classList.contains('show')) SFX.toca('fechar');
-  UI.modalBg.classList.remove('show'); fecharPaleta();
+  if (UI.modalBg.classList.contains('show')) SFX.play('fechar');
+  UI.modalBg.classList.remove('show'); closePalette();
 }
 $('#modalX').onclick = closeModal;
 UI.modalBg.onclick = e => { if (e.target === UI.modalBg) closeModal(); };
@@ -317,7 +317,7 @@ function renderShop() {
     (!q || s.name.toLowerCase().includes(q) || s.biomeName.toLowerCase().includes(q)) &&
     (!shopFiltro.biome || s.biome === shopFiltro.biome) &&
     (!shopFiltro.diet || s.diet === shopFiltro.diet));
-  const ord = { appeal: (a, b) => b.appeal - a.appeal || a.price - b.price, price: (a, b) => a.price - b.price, precoD: (a, b) => b.price - a.price, name: (a, b) => a.name.localeCompare(b.name), space: (a, b) => a.space - b.space };
+  const ord = { appeal: (a, b) => b.appeal - a.appeal || a.price - b.price, price: (a, b) => a.price - b.price, priceD: (a, b) => b.price - a.price, name: (a, b) => a.name.localeCompare(b.name), space: (a, b) => a.space - b.space };
   list = list.slice().sort(ord[shopFiltro.ord]);
   $('#shopCount').textContent = list.length + LN(' espécies| species');
   if (shopObserver) shopObserver.disconnect();
@@ -342,9 +342,9 @@ function renderShop() {
   }, { root: UI.mBody, rootMargin: '260px' });
 
   for (const sp of list) {
-    const pode = G.money >= sp.price;
+    const allowed = G.money >= sp.price;
     const combina = e ? terrainScore(e, sp) : null;
-    const card = el('div', 'acard' + (pode ? '' : ' dis'));
+    const card = el('div', 'acard' + (allowed ? '' : ' dis'));
     card.dataset.sp = sp.id;
     const bg = combina === null ? '#eef4ea' : combina > .7 ? '#d7f0cf' : combina > .4 ? '#fbf0cf' : '#f8dcd6';
     card.innerHTML =
@@ -355,7 +355,7 @@ function renderShop() {
          ração ${moneyFull(sp.feed)}/dia · danger ${'⚠️'.repeat(Math.min(sp.danger, 5)) || '—'}</div>
        <div class="ft"><span class="stars">${stars(sp.appeal / 2)}</span><b>${moneyFull(sp.price)}</b></div>`;
     card.onclick = () => {
-      if (!pode) { toast(BI`💸 Dinheiro insuficiente para ${LN(sp.name)}|💸 Not enough money for a ${LN(sp.name)}`, 'bad'); return; }
+      if (!allowed) { toast(BI`💸 Dinheiro insuficiente para ${LN(sp.name)}|💸 Not enough money for a ${LN(sp.name)}`, 'bad'); return; }
       if (shopEncId && enclosures.has(shopEncId)) { comprarPara(sp, enclosures.get(shopEncId)); closeModal(); }
       else { setTool({ cat: 'animal', key: 'sp' + sp.id, sp, em: '🐾', n: LN(sp.name), cost: sp.price }); closeModal(); }
     };
@@ -364,18 +364,18 @@ function renderShop() {
   }
 }
 function comprarPara(sp, e) {
-  const aviso = checarRecinto(sp, e);
-  if (aviso.bloqueia) { toast('🚫 ' + aviso.msg, 'bad'); return false; }
+  const notice = checkEnclosure(sp, e);
+  if (notice.bloqueia) { toast('🚫 ' + notice.msg, 'bad'); return false; }
   if (G.money < sp.price) { toast('💸 Dinheiro insuficiente', 'bad'); return false; }
   spend(sp.price, 'compra');
-  const a = novoAnimal(sp, e.id);
+  const a = newAnimal(sp, e.id);
   e.animals.push(a);
-  undoRegistrar({ kind: 'animal', cat: 'compra', id: a.id, cost: sp.price, rotulo: LN(sp.name) });
+  undoRecord({ kind: 'animal', cat: 'compra', id: a.id, cost: sp.price, label: LN(sp.name) });
   toast(BI`🎉 ${LN(sp.name)} chegou ao ${e.name}!|🎉 A ${LN(sp.name)} arrived at ${e.name}!`, 'good');
-  if (aviso.msg) toast('⚠️ ' + aviso.msg, 'bad');
+  if (notice.msg) toast('⚠️ ' + notice.msg, 'bad');
   return true;
 }
-function checarRecinto(sp, e) {
+function checkEnclosure(sp, e) {
   const F = FENCES[e.fence];
   const irmaos = e.animals.filter(z => z.sp.id === sp.id).length;
   const outras = new Set(e.animals.map(z => z.sp.id)); outras.delete(sp.id);
@@ -408,63 +408,63 @@ function setBar(key, v, col, extra) {
   i.style.width = p + '%'; i.style.background = col;
   row.querySelector('[data-v]').textContent = extra !== undefined ? extra : p + '%';
 }
-const corDe = v => v > .66 ? '#4fae4a' : v > .33 ? '#ffc23c' : '#e2543f';
+const colourFor = v => v > .66 ? '#4fae4a' : v > .33 ? '#ffc23c' : '#e2543f';
 
-function select(tipo, ref) {
-  G.sel = { tipo, ref };
-  if (painelUnico()) fecharPaleta();
+function select(kind, ref) {
+  G.sel = { kind, ref };
+  if (painelUnico()) closePalette();
   showInspector();
 }
-function deselect() { G.sel = null; UI.insp.classList.remove('show'); zoomBtnsVisiveis(true); atualizarMini(); }
+function deselect() { G.sel = null; UI.insp.classList.remove('show'); zoomBtnsVisiveis(true); refreshMinimap(); }
 /** o inspetor mora no mesmo lado dos botões de zoom em todos os layouts */
 function zoomBtnsVisiveis(v) { $('#zoomBtns').classList.toggle('tapado', !v); }
 /** Minimapa: `G.miniQuer` é a vontade do jogador; a exibição também depende de
  *  não colidir — no modo gaveta o rodapé é disputado por dock, paleta e
  *  inspetor, e o mapa é o último da fila. */
-function atualizarMini() {
+function refreshMinimap() {
   const conflita = layoutModo() === 'gaveta' &&
     (!!G.sel || UI.pal.classList.contains('show'));
   $('#mini').classList.toggle('show', !!G.miniQuer && !conflita);
 }
 function showInspector() {
   const s = G.sel;
-  if (!s) { UI.insp.classList.remove('show'); zoomBtnsVisiveis(true); atualizarMini(); return; }
+  if (!s) { UI.insp.classList.remove('show'); zoomBtnsVisiveis(true); refreshMinimap(); return; }
   UI.insp.classList.add('show');
   zoomBtnsVisiveis(false);
-  atualizarMini();
+  refreshMinimap();
   if (s.kind === 'enc') inspEnclosure(s.ref);
-  else if (s.kind === 'animal') inspAnimal(s.ref);
+  else if (s.kind === 'animal') inspectAnimal(s.ref);
   else if (s.kind === 'obj') inspObject(s.ref);
   else if (s.kind === 'staff') inspStaff(s.ref);
   else if (s.kind === 'vis') inspVisitor(s.ref);
 }
 /** assinatura do que exige reconstruir o painel (o resto é só valor a atualizar) */
 const encSig = e => [e.name, e.fence, e.tiles.size,
-  e.animals.filter(a => !a.morto).map(a => a.id).join(','),
+  e.animals.filter(a => !a.dead).map(a => a.id).join(','),
   e.objs.map(o => o.kind).join(',')].join('|');
 /** composição do terreno em tags — muda a cada pincelada, então é atualizada
  *  no refresh em vez de ficar congelada no HTML da abertura */
 const encMixHTML = e => Object.entries(encMix(e)).sort((a, b) => b[1] - a[1]).slice(0, 5)
   .map(([k, v]) => `<span class="tag">${TERRAIN[k].em} ${LN(TERRAIN[k].n)} ${Math.round(v * 100)}%</span>`).join('');
-function encAlertasHTML(e) {
+function encAlertsHTML(e) {
   const F = FENCES[e.fence];
-  const vivos = e.animals.filter(a => !a.morto);
+  const vivos = e.animals.filter(a => !a.dead);
   const sp0 = vivos[0] ? vivos[0].sp : null;
-  const alertas = [];
-  if (!encHasFeeder(e) && vivos.length) alertas.push(['bad', '🥣 Sem comedouro']);
-  if (!encHasWater(e) && vivos.length) alertas.push(['bad', '🚰 Sem bebedouro']);
-  if (e.limpeza < .4) alertas.push(['bad', '💩 Sujo']);
-  if (encEnrich(e) < .3 && vivos.length) alertas.push(['warn', '🎾 Pouco enriquecimento']);
-  if (sp0 && sp0.danger > F.strength) alertas.push(['bad', '⚠️ Cerca fraca']);
-  if (!encViewSpots(e).length) alertas.push(['warn', LN('👀 Sem trilha ao redor — ninguém vê|👀 No path around it — nobody sees in')]);
-  if (!alertas.length && vivos.length) alertas.push(['ok', LN('✅ Tudo em ordem|✅ All in order')]);
-  return alertas.map(([c, t]) => `<span class="tag ${c}">${t}</span>`).join('');
+  const alerts = [];
+  if (!encHasFeeder(e) && vivos.length) alerts.push(['bad', '🥣 Sem comedouro']);
+  if (!encHasWater(e) && vivos.length) alerts.push(['bad', '🚰 Sem bebedouro']);
+  if (e.cleanliness < .4) alerts.push(['bad', '💩 Sujo']);
+  if (encEnrich(e) < .3 && vivos.length) alerts.push(['warn', '🎾 Pouco enriquecimento']);
+  if (sp0 && sp0.danger > F.strength) alerts.push(['bad', '⚠️ Cerca fraca']);
+  if (!encViewSpots(e).length) alerts.push(['warn', LN('👀 Sem trilha ao redor — ninguém vê|👀 No path around it — nobody sees in')]);
+  if (!alerts.length && vivos.length) alerts.push(['ok', LN('✅ Tudo em ordem|✅ All in order')]);
+  return alerts.map(([c, t]) => `<span class="tag ${c}">${t}</span>`).join('');
 }
 function inspEnclosure(e) {
   if (!enclosures.has(e.id)) { deselect(); return; }
   const F = FENCES[e.fence];
-  const vivos = e.animals.filter(a => !a.morto);
-  const felic = vivos.length ? vivos.reduce((s, a) => s + a.feliz, 0) / vivos.length : 0;
+  const vivos = e.animals.filter(a => !a.dead);
+  const felic = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
   const sp0 = vivos[0] ? vivos[0].sp : null;
   const ts = sp0 ? terrainScore(e, sp0) : null;
   UI.insp.dataset.sig = encSig(e);
@@ -475,20 +475,20 @@ function inspEnclosure(e) {
       <div><h3>${esc(e.name)}</h3><div class="sub">${F.em} ${F.n} · ${encArea(e)} tiles · cerca de ${encSegCount(e)} trechos</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
-    <div class="tagline" id="iAlerts">${encAlertasHTML(e)}</div>
-    ${bar(LN('Felicidade média|Average happiness'), felic, corDe(felic), undefined, 'felic')}
-    ${bar('Limpeza', e.limpeza, corDe(e.limpeza), undefined, 'limp')}
-    ${bar(LN('Comida no cocho|Food in the feeder'), e.comida, corDe(e.comida), undefined, 'comida')}
-    ${bar(LN('Água|Water'), e.water, corDe(e.water), undefined, 'water')}
-    ${bar('Enriquecimento', encEnrich(e), corDe(encEnrich(e)), undefined, 'enr')}
-    ${ts !== null ? bar('Terreno x biome (' + sp0.biomeName + ')', ts, corDe(ts), undefined, 'terr') : ''}
+    <div class="tagline" id="iAlerts">${encAlertsHTML(e)}</div>
+    ${bar(LN('Felicidade média|Average happiness'), felic, colourFor(felic), undefined, 'felic')}
+    ${bar('Limpeza', e.cleanliness, colourFor(e.cleanliness), undefined, 'limp')}
+    ${bar(LN('Comida no cocho|Food in the feeder'), e.food, colourFor(e.food), undefined, 'comida')}
+    ${bar(LN('Água|Water'), e.water, colourFor(e.water), undefined, 'water')}
+    ${bar('Enriquecimento', encEnrich(e), colourFor(encEnrich(e)), undefined, 'enr')}
+    ${ts !== null ? bar('Terreno x biome (' + sp0.biomeName + ')', ts, colourFor(ts), undefined, 'terr') : ''}
     <h4 class="sec">Terreno</h4><div class="tagline" id="iMix">${encMixHTML(e)}</div>
     ${sp0 ? `<div style="font-size:11px;opacity:.7;margin-top:4px">Ideal: ${Object.entries(sp0.mix).map(([k, v]) => `${TERRAIN[k].em}${Math.round(v * 100)}%`).join(' · ')}</div>` : ''}
     <h4 class="sec">Animais (${vivos.length})</h4>
     <div id="ilist">${vivos.length ? vivos.map(a => `
       <div class="kv" data-a="${a.id}" style="cursor:pointer">
-        <span>${a.doente ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sexo === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${a.idade.toFixed(1)}a</small></span>
-        <b style="color:${corDe(a.feliz)}">${Math.round(a.feliz * 100)}%</b>
+        <span>${a.sick ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sex === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${a.age.toFixed(1)}a</small></span>
+        <b style="color:${colourFor(a.happy)}">${Math.round(a.happy * 100)}%</b>
       </div>`).join('') : '<div style="font-size:12px;opacity:.6">Recinto vazio.</div>'}</div>
     <h4 class="sec">Objetos (${e.objs.length})</h4>
     <div class="tagline">${e.objs.length ? e.objs.map(o => `<span class="tag">${ENCOBJ[o.kind].em} ${LN(ENCOBJ[o.kind].n)}</span>`).join('') : `<span style="font-size:12px;opacity:.6">${LN('Nenhum|None')}</span>`}</div>
@@ -509,16 +509,16 @@ function inspEnclosure(e) {
               cost: FENCES[e.fence].cost, ampliando: e.id });
     if (painelUnico()) deselect();
   };
-  $('#iobj').onclick = () => { abrirCategoria('encobj'); };
-  $('#ipaint').onclick = () => { abrirCategoria('terreno'); };
+  $('#iobj').onclick = () => { openCategory('encobj'); };
+  $('#ipaint').onclick = () => { openCategory('terreno'); };
   $('#iren').onclick = () => {
     const n = prompt(LN('Nome do recinto:|Enclosure name:'), e.name);
     if (n) { e.name = n.slice(0, 28); showInspector(); }
   };
-  $('#ifence').onclick = () => trocarCerca(e);
+  $('#ifence').onclick = () => swapFence(e);
   $('#idel').onclick = () => {
     if (e.animals.length) { toast(LN('🚫 Venda ou mova os animais antes de demolir|🚫 Sell or move the animals before demolishing'), 'bad'); return; }
-    const dev = Math.round(custoCercaDe(e) * .5);
+    const dev = Math.round(fenceCostOf(e) * .5);
     deleteEnclosure(e.id); earn(dev, 'venda'); deselect();
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
   };
@@ -526,11 +526,11 @@ function inspEnclosure(e) {
     const a = G.animals.find(z => z.id === +d.dataset.a); if (a) select('animal', a);
   });
 }
-function trocarCerca(e) {
+function swapFence(e) {
   const opts = Object.keys(FENCES).map(k => {
-    const F = FENCES[k], custo = encSegCount(e) * F.cost - Math.round(custoCercaDe(e) * .4);
+    const F = FENCES[k], cost = encSegCount(e) * F.cost - Math.round(fenceCostOf(e) * .4);
     return `<div class="pitem" data-f="${k}" style="width:118px">
-      <span class="em">${F.em}</span>${LN(F.n)}<span class="pr">${moneyFull(Math.max(0, custo))}</span>
+      <span class="em">${F.em}</span>${LN(F.n)}<span class="pr">${moneyFull(Math.max(0, cost))}</span>
       <span class="pr">força ${F.strength} · visão ${Math.round(F.sight * 100)}%</span></div>`;
   }).join('');
   openModal(LN('Trocar cerca — |Change fence — ') + e.name,
@@ -538,33 +538,33 @@ function trocarCerca(e) {
      <p style="font-size:12px;opacity:.7;margin-top:10px">Você recebe 40% de volta da cerca atual. Força alta evita fugas; visão alta deixa os visitantes enxergarem melhor (e pagarem mais).</p>`);
   $$('#modalBody .pitem').forEach(d => d.onclick = () => {
     const k = d.dataset.f;
-    const custo = Math.max(0, encSegCount(e) * FENCES[k].cost - Math.round(custoCercaDe(e) * .4));
-    if (G.money < custo) { toast('💸 Dinheiro insuficiente', 'bad'); return; }
-    const antes = e.fence;
-    spend(custo, 'obra'); e.fence = k; e.integridade = 1;
-    undoRegistrar({ kind: 'cerca', cat: 'obra', id: e.id, antes, depois: k, custo });
+    const cost = Math.max(0, encSegCount(e) * FENCES[k].cost - Math.round(fenceCostOf(e) * .4));
+    if (G.money < cost) { toast('💸 Dinheiro insuficiente', 'bad'); return; }
+    const before = e.fence;
+    spend(cost, 'obra'); e.fence = k; e.integrity = 1;
+    undoRecord({ kind: 'cerca', cat: 'obra', id: e.id, before, after: k, cost });
     closeModal(); showInspector(); toast(BI`🚧 Cerca trocada para ${LN(FENCES[k].n)}|🚧 Fence changed to ${LN(FENCES[k].n)}`, 'good');
   });
 }
-const pontosHTML = p => p.itens.map(([n, v, w]) =>
+const scoreHTML = p => p.itens.map(([n, v, w]) =>
   `<div class="kv"><span>${n} <small style="opacity:.5">peso ${Math.round(w * 100)}%</small></span>
-    <b style="color:${corDe(v)}">${Math.round(v * 100)}%</b></div>`).join('');
-const animalEstado = a => a.fugiu ? '🚨 FUGIU' : a.doente ? '🤒 Doente'
-  : a.estado === 'comendo' ? '🍽️ Comendo' : a.estado === 'andando' ? '🚶 Andando' : '😴 Descansando';
-const animalSig = a => [a.id, a.enc, a.doente ? 1 : 0, a.gravida > 0 ? 1 : 0].join('|');
+    <b style="color:${colourFor(v)}">${Math.round(v * 100)}%</b></div>`).join('');
+const animalEstado = a => a.escaped ? '🚨 FUGIU' : a.sick ? '🤒 Doente'
+  : a.state === 'comendo' ? '🍽️ Comendo' : a.state === 'andando' ? '🚶 Andando' : '😴 Descansando';
+const animalSig = a => [a.id, a.enc, a.sick ? 1 : 0, a.pregnant > 0 ? 1 : 0].join('|');
 
-function inspAnimal(a) {
-  if (a.morto) { deselect(); return; }
-  const sp = a.sp, p = pontosAnimal(a);
+function inspectAnimal(a) {
+  if (a.dead) { deselect(); return; }
+  const sp = a.sp, p = animalScore(a);
   const e = enclosures.get(a.enc);
   const cv2 = spriteThumb(sp, 46, 46);
   const est = animalEstado(a);
-  const pa = a.pensa = pensamentoAnimal(a);
+  const pa = a.pensa = animalThought(a);
   UI.insp.dataset.sig = animalSig(a);
   UI.insp.innerHTML = `
     <div class="ihead">
       <div class="av" id="iav"></div>
-      <div><h3>${esc(a.name)} <small style="font-size:12px">${a.sexo === 'M' ? '♂' : '♀'}</small></h3>
+      <div><h3>${esc(a.name)} <small style="font-size:12px">${a.sex === 'M' ? '♂' : '♀'}</small></h3>
         <div class="sub">${esc(LN(sp.name))}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
@@ -573,22 +573,22 @@ function inspAnimal(a) {
       <span class="tag ${pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok'}" id="iPensa">${pa.em} ${esc(pa.txt)}</span>
       <span class="tag">${BIOMES[sp.biome].em} ${sp.biomeName}</span>
       <span class="tag">${DIETS[sp.diet].em} ${sp.dietName}</span>
-      ${a.gravida > 0 ? '<span class="tag ok">🤰 Gestante</span>' : ''}
+      ${a.pregnant > 0 ? '<span class="tag ok">🤰 Gestante</span>' : ''}
     </div>
-    ${bar('Felicidade', a.feliz, corDe(a.feliz), undefined, 'feliz')}
-    ${bar(LN('Saúde|Health'), a.saude, corDe(a.saude), undefined, 'saude')}
-    ${bar('Fome', 1 - a.fome, corDe(1 - a.fome), undefined, 'fome')}
-    ${bar('Sede', 1 - a.sede, corDe(1 - a.sede), undefined, 'sede')}
-    ${bar('Idade', a.idade / sp.lifespan, a.idade / sp.lifespan > .85 ? '#e2543f' : '#9a6ad4', a.idade.toFixed(1) + ' / ' + sp.lifespan + ' anos', 'idade')}
+    ${bar('Felicidade', a.happy, colourFor(a.happy), undefined, 'feliz')}
+    ${bar(LN('Saúde|Health'), a.health, colourFor(a.health), undefined, 'saude')}
+    ${bar('Fome', 1 - a.hunger, colourFor(1 - a.hunger), undefined, 'fome')}
+    ${bar('Sede', 1 - a.thirst, colourFor(1 - a.thirst), undefined, 'sede')}
+    ${bar('Idade', a.age / sp.lifespan, a.age / sp.lifespan > .85 ? '#e2543f' : '#9a6ad4', a.age.toFixed(1) + ' / ' + sp.lifespan + ' anos', 'idade')}
     <h4 class="sec">De onde vem a felicidade</h4>
-    <div id="iPontos">${pontosHTML(p)}</div>
+    <div id="iPontos">${scoreHTML(p)}</div>
     <h4 class="sec">Ficha</h4>
     <div class="kv"><span>Recinto</span><b>${e ? esc(e.name) : '—'}</b></div>
     <div class="kv"><span>Espaço necessário</span><b>${sp.space} tiles</b></div>
     <div class="kv"><span>Grupo ideal</span><b>${sp.groupMin}–${sp.groupMax}</b></div>
     <div class="kv"><span>Ração</span><b>${moneyFull(sp.feed)}/dia</b></div>
     <div class="kv"><span>Popularidade</span><b class="stars">${stars(sp.appeal / 2)}</b></div>
-    <div class="kv"><span>Valor de revenda</span><b>${moneyFull(valorRevenda(a))}</b></div>
+    <div class="kv"><span>Valor de revenda</span><b>${moneyFull(resaleValue(a))}</b></div>
     <div class="rowbtns">
       <button class="btn sm" id="ivoz">🔊 Ouvir</button>
       <button class="btn sm" id="igo">🎯 Centralizar</button>
@@ -600,19 +600,19 @@ function inspAnimal(a) {
   $('#ivoz').onclick = () => { SFX.iniciar(); SFX.voz(sp, { vol: .32, imediato: true }); };
   $('#igo').onclick = () => centerOn(a.x, a.y);
   $('#isell').onclick = () => {
-    const v = valorRevenda(a);
+    const v = resaleValue(a);
     if (!confirm(`Vender ${a.name} (${LN(sp.name)}) por ${moneyFull(v)}?`)) return;
-    earn(v, 'venda'); a.morto = true;
+    earn(v, 'venda'); a.dead = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
     G.animals = G.animals.filter(z => z.id !== a.id);
     deselect(); toast('💰 ' + LN(sp.name) + ' vendido por ' + moneyFull(v), 'money');
   };
   $('#imove').onclick = () => transferir(a);
 }
-const valorRevenda = a => Math.round(a.sp.price * clamp(1.05 - a.idade / a.sp.lifespan * .6, .25, 1) * (.5 + a.saude * .5) * .72);
+const resaleValue = a => Math.round(a.sp.price * clamp(1.05 - a.age / a.sp.lifespan * .6, .25, 1) * (.5 + a.health * .5) * .72);
 function transferir(a) {
   const opts = [...enclosures.values()].filter(e => e.id !== a.enc).map(e => {
-    const chk = checarRecinto(a.sp, e);
+    const chk = checkEnclosure(a.sp, e);
     return `<div class="pitem" data-e="${e.id}" style="width:auto;min-width:150px;text-align:left;padding:8px 10px;${chk.bloqueia ? 'opacity:.45' : ''}">
       <b>${esc(e.name)}</b><br><span class="pr">${FENCES[e.fence].n} · ${encArea(e)} tiles · ${e.animals.length} animais</span>
       <br><span class="pr" style="color:${chk.bloqueia ? '#bd3f2d' : chk.msg ? '#c98a1c' : '#3b8c38'}">${chk.bloqueia ? '🚫 ' + chk.msg : chk.msg ? '⚠️ ' + chk.msg : '✅ Combina bem'}</span></div>`;
@@ -620,7 +620,7 @@ function transferir(a) {
   openModal(LN('Transferir |Transfer ') + a.name, opts || `<p>${LN('Não há outro recinto construído.|There is no other enclosure built.')}</p>`);
   $$('#modalBody .pitem').forEach(d => d.onclick = () => {
     const e2 = enclosures.get(+d.dataset.e);
-    const chk = checarRecinto(a.sp, e2);
+    const chk = checkEnclosure(a.sp, e2);
     if (chk.bloqueia) { toast('🚫 ' + chk.msg, 'bad'); return; }
     const e1 = enclosures.get(a.enc);
     if (e1) e1.animals = e1.animals.filter(z => z.id !== a.id);
@@ -640,54 +640,54 @@ function refreshInspector() {
     const e = s.ref;
     if (!enclosures.has(e.id)) { deselect(); return; }
     if (UI.insp.dataset.sig !== encSig(e)) { showInspector(); return; }
-    const vivos = e.animals.filter(a => !a.morto);
-    const felic = vivos.length ? vivos.reduce((x, a) => x + a.feliz, 0) / vivos.length : 0;
-    setBar('felic', felic, corDe(felic));
-    setBar('limp', e.limpeza, corDe(e.limpeza));
-    setBar('comida', e.comida, corDe(e.comida));
-    setBar('water', e.water, corDe(e.water));
-    const enr = encEnrich(e); setBar('enr', enr, corDe(enr));
-    if (vivos[0]) { const t = terrainScore(e, vivos[0].sp); setBar('terr', t, corDe(t)); }
-    const al = $('#iAlerts'); if (al) al.innerHTML = encAlertasHTML(e);
+    const vivos = e.animals.filter(a => !a.dead);
+    const felic = vivos.length ? vivos.reduce((x, a) => x + a.happy, 0) / vivos.length : 0;
+    setBar('felic', felic, colourFor(felic));
+    setBar('limp', e.cleanliness, colourFor(e.cleanliness));
+    setBar('comida', e.food, colourFor(e.food));
+    setBar('water', e.water, colourFor(e.water));
+    const enr = encEnrich(e); setBar('enr', enr, colourFor(enr));
+    if (vivos[0]) { const t = terrainScore(e, vivos[0].sp); setBar('terr', t, colourFor(t)); }
+    const al = $('#iAlerts'); if (al) al.innerHTML = encAlertsHTML(e);
     const mx = $('#iMix'); if (mx) mx.innerHTML = encMixHTML(e);
     for (const row of UI.insp.querySelectorAll('#ilist .kv')) {
       const a = vivos.find(z => z.id === +row.dataset.a); if (!a) continue;
       const b = row.querySelector('b');
-      b.textContent = Math.round(a.feliz * 100) + '%'; b.style.color = corDe(a.feliz);
+      b.textContent = Math.round(a.happy * 100) + '%'; b.style.color = colourFor(a.happy);
     }
   } else if (s.kind === 'animal') {
     const a = s.ref;
-    if (a.morto) { deselect(); return; }
+    if (a.dead) { deselect(); return; }
     if (UI.insp.dataset.sig !== animalSig(a)) { showInspector(); return; }
-    setBar('feliz', a.feliz, corDe(a.feliz));
-    setBar('saude', a.saude, corDe(a.saude));
-    setBar('fome', 1 - a.fome, corDe(1 - a.fome));
-    setBar('sede', 1 - a.sede, corDe(1 - a.sede));
-    setBar('idade', a.idade / a.sp.lifespan, a.idade / a.sp.lifespan > .85 ? '#e2543f' : '#9a6ad4',
-      a.idade.toFixed(1) + ' / ' + a.sp.lifespan + ' anos');
+    setBar('feliz', a.happy, colourFor(a.happy));
+    setBar('saude', a.health, colourFor(a.health));
+    setBar('fome', 1 - a.hunger, colourFor(1 - a.hunger));
+    setBar('sede', 1 - a.thirst, colourFor(1 - a.thirst));
+    setBar('idade', a.age / a.sp.lifespan, a.age / a.sp.lifespan > .85 ? '#e2543f' : '#9a6ad4',
+      a.age.toFixed(1) + ' / ' + a.sp.lifespan + ' anos');
     const est = $('#iEstado'); if (est) est.textContent = animalEstado(a);
-    const pa = a.pensa = pensamentoAnimal(a);
+    const pa = a.pensa = animalThought(a);
     const tp = $('#iPensa');
     if (tp) {
       tp.textContent = pa.em + ' ' + pa.txt;
       tp.className = 'tag ' + (pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok');
     }
-    const pts = $('#iPontos'); if (pts) pts.innerHTML = pontosHTML(pontosAnimal(a));
+    const pts = $('#iPontos'); if (pts) pts.innerHTML = scoreHTML(animalScore(a));
   } else if (s.kind === 'vis') {
     const v = s.ref;
     if (!G.visitors.includes(v)) { deselect(); return; }
-    if (UI.insp.dataset.sig !== visitanteSig(v)) { showInspector(); return; }
-    setBar('mood', v.mood, corDe(v.mood));
-    for (const k in NEED_INFO) setBar('n_' + k, 1 - v.need[k], corDe(1 - v.need[k]));
+    if (UI.insp.dataset.sig !== visitorSignature(v)) { showInspector(); return; }
+    setBar('mood', v.mood, colourFor(v.mood));
+    for (const k in NEED_INFO) setBar('n_' + k, 1 - v.need[k], colourFor(1 - v.need[k]));
     // recalcula na ficha aberta: o cache tem até ~2s de atraso e ficava
     // contradizendo as barras (dizia "morrendo de sede" com a sede cheia)
-    const p = v.pensa = pensamentoVisitante(v);
+    const p = v.pensa = visitorThought(v);
     const est = $('#iEstado');
     if (est && p) {
       est.textContent = p.em + ' ' + p.txt;
       est.className = 'tag ' + (p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok');
     }
-    const din = $('#iDin'); if (din) din.textContent = moneyFull(v.dinheiro);
+    const din = $('#iDin'); if (din) din.textContent = moneyFull(v.money);
     const viu = $('#iViu'); if (viu) viu.textContent = v.vistos.size;
   }
 }
@@ -698,18 +698,18 @@ function inspObject(o) {
   UI.insp.innerHTML = `
     <div class="ihead">
       <div class="av" style="font-size:26px">${B.em}</div>
-      <div><h3>${B.n}</h3><div class="sub">${o.w}×${o.h}${BUILDINGS[o.kind] ? ' · fila: ' + o.fila.length : ''}</div></div>
+      <div><h3>${B.n}</h3><div class="sub">${o.w}×${o.h}${BUILDINGS[o.kind] ? ' · fila: ' + o.queue.length : ''}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     ${isShop ? `
       <h4 class="sec">Preço de venda</h4>
       <div style="display:flex;align-items:center;gap:8px">
         <input type="range" id="ipr" min="0" max="250" value="${Math.round((o.mult === undefined ? 1 : o.mult) * 100)}" style="flex:1">
-        <b id="iprv" style="min-width:64px;text-align:right">${moneyFull(precoDe(o))}</b>
+        <b id="iprv" style="min-width:64px;text-align:right">${moneyFull(priceOf(o))}</b>
       </div>
       <div style="font-size:11px;opacity:.65;margin-top:3px">Custo por unidade: ${moneyFull(BUILDINGS[o.kind].unitCost)}. Preço de referência: ${moneyFull(BUILDINGS[o.kind].value)}. Cobrar muito acima irrita os visitantes.</div>
-      <div class="kv"><span>Vendas totais</span><b>${o.vendas}</b></div>
-      <div class="kv"><span>Lucro acumulado</span><b class="${o.receita >= 0 ? 'pos' : 'negv'}">${moneyFull(o.receita)}</b></div>` : ''}
+      <div class="kv"><span>Vendas totais</span><b>${o.sales}</b></div>
+      <div class="kv"><span>Lucro acumulado</span><b class="${o.revenue >= 0 ? 'pos' : 'negv'}">${moneyFull(o.revenue)}</b></div>` : ''}
     ${BUILDINGS[o.kind] ? `<div class="kv"><span>${LN('Salário/semana|Wage/week')}</span><b>${moneyFull(BUILDINGS[o.kind].wage)}</b></div>` : ''}
     ${BUILDINGS[o.kind] && BUILDINGS[o.kind].supplies ? `<div class="kv"><span>Atende</span><b>${BUILDINGS[o.kind].supplies}</b></div>` : ''}
     ${DECOS[o.kind] ? `<div class="kv"><span>Beleza</span><b>+${DECOS[o.kind].beauty} (raio ${DECOS[o.kind].r})</b></div>` : ''}
@@ -718,7 +718,7 @@ function inspObject(o) {
   $('#idel').onclick = () => { earn(Math.round((B.cost || 0) * .5), 'venda'); removeObject(o.id); deselect(); };
   if (isShop) {
     const r = $('#ipr');
-    r.oninput = () => { o.mult = r.value / 100; $('#iprv').textContent = moneyFull(precoDe(o)); };
+    r.oninput = () => { o.mult = r.value / 100; $('#iprv').textContent = moneyFull(priceOf(o)); };
   }
 }
 function inspStaff(s) {
@@ -731,7 +731,7 @@ function inspStaff(s) {
     </div>
     <div class="kv"><span>Salário</span><b>${moneyFull(T.wage)}/semana</b></div>
     <div class="kv"><span>Tarefas concluídas</span><b>${s.feitos}</b></div>
-    <div class="kv"><span>Fazendo agora</span><b>${s.tarefa ? ({ enc: LN('Cuidando de recinto|Tending an enclosure'), animal: LN('Tratando animal|Treating an animal'), lixo: LN('Recolhendo lixo|Picking up litter'), fuga: LN('Recapturando fuga|Chasing an escapee') })[s.tarefa.kind] : LN('Patrulhando|Patrolling')}</b></div>
+    <div class="kv"><span>Fazendo agora</span><b>${s.task ? ({ enc: LN('Cuidando de recinto|Tending an enclosure'), animal: LN('Tratando animal|Treating an animal'), lixo: LN('Recolhendo lixo|Picking up litter'), fuga: LN('Recapturando fuga|Chasing an escapee') })[s.task.kind] : LN('Patrulhando|Patrolling')}</b></div>
     <div class="rowbtns">
       <button class="btn sm" id="ivoz">🔊 Ouvir</button>
       <button class="btn sm" id="igo">🎯 Centralizar</button>
@@ -758,12 +758,12 @@ function openStaff() {
       <button class="btn r sm" style="margin-top:7px" data-fire="${k}" ${n ? '' : 'disabled'}>− Demitir</button>
     </div>`;
   }).join('');
-  const folha = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0)
+  const payroll = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0)
     + [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].wage : 0), 0);
   openModal(LN('Equipe do zoológico|Zoo staff'),
     `<div style="display:flex;gap:9px;flex-wrap:wrap">${cont}</div>
      <p style="font-size:12px;opacity:.75;margin-top:12px">Sem <b>tratador</b> os animais passam fome e o recinto fica sujo. Sem <b>veterinário</b> doença vira morte. Sem <b>faxineiro</b> o lixo acumula e irrita os visitantes. Sem <b>segurança</b> uma fuga não é resolvida.</p>`,
-    `<b>Folha semanal total: ${moneyFull(folha)}</b> <span style="font-size:12px;opacity:.6">(inclui atendentes das lojas)</span>`);
+    `<b>Folha semanal total: ${moneyFull(payroll)}</b> <span style="font-size:12px;opacity:.6">(inclui atendentes das lojas)</span>`);
   $$('[data-hire]').forEach(b => b.onclick = ev => {
     ev.stopPropagation();
     const k = b.dataset.hire, T = STAFF_TYPES[k];
@@ -781,12 +781,12 @@ function openStaff() {
 /* ---- finanças ---- */
 function openFinance() {
   const L = G.ledger;
-  const linha = (n, v, neg) => `<tr><td>${n}</td><td class="n ${v ? (neg ? 'negv' : 'pos') : ''}">${neg ? '-' : '+'}${moneyFull(v)}</td></tr>`;
-  const folhaSem = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0)
+  const row = (n, v, neg) => `<tr><td>${n}</td><td class="n ${v ? (neg ? 'negv' : 'pos') : ''}">${neg ? '-' : '+'}${moneyFull(v)}</td></tr>`;
+  const weeklyPayroll = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0)
     + [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].wage : 0), 0);
-  const racaoDia = G.animals.filter(a => !a.morto).reduce((s, a) => s + a.sp.feed, 0);
+  const dailyFeed = G.animals.filter(a => !a.dead).reduce((s, a) => s + a.sp.feed, 0);
   const hist = L.hist.slice(-10).reverse();
-  const diag = diagnosticoPublico();
+  const diag = crowdDiagnosis();
   openModal(LN('Finanças|Finance'),
     (diag ? `<div style="display:flex;gap:9px;align-items:center;margin-bottom:13px;padding:10px 12px;
         background:linear-gradient(#ffdcd4,#ffbdae);border:3px solid var(--ink);border-radius:13px;font-size:13px;line-height:1.4">
@@ -795,21 +795,21 @@ function openFinance() {
       <div>
         <h4 class="sec" style="margin-top:0">Hoje (dia ${G.day})</h4>
         <table class="fin">
-          ${linha('Ingressos', L.hoje.ingresso)}
-          ${linha(LN('Lojas e restaurantes|Shops and restaurants'), L.hoje.loja)}
-          ${linha(LN('Venda de animais|Animal sales'), L.hoje.venda)}
-          ${linha(LN('Ração e insumos|Feed and supplies'), L.hoje.feed, 1)}
-          ${linha(LN('Salários|Wages'), L.hoje.wage, 1)}
-          ${linha(LN('Manutenção e veterinário|Upkeep and vet'), L.hoje.manut, 1)}
-          ${linha(LN('Compra de animais|Animal purchases'), L.hoje.compra, 1)}
-          ${linha('Obras', L.hoje.obra, 1)}
+          ${row('Ingressos', L.hoje.ticket)}
+          ${row(LN('Lojas e restaurantes|Shops and restaurants'), L.hoje.loja)}
+          ${row(LN('Venda de animais|Animal sales'), L.hoje.venda)}
+          ${row(LN('Ração e insumos|Feed and supplies'), L.hoje.feed, 1)}
+          ${row(LN('Salários|Wages'), L.hoje.wage, 1)}
+          ${row(LN('Manutenção e veterinário|Upkeep and vet'), L.hoje.manut, 1)}
+          ${row(LN('Compra de animais|Animal purchases'), L.hoje.compra, 1)}
+          ${row('Obras', L.hoje.obra, 1)}
           <tr><th>Saldo do dia</th><th class="n ${saldo(L.hoje) >= 0 ? 'pos' : 'negv'}">${moneyFull(saldo(L.hoje))}</th></tr>
         </table>
         <h4 class="sec">Compromissos fixos</h4>
         <table class="fin">
-          <tr><td>Folha salarial</td><td class="n">${moneyFull(folhaSem)}/semana</td></tr>
-          <tr><td>Ração dos animais</td><td class="n">${moneyFull(racaoDia)}/dia</td></tr>
-          <tr><td>Empréstimo em aberto</td><td class="n">${moneyFull(G.emprestimo)}</td></tr>
+          <tr><td>Folha salarial</td><td class="n">${moneyFull(weeklyPayroll)}/semana</td></tr>
+          <tr><td>Ração dos animais</td><td class="n">${moneyFull(dailyFeed)}/dia</td></tr>
+          <tr><td>Empréstimo em aberto</td><td class="n">${moneyFull(G.loan)}</td></tr>
         </table>
       </div>
       <div>
@@ -817,7 +817,7 @@ function openFinance() {
         <div style="display:flex;align-items:center;gap:9px">
           <input type="range" id="fTicket" min="0" max="${
     // o teto acompanha o zoo: sempre dá para passar bem do preço de referência
-    Math.max(140, Math.ceil(precoJusto() * 1.8 / 10) * 10, Math.ceil(G.ticket / 10) * 10)
+    Math.max(140, Math.ceil(fairPrice() * 1.8 / 10) * 10, Math.ceil(G.ticket / 10) * 10)
     }" value="${G.ticket}" style="flex:1">
           <b id="fTicketV" style="min-width:70px;text-align:right">${moneyFull(G.ticket)}</b>
         </div>
@@ -825,10 +825,10 @@ function openFinance() {
         <h4 class="sec">Marketing</h4>
         <div style="font-size:12px;opacity:.75;margin-bottom:6px">Campanha semanal atrai mais visitantes enquanto estiver ativa.</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn sm ${G.pesquisa.marketing === 0 ? 'on' : ''}" data-mk="0">Nenhum · R$ 0</button>
-          <button class="btn sm ${G.pesquisa.marketing === 1 ? 'on' : ''}" data-mk="1">Local · R$ 1.500/sem</button>
-          <button class="btn sm ${G.pesquisa.marketing === 2 ? 'on' : ''}" data-mk="2">Regional · R$ 5.000/sem</button>
-          <button class="btn sm ${G.pesquisa.marketing === 3 ? 'on' : ''}" data-mk="3">Nacional · R$ 14.000/sem</button>
+          <button class="btn sm ${G.research.marketing === 0 ? 'on' : ''}" data-mk="0">Nenhum · R$ 0</button>
+          <button class="btn sm ${G.research.marketing === 1 ? 'on' : ''}" data-mk="1">Local · R$ 1.500/sem</button>
+          <button class="btn sm ${G.research.marketing === 2 ? 'on' : ''}" data-mk="2">Regional · R$ 5.000/sem</button>
+          <button class="btn sm ${G.research.marketing === 3 ? 'on' : ''}" data-mk="3">Nacional · R$ 14.000/sem</button>
         </div>
         <h4 class="sec">Empréstimo</h4>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -839,16 +839,16 @@ function openFinance() {
         <div style="font-size:11.5px;opacity:.7;margin-top:5px">Juros de 0,4% ao dia sobre o saldo devedor.</div>
         <h4 class="sec">Últimos dias</h4>
         <table class="fin"><tr><th>Dia</th><th class="n">Visitantes</th><th class="n">Saldo</th></tr>
-        ${hist.map(h => `<tr><td>${h.dia}</td><td class="n">${h.vis}</td><td class="n ${h.saldo >= 0 ? 'pos' : 'negv'}">${moneyFull(h.saldo)}</td></tr>`).join('') || '<tr><td colspan="3" style="opacity:.6">Ainda não fechou um dia</td></tr>'}
+        ${hist.map(h => `<tr><td>${h.day}</td><td class="n">${h.vis}</td><td class="n ${h.saldo >= 0 ? 'pos' : 'negv'}">${moneyFull(h.saldo)}</td></tr>`).join('') || '<tr><td colspan="3" style="opacity:.6">Ainda não fechou um dia</td></tr>'}
         </table>
       </div>
     </div>`,
     `<b>Caixa: <span class="${G.money >= 0 ? 'pos' : 'negv'}">${moneyFull(G.money)}</span></b>
-     <span style="margin-left:auto;font-size:12px;opacity:.7">Reputação ${G.rep.toFixed(1)}★ · ${G.animals.filter(a => !a.morto).length} animais · ${enclosures.size} recintos</span>`);
+     <span style="margin-left:auto;font-size:12px;opacity:.7">Reputação ${G.rep.toFixed(1)}★ · ${G.animals.filter(a => !a.dead).length} animais · ${enclosures.size} recintos</span>`);
   const r = $('#fTicket'), rv = $('#fTicketV'), rh = $('#fTicketHint');
   const upd = () => {
     G.ticket = +r.value; rv.textContent = moneyFull(G.ticket);
-    const just = precoJusto();
+    const just = fairPrice();
     rh.innerHTML = G.ticket > just * 1.35 ? LN('🔴 Caro demais para o que o zoo oferece — muita gente vai desistir na porta.|🔴 Too dear for what the zoo offers — plenty will give up at the gate.')
       : G.ticket > just * 1.05 ? LN('🟡 Um pouco acima do que o público acha justo.|🟡 A little above what the public considers fair.')
         : G.ticket < just * .55 ? LN('🔵 Barato: lota o parque, mas você deixa dinheiro na mesa.|🔵 Cheap: it fills the park, but you leave money on the table.')
@@ -856,49 +856,49 @@ function openFinance() {
     rh.innerHTML += BI` <span style="opacity:.6">(referência: ${moneyFull(just)})</span>| <span style="opacity:.6">(reference: ${moneyFull(just)})</span>`;
   };
   r.oninput = upd; upd();
-  $$('[data-mk]').forEach(b => b.onclick = () => { G.pesquisa.marketing = +b.dataset.mk; openFinance(); });
+  $$('[data-mk]').forEach(b => b.onclick = () => { G.research.marketing = +b.dataset.mk; openFinance(); });
   $$('[data-loan]').forEach(b => b.onclick = () => {
-    const v = +b.dataset.loan; G.money += v; G.emprestimo += v;
+    const v = +b.dataset.loan; G.money += v; G.loan += v;
     toast(BI`🏦 Empréstimo de ${moneyFull(v)} liberado|🏦 Loan of ${moneyFull(v)} approved`, 'money'); openFinance();
   });
   $$('[data-pay]').forEach(b => b.onclick = () => {
-    const v = Math.min(G.money, G.emprestimo);
+    const v = Math.min(G.money, G.loan);
     if (v <= 0) { toast('Nada a quitar', ''); return; }
-    G.money -= v; G.emprestimo -= v; toast('🏦 Abatido ' + moneyFull(v), 'money'); openFinance();
+    G.money -= v; G.loan -= v; toast('🏦 Abatido ' + moneyFull(v), 'money'); openFinance();
   });
 }
-const saldo = o => o.ingresso + o.loja + o.venda - o.feed - o.wage - o.manut - o.compra - o.obra;
+const saldo = o => o.ticket + o.loja + o.venda - o.feed - o.wage - o.manut - o.compra - o.obra;
 
 /** Por que a bilheteria está parada? Devolve o primeiro motivo estrutural, na
  *  ordem em que o jogador precisa resolver — ou null se está tudo certo.
  *  Existe porque zero visitante sem explicação é indistinguível de bug. */
-function diagnosticoPublico() {
+function crowdDiagnosis() {
   // `key` identifies the diagnosis regardless of language — the HUD compares
   // against it instead of against the translated headline
-  const D = (em, curto, longo, key) => ({ em, curto, longo, key });
-  const vivos = G.animals.filter(a => !a.morto && !a.fugiu);
+  const D = (em, short, long, key) => ({ em, short, long, key });
+  const vivos = G.animals.filter(a => !a.dead && !a.escaped);
   if (!vivos.length)
     return D('🦁', LN('Sem animais|No animals'), LN('<b>Nenhum animal no zoológico.</b> Sem atração ninguém paga ingresso — compre bichos na aba Animais.|<b>No animals in the zoo.</b> With no attraction nobody pays for a ticket — buy some on the Animals tab.'), 'noanimals');
   if (!pathConnected(ENTRANCE.x, ENTRANCE.y))
     return D('🛣️', LN('Portão sem trilha|Gate with no path'), LN('<b>Nenhuma trilha ligada ao portão</b> (base do mapa). Sem caminho a partir da entrada, ninguém consegue entrar.|<b>No path connected to the gate</b> (bottom of the map). With no route from the entrance, nobody can get in.'), 'nopath');
   const visiveis = [...enclosures.values()]
-    .filter(e => e.animals.some(a => !a.morto) && encViewSpots(e).length);
+    .filter(e => e.animals.some(a => !a.dead) && encViewSpots(e).length);
   if (!visiveis.length)
     return D('👀', LN('Recinto sem trilha ao lado|Enclosure with no path beside it'), LN('<b>Nenhum recinto tem trilha ao lado.</b> Passe um caminho encostado na cerca — os visitantes só veem o animal de cima da trilha.|<b>No enclosure has a path beside it.</b> Run a path against the fence — visitors only see an animal from the path.'), 'noview');
-  const justo = precoJusto();
-  if (G.ticket > justo * 1.4)
-    return D('🎟️', LN('Ingresso caro demais|Ticket too expensive'), BI`<b>Ingresso de ${moneyFull(G.ticket)} está muito acima do que o público acha justo</b> (~${moneyFull(justo)}). A maioria desiste na porta.|<b>A ${moneyFull(G.ticket)} ticket is well above what the public considers fair</b> (~${moneyFull(justo)}). Most give up at the gate.`, 'pricey');
+  const fair = fairPrice();
+  if (G.ticket > fair * 1.4)
+    return D('🎟️', LN('Ingresso caro demais|Ticket too expensive'), BI`<b>Ingresso de ${moneyFull(G.ticket)} está muito acima do que o público acha justo</b> (~${moneyFull(fair)}). A maioria desiste na porta.|<b>A ${moneyFull(G.ticket)} ticket is well above what the public considers fair</b> (~${moneyFull(fair)}). Most give up at the gate.`, 'pricey');
   if (G.hour < OPEN_H || G.hour >= CLOSE_H)
     return D('🌙', LN('Zoológico fechado|Zoo closed'), BI`O zoológico está fechado (abre às ${OPEN_H}h). Os visitantes voltam de manhã.|The zoo is closed (it opens at ${OPEN_H}:00). The visitors come back in the morning.`, 'closed');
   return null;
 }
 /** preço de ingresso que o público considera justo, dado o acervo */
-function precoJusto() {
+function fairPrice() {
   let v = 4;
   for (const e of enclosures.values()) {
     if (!encViewSpots(e).length) continue;
     const F = FENCES[e.fence];
-    for (const a of e.animals) if (!a.morto) v += a.sp.draw * F.sight * (.4 + a.feliz * .6) * .55;
+    for (const a of e.animals) if (!a.dead) v += a.sp.draw * F.sight * (.4 + a.happy * .6) * .55;
   }
   v += [...objects.values()].filter(o => o.cat === 'build' && BUILDINGS[o.kind].supplies).length * .7;
   return Math.round(clamp(v, 4, 260));
@@ -908,7 +908,7 @@ function precoJusto() {
    11b. RELATÓRIO DE SATISFAÇÃO — de onde vem cada reclamação
    ========================================================================== */
 /** o que fazer a respeito, indexado pelo ícone do pensamento */
-const DICAS = {
+const TIPS = {
   '🚻': 'Construa Banheiros perto das trilhas movimentadas.',
   '🥤': 'Um Quiosque de Bebidas ou Bebedouro resolve a sede.',
   '🍔': 'Falta comida: Lanchonete, Pizzaria ou Restaurante.',
@@ -934,8 +934,8 @@ const DICAS = {
   '🏃': 'Contrate Segurança para recapturar o animal.',
   '👴': 'Idade avançada — considere trazer animais mais jovens.',
 };
-for (const k in COMIDA_EM) DICAS[COMIDA_EM[k]] = LN('Ponha Comedouro no recinto e tenha um Tratador.|Put a Feeder in the enclosure and hire a Keeper.');
-for (const k in BIOMES) DICAS[BIOMES[k].em] = LN('Pinte o terreno do recinto com o bioma pedido (aba Terreno).|Paint the enclosure terrain with the biome it asks for (Terrain tab).');
+for (const k in COMIDA_EM) TIPS[COMIDA_EM[k]] = LN('Ponha Comedouro no recinto e tenha um Tratador.|Put a Feeder in the enclosure and hire a Keeper.');
+for (const k in BIOMES) TIPS[BIOMES[k].em] = LN('Pinte o terreno do recinto com o bioma pedido (aba Terreno).|Paint the enclosure terrain with the biome it asks for (Terrain tab).');
 
 /** Conta os pensamentos de uma população e devolve ranking.
  *  Calcula na hora quem ainda não tem: com o jogo pausado ou recém-carregado
@@ -950,10 +950,10 @@ function agruparPensamentos(lista, fn) {
   }
   return [...m.values()].sort((a, b) => b.urg - a.urg || b.n - a.n);
 }
-function linhaMotivo(r, total) {
+function reasonRow(r, total) {
   const p = Math.round(r.n / Math.max(1, total) * 100);
   const col = r.urg >= .8 ? '#e2543f' : r.urg >= .45 ? '#ffc23c' : '#4fae4a';
-  const dica = DICAS[r.em];
+  const dica = TIPS[r.em];
   return `<div style="margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
       <span style="font-size:17px;flex:none">${r.em}</span>
@@ -965,23 +965,23 @@ function linhaMotivo(r, total) {
     ${dica && r.urg >= .45 ? `<div style="font-size:11px;opacity:.72;margin-top:3px">💡 ${dica}</div>` : ''}
   </div>`;
 }
-function openSatisfacao() {
-  fecharPaleta();
+function openSatisfaction() {
+  closePalette();
   const vis = G.visitors;
-  const ani = G.animals.filter(a => !a.morto);
-  const rv = agruparPensamentos(vis, pensamentoVisitante), ra = agruparPensamentos(ani, pensamentoAnimal);
-  const moodV = vis.length ? vis.reduce((s, v) => s + v.mood, 0) / vis.length : G.stats.felicidade;
-  const moodA = ani.length ? ani.reduce((s, a) => s + a.feliz, 0) / ani.length : 0;
+  const ani = G.animals.filter(a => !a.dead);
+  const rv = agruparPensamentos(vis, visitorThought), ra = agruparPensamentos(ani, animalThought);
+  const moodV = vis.length ? vis.reduce((s, v) => s + v.mood, 0) / vis.length : G.stats.happiness;
+  const moodA = ani.length ? ani.reduce((s, a) => s + a.happy, 0) / ani.length : 0;
   const cara = m => m > .75 ? '😄' : m > .55 ? '🙂' : m > .35 ? '😐' : m > .2 ? '🙁' : '😠';
-  const bloco = (titulo, cnt, mood, ranking, vazio) => `
+  const bloco = (title, cnt, mood, ranking, empty) => `
     <div>
-      <h4 class="sec" style="margin-top:0">${titulo}</h4>
+      <h4 class="sec" style="margin-top:0">${title}</h4>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
         <span style="font-size:31px">${cara(mood)}</span>
         <div><div style="font-size:21px;line-height:1">${Math.round(mood * 100)}%</div>
           <div style="font-size:11px;opacity:.6">${cnt} ${LN('no parque|in the park')}</div></div>
       </div>
-      ${ranking.length ? ranking.map(r => linhaMotivo(r, cnt)).join('') : `<div style="font-size:12px;opacity:.6">${vazio}</div>`}
+      ${ranking.length ? ranking.map(r => reasonRow(r, cnt)).join('') : `<div style="font-size:12px;opacity:.6">${empty}</div>`}
     </div>`;
   openModal(LN('Satisfação — por quê?|Satisfaction — why?'),
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
@@ -1003,25 +1003,25 @@ function openSatisfacao() {
 }
 
 /* ---- painel de reputação: de onde vem a nota ---- */
-function openReputacao() {
-  fecharPaleta();
-  const vivos = G.animals.filter(a => !a.morto);
-  const felAn = vivos.length ? vivos.reduce((s, a) => s + a.feliz, 0) / vivos.length : 0;
-  const felVis = G.stats.felicidade;
-  const variedade = new Set(vivos.map(a => a.sp.id)).size;
+function openReputation() {
+  closePalette();
+  const vivos = G.animals.filter(a => !a.dead);
+  const felAn = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
+  const felVis = G.stats.happiness;
+  const variety = new Set(vivos.map(a => a.sp.id)).size;
   let lixoS = 0, lixoN = 0;
   for (let i = 0; i < W * H; i++) if (world.path[i]) { lixoS += world.lixo[i]; lixoN++; }
   const lixoMed = lixoN ? lixoS / lixoN : 0;
-  const alvo = qualidadeParque();
+  const target = qualidadeParque();
   // os mesmos pesos de qualidadeParque(), abertos linha a linha
   const comp = [
     ['🐾', 'Bem-estar dos animais', felAn, felAn * 1.7],
     ['👥', 'Satisfação dos visitantes', felVis, felVis * 1.9],
-    ['🦁', BI`Variedade de espécies (${variedade})|Species variety (${variedade})`, Math.min(variedade, 30) / 30, Math.min(variedade, 30) / 30 * 1.1],
+    ['🦁', BI`Variedade de espécies (${variety})|Species variety (${variety})`, Math.min(variety, 30) / 30, Math.min(variety, 30) / 30 * 1.1],
     ['🗑️', 'Lixo nas trilhas', lixoMed, -lixoMed * 1.2],
     ['🚨', `Animais soltos agora (${G.escaped.length})`, null, -G.escaped.length * .25],
   ];
-  const linha = ([em, name, frac, pts]) => `
+  const row = ([em, name, frac, pts]) => `
     <div style="display:flex;align-items:center;gap:8px;margin:5px 0">
       <span style="width:22px;text-align:center">${em}</span>
       <span style="flex:1;font-size:12.5px">${name}</span>
@@ -1031,22 +1031,22 @@ function openReputacao() {
     </div>`;
   // extrato: resumo por tipo + últimos acontecimentos
   const NOME_EV = { '💀': 'mortes', '🚨': 'fugas', '🎉': 'nascimentos', '🗳️': 'avaliações do público', '📉': 'quedas', '📈': 'subidas' };
-  const porTipo = new Map();
+  const byKind = new Map();
   for (const r of G.repLog) {
-    const g = porTipo.get(r.em) || { em: r.em, n: 0, soma: 0 };
-    g.n++; g.soma += r.delta; porTipo.set(r.em, g);
+    const g = byKind.get(r.em) || { em: r.em, n: 0, sum: 0 };
+    g.n++; g.sum += r.delta; byKind.set(r.em, g);
   }
-  const chips = [...porTipo.values()].sort((a, b) => Math.abs(b.soma) - Math.abs(a.soma))
-    .map(g => `<span class="tag ${g.soma >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${NOME_EV[g.em] || ''} (${g.soma >= 0 ? '+' : ''}${g.soma.toFixed(2)}★)</span>`)
+  const chips = [...byKind.values()].sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum))
+    .map(g => `<span class="tag ${g.sum >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${NOME_EV[g.em] || ''} (${g.sum >= 0 ? '+' : ''}${g.sum.toFixed(2)}★)</span>`)
     .join('');
   const lista = G.repLog.slice(-12).reverse().map(r => `
     <div style="display:flex;gap:8px;font-size:12.5px;margin:3px 0;align-items:baseline">
-      <span style="opacity:.55;width:46px;flex:none">Dia ${r.dia}</span><span style="flex:none">${r.em}</span>
-      <span style="flex:1">${esc(r.motivo)}</span>
+      <span style="opacity:.55;width:46px;flex:none">Dia ${r.day}</span><span style="flex:none">${r.em}</span>
+      <span style="flex:1">${esc(r.reason)}</span>
       <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${r.delta.toFixed(2)}</b>
     </div>`).join('')
     || `<div style="font-size:12px;opacity:.6">${LN('Nada registrado ainda — mortes, fugas, nascimentos e as avaliações de quem visita entram aqui.|Nothing recorded yet — deaths, escapes, births and visitor ratings all land here.')}</div>`;
-  const seta = alvo > G.rep + .05 ? LN('📈 subindo|📈 rising') : alvo < G.rep - .05 ? LN('📉 caindo|📉 falling') : LN('➡️ estável|➡️ steady');
+  const seta = target > G.rep + .05 ? LN('📈 subindo|📈 rising') : target < G.rep - .05 ? LN('📉 caindo|📉 falling') : LN('➡️ estável|➡️ steady');
   openModal(LN('Reputação — de onde vem a nota|Reputation — where the score comes from'),
     `<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
       <span style="font-size:34px">⭐</span>
@@ -1054,11 +1054,11 @@ function openReputacao() {
         <div style="font-size:24px;line-height:1.1"><b>${G.rep.toFixed(1)}</b><span style="font-size:14px;opacity:.6">/5</span>
           <span class="stars" style="font-size:15px">${stars(G.rep)}</span></div>
         <div style="font-size:12px;opacity:.75">A nota caminha todo dia rumo à qualidade real do parque:
-          <b>${alvo.toFixed(1)}★</b> — ${seta}</div>
+          <b>${target.toFixed(1)}★</b> — ${seta}</div>
       </div>
     </div>
     <h4 class="sec">Avaliação contínua (qualidade real)</h4>
-    ${comp.map(linha).join('')}
+    ${comp.map(row).join('')}
     <div style="font-size:11.5px;opacity:.65;margin-top:2px">Soma limitada a 0–5★. Clique em 😊 Satisfação para ver as reclamações ao vivo.</div>
     <h4 class="sec">Acontecimentos que mexeram na nota</h4>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">${chips || '<span style="font-size:12px;opacity:.6">—</span>'}</div>
@@ -1069,29 +1069,29 @@ function openReputacao() {
 
 /* ---- inspetor de visitante ---- */
 const NEED_INFO = {
-  fome: ['🍔', 'Fome'], sede: ['🥤', 'Sede'], banheiro: ['🚻', 'Banheiro'],
+  hunger: ['🍔', 'Fome'], thirst: ['🥤', 'Sede'], banheiro: ['🚻', 'Banheiro'],
   energia: ['🪑', 'Cansaço'], diversao: ['🎡', 'Vontade de se divertir'],
 };
-const visitanteSig = v => v.id + '|' + (v.saindo ? 1 : 0);
+const visitorSignature = v => v.id + '|' + (v.saindo ? 1 : 0);
 function inspVisitor(v) {
   if (!G.visitors.includes(v)) { deselect(); return; }
-  UI.insp.dataset.sig = visitanteSig(v);
-  const p = v.pensa || pensamentoVisitante(v);
+  UI.insp.dataset.sig = visitorSignature(v);
+  const p = v.pensa || visitorThought(v);
   UI.insp.innerHTML = `
     <div class="ihead">
-      <div class="av" style="font-size:25px">${v.crianca ? '🧒' : '🧑'}</div>
-      <div><h3>${v.crianca ? LN('Criança|Child') : LN('Visitante|Visitor')}</h3>
-        <div class="sub">${v.saindo ? 'Indo embora' : 'Passeando'} · ${v.tempo.toFixed(1)}h no parque</div></div>
+      <div class="av" style="font-size:25px">${v.child ? '🧒' : '🧑'}</div>
+      <div><h3>${v.child ? LN('Criança|Child') : LN('Visitante|Visitor')}</h3>
+        <div class="sub">${v.saindo ? 'Indo embora' : 'Passeando'} · ${v.time.toFixed(1)}h no parque</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="tagline"><span class="tag ${p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok'}" id="iEstado">
       ${p.em} ${esc(p.txt)}</span></div>
-    ${bar(LN('Satisfação|Satisfaction'), v.mood, corDe(v.mood), undefined, 'mood')}
+    ${bar(LN('Satisfação|Satisfaction'), v.mood, colourFor(v.mood), undefined, 'mood')}
     <h4 class="sec">Necessidades (cheio = tranquilo)</h4>
     ${Object.keys(NEED_INFO).map(k => bar(NEED_INFO[k][0] + ' ' + NEED_INFO[k][1],
-      1 - v.need[k], corDe(1 - v.need[k]), undefined, 'n_' + k)).join('')}
+      1 - v.need[k], colourFor(1 - v.need[k]), undefined, 'n_' + k)).join('')}
     <h4 class="sec">Carteira e passeio</h4>
-    <div class="kv"><span>Dinheiro no bolso</span><b id="iDin">${moneyFull(v.dinheiro)}</b></div>
+    <div class="kv"><span>Dinheiro no bolso</span><b id="iDin">${moneyFull(v.money)}</b></div>
     <div class="kv"><span>Recintos que já viu</span><b id="iViu">${v.vistos.size}</b></div>
     <div class="kv"><span>${LN('Levando|Carrying')}</span><b>${v.item === 'balao' ? LN('🎈 Balão|🎈 Balloon') : v.item === 'comida' ? LN('🍔 Comida|🍔 Food') : '—'}</b></div>
     <div class="rowbtns">
@@ -1105,7 +1105,7 @@ function inspVisitor(v) {
 
 /* ---- ajuda ---- */
 function openHelp() {
-  fecharPaleta();
+  closePalette();
   openModal('Como jogar',
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;font-size:13px;line-height:1.55">
       <div>
@@ -1142,10 +1142,10 @@ function openHelp() {
      <button class="btn sm" id="hUp">📤 Abrir save do arquivo</button>
      <button class="btn r sm" id="hReset">🔄 Recomeçar</button>`);
   $('#hOk').onclick = closeModal;
-  $('#hSave').onclick = () => { salvar(); };
-  $('#hLoad').onclick = () => { if (confirm(LN('Carregar o jogo salvo neste navegador? O progresso atual será perdido.|Load the game saved in this browser? The current progress will be lost.'))) carregar(); };
-  $('#hDlSave').onclick = () => exportarSave();
-  $('#hDlTxt').onclick = () => exportarRelatorio();
+  $('#hSave').onclick = () => { saveGame(); };
+  $('#hLoad').onclick = () => { if (confirm(LN('Carregar o jogo salvo neste navegador? O progresso atual será perdido.|Load the game saved in this browser? The current progress will be lost.'))) loadGame(); };
+  $('#hDlSave').onclick = () => exportSave();
+  $('#hDlTxt').onclick = () => exportReport();
   $('#hUp').onclick = () => $('#fileSave').click();   // input permanente, fora do modal
   $('#hReset').onclick = () => { if (confirm(LN('Recomeçar do zero?|Start over from scratch?'))) { localStorage.removeItem('zoo_save'); location.reload(); } };
 }

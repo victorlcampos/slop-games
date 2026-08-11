@@ -101,31 +101,31 @@ function applyPattern(c, sp, bodyPath, x0, y0, x1, y1) {
 }
 
 /* ---- chifres / cornos ---- */
-function drawHorn(c, x, y, tipo, s, col) {
+function drawHorn(c, x, y, kind, s, col) {
   c.save(); c.translate(x, y); c._ink = '#3a2f22';
   const k = col || '#e2d6b8';
-  if (tipo === 'straight') { limb(c, 0, 0, 2 * s, -22 * s, 4.5 * s, k); limb(c, -4, 0, -2 * s, -20 * s, 4.5 * s, k); }
-  else if (tipo === 'lyre') { limb2(c, 0, 0, 9 * s, -14 * s, -2 * s, -24 * s, 4.5 * s, k); limb2(c, -5, 1, 3 * s, -13 * s, -8 * s, -22 * s, 4.5 * s, k); }
-  else if (tipo === 'curved') { limb2(c, 0, 0, 11 * s, -6 * s, 14 * s, -17 * s, 5 * s, k); limb2(c, -4, 1, -11 * s, -6 * s, -14 * s, -16 * s, 5 * s, k); }
-  else if (tipo === 'moon') { limb2(c, 0, 0, 15 * s, -3 * s, 19 * s, -14 * s, 4.5 * s, k); limb2(c, -3, 1, -14 * s, -3 * s, -18 * s, -13 * s, 4.5 * s, k); }
-  else if (tipo === 'boss') {
+  if (kind === 'straight') { limb(c, 0, 0, 2 * s, -22 * s, 4.5 * s, k); limb(c, -4, 0, -2 * s, -20 * s, 4.5 * s, k); }
+  else if (kind === 'lyre') { limb2(c, 0, 0, 9 * s, -14 * s, -2 * s, -24 * s, 4.5 * s, k); limb2(c, -5, 1, 3 * s, -13 * s, -8 * s, -22 * s, 4.5 * s, k); }
+  else if (kind === 'curved') { limb2(c, 0, 0, 11 * s, -6 * s, 14 * s, -17 * s, 5 * s, k); limb2(c, -4, 1, -11 * s, -6 * s, -14 * s, -16 * s, 5 * s, k); }
+  else if (kind === 'moon') { limb2(c, 0, 0, 15 * s, -3 * s, 19 * s, -14 * s, 4.5 * s, k); limb2(c, -3, 1, -14 * s, -3 * s, -18 * s, -13 * s, 4.5 * s, k); }
+  else if (kind === 'boss') {
     c.fillStyle = shade(k, -.35); ellipse(c, 0, -2, 11 * s, 6 * s); c.fill();
     limb2(c, 8 * s, -2, 16 * s, 2 * s, 18 * s, -9 * s, 4.5 * s, k);
     limb2(c, -8 * s, -2, -16 * s, 2 * s, -18 * s, -9 * s, 4.5 * s, k);
-  } else if (tipo === 'spiral') {
+  } else if (kind === 'spiral') {
     for (const dir of [1, -1]) {
       c.beginPath(); c.moveTo(dir * 2, 0);
       for (let i = 0; i <= 22; i++) { const t = i / 22; c.lineTo(dir * (2 + Math.sin(t * 9) * 6 * s), -t * 30 * s); }
       c.lineWidth = 6 * s; c.strokeStyle = '#3a2f22'; c.lineCap = 'round'; c.stroke();
       c.lineWidth = 3.6 * s; c.strokeStyle = k; c.stroke();
     }
-  } else if (tipo === 'branched') {
+  } else if (kind === 'branched') {
     for (const dir of [1, -1]) {
       limb(c, dir * 3, 0, dir * 8 * s, -24 * s, 4 * s, k);
       limb(c, dir * 6 * s, -12 * s, dir * 16 * s, -18 * s, 3 * s, k);
       limb(c, dir * 7 * s, -19 * s, dir * 17 * s, -28 * s, 3 * s, k);
     }
-  } else if (tipo === 'palm') {
+  } else if (kind === 'palm') {
     for (const dir of [1, -1]) {
       limb(c, dir * 3, 0, dir * 12 * s, -16 * s, 4 * s, k);
       c.beginPath(); c.ellipse(dir * 19 * s, -20 * s, 11 * s, 7 * s, dir * .5, 0, TAU);
@@ -134,22 +134,22 @@ function drawHorn(c, x, y, tipo, s, col) {
   }
   c.restore();
 }
-function drawEar(c, x, y, tipo, s, fill, inner) {
+function drawEar(c, x, y, kind, s, fill, inner) {
   c._ink = inkFor(fill);
-  if (tipo === 'ponta' || tipo === 'tuft') {
+  if (kind === 'ponta' || kind === 'tuft') {
     // base mais larga e ponta mais baixa: assim a orelha encosta no crânio em
     // vez de flutuar como um triângulo solto acima da cabeça
     c.beginPath(); c.moveTo(x - s * .8, y + s * .7); c.lineTo(x + s * .1, y - s * 1.02); c.lineTo(x + s * .9, y + s * .55); c.closePath();
     ink(c, fill, 3.6);
     c.beginPath(); c.moveTo(x - s * .3, y + s * .4); c.lineTo(x + s * .08, y - s * .55); c.lineTo(x + s * .48, y + s * .34); c.closePath();
     c.fillStyle = inner; c.fill();
-    if (tipo === 'tuft') limb(c, x + s * .1, y - s * .98, x + s * .3, y - s * 1.85, 2.4, inkFor(fill));
-  } else if (tipo === 'giant') {
+    if (kind === 'tuft') limb(c, x + s * .1, y - s * .98, x + s * .3, y - s * 1.85, 2.4, inkFor(fill));
+  } else if (kind === 'giant') {
     ellipse(c, x, y - s * .2, s * .78, s * 1.05, .25); ink(c, fill, 3.6);
     ellipse(c, x, y - s * .2, s * .44, s * .68, .25); c.fillStyle = inner; c.fill();
-  } else if (tipo === 'caida') {
+  } else if (kind === 'caida') {
     ellipse(c, x, y + s * .5, s * .5, s * .95, .35); ink(c, fill, 3.6);
-  } else if (tipo === 'long') {
+  } else if (kind === 'long') {
     ellipse(c, x, y - s * .1, s * .38, s * 1.0, .35); ink(c, fill, 3.6);
     ellipse(c, x, y - s * .1, s * .18, s * .6, .35); c.fillStyle = inner; c.fill();
   } else { // redonda / pequena
@@ -157,36 +157,36 @@ function drawEar(c, x, y, tipo, s, fill, inner) {
     ellipse(c, x, y, s * .38, s * .38); c.fillStyle = inner; c.fill();
   }
 }
-function drawTail(c, x, y, tipo, len, col, dark, wag) {
+function drawTail(c, x, y, kind, len, col, dark, wag) {
   c._ink = inkFor(col);
   const w = wag || 0;
-  if (tipo === 'none') return;
-  if (tipo === 'bushy') {
+  if (kind === 'none') return;
+  if (kind === 'bushy') {
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .6, y - len * .35 + w, x - len, y - len * .55 + w * 1.6);
     c.lineWidth = 13; c.strokeStyle = c._ink; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 9; c.strokeStyle = col; c.stroke();
-  } else if (tipo === 'ringed') {
+  } else if (kind === 'ringed') {
     const n = 7;
     for (let i = 0; i < n; i++) {
       const t = i / n, tx = x - len * t, ty = y - len * .55 * Math.sin(t * 2.1) + w * t;
       const t2 = (i + 1) / n, tx2 = x - len * t2, ty2 = y - len * .55 * Math.sin(t2 * 2.1) + w * t2;
       limb(c, tx, ty, tx2, ty2, 8, i % 2 ? dark : col);
     }
-  } else if (tipo === 'tuft') {
+  } else if (kind === 'tuft') {
     limb(c, x, y, x - len * .85, y - len * .3 + w, 5, col);
     ellipse(c, x - len * .9, y - len * .34 + w, 6, 6); ink(c, dark, 3.4);
-  } else if (tipo === 'crina') {
+  } else if (kind === 'crina') {
     for (let i = 0; i < 6; i++) limb(c, x, y, x - len * (.7 + i * .05), y + len * (.2 + i * .13) + w, 4, i % 2 ? dark : col);
-  } else if (tipo === 'paddle') {
+  } else if (kind === 'paddle') {
     ellipse(c, x - len * .7, y - 2 + w, len * .55, len * .3, -.3); ink(c, dark, 3.6);
-  } else if (tipo === 'banner') {
+  } else if (kind === 'banner') {
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .7, y - len * .1, x - len, y - len * .5 + w);
     c.lineWidth = 22; c.strokeStyle = c._ink; c.lineCap = 'round'; c.stroke();
     c.lineWidth = 17; c.strokeStyle = dark; c.stroke();
-  } else if (tipo === 'short' || tipo === 'fina') {
-    limb(c, x, y, x - len * .8, y - len * .5 + w, tipo === 'short' ? 6 : 3.5, col);
+  } else if (kind === 'short' || kind === 'fina') {
+    limb(c, x, y, x - len * .8, y - len * .5 + w, kind === 'short' ? 6 : 3.5, col);
   } else { // longa
     c.beginPath(); c.moveTo(x, y);
     c.quadraticCurveTo(x - len * .75, y + len * .12, x - len * .95, y - len * .5 + w);
@@ -736,7 +736,7 @@ function drawSpecies(c, sp, frame) {
 /** Mede a linha opaca mais alta do sprite e guarda como fração da altura da
  *  moldura. Serve para pousar o balão de pensamento logo acima do bicho — com
  *  219 espécies de alturas muito diferentes, um deslocamento fixo erra sempre. */
-function medirTopo(sp, cv) {
+function measureTop(sp, cv) {
   try {
     const c = cv.getContext('2d');
     const d = c.getImageData(0, 0, cv.width, cv.height).data;
@@ -750,7 +750,7 @@ function medirTopo(sp, cv) {
   } catch (e) { sp._topN = 0.25; }   // canvas sujo: cai num palpite razoável
 }
 /** altura visível do bicho, do chão ao topo do traço, em unidades locais */
-const alturaVisivel = sp => (GND + PAD) - (sp._topN === undefined ? 40 : sp._topN * SPRH);
+const visibleHeight = sp => (GND + PAD) - (sp._topN === undefined ? 40 : sp._topN * SPRH);
 
 /** sprite pronto (canvas) para uma espécie, frame e altura em px */
 function getSprite(sp, frame, px) {
@@ -764,7 +764,7 @@ function getSprite(sp, frame, px) {
   c.scale(sc, sc);
   c.translate(0, PAD);              // abre a folga superior
   drawSpecies(c, sp, frame);
-  if (sp._topN === undefined) medirTopo(sp, cv);
+  if (sp._topN === undefined) measureTop(sp, cv);
   spriteCache.set(key, cv);
   if (spriteCache.size > 2600) { const k = spriteCache.keys().next().value; spriteCache.delete(k); }
   return cv;
@@ -784,10 +784,10 @@ const spriteH = sp => Math.round(26 + 52 * Math.pow(Math.min(sp.scale, 2.3), .85
  *     (a mais alta) vazava 6px para fora da caixa. */
 function spriteThumb(sp, maxW, maxH) {
   getSprite(sp, 0, 64);                       // garante a medição de _topN
-  const topo = (sp._topN === undefined ? .2 : sp._topN) * SPRH;
-  const yIni = Math.max(0, topo - 5);
-  const yFim = GND + PAD + 5;                 // um respiro abaixo dos pés
-  const altLocal = Math.max(10, yFim - yIni);
+  const top = (sp._topN === undefined ? .2 : sp._topN) * SPRH;
+  const yIni = Math.max(0, top - 5);
+  const yEnd = GND + PAD + 5;                 // um respiro abaixo dos pés
+  const altLocal = Math.max(10, yEnd - yIni);
   const sc = maxH ? Math.min(maxW / SPR, maxH / altLocal) : maxW / SPR;
   const c2 = document.createElement('canvas');
   c2.width = Math.max(8, Math.round(SPR * sc));

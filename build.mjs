@@ -54,7 +54,9 @@ const UI = {
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-/** `data-pt="…" data-en="…"` for a bilingual field — see bindText in the kit. */
+/** `data-pt="…" data-en="…"` for a bilingual field — see bindText in the kit.
+ *  The markup renders the English side, which is the product default; bindText
+ *  swaps to Portuguese only if the flag asks. */
 const both = (value, attr = '') =>
   `data-pt${attr && '-' + attr}="${esc(value.pt)}" data-en${attr && '-' + attr}="${esc(value.en)}"`;
 
@@ -83,7 +85,7 @@ const catalog = readdirSync(GAMES)
     }
     return meta;
   })
-  .sort((a, b) => a.name.pt.localeCompare(b.name.pt, 'pt-BR'));
+  .sort((a, b) => a.name.en.localeCompare(b.name.en, 'en'));
 
 if (!catalog.length) throw new Error('no game found in games/*/game.json');
 
@@ -98,7 +100,7 @@ mkdirSync(DIST, { recursive: true });
 
 for (const game of toBuild) {
   const folder = join(GAMES, game.slug);
-  process.stdout.write(`  ${game.emoji}  ${game.name.pt} … `);
+  process.stdout.write(`  ${game.emoji}  ${game.name.en} … `);
 
   execFileSync('npm', ['run', '--silent', 'build'], { cwd: folder, stdio: ['ignore', 'ignore', 'inherit'] });
 
@@ -167,18 +169,18 @@ const cards = catalog
       ? [UI.offline, UI.offlineHint, 'offline']
       : [UI.online, UI.onlineHint, 'online'];
     const badge =
-      `<span class="badge badge--${kind}" title="${esc(hint.pt)}" ` +
-      `${both(hint, 'title')} ${both(text)}>${esc(text.pt)}</span>`;
+      `<span class="badge badge--${kind}" title="${esc(hint.en)}" ` +
+      `${both(hint, 'title')} ${both(text)}>${esc(text.en)}</span>`;
     const tags = (game.tags || [])
-      .map((t) => `<li ${both(TAGS[t])}>${esc(TAGS[t].pt)}</li>`)
+      .map((t) => `<li ${both(TAGS[t])}>${esc(TAGS[t].en)}</li>`)
       .join('');
     const libs = game.libs.length
       ? `<span class="card__libs">${esc(game.libs.join(' · '))}</span>`
-      : `<span class="card__libs" ${both(UI.noDeps)}>${esc(UI.noDeps.pt)}</span>`;
+      : `<span class="card__libs" ${both(UI.noDeps)}>${esc(UI.noDeps.en)}</span>`;
     return `        <a class="card" href="./${game.slug}/index.html">
           <span class="card__emoji" aria-hidden="true">${game.emoji}</span>
-          <h2 class="card__name" ${both(game.name)}>${esc(game.name.pt)}</h2>
-          <p class="card__desc" ${both(game.description)}>${esc(game.description.pt)}</p>
+          <h2 class="card__name" ${both(game.name)}>${esc(game.name.en)}</h2>
+          <p class="card__desc" ${both(game.description)}>${esc(game.description.en)}</p>
           <ul class="card__tags">${tags}</ul>
           <footer class="card__foot">${libs}${badge}</footer>
         </a>`;

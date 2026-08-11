@@ -25,7 +25,7 @@ const browser = await launchBrowser();
 
 for (const game of catalog) {
   const file = path.join(DIST, game.slug, 'index.html');
-  const label = `${game.emoji} ${game.name.pt}`;
+  const label = `${game.emoji} ${game.name.en}`;
 
   scenario(`${label}: opens over file:// and draws`, async () => {
     check(existsSync(file), `${game.slug}: no dist — run npm run build`);
@@ -268,22 +268,31 @@ scenario('every game offers the two flags and really switches', async () => {
 
 scenario('the index ships in both languages and remembers the choice', async () => {
   const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.desktop, { bootWait: 800 });
+  // the picker is built in JavaScript: wait for it instead of betting on bootWait,
+  // which by this point in the suite is racing thirty already-opened tabs
+  await g.page.waitForSelector('[data-lang-picker] button', { timeout: 5000 });
 
-  // one evaluate per step instead of several $eval: under the load of a full
-  // suite the extra protocol round trips were enough to lose the target
+  // Which language it starts in is not fixed: English is the default, but a
+  // browser asking for Portuguese gets Portuguese — and the machine running
+  // this test may well be one. So the scenario reads where it landed and
+  // switches to the *other* flag, which is the contract either way.
   const first = await g.page.evaluate(() => ({
     flags: Array.from(document.querySelectorAll('[data-lang-picker] button')).map((e) => e.dataset.lang),
+    lang: window.__game.i18n.lang,
     name: document.querySelector('.card__name').textContent,
   }));
   check(first.flags.length === 2, `the index should offer two flags, it offered ${first.flags.length}`);
   check(first.flags.includes('pt') && first.flags.includes('en'), `the flags are ${first.flags}`);
 
-  const second = await g.page.evaluate(() => {
-    document.querySelector('[data-lang-picker] button[data-lang="en"]').click();
+  const other = first.lang === 'en' ? 'pt' : 'en';
+  // one evaluate for the click and the read: under the load of a full suite the
+  // extra protocol round trips were enough to lose the target
+  const second = await g.page.evaluate((lang) => {
+    document.querySelector(`[data-lang-picker] button[data-lang="${lang}"]`).click();
     return { name: document.querySelector('.card__name').textContent, stored: localStorage.getItem('slop:lang') };
-  });
-  check(first.name !== second.name, 'switching the flag should change the card name');
-  check(second.stored === 'en', `the choice should be stored under the shared key, it was "${second.stored}"`);
+  }, other);
+  check(first.name !== second.name, `switching to "${other}" should change the card name`);
+  check(second.stored === other, `the choice should be stored under the shared key, it was "${second.stored}"`);
 
   // and the language has to survive a reload — it is the same key every game reads
   await g.page.reload({ waitUntil: 'load' });

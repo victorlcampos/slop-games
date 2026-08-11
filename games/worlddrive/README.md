@@ -1,55 +1,61 @@
 # WorldDrive 🌍🏎️
 
-### ▶️ [Jogar agora](https://victorlcampos.github.io/worlddrive/)
+### ▶️ [Play now](https://victorlcampos.github.io/slop-games/worlddrive/)
 
-Jogo de carro no browser: escolha **qualquer rua do mundo** e dirija nela. O mundo 3D é
-gerado na hora a partir de dados reais:
+A driving game in the browser: pick **any street in the world** and drive down
+it. The 3D world is generated on the spot from real data:
 
-- **Ruas, prédios e árvores** — OpenStreetMap (Overpass API, com 4 espelhos e retry)
-- **Relevo** — AWS Terrain Tiles / formato terrarium (SRTM etc., z15)
-- **Chão** — imagens de satélite Esri World Imagery (mosaico z17–19)
-- **Busca de lugares** — Photon, com fallback Nominatim
+- **Streets, buildings and trees** — OpenStreetMap (Overpass API, 4 mirrors with retry)
+- **Elevation** — AWS Terrain Tiles / terrarium format (SRTM and friends, z15)
+- **Ground** — Esri World Imagery satellite tiles (z17–19 mosaic)
+- **Place search** — Photon, falling back to Nominatim
 
-Tudo roda **100% no cliente**: o entregável é um único arquivo — **`dist/index.html`**
-(~580 KB) — que abre com **duplo clique** (`file://`), sem servidor. Todos os provedores
-acima respondem `Access-Control-Allow-Origin: *` inclusive para origem `null` (verificado).
-Só é preciso internet durante o carregamento de uma área.
+Everything runs **100% on the client**: the deliverable is a single file —
+**`dist/index.html`** (~596 KB) — that opens on a **double click** (`file://`),
+with no server. Every provider above answers `Access-Control-Allow-Origin: *`,
+including for a `null` origin (verified). The internet is only needed while an
+area loads.
+
+The game speaks **English and Portuguese** — the flags sit next to the exit on
+the menu screen.
 
 ## Build
 
 ```sh
 npm install
-node build.mjs        # gera dist/index.html (bundle three.js inline no template)
+node build.mjs        # produces dist/index.html (three.js bundled inline into the template)
 ```
 
-## Teste (smoke)
+## Smoke test
 
 ```sh
-node test/smoke.mjs               # Chrome headless: abre via file://, carrega São Francisco e dirige
-PRESET=2 node test/smoke.mjs      # 0=São Francisco 1=Mônaco 2=Rio 3=Paris 4=Tóquio 5=NY
-URL=https://victorlcampos.github.io/worlddrive/ node test/smoke.mjs   # testa o deploy publicado
+node test/smoke.mjs               # headless Chrome: opens over file://, loads San Francisco and drives
+PRESET=2 node test/smoke.mjs      # 0=San Francisco 1=Monaco 2=Rio 3=Paris 4=Tokyo 5=NY
+URL=https://victorlcampos.github.io/slop-games/worlddrive/ node test/smoke.mjs   # test the published deploy
 ```
 
-Obs.: o Overpass principal rejeita o fingerprint "HeadlessChrome" (406); o teste disfarça
-UA + client hints. Browsers reais não são afetados.
+Note: the main Overpass mirror rejects the "HeadlessChrome" fingerprint (406),
+so the test disguises the UA and the client hints. Real browsers are unaffected.
 
-## Controles
+## Controls
 
-W/A/S/D ou setas · **espaço** freio de mão (drift) · **R** volta à rua · **N** recarrega o
-mundo onde você está (dirige "infinito" por saltos) · **C** câmeras · **M** som · **Esc** menu.
-Em telas touch aparecem botões na tela.
+W/A/S/D or arrows · **space** handbrake (drift) · **R** back to the street ·
+**N** reloads the world where you are (drive "forever" by hopping) · **C**
+cameras · **M** sound · **Esc** menu. On touch screens the buttons appear on
+screen.
 
-## Arquitetura (src/)
+## Architecture (src/)
 
-`geo` projeções/tiles · `net` fetch/pool · `overpass` query+parse OSM · `terrain` heightmap
-terrarium · `satellite` mosaico Esri · `roads` fitas de asfalto + índice espacial ·
-`buildings` extrusão + colisão · `trees` instancing · `world` orquestra tudo ·
-`car` física arcade (bicycle model, substeps, ladeira, colisão círculo×parede) ·
-`main` three.js, câmeras, loop, auto-qualidade · `ui`/`picker`/`minimap`/`audio`/`input`.
+`geo` projections/tiles · `net` fetch/pool · `overpass` OSM query+parse ·
+`terrain` terrarium heightmap · `satellite` Esri mosaic · `roads` asphalt
+ribbons + spatial index · `buildings` extrusion + collision · `trees` instancing
+· `world` orchestrates it all · `car` arcade physics (bicycle model, substeps,
+slopes, circle×wall collision) · `main` three.js, cameras, loop, automatic
+quality · `ui`/`picker`/`minimap`/`audio`/`input`/`i18n`.
 
-## Limitações conhecidas
+## Known limitations
 
-- Área carregada de ~1,3×1,3 km por vez (tecla **N** recarrega centrado em você).
-- Pontes/túneis são achatados no terreno (túneis são omitidos).
-- Elevação z15 (~5 m/px): ladeiras reais aparecem, mas detalhes finos (meio-fio, viadutos) não.
-- Os espelhos públicos do Overpass têm picos de carga; o jogo tenta 4 espelhos × 2 rodadas.
+- Roughly a 1.3×1.3 km area at a time (**N** reloads it centred on you).
+- Bridges and tunnels are flattened onto the terrain (tunnels are omitted).
+- Elevation at z15 (~5 m/px): real hills show up, fine detail (kerbs, flyovers) does not.
+- The public Overpass mirrors have load spikes; the game tries 4 mirrors × 2 rounds.

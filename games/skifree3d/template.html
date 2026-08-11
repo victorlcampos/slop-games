@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>SkiFree 3D — Descida da Montanha</title>
+<title>SkiFree 3D — Downhill Run</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛷️</text></svg>" />
 <style>
   :root {
@@ -294,18 +294,18 @@
 <!-- ============================== HUD ============================== -->
 <div id="hud">
   <div id="stats" class="panel">
-    <span class="k" data-pt="Distância" data-en="Distance">Distância</span><span class="k" data-pt="Tempo" data-en="Time">Tempo</span>
+    <span class="k" data-pt="Distância" data-en="Distance">Distance</span><span class="k" data-pt="Tempo" data-en="Time">Time</span>
     <span class="v" id="s-dist">0<small>m</small></span>
     <span class="v" id="s-time">0.0<small>s</small></span>
-    <span class="k" style="margin-top:6px" data-pt="Pontos" data-en="Score">Pontos</span><span class="k" style="margin-top:6px" data-pt="Estilo" data-en="Style">Estilo</span>
+    <span class="k" style="margin-top:6px" data-pt="Pontos" data-en="Score">Score</span><span class="k" style="margin-top:6px" data-pt="Estilo" data-en="Style">Style</span>
     <span class="v" id="s-score">0</span>
     <span class="v" id="s-style">×1.0</span>
   </div>
 
   <div id="gates" class="panel">
-    <div class="k" data-pt="Portões" data-en="Gates">Portões</div>
+    <div class="k" data-pt="Portões" data-en="Gates">Gates</div>
     <div class="v"><span id="g-hit">0</span><span style="opacity:.4">/</span><span id="g-tot">0</span></div>
-    <div class="k miss" id="g-missline" style="margin-top:4px"><span data-pt="Perdidos" data-en="Missed">Perdidos</span> <span id="g-miss">0</span></div>
+    <div class="k miss" id="g-missline" style="margin-top:4px"><span data-pt="Perdidos" data-en="Missed">Missed</span> <span id="g-miss">0</span></div>
   </div>
 
   <div id="yeti-bar" class="panel">
@@ -313,7 +313,7 @@
     <div class="rail"><div class="fill" id="y-fill"></div></div>
   </div>
 
-  <div id="yeti-warn" class="panel" data-pt="O Yeti acordou" data-en="The Yeti woke up">O Yeti acordou</div>
+  <div id="yeti-warn" class="panel" data-pt="O Yeti acordou" data-en="The Yeti woke up">The Yeti woke up</div>
 
   <div id="toasts"></div>
 
@@ -333,20 +333,20 @@
   </div>
 
   <div id="hint" class="panel">
-    <kbd>←</kbd><kbd>→</kbd> <span data-pt="virar" data-en="turn">virar</span> &nbsp;
-    <kbd>↑</kbd> <span data-pt="agachar" data-en="tuck">agachar</span> &nbsp;
-    <kbd>↓</kbd> <span data-pt="frear" data-en="brake">frear</span> &nbsp;
-    <kbd data-pt="espaço" data-en="space">espaço</kbd> <span data-pt="pular" data-en="jump">pular</span><br>
-    <span data-pt="no ar:" data-en="in the air:">no ar:</span>
-    <kbd>←</kbd><kbd>→</kbd> <span data-pt="giro" data-en="spin">giro</span> &nbsp;
-    <kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal" data-en="flip">mortal</span> &nbsp;·&nbsp;
-    <kbd>C</kbd> <span data-pt="câmera" data-en="camera">câmera</span> &nbsp;
-    <kbd>P</kbd> <span data-pt="pausa" data-en="pause">pausa</span> &nbsp;
-    <kbd>M</kbd> <span data-pt="som" data-en="sound">som</span>
+    <kbd>←</kbd><kbd>→</kbd> <span data-pt="virar" data-en="turn">turn</span> &nbsp;
+    <kbd>↑</kbd> <span data-pt="agachar" data-en="tuck">tuck</span> &nbsp;
+    <kbd>↓</kbd> <span data-pt="frear" data-en="brake">brake</span> &nbsp;
+    <kbd data-pt="espaço" data-en="space">space</kbd> <span data-pt="pular" data-en="jump">jump</span><br>
+    <span data-pt="no ar:" data-en="in the air:">in the air:</span>
+    <kbd>←</kbd><kbd>→</kbd> <span data-pt="giro" data-en="spin">spin</span> &nbsp;
+    <kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal" data-en="flip">flip</span> &nbsp;·&nbsp;
+    <kbd>C</kbd> <span data-pt="câmera" data-en="camera">camera</span> &nbsp;
+    <kbd>P</kbd> <span data-pt="pausa" data-en="pause">pause</span> &nbsp;
+    <kbd>M</kbd> <span data-pt="som" data-en="sound">sound</span>
   </div>
 </div>
 
-<div id="paused"><div class="p"><span data-pt="Pausado" data-en="Paused">Pausado</span> — <kbd>P</kbd> <span data-pt="para continuar" data-en="to continue">para continuar</span></div></div>
+<div id="paused"><div class="p"><span data-pt="Pausado" data-en="Paused">Paused</span> — <kbd>P</kbd> <span data-pt="para continuar" data-en="to continue">to continue</span></div></div>
 
 <div id="touch">
   <div class="zone l" data-act="left"></div>
@@ -360,60 +360,60 @@
   <div class="card" id="menu">
     <div class="langs" data-lang-picker></div>
     <h1 class="logo">SkiFree<em>3D</em></h1>
-    <p class="tagline" data-pt="Lembra desse jogo?" data-en="Remember this game?">Lembra desse jogo?</p>
+    <p class="tagline" data-pt="Lembra desse jogo?" data-en="Remember this game?">Remember this game?</p>
 
     <div class="modes" id="modes">
       <button class="mode sel" data-mode="free">
         <div class="ico">🏔️</div>
-        <div class="nm" data-pt="Descida Livre" data-en="Free Ride">Descida Livre</div>
+        <div class="nm" data-pt="Descida Livre" data-en="Free Ride">Free Ride</div>
         <div class="ds"
              data-pt="Sem regras. Desça o máximo que aguentar — até o Yeti acordar."
-             data-en="No rules. Go as far down as you can take — until the Yeti wakes up.">Sem regras. Desça o máximo que aguentar — até o Yeti acordar.</div>
+             data-en="No rules. Go as far down as you can take — until the Yeti wakes up.">No rules. Go as far down as you can take — until the Yeti wakes up.</div>
       </button>
       <button class="mode" data-mode="slalom">
         <div class="ico">🚩</div>
         <div class="nm" data-pt="Slalom" data-en="Slalom">Slalom</div>
         <div class="ds"
              data-pt="Passe entre as bandeiras vermelha e azul. Errar custa caro."
-             data-en="Pass between the red and blue flags. Missing costs you.">Passe entre as bandeiras vermelha e azul. Errar custa caro.</div>
+             data-en="Pass between the red and blue flags. Missing costs you.">Pass between the red and blue flags. Missing costs you.</div>
       </button>
       <button class="mode" data-mode="trees">
         <div class="ico">🌲</div>
-        <div class="nm" data-pt="Slalom na Floresta" data-en="Forest Slalom">Slalom na Floresta</div>
+        <div class="nm" data-pt="Slalom na Floresta" data-en="Forest Slalom">Forest Slalom</div>
         <div class="ds"
              data-pt="Mata fechada, corredor estreito e zero perdão."
-             data-en="Thick woods, a narrow corridor and zero forgiveness.">Mata fechada, corredor estreito e zero perdão.</div>
+             data-en="Thick woods, a narrow corridor and zero forgiveness.">Thick woods, a narrow corridor and zero forgiveness.</div>
       </button>
       <button class="mode" data-mode="freestyle">
         <div class="ico">🤸</div>
-        <div class="nm" data-pt="Estilo Livre" data-en="Freestyle">Estilo Livre</div>
+        <div class="nm" data-pt="Estilo Livre" data-en="Freestyle">Freestyle</div>
         <div class="ds"
              data-pt="Rampas por toda parte. Gire, dê mortais e pontue no ar."
-             data-en="Ramps everywhere. Spin, flip and score in the air.">Rampas por toda parte. Gire, dê mortais e pontue no ar.</div>
+             data-en="Ramps everywhere. Spin, flip and score in the air.">Ramps everywhere. Spin, flip and score in the air.</div>
       </button>
     </div>
 
     <div class="keys">
-      <div><kbd>←</kbd><kbd>→</kbd> <span data-pt="virar / girar no ar" data-en="turn / spin in the air">virar / girar no ar</span></div>
-      <div><kbd>↑</kbd> <span data-pt="agachar (mais rápido)" data-en="tuck (faster)">agachar (mais rápido)</span></div>
-      <div><kbd>↓</kbd> <span data-pt="frear em cunha" data-en="snowplough brake">frear em cunha</span></div>
-      <div><kbd data-pt="espaço" data-en="space">espaço</kbd> <span data-pt="pular da neve" data-en="jump off the snow">pular da neve</span></div>
-      <div><kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal no ar" data-en="flip in the air">mortal no ar</span></div>
-      <div><kbd>C</kbd> <span data-pt="trocar câmera" data-en="change camera">trocar câmera</span></div>
-      <div><kbd>P</kbd> <span data-pt="pausar" data-en="pause">pausar</span> &nbsp; <kbd>M</kbd> <span data-pt="som" data-en="sound">som</span></div>
-      <div><kbd>R</kbd> <span data-pt="recomeçar" data-en="restart">recomeçar</span></div>
+      <div><kbd>←</kbd><kbd>→</kbd> <span data-pt="virar / girar no ar" data-en="turn / spin in the air">turn / spin in the air</span></div>
+      <div><kbd>↑</kbd> <span data-pt="agachar (mais rápido)" data-en="tuck (faster)">tuck (faster)</span></div>
+      <div><kbd>↓</kbd> <span data-pt="frear em cunha" data-en="snowplough brake">snowplough brake</span></div>
+      <div><kbd data-pt="espaço" data-en="space">space</kbd> <span data-pt="pular da neve" data-en="jump off the snow">jump off the snow</span></div>
+      <div><kbd>↑</kbd><kbd>↓</kbd> <span data-pt="mortal no ar" data-en="flip in the air">flip in the air</span></div>
+      <div><kbd>C</kbd> <span data-pt="trocar câmera" data-en="change camera">change camera</span></div>
+      <div><kbd>P</kbd> <span data-pt="pausar" data-en="pause">pause</span> &nbsp; <kbd>M</kbd> <span data-pt="som" data-en="sound">sound</span></div>
+      <div><kbd>R</kbd> <span data-pt="recomeçar" data-en="restart">restart</span></div>
     </div>
 
     <div class="btnrow">
-      <button class="btn" id="btn-start" data-pt="Descer a montanha" data-en="Ride the mountain">Descer a montanha</button>
+      <button class="btn" id="btn-start" data-pt="Descer a montanha" data-en="Ride the mountain">Ride the mountain</button>
       <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden>🕹️ todos os jogos</a>
     </div>
     <p class="foot">
       <span data-pt="Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores."
-            data-en="Watch out for trees, rocks, lift towers, dogs and other skiers.">Cuidado com árvores, pedras, torres do teleférico, cachorros e outros esquiadores.</span><br>
-      <span data-pt="Depois de" data-en="After">Depois de</span> <b>2 000 m</b>
+            data-en="Watch out for trees, rocks, lift towers, dogs and other skiers.">Watch out for trees, rocks, lift towers, dogs and other skiers.</span><br>
+      <span data-pt="Depois de" data-en="After">After</span> <b>2 000 m</b>
       <span data-pt="o Abominável Homem das Neves entra na pista. Ele não cansa."
-            data-en="the Abominable Snowman joins the slope. He never tires.">o Abominável Homem das Neves entra na pista. Ele não cansa.</span>
+            data-en="the Abominable Snowman joins the slope. He never tires.">the Abominable Snowman joins the slope. He never tires.</span>
     </p>
   </div>
 
@@ -422,21 +422,21 @@
     <h2 class="title" id="over-title">Você foi devorado</h2>
     <p class="sub" id="over-sub">O Yeti sempre vence. Mas você chegou longe.</p>
     <div class="scoregrid">
-      <div class="cell"><div class="k" data-pt="Distância" data-en="Distance">Distância</div><div class="v"><span id="o-dist">0</span><small>m</small></div></div>
-      <div class="cell"><div class="k" data-pt="Pontos" data-en="Score">Pontos</div><div class="v" id="o-score">0</div></div>
-      <div class="cell"><div class="k" data-pt="Vel. máx" data-en="Top speed">Vel. máx</div><div class="v"><span id="o-speed">0</span><small>km/h</small></div></div>
-      <div class="cell"><div class="k" data-pt="Tempo" data-en="Time">Tempo</div><div class="v"><span id="o-time">0</span><small>s</small></div></div>
-      <div class="cell" id="o-gatecell"><div class="k" data-pt="Portões" data-en="Gates">Portões</div><div class="v" id="o-gates">0</div></div>
+      <div class="cell"><div class="k" data-pt="Distância" data-en="Distance">Distance</div><div class="v"><span id="o-dist">0</span><small>m</small></div></div>
+      <div class="cell"><div class="k" data-pt="Pontos" data-en="Score">Score</div><div class="v" id="o-score">0</div></div>
+      <div class="cell"><div class="k" data-pt="Vel. máx" data-en="Top speed">Top speed</div><div class="v"><span id="o-speed">0</span><small>km/h</small></div></div>
+      <div class="cell"><div class="k" data-pt="Tempo" data-en="Time">Time</div><div class="v"><span id="o-time">0</span><small>s</small></div></div>
+      <div class="cell" id="o-gatecell"><div class="k" data-pt="Portões" data-en="Gates">Gates</div><div class="v" id="o-gates">0</div></div>
     </div>
     <div class="best" id="o-best"></div>
     <div class="btnrow">
-      <button class="btn" id="btn-again" data-pt="Tentar de novo" data-en="Try again">Tentar de novo</button>
-      <button class="btn ghost" id="btn-menu" data-pt="Trocar de modo" data-en="Change mode">Trocar de modo</button>
+      <button class="btn" id="btn-again" data-pt="Tentar de novo" data-en="Try again">Try again</button>
+      <button class="btn ghost" id="btn-menu" data-pt="Trocar de modo" data-en="Change mode">Change mode</button>
     </div>
   </div>
 </div>
 
-<div id="boot"><div class="b"><div class="sp"></div><div class="t" data-pt="Preparando a montanha…" data-en="Preparing the mountain…">Preparando a montanha…</div></div></div>
+<div id="boot"><div class="b"><div class="sp"></div><div class="t" data-pt="Preparando a montanha…" data-en="Preparing the mountain…">Preparing the mountain…</div></div></div>
 
 
 <script>/*__APP__*/</script>

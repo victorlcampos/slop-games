@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#0b0e14">
 <!-- inline favicon: keeps the deliverable a single file (works over file:// too) -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
-<title>WorldDrive — dirija em qualquer rua do mundo</title>
+<title>WorldDrive — drive down any street in the world</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; background: #0b0e14; color: #e8ecf2;
@@ -161,7 +161,7 @@
   <h1>WORLDDRIVE</h1>
   <div class="tag"
        data-pt="Dirija em qualquer rua do mundo — mapa real, relevo real 🌍"
-       data-en="Drive down any street in the world — real map, real terrain 🌍">Dirija em qualquer rua do mundo — mapa real, relevo real 🌍</div>
+       data-en="Drive down any street in the world — real map, real terrain 🌍">Drive down any street in the world — real map, real terrain 🌍</div>
   <div class="topbar">
     <a class="chip back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden>🕹️ todos os jogos</a>
     <span data-lang-picker></span>
@@ -186,20 +186,20 @@
       <div class="zbtns"><button id="zin">＋</button><button id="zout">－</button></div>
       <div class="maphint"
            data-pt="Arraste o mapa e deixe o pin sobre uma rua"
-           data-en="Drag the map and leave the pin over a street">Arraste o mapa e deixe o pin sobre uma rua</div>
+           data-en="Drag the map and leave the pin over a street">Drag the map and leave the pin over a street</div>
       <div class="osmcredit">© OpenStreetMap</div>
     </div>
-    <button id="btn-drive" data-pt="🏁&nbsp; DIRIGIR AQUI" data-en="🏁&nbsp; DRIVE HERE">🏁&nbsp; DIRIGIR AQUI</button>
+    <button id="btn-drive" data-pt="🏁&nbsp; DIRIGIR AQUI" data-en="🏁&nbsp; DRIVE HERE">🏁  DRIVE HERE</button>
     <div id="presets"></div>
   </div>
   <footer>
     <span data-pt="Ao carregar, o jogo baixa dados abertos da área escolhida; depois tudo roda no seu navegador."
-          data-en="On load, the game downloads open data for the chosen area; after that everything runs in your browser.">Ao carregar, o jogo baixa dados abertos da área escolhida; depois tudo roda no seu navegador.</span><br>
-    <span data-pt="Mapa © colaboradores do" data-en="Map © contributors to">Mapa © colaboradores do</span>
+          data-en="On load, the game downloads open data for the chosen area; after that everything runs in your browser.">On load, the game downloads open data for the chosen area; after that everything runs in your browser.</span><br>
+    <span data-pt="Mapa © colaboradores do" data-en="Map © contributors to">Map © contributors to</span>
     <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> ·
-    <span data-pt="Imagens de satélite" data-en="Satellite imagery">Imagens de satélite</span>: Esri World Imagery ·
-    <span data-pt="Elevação" data-en="Elevation">Elevação</span>: AWS Terrain Tiles (Mapzen/USGS/SRTM) ·
-    <span data-pt="Busca" data-en="Search">Busca</span>: Photon/Nominatim
+    <span data-pt="Imagens de satélite" data-en="Satellite imagery">Satellite imagery</span>: Esri World Imagery ·
+    <span data-pt="Elevação" data-en="Elevation">Elevation</span>: AWS Terrain Tiles (Mapzen/USGS/SRTM) ·
+    <span data-pt="Busca" data-en="Search">Search</span>: Photon/Nominatim
   </footer>
 </div>
 
@@ -209,15 +209,15 @@
     <ul id="load-steps"></ul>
     <div id="load-err" class="hide">
       <p id="load-err-msg"></p>
-      <button id="btn-retry" data-pt="🔄 Tentar novamente" data-en="🔄 Try again">🔄 Tentar novamente</button>
-      <button id="btn-load-back" data-pt="← Voltar" data-en="← Back">← Voltar</button>
+      <button id="btn-retry" data-pt="🔄 Tentar novamente" data-en="🔄 Try again">🔄 Try again</button>
+      <button id="btn-load-back" data-pt="← Voltar" data-en="← Back">← Back</button>
     </div>
     <div class="barwrap"><div id="load-bar"></div></div>
     <div class="loadtip">
-      <span data-pt="Dirija com" data-en="Drive with">Dirija com</span> <b>WASD</b>
-      <span data-pt="ou setas · Freio de mão:" data-en="or arrows · Handbrake:">ou setas · Freio de mão:</span>
-      <b data-pt="espaço" data-en="space">espaço</b>
-      <span data-pt="· Ajuda:" data-en="· Help:">· Ajuda:</span> <b>H</b>
+      <span data-pt="Dirija com" data-en="Drive with">Drive with</span> <b>WASD</b>
+      <span data-pt="ou setas · Freio de mão:" data-en="or arrows · Handbrake:">or arrows · Handbrake:</span>
+      <b data-pt="espaço" data-en="space">space</b>
+      <span data-pt="· Ajuda:" data-en="· Help:">· Help:</span> <b>H</b>
     </div>
   </div>
 </div>
@@ -239,9 +239,9 @@
   <canvas id="minimap" width="180" height="180"></canvas>
   <div id="speedbox"><div id="speed">0</div><small>KM/H</small></div>
   <div id="edge">
-    <span data-pt="⚠️ Fim da área carregada — pressione" data-en="⚠️ End of the loaded area — press">⚠️ Fim da área carregada — pressione</span>
+    <span data-pt="⚠️ Fim da área carregada — pressione" data-en="⚠️ End of the loaded area — press">⚠️ End of the loaded area — press</span>
     <b>N</b>
-    <span data-pt="para recarregar o mundo aqui" data-en="to reload the world here">para recarregar o mundo aqui</span>
+    <span data-pt="para recarregar o mundo aqui" data-en="to reload the world here">to reload the world here</span>
   </div>
   <div id="toast"></div>
   <div id="credit-hud">© OpenStreetMap contributors · Esri · AWS Terrain Tiles</div>
@@ -249,15 +249,15 @@
 
 <div id="help" class="hide">
   <div class="helpcard">
-    <h2 data-pt="🎮 Controles" data-en="🎮 Controls">🎮 Controles</h2>
-    <b>W / ↑</b> <span data-pt="acelerar" data-en="accelerate">acelerar</span><br>
-    <b>S / ↓</b> <span data-pt="frear / ré" data-en="brake / reverse">frear / ré</span><br>
-    <b>A D / ← →</b> <span data-pt="virar" data-en="steer">virar</span><br>
-    <b data-pt="Espaço" data-en="Space">Espaço</b> <span data-pt="freio de mão (drift!)" data-en="handbrake (drift!)">freio de mão (drift!)</span><br>
-    <b>R</b> <span data-pt="voltar para a rua mais próxima" data-en="back to the nearest street">voltar para a rua mais próxima</span><br>
-    <b>N</b> <span data-pt="recarregar o mundo onde você está" data-en="reload the world where you are">recarregar o mundo onde você está</span><br>
-    <b>C</b> <span data-pt="trocar a câmera" data-en="change the camera">trocar a câmera</span> ·
-    <b>M</b> <span data-pt="som" data-en="sound">som</span> ·
+    <h2 data-pt="🎮 Controles" data-en="🎮 Controls">🎮 Controls</h2>
+    <b>W / ↑</b> <span data-pt="acelerar" data-en="accelerate">accelerate</span><br>
+    <b>S / ↓</b> <span data-pt="frear / ré" data-en="brake / reverse">brake / reverse</span><br>
+    <b>A D / ← →</b> <span data-pt="virar" data-en="steer">steer</span><br>
+    <b data-pt="Espaço" data-en="Space">Space</b> <span data-pt="freio de mão (drift!)" data-en="handbrake (drift!)">handbrake (drift!)</span><br>
+    <b>R</b> <span data-pt="voltar para a rua mais próxima" data-en="back to the nearest street">back to the nearest street</span><br>
+    <b>N</b> <span data-pt="recarregar o mundo onde você está" data-en="reload the world where you are">reload the world where you are</span><br>
+    <b>C</b> <span data-pt="trocar a câmera" data-en="change the camera">change the camera</span> ·
+    <b>M</b> <span data-pt="som" data-en="sound">sound</span> ·
     <b>Esc</b> <span data-pt="menu" data-en="menu">menu</span>
   </div>
 </div>

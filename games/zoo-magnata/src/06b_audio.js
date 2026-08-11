@@ -29,8 +29,8 @@ const gestoDe = sp => GESTO_ESPECIE[sp.key] || GESTO_PLANO[sp.plan] ||
   (sp.scale > 1.2 ? 'grunhido' : 'guincho');
 
 const SFX = {
-  ctx: null, mestre: null, longe: null,
-  ligado: true, vol: .65,
+  ctx: null, mestre: null, far: null,
+  on: true, vol: .65,
   _ult: new Map(),        // antisspam por evento
   _ativas: 0,             // vozes tocando agora (teto de polifonia)
   _proxBicho: 0,
@@ -42,7 +42,7 @@ const SFX = {
     if (!AC) return;
     try { this.ctx = new AC(); } catch (e) { return; }
     this.mestre = this.ctx.createGain();
-    this.mestre.gain.value = this.ligado ? this.vol : 0;
+    this.mestre.gain.value = this.on ? this.vol : 0;
     // teto suave: evita estouro quando muitos sons coincidem
     const lim = this.ctx.createDynamicsCompressor();
     lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
@@ -51,12 +51,12 @@ const SFX = {
   },
   aplicarVolume() {
     if (!this.ctx) return;
-    const g = this.ligado ? this.vol : 0;
+    const g = this.on ? this.vol : 0;
     this.mestre.gain.setTargetAtTime(g, this.ctx.currentTime, .05);
   },
   /** true se pode tocar `nome` agora (respeitando o intervalo mínimo) */
   _passa(name, msMin) {
-    if (!this.ctx || !this.ligado) return false;
+    if (!this.ctx || !this.on) return false;
     if (this._ativas > 14) return false;
     const t = performance.now(), u = this._ult.get(name) || 0;
     if (t - u < (msMin || 45)) return false;
@@ -66,10 +66,10 @@ const SFX = {
 
   /* ---- blocos de síntese ---- */
   /** oscilador com envelope; f2 faz varredura de frequência */
-  _tom({ f = 440, f2, tipo = 'sine', t = 0, dur = .18, vol = .3, atk = .006, vib, vibF = 6, dest, lp }) {
+  _tom({ f = 440, f2, kind = 'sine', t = 0, dur = .18, vol = .3, atk = .006, vib, vibF = 6, dest, lp }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const o = c.createOscillator(), g = c.createGain();
-    o.type = tipo;
+    o.type = kind;
     o.frequency.setValueAtTime(f, t0);
     if (f2) o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t0 + dur);
     if (vib) {  // vibrato: dá vida a rugido, mugido, relincho
@@ -88,14 +88,14 @@ const SFX = {
     this._ativas++; o.onended = () => this._ativas--;
   },
   /** rajada de ruído filtrado: baque, pincelada, chiado, sopro */
-  _ruido({ t = 0, dur = .18, vol = .3, tipo = 'lowpass', f = 900, f2, Q = 1, dest, lp }) {
+  _ruido({ t = 0, dur = .18, vol = .3, kind = 'lowpass', f = 900, f2, Q = 1, dest, lp }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const n = Math.max(1, Math.floor(c.sampleRate * dur));
     const buf = c.createBuffer(1, n, c.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1);
     const src = c.createBufferSource(); src.buffer = buf;
-    const bq = c.createBiquadFilter(); bq.type = tipo; bq.Q.value = Q;
+    const bq = c.createBiquadFilter(); bq.type = kind; bq.Q.value = Q;
     bq.frequency.setValueAtTime(f, t0);
     if (f2) bq.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t0 + dur);
     const g = c.createGain();
@@ -129,13 +129,13 @@ const SFX = {
     for (let k = 1; k <= n; k++) imag[k] = 1 / Math.pow(k, 1.6);
     return this._glote = this.ctx.createPeriodicWave(real, imag);
   },
-  _vogal({ f0 = 140, f0b, vogal = 'a', vogal2, dur = .3, vol = .22, t = 0, dest, tipo = 'homem' }) {
+  _vogal({ f0 = 140, f0b, vogal = 'a', vogal2, dur = .3, vol = .22, t = 0, dest, kind = 'homem' }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const V = {  // Peterson & Barney (1952), homem adulto
       i: [270, 2290, 3010], e: [530, 1840, 2480], a: [730, 1090, 2440],
       o: [570, 840, 2410], u: [300, 870, 2240], ae: [660, 1720, 2410], er: [490, 1350, 1690],
     };
-    const esc = tipo === 'crianca' ? 1.35 : tipo === 'mulher' ? 1.17 : 1;
+    const esc = kind === 'crianca' ? 1.35 : kind === 'mulher' ? 1.17 : 1;
     const A = (V[vogal] || V.a).concat([3500, 4500]);
     const B = (V[vogal2] || V[vogal] || V.a).concat([3500, 4500]);
     const BW = [60, 90, 120, 150, 200];        // larguras de banda típicas
@@ -209,18 +209,18 @@ const SFX = {
    *  com o jeito da função. A altura e a vogal vêm da aparência da pessoa, então
    *  o mesmo sujeito soa sempre igual. */
   vozHumana(p, opts) {
-    if (!this.ctx || !this.ligado) return;
+    if (!this.ctx || !this.on) return;
     const imediato = opts && opts.imediato;
     if (!imediato && !this._passa('humano', 200)) return;
     const r = mulberry(hashStr(personKey(p)) + 5);
-    const crianca = !!p.crianca;
+    const child = !!p.child;
     // f0 típico: homem 100–130, mulher 190–220, criança 250–320
-    const tipo = crianca ? 'crianca' : (r() < .5 ? 'homem' : 'mulher');
-    const f0 = crianca ? 250 + r() * 70 : tipo === 'mulher' ? 185 + r() * 45 : 100 + r() * 35;
+    const kind = child ? 'crianca' : (r() < .5 ? 'homem' : 'mulher');
+    const f0 = child ? 250 + r() * 70 : kind === 'mulher' ? 185 + r() * 45 : 100 + r() * 35;
     const vogais = ['a', 'e', 'i', 'o', 'u'];
     const vg = vogais[(r() * vogais.length) | 0];
     const v = (opts && opts.vol) || .22;
-    const dest = (opts && opts.distante) ? this.longe : undefined;
+    const dest = (opts && opts.distante) ? this.far : undefined;
 
     if (p.role === 'trat') {            // tratador assobia, como quem chama bicho
       this._tom({ f: 1250, f2: 1850, kind: 'sine', dur: .16, vol: v * .5, dest });
@@ -229,30 +229,30 @@ const SFX = {
     }
     if (p.role === 'fax') {             // faxineiro suspira
       this._ruido({ dur: .45, vol: v * .3, kind: 'bandpass', f: 900, f2: 500, Q: .8, lp: 1600, dest });
-      this._vogal({ f0, f0b: f0 * .82, vogal: 'u', dur: .4, vol: v * .5, tipo, dest });
+      this._vogal({ f0, f0b: f0 * .82, vogal: 'u', dur: .4, vol: v * .5, kind, dest });
       return;
     }
     if (p.role) {                        // veterinário / segurança: duas sílabas firmes
-      this._vogal({ f0: f0 * .95, vogal: 'o', vogal2: 'i', dur: .17, vol: v * .8, tipo, dest });
-      this._vogal({ f0: f0 * .85, f0b: f0 * .7, vogal: 'a', vogal2: 'e', dur: .27, vol: v * .75, t: .18, tipo, dest });
+      this._vogal({ f0: f0 * .95, vogal: 'o', vogal2: 'i', dur: .17, vol: v * .8, kind, dest });
+      this._vogal({ f0: f0 * .85, f0b: f0 * .7, vogal: 'a', vogal2: 'e', dur: .27, vol: v * .75, t: .18, kind, dest });
       return;
     }
     // visitante: interjeição de uma sílaba, com entonação (sobe = pergunta)
     const sobe = r() < .5;
     const vg2 = vogais[(r() * vogais.length) | 0];
     this._vogal({ f0, f0b: sobe ? f0 * 1.28 : f0 * .78, vogal: vg, vogal2: vg2,
-                  dur: .26 + r() * .12, vol: v, tipo, dest });
+                  dur: .26 + r() * .12, vol: v, kind, dest });
     if (r() < .35)                       // às vezes uma segunda sílaba
       this._vogal({ f0: f0 * .92, f0b: f0 * .75, vogal: vogais[(r() * 5) | 0],
-                    dur: .24, vol: v * .8, t: .3, tipo, dest });
+                    dur: .24, vol: v * .8, t: .3, kind, dest });
   },
 
-  _acorde(freqs, { tipo = 'sine', dur = .3, vol = .16, passo = .07 } = {}) {
-    freqs.forEach((f, i) => this._tom({ f, tipo, dur, vol, t: i * passo }));
+  _acorde(freqs, { kind = 'sine', dur = .3, vol = .16, passo = .07 } = {}) {
+    freqs.forEach((f, i) => this._tom({ f, kind, dur, vol, t: i * passo }));
   },
 
   /* ---- eventos do jogo ---- */
-  toca(name) {
+  play(name) {
     switch (name) {
       case 'ui':        if (!this._passa(name, 35)) return; this._tom({ f: 880, f2: 1180, dur: .05, vol: .12 }); break;
       case 'aba':       if (!this._passa(name, 60)) return; this._tom({ f: 520, f2: 780, dur: .09, vol: .14, kind: 'triangle' }); break;
@@ -305,8 +305,8 @@ const SFX = {
   voz(sp, opts) {
     const espera = (opts && opts.imediato) ? 0 : 240;
     if (espera && !this._passa('voz' + sp.id, espera)) return;
-    if (!this.ctx || !this.ligado) return;
-    const dest = (opts && opts.distante) ? this.longe : undefined;
+    if (!this.ctx || !this.on) return;
+    const dest = (opts && opts.distante) ? this.far : undefined;
     const _t = this._tom, _r = this._ruido;
     this._tom = o => _t.call(this, { ...o, dest });
     this._ruido = o => _r.call(this, { ...o, dest });
@@ -482,9 +482,9 @@ const SFX = {
      excitação glotal e contorno de altura, que fica para outra hora.) */
   _ambiente() {
     const c = this.ctx;
-    this.longe = c.createGain(); this.longe.gain.value = .5;
+    this.far = c.createGain(); this.far.gain.value = .5;
     const lp = c.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 1200; lp.Q.value = .6;
-    this.longe.connect(lp).connect(this.mestre);
+    this.far.connect(lp).connect(this.mestre);
   },
 };

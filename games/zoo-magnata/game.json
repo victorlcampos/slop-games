@@ -1,15 +1,19 @@
 {
   "slug": "zoo-magnata",
   "name": {
-    "pt": "Zoo Magnata",
-    "en": "Zoo Tycoon"
+    "en": "Zoo Tycoon",
+    "pt": "Zoo Magnata"
   },
   "emoji": "🦁",
   "description": {
-    "pt": "Tycoon de zoológico com 219 espécies desenhadas em código, recintos de forma livre e economia completa.",
-    "en": "A zoo tycoon with 219 species drawn in code, free-form enclosures and a full economy."
+    "en": "A zoo tycoon with 219 species drawn in code, free-form enclosures and a full economy.",
+    "pt": "Tycoon de zoológico com 219 espécies desenhadas em código, recintos de forma livre e economia completa."
   },
-  "tags": ["2d", "tycoon", "simulation"],
+  "tags": [
+    "2d",
+    "tycoon",
+    "simulation"
+  ],
   "libs": [],
   "offline": true,
   "year": 2026

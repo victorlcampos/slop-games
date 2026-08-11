@@ -12,7 +12,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Jogo de carro no browser: dirija em qualquer rua do mundo, com mundo 3D gerado de dados reais do OpenStreetMap",
+  "description": "A driving game in the browser: drive down any street in the world, with a 3D world built from real OpenStreetMap data",
   "dependencies": {
     "three": "^0.185.1",
     "slopkit": "*"

@@ -7,13 +7,13 @@
    Three conventions live here, and all three keep the translation next to the
    string instead of in a table far away:
 
-     LN('Savana|Savanna')   a bilingual value written inline, split on `|`.
+     LN('Savanna|Savana')   a bilingual value written inline, split on `|`.
                             Used by the dense data tables — the species
                             catalogue, the biomes, the buildings — where a
                             `{ pt, en }` object per field would triple the file
                             and make it unreadable.
 
-     BI`Dia ${n}|Day ${n}`  the same, for an interpolated sentence.
+     BI`Day ${n}|Dia ${n}`  the same, for an interpolated sentence.
 
      TX('key')              the dictionary, for phrases assembled at runtime
                             and for anything long enough that a pipe in the
@@ -26,15 +26,15 @@
 
 const I18N = Slop.createI18n({ dict: {} });
 
-/** Splits `'pt|en'` and returns the side that matches the current flag. */
+/** Splits `'en|pt'` and returns the side that matches the current flag. */
 function LN(value) {
   if (typeof value !== 'string') return value;
   const bar = value.indexOf('|');
   if (bar < 0) return value;
-  return I18N.lang === 'en' ? value.slice(bar + 1) : value.slice(0, bar);
+  return I18N.lang === 'pt' ? value.slice(bar + 1) : value.slice(0, bar);
 }
 
-/** The Portuguese side — the stable identity used for seeds and sprite keys. */
+/** The English side — the stable identity used for seeds and sprite keys. */
 function KEY(value) {
   if (typeof value !== 'string') return value;
   const bar = value.indexOf('|');
@@ -45,7 +45,7 @@ function KEY(value) {
  * The same idea for a template literal, so an interpolated sentence can carry
  * both languages without being torn into a dictionary key plus arguments:
  *
- *   BI`Nasceu um filhote de ${name}!|A ${name} was born!`
+ *   BI`A ${name} was born!|Nasceu um filhote de ${name}!`
  *
  * The values are parked behind a marker, the joined text is split on the pipe,
  * and the markers are filled back in. That way `${}` can appear on both sides

@@ -1,149 +1,157 @@
-# 🦁 Zoo Magnata
+# 🦁 Zoo Tycoon
 
-Um tycoon de zoológico que roda **inteiro no navegador**, em um único arquivo HTML,
-sem dependências externas e sem servidor. Funciona offline.
+A zoo tycoon that runs **entirely in the browser**, in a single HTML file, with
+no external dependencies and no server. It works offline.
 
-▶️ **[Jogar](https://victorlcampos.github.io/zoo-magnata/)**
+▶️ **[Play](https://victorlcampos.github.io/slop-games/zoo-magnata/)**
+
+Plays in **English and Portuguese** — the flags sit next to the exit on the
+splash screen, and the choice carries over from the catalog.
 
 ---
 
-## O que tem
+## What's in it
 
-- **219 espécies**, cada uma com bioma, dieta, espaço necessário, tamanho de grupo,
-  longevidade, nível de perigo e preço. Nenhum sprite é imagem: todos são desenhados
-  em código a partir de 28 planos corporais parametrizados, com 6 quadros de animação.
-- **Cenário com acabamento**: trilhas formam uma faixa contínua com meio-fio que
-  se curva nas viradas, funde blocos em praças (com medalhão de calçamento no
-  centro), alarga em mirante rente à cerca dos recintos e vira ponte de madeira
-  sobre a água. Perto de uma loja, a calçada abre em leque até a porta — centrada
-  na fachada — com capacho na cor da loja, janelas, toldo listrado, beiral e
-  chaminé. Banco, lixeira, bebedouro e playground são desenhados de verdade, não
-  caixas com emoji. Biomas se encontram em franjas orgânicas (espuma na beira
-  d'água, dossel na mata, flores e seixos na grama, vitórias-régias na água
-  rasa, chão batido nos recintos), e o mapa é um planalto com barranco de terra
-  nas bordas.
-- **Mundo vivo**: nuvens sombreiam o chão, a água cintila e peixes pulam nos
-  lagos fundos, copas de árvore balançam na brisa, borboletas rondam os
-  canteiros (vagalumes à noite), pássaros cruzam o céu, o balanço do playground
-  balança, a fonte esguicha, cercas elétricas soltam faísca e fumaça sobe das
-  cozinhas. Visitantes viram de frente para o recinto ou a loja que estão
-  usando. À noite: céu estrelado, janelas acesas e poças de luz sob os postes.
-- **Animais interagem com o recinto**: quem entra na água **nada** — corpo
-  submerso até a linha d'água, balanço, esteira em V e velocidade reduzida
-  (aquáticos deslancham; pernaltas vadeiam com as pernas de fora). De vez em
-  quando o passeio vira brincadeira: o bicho vai até a bola, o tronco ou a
-  piscina, pula de frente para o brinquedo (balão ⚽) e a bola quica frenética;
-  na piscina ele fica de molho. Quem come solta farelos do focinho.
-- **Recintos de forma livre** — arraste para criar, arraste colado para ampliar.
-  Dá para fazer L, T, U e até recintos com buraco no meio. A cerca é derivada das
-  bordas, então todo tile pago vira área útil.
-- **Felicidade decomposta em 8 fatores com peso** (espaço, bioma, convívio,
-  enriquecimento, limpeza, saúde, comida, adequação da cerca). O inspetor mostra
-  item por item, então dá para descobrir o que consertar.
-- **Ciclo de vida completo**: com macho e fêmea adultos da espécie, felizes e
-  com espaço no recinto, nascem filhotes — desenhados menores até crescerem.
-  Espécies de vida curta e de bando procriam mais rápido; veterinários no
-  quadro aceleram o programa de cria. A gestante mostra 🤰 no balão e na ficha.
-- **Barra de alertas do gerente**: fugas, doenças, saúde crítica, recintos sem
-  comida/água, cercas se rompendo, animais no fim da vida — agrupados por tipo;
-  clicar centraliza a câmera no caso (e cicla entre eles).
-- **Desfazer compras** (↩️ no HUD ou Ctrl+Z): as últimas 5 compras — trilha,
-  terreno, recinto, ampliação, objetos, animais, troca de cerca — voltam com
-  reembolso integral. Uma pincelada inteira de trilha conta como uma ação só, e
-  o jogo recusa desfazer o que deixaria animal sem recinto.
-- **Extrato da reputação**: clicar em ⭐ abre a nota decomposta — a avaliação
-  contínua (bem-estar, satisfação, variedade, lixo, fugas, com os pesos reais) e
-  o histórico de choques (mortes, fugas, nascimentos, avaliações do público).
-- **Balões de pensamento** sobre animais e visitantes, com ícones escolhidos para
-  ensinar: o bicho com fome pensa na comida da dieta dele (🥩 leão, 🥬 girafa) e o
-  que está no bioma errado mostra o bioma que quer (🧊 para o urso-polar na grama).
-- **Visitantes** com fome, sede, banheiro, cansaço e diversão, pathfinding real nas
-  trilhas e decisão de compra sensível a preço. O humor deles vira reputação, que
-  controla quanta gente aparece.
-- **Economia**: ingresso, 15 tipos de comércio com preço regulável por loja,
-  4 funções de funcionário, contas semanais, empréstimo com juros, marketing, falência.
-- **Relatório de satisfação** que ranqueia os motivos de insatisfação com uma dica
-  acionável em cada linha.
-- Save/load no navegador, **exportação do save em `.json`** e de um **relatório de
-  status em `.txt`**, com importação de volta.
-- **Som inteiramente sintetizado** (Web Audio, nenhum arquivo de áudio): 22 gestos
-  sonoros — rugido, uivo, trombeta, piado, chiado, coaxo… — atribuídos por família,
-  com exceções por espécie (zebra late, raposa late, girafa bufa). O tamanho puxa a
-  afinação e o nome semeia o timbre, então duas espécies do mesmo gesto não soam
-  iguais. Clicar num bicho, num visitante ou num funcionário faz ele responder.
-  Botão 🔊 no HUD alterna cheio / baixo / mudo (atalho `S`).
-- **Voz humana por síntese de formantes** (Klatt): cascata de 5 ressoadores sobre um
-  trem de impulsos glotal, com frequências de formante de Peterson & Barney (1952),
-  aspiração para preencher o espectro, jitter de ~0,3% e forma temporal de sílaba
-  (transição de ~60 ms e alvo sustentado).
-- Responsivo: toque, pinça para zoom, e três arranjos de layout (celular em pé,
-  celular deitado, desktop).
+- **219 species**, each with a biome, a diet, the space it needs, a group size,
+  a lifespan, a danger level and a price. Not one sprite is an image: they are
+  all drawn in code from 28 parameterised body plans, with 6 animation frames.
+- **Scenery with a finish**: paths form a continuous band with a kerb that
+  curves at the turns, merge into plazas (with a paved medallion at the centre),
+  widen into a viewing spot against an enclosure fence, and become a wooden
+  bridge over water. Near a shop the pavement fans out to the door — centred on
+  the façade — with a doormat in the shop's colour, windows, a striped awning,
+  eaves and a chimney. Bench, bin, drinking fountain and playground are actually
+  drawn, not boxes with an emoji on them. Biomes meet in organic fringes (foam
+  at the waterline, canopy in the woods, flowers and pebbles in the grass, lily
+  pads in shallow water, packed dirt in the enclosures), and the map is a
+  plateau with an earth embankment at its edges.
+- **A world that moves**: clouds shade the ground, the water glitters and fish
+  jump in the deep pools, tree crowns sway in the breeze, butterflies circle the
+  flower beds (fireflies at night), birds cross the sky, the playground swing
+  swings, the fountain sprays, electric fences spark and smoke rises off the
+  kitchens. Visitors turn to face the enclosure or the shop they are using. At
+  night: a starry sky, lit windows and pools of light under the lamp posts.
+- **Animals interact with the enclosure**: whoever enters the water **swims** —
+  body submerged to the waterline, bobbing, a V-shaped wake and reduced speed
+  (aquatic species take off; waders wade with their legs out). Every so often
+  the stroll turns into play: the animal walks to the ball, the log or the pool,
+  jumps facing the toy (a ⚽ bubble) and the ball bounces frantically; in the
+  pool it soaks. Whoever eats drops crumbs from its snout.
+- **Free-form enclosures** — drag to create, drag against one to extend it. You
+  can make an L, a T, a U, even an enclosure with a hole in the middle. The
+  fence is derived from the edges, so every tile you pay for becomes usable area.
+- **Happiness broken into 8 weighted factors** (space, biome, company,
+  enrichment, cleanliness, health, food, fence suitability). The inspector shows
+  them item by item, so you can find out what to fix.
+- **A full life cycle**: with an adult male and female of the species, happy and
+  with room in the enclosure, calves are born — drawn smaller until they grow.
+  Short-lived, herd species breed faster; vets on the payroll speed the breeding
+  programme up. A pregnant animal shows 🤰 in its bubble and on its card.
+- **The manager's alert bar**: escapes, illness, critical health, enclosures with
+  no food or water, fences about to give, animals at the end of their lives —
+  grouped by kind; clicking centres the camera on the case (and cycles through
+  them).
+- **Undo purchases** (↩️ in the HUD or Ctrl+Z): the last 5 purchases — path,
+  terrain, enclosure, extension, objects, animals, fence swap — come back with a
+  full refund. A whole stroke of path counts as one action, and the game refuses
+  to undo anything that would leave an animal without an enclosure.
+- **A reputation statement**: clicking ⭐ opens the score broken down — the
+  continuous assessment (welfare, satisfaction, variety, litter, escapes, with
+  the real weights) and the history of shocks (deaths, escapes, births, public
+  ratings).
+- **Thought bubbles** over animals and visitors, with icons chosen to *teach*: a
+  hungry animal thinks about the food in its own diet (🥩 lion, 🥬 giraffe) and
+  one in the wrong biome shows the biome it wants (🧊 for a polar bear on grass).
+- **Visitors** with hunger, thirst, a bladder, tiredness and a need for fun, real
+  pathfinding on the walkways and price-sensitive buying decisions. Their mood
+  becomes reputation, which controls how many people turn up.
+- **An economy**: tickets, 15 kinds of shop with a per-shop adjustable price, 4
+  staff roles, weekly bills, a loan with interest, marketing, bankruptcy.
+- **A satisfaction report** that ranks the reasons for unhappiness with an
+  actionable hint on every line.
+- Save/load in the browser, **save export as `.json`** and a **status report as
+  `.txt`**, with import back.
+- **Sound synthesised end to end** (Web Audio, not one audio file): 22 vocal
+  gestures — roar, howl, trumpet, chirp, hiss, croak… — assigned by family, with
+  per-species exceptions (the zebra barks, the fox barks, the giraffe snorts).
+  Size pulls the pitch and the name seeds the timbre, so two species sharing a
+  gesture never sound alike. Clicking an animal, a visitor or a staff member
+  makes them answer. The 🔊 button in the HUD cycles full / low / mute (shortcut
+  `S`).
+- **A human voice by formant synthesis** (Klatt): a cascade of 5 resonators over
+  a glottal pulse train, with formant frequencies from Peterson & Barney (1952),
+  aspiration to fill the spectrum, ~0.3% jitter and a syllable envelope (a ~60 ms
+  transition and a sustained target).
+- Responsive: touch, pinch to zoom, and three layout arrangements (phone
+  upright, phone landscape, desktop).
 
-## Por que Canvas 2D e não three.js
+## Why Canvas 2D and not three.js
 
-Zoo Tycoon é isométrico 2D. Canvas 2D puro deu três vantagens decisivas aqui:
+Zoo Tycoon is isometric 2D. Plain Canvas 2D gave three decisive advantages here:
 
-1. **Zero dependências** — o arquivo roda offline de verdade, sem CDN.
-2. **219 animais visualmente distintos** gerados proceduralmente. Em 3D procedural
-   eles virariam blobs genéricos.
-3. O traço cartoon com contorno grosso é nativo do Canvas 2D.
+1. **Zero dependencies** — the file really does run offline, with no CDN.
+2. **219 visually distinct animals** generated procedurally. In procedural 3D
+   they would all become generic blobs.
+3. The cartoon outline with a heavy stroke is native to Canvas 2D.
 
-## Estrutura
+## Structure
 
-O jogo é entregue como **um** `index.html`, mas é editado em módulos:
+The game ships as **one** `index.html`, but it is edited in modules:
 
-| arquivo | conteúdo |
+| file | contents |
 |---|---|
-| `src/01_head.html` | HTML e CSS |
-| `src/02_util.js` | utilitários, constantes do mundo |
-| `src/03_species.js` | catálogo das 219 espécies |
-| `src/04_sprites.js` | gerador procedural de sprites |
-| `src/05_world.js` | grade, recintos, caminhos |
-| `src/06_entities.js` | animais, visitantes, funcionários |
-| `src/06b_audio.js` | síntese de áudio (vozes, efeitos, ambiente) |
-| `src/07_render.js` | renderização isométrica |
+| `src/01_i18n.js` | the two languages: `LN`, `BI`, `TX` |
+| `src/02_util.js` | utilities, world constants |
+| `src/03_species.js` | the 219-species catalogue |
+| `src/04_sprites.js` | the procedural sprite generator |
+| `src/05_world.js` | grid, enclosures, paths |
+| `src/06_entities.js` | animals, visitors, staff |
+| `src/06b_audio.js` | audio synthesis (voices, effects, ambience) |
+| `src/07_render.js` | isometric rendering |
 | `src/08_ui.js` | interface |
-| `src/09_game.js` | input, simulação, economia, save |
+| `src/09_game.js` | input, simulation, economy, save |
 
 ```bash
-npm run build   # regenera o dist/index.html a partir de src/
+npm run build   # regenerates dist/index.html from src/
 ```
 
-Não edite o `index.html` diretamente — ele é gerado.
+Don't edit `dist/index.html` directly — it is generated.
 
-## Como o áudio é verificado
+## How the audio is verified
 
-Ouvido não entra no ciclo de desenvolvimento, e "medi e deu bom" já enganou aqui
-mais de uma vez: dá para provar numericamente que um som tem a estrutura certa e
-ele continuar não soando como a coisa. Então a verificação é **comparativa** —
-gravação real de um lado, síntese do outro, mesmo STFT, e a diferença aparece.
+Ears don't fit in a development loop, and "I measured it and it looked fine" has
+fooled me here more than once: you can prove numerically that a sound has the
+right structure and still have it not sound like the thing. So the check is
+**comparative** — a real recording on one side, the synthesis on the other, the
+same STFT, and the difference shows up.
 
 ```bash
-tools/gerar-referencias.sh    # voz via `say` do macOS; bichos do Wikimedia Commons
+tools/gerar-referencias.sh    # voice via macOS `say`; animals from Wikimedia Commons
 python3 -m http.server 8000
-# tools/comparar.html  → voz humana real x sintetizada
-# tools/animais.html   → 14 gravações de bicho x o gesto correspondente
-# tools/espectro.html  → só a síntese, para inspeção isolada
+# tools/comparar.html  → real human voice vs synthesised
+# tools/animais.html   → 14 animal recordings vs the matching gesture
+# tools/espectro.html  → the synthesis alone, for isolated inspection
 ```
 
-Cada painel imprime a energia em quatro faixas (0–0,5 / 0,5–1,5 / 1,5–3 / 3–5 kHz).
-Foi essa comparação que derrubou três premissas minhas: a voz estava brilhante
-demais (25–30% acima de 1,5 kHz, contra 1–5% na fala real), o espectro era de
-linhas finas em vez de bandas contínuas (faltava aspiração), e quase todo bicho
-estava grave demais — o rosnado de urso real concentra 89% da energia entre 500 e
-1500 Hz, não é subgrave. As gravações de referência não são versionadas.
+Each panel prints the energy in four bands (0–0.5 / 0.5–1.5 / 1.5–3 / 3–5 kHz).
+It was that comparison that knocked down three of my assumptions: the voice was
+far too bright (25–30% above 1.5 kHz, against 1–5% in real speech), the spectrum
+was thin lines instead of continuous bands (aspiration was missing), and nearly
+every animal was too low — a real bear growl concentrates 89% of its energy
+between 500 and 1500 Hz, it is not sub-bass. The reference recordings are not
+committed.
 
-## Rodando localmente
+## Running locally
 
-Abrir o `index.html` no navegador já funciona. Servir por HTTP é melhor: em `file://`
-o navegador trata cada arquivo como origem isolada, o que torna o `localStorage`
-(onde mora o autosave) menos confiável.
+Opening `dist/index.html` in a browser already works. Serving it over HTTP is
+better: over `file://` the browser treats each file as an isolated origin, which
+makes `localStorage` (where the autosave lives) less reliable.
 
 ```bash
 python3 -m http.server 8000
 # http://localhost:8000
 ```
 
-## Licença
+## Licence
 
 MIT

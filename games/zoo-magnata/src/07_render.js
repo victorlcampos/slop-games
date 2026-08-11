@@ -79,7 +79,7 @@ function buildTerrain() {
     const i = IDX(x, y);
     if (world.path[i]) _eff[i] = underlayOf(x, y);
   }
-  const agua = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_AGUA;
+  const water = (x, y) => !inB(x, y) || _eff[IDX(x, y)] === T_AGUA;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), tk = TKEYS[_eff[i]], T = TERRAIN[tk];
     // centro do tile: w2s(x+.5, y+.5) — cercas, prédios e bichos usam a mesma
@@ -90,9 +90,9 @@ function buildTerrain() {
     c.beginPath();
     c.moveTo(sx, sy - TH / 2); c.lineTo(sx + TW / 2, sy); c.lineTo(sx, sy + TH / 2); c.lineTo(sx - TW / 2, sy); c.closePath();
     const alt = r() < .5;
-    const funda = tk === 'water' && agua(x, y - 1) && agua(x + 1, y) && agua(x, y + 1) && agua(x - 1, y);
-    const corBase = funda ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
-    c.fillStyle = corBase;
+    const funda = tk === 'water' && water(x, y - 1) && water(x + 1, y) && water(x, y + 1) && water(x - 1, y);
+    const baseColour = funda ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
+    c.fillStyle = baseColour;
     c.fill();
     // textura
     c.save(); c.clip();
@@ -128,7 +128,7 @@ function buildTerrain() {
           c.fillStyle = '#4d9c46';
           c.beginPath(); c.ellipse(px, py, rf, rf * .55, 0, 0, TAU); c.fill();
           const a = r() * TAU;                   // recorte da folha
-          c.fillStyle = corBase;
+          c.fillStyle = baseColour;
           c.beginPath(); c.moveTo(px, py);
           c.lineTo(px + Math.cos(a) * rf * 1.2, py + Math.sin(a) * rf * .7);
           c.lineTo(px + Math.cos(a + .8) * rf * 1.2, py + Math.sin(a + .8) * rf * .7);
@@ -164,17 +164,17 @@ function buildTerrain() {
     c.restore();
     c.strokeStyle = 'rgba(0,0,0,.07)'; c.lineWidth = 1; c.stroke();
   }
-  barrancoDoMapa(c);
+  mapEmbankment(c);
   /* daqui em diante o desenho é em coordenadas de MUNDO (1 unidade = 1 tile):
      a matriz projeta para o isométrico e achata traços e elipses na proporção
      certa — um círculo vira a elipse 2:1 do chão de graça */
   c.save();
   c.setTransform(TW / 2, TH / 2, -TW / 2, TH / 2, TOFF_X, 6);
-  franjasDeTerreno(c);
-  desenhaTrilhas(c);
+  terrainFringes(c);
+  drawPaths(c);
   medalhoesDePraca(c);
   entradasDeLoja(c);
-  desgasteDosRecintos(c);
+  enclosureWear(c);
   c.restore();
   G.dirty.terr = false;
 }
@@ -192,10 +192,10 @@ function medalhoesDePraca(c) {
   if (!interior.length) return;
   const visto = new Set();
   c.lineWidth = .05; c.strokeStyle = 'rgba(115,95,65,.4)'; c.fillStyle = 'rgba(115,95,65,.4)';
-  for (const inicio of interior) {
-    if (visto.has(inicio)) continue;
-    let sx = 0, sy = 0, n = 0, melhor = inicio, dm = 1e9;
-    const comp = [], q = [inicio]; visto.add(inicio);
+  for (const start of interior) {
+    if (visto.has(start)) continue;
+    let sx = 0, sy = 0, n = 0, best = start, dm = 1e9;
+    const comp = [], q = [start]; visto.add(start);
     while (q.length) {
       const k = q.pop(); comp.push(k);
       sx += k % W + .5; sy += ((k / W) | 0) + .5; n++;
@@ -208,9 +208,9 @@ function medalhoesDePraca(c) {
     // em praça côncava o centroide pode cair fora: ancora no tile interno mais próximo
     for (const k of comp) {
       const d = dist2(k % W + .5, ((k / W) | 0) + .5, cx, cy);
-      if (d < dm) { dm = d; melhor = k; }
+      if (d < dm) { dm = d; best = k; }
     }
-    if (dm > .6) { cx = melhor % W + .5; cy = ((melhor / W) | 0) + .5; }
+    if (dm > .6) { cx = best % W + .5; cy = ((best / W) | 0) + .5; }
     c.beginPath(); c.arc(cx, cy, .55, 0, TAU); c.stroke();
     c.beginPath(); c.arc(cx, cy, .3, 0, TAU); c.stroke();
     for (let k = 0; k < 4; k++) {
@@ -221,7 +221,7 @@ function medalhoesDePraca(c) {
 }
 
 /** chão batido sob os equipamentos dos recintos */
-function desgasteDosRecintos(c) {
+function enclosureWear(c) {
   for (const o of objects.values()) {
     if (o.cat !== 'encobj' || o.kind === 'piscina' || o.kind === 'plantaE') continue;
     const r = mulberry(o.id * 2654435761 >>> 0);
@@ -233,7 +233,7 @@ function desgasteDosRecintos(c) {
 }
 
 /* ---- barranco sob as faces visíveis do mapa: o parque vira um planalto ---- */
-function barrancoDoMapa(c) {
+function mapEmbankment(c) {
   const alt = 15;
   const L = [1, 6 + H * TH / 2], B = [TOFF_X, 6 + (W + H) * TH / 2], R = [TCW - 1, 6 + W * TH / 2];
   const r = mulberry(987654321);
@@ -264,7 +264,7 @@ function barrancoDoMapa(c) {
 }
 
 /* ---- franjas orgânicas entre terrenos ---- */
-function franjasDeTerreno(c) {
+function terrainFringes(c) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), a = _eff[i], ka = TKEYS[a];
     if (a === T_PISO) continue;
@@ -308,13 +308,13 @@ function franjasDeTerreno(c) {
 }
 
 /* ---- trilhas: faixa contínua com curvas ---- */
-function conexoesTrilha(x, y) {
+function pathLinks(x, y) {
   const con = [pavedAt(x, y - 1), pavedAt(x + 1, y), pavedAt(x, y + 1), pavedAt(x - 1, y)];
   if (x === ENTRANCE.x && y === ENTRANCE.y) con[2] = true;   // a trilha sai pelo portão
   return con;
 }
 /** o traçado de um tile: curva nas viradas, braços do centro nos cruzamentos */
-function tracaTrilha(c, x, y, con) {
+function tracePath(c, x, y, con) {
   const cx = x + .5, cy = y + .5;
   const M = [[cx, y], [x + 1, cy], [cx, y + 1], [x, cy]];   // bocas N E S W
   if (x === ENTRANCE.x && y === ENTRANCE.y) M[2] = [cx, y + .7]; // para sob o tapete
@@ -341,7 +341,7 @@ function cantosDePraca(c, x, y, con) {
     c.fill();
   }
 }
-function detalhesTrilha(c, x, y, con, ponte) {
+function pathDetails(c, x, y, con, ponte) {
   const cx = x + .5, cy = y + .5;
   const r = mulberry(IDX(x, y) * 1597334677 >>> 0);
   c.lineCap = 'butt';
@@ -378,7 +378,7 @@ function mirante(c, x, y, dirs, folga) {
     c.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
 }
-function desenhaTrilhas(c) {
+function drawPaths(c) {
   c.lineCap = 'round'; c.lineJoin = 'round';
   const encAo = (x, y) => inB(x, y) && world.enc[IDX(x, y)] > 0;
   const tiles = [];
@@ -387,39 +387,39 @@ function desenhaTrilhas(c) {
     if (!world.path[i]) continue;
     const mir = [];
     for (let s = 0; s < 4; s++) { const [dx, dy] = LADOS[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
-    tiles.push([x, y, conexoesTrilha(x, y), _eff[i] === T_AGUA, mir]);
+    tiles.push([x, y, pathLinks(x, y), _eff[i] === T_AGUA, mir]);
   }
   // 1º o contorno (meio-fio) de todas, depois o recheio: os miolos cobrem as
   // bordas internas e a rede vira uma faixa contínua
   for (const [x, y, con, ponte, mir] of tiles) {
     c.strokeStyle = ponte ? PONTE_G : GUIA; c.lineWidth = LARG + .1;
-    tracaTrilha(c, x, y, con); c.stroke();
+    tracePath(c, x, y, con); c.stroke();
     c.fillStyle = ponte ? PONTE_G : GUIA;
     cantosDePraca(c, x, y, con);
     if (mir.length) mirante(c, x, y, mir, .05);
   }
   for (const [x, y, con, ponte, mir] of tiles) {
     c.strokeStyle = ponte ? PONTE_C : tileAlt(IDX(x, y)) ? PISO_C : PISO_C2; c.lineWidth = LARG;
-    tracaTrilha(c, x, y, con); c.stroke();
+    tracePath(c, x, y, con); c.stroke();
     c.fillStyle = c.strokeStyle;
     cantosDePraca(c, x, y, con);
     if (mir.length) mirante(c, x, y, mir, 0);
   }
-  for (const [x, y, con, ponte] of tiles) detalhesTrilha(c, x, y, con, ponte);
+  for (const [x, y, con, ponte] of tiles) pathDetails(c, x, y, con, ponte);
 }
 
 /* ---- entradas: a calçada se alarga em curva até a porta ---- */
-function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, cor, corGuia) {
+function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, colour, guideColour) {
   // e1→e2 = aresta da porta; (vx,vy) aponta da aresta para dentro do tile de trilha.
   // O leque nasce na BORDA da faixa (a .5−LARG/2 da porta) e abre até a porta —
   // ancorar no eixo da trilha fazia o meio-fio lateral cruzar a faixa inteira.
   const mx = (e1x + e2x) / 2, my = (e1y + e2y) / 2;
   const ux = e2x - e1x, uy = e2y - e1y;
-  const borda = .5 - LARG / 2;
-  const B1 = [mx - ux * .3 + vx * (borda + .06), my - uy * .3 + vy * (borda + .06)];
-  const B2 = [mx + ux * .3 + vx * (borda + .06), my + uy * .3 + vy * (borda + .06)];
-  const S1 = [mx - ux * .33 + vx * borda, my - uy * .33 + vy * borda];
-  const S2 = [mx + ux * .33 + vx * borda, my + uy * .33 + vy * borda];
+  const edge = .5 - LARG / 2;
+  const B1 = [mx - ux * .3 + vx * (edge + .06), my - uy * .3 + vy * (edge + .06)];
+  const B2 = [mx + ux * .3 + vx * (edge + .06), my + uy * .3 + vy * (edge + .06)];
+  const S1 = [mx - ux * .33 + vx * edge, my - uy * .33 + vy * edge];
+  const S2 = [mx + ux * .33 + vx * edge, my + uy * .33 + vy * edge];
   const A1 = [e1x + ux * .07, e1y + uy * .07], A2 = [e2x - ux * .07, e2y - uy * .07];
   const Q1 = [mx - ux * .38 + vx * .08, my - uy * .38 + vy * .08];
   const Q2 = [mx + ux * .38 + vx * .08, my + uy * .38 + vy * .08];
@@ -427,14 +427,14 @@ function flareDeEntrada(c, e1x, e1y, e2x, e2y, vx, vy, cor, corGuia) {
   c.moveTo(B1[0], B1[1]); c.lineTo(S1[0], S1[1]); c.quadraticCurveTo(Q1[0], Q1[1], A1[0], A1[1]);
   c.lineTo(A2[0], A2[1]); c.quadraticCurveTo(Q2[0], Q2[1], S2[0], S2[1]); c.lineTo(B2[0], B2[1]);
   c.closePath();
-  c.fillStyle = cor; c.fill();
-  c.strokeStyle = corGuia; c.lineWidth = .055; c.lineCap = 'round';
+  c.fillStyle = colour; c.fill();
+  c.strokeStyle = guideColour; c.lineWidth = .055; c.lineCap = 'round';
   c.beginPath(); c.moveTo(S1[0], S1[1]); c.quadraticCurveTo(Q1[0], Q1[1], A1[0], A1[1]); c.stroke();
   c.beginPath(); c.moveTo(S2[0], S2[1]); c.quadraticCurveTo(Q2[0], Q2[1], A2[0], A2[1]); c.stroke();
 }
-function capacho(c, mx, my, ux, uy, vx, vy, cor) {
+function capacho(c, mx, my, ux, uy, vx, vy, colour) {
   const cx = mx + vx * .12, cy = my + vy * .12;
-  c.fillStyle = cor;
+  c.fillStyle = colour;
   c.beginPath();
   c.moveTo(cx - ux * .24 - vx * .06, cy - uy * .24 - vy * .06);
   c.lineTo(cx + ux * .24 - vx * .06, cy + uy * .24 - vy * .06);
@@ -523,11 +523,11 @@ function drawIsoBox(c, x, y, w, h, hgt, col, roofCol, z) {
 }
 
 /* ---- objetos ---- */
-function filaBadge(c, o, z, sx, sy) {
-  if (!o.fila || !o.fila.length) return;
+function badgeQueue(c, o, z, sx, sy) {
+  if (!o.queue || !o.queue.length) return;
   c.font = Math.max(8, 10 * z) + 'px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillStyle = '#fff'; c.strokeStyle = '#2f2113'; c.lineWidth = 3;
-  c.strokeText('👥' + o.fila.length, sx, sy); c.fillText('👥' + o.fila.length, sx, sy);
+  c.strokeText('👥' + o.queue.length, sx, sy); c.fillText('👥' + o.queue.length, sx, sy);
 }
 /* mobiliário desenhado de verdade (caixa com emoji não faz jus) */
 function drawBanco(c, o, z) {
@@ -557,7 +557,7 @@ function drawBanco(c, o, z) {
     c.lineTo(Bq[0] + (Cq[0] - Bq[0]) * tt, Bq[1] - up + (Cq[1] - Bq[1]) * tt);
     c.stroke();
   }
-  filaBadge(c, o, z, sh[0], sh[1] - 26 * s);
+  badgeQueue(c, o, z, sh[0], sh[1] - 26 * s);
 }
 function drawLixeira(c, o, z) {
   const p = [w2sx(o.x + .5, o.y + .5), w2sy(o.x + .5, o.y + .5)], s = z;
@@ -585,7 +585,7 @@ function drawBebedouroPub(c, o, z) {
   c.strokeStyle = 'rgba(170,225,250,.95)'; c.lineWidth = 1.5 * s;
   c.beginPath(); c.moveTo(p[0] + 2 * s, p[1] - 14 * s);
   c.quadraticCurveTo(p[0], p[1] - 18 * s - h, p[0] - 2 * s, p[1] - 14 * s); c.stroke();
-  filaBadge(c, o, z, p[0], p[1] - 24 * s);
+  badgeQueue(c, o, z, p[0], p[1] - 24 * s);
 }
 function drawPlayground(c, o, z) {
   const P = (ax, ay) => [w2sx(o.x + ax, o.y + ay), w2sy(o.x + ax, o.y + ay)];
@@ -605,18 +605,18 @@ function drawPlayground(c, o, z) {
   c.moveTo((R1[0] + R2[0]) / 2, (R1[1] + R2[1]) / 2 - 15 * s);
   c.lineTo((G1[0] + G2[0]) / 2, (G1[1] + G2[1]) / 2); c.stroke();
   // balanço: pórtico + dois assentos oscilando
-  const E1 = P(.75, 2.35), E2 = P(2.3, 2.35), barra = 26 * s;
+  const E1 = P(.75, 2.35), E2 = P(2.3, 2.35), gauge = 26 * s;
   c.strokeStyle = '#8a5a2b'; c.lineCap = 'round'; c.lineWidth = 3 * s;
   for (const [ex, ey] of [[.75, 2.35], [2.3, 2.35]]) {
     const T = P(ex, ey);
     const p1 = P(ex - .02, ey - .24), p2 = P(ex + .02, ey + .24);
-    c.beginPath(); c.moveTo(p1[0], p1[1]); c.lineTo(T[0], T[1] - barra); c.lineTo(p2[0], p2[1]); c.stroke();
+    c.beginPath(); c.moveTo(p1[0], p1[1]); c.lineTo(T[0], T[1] - gauge); c.lineTo(p2[0], p2[1]); c.stroke();
   }
   c.lineWidth = 3.2 * s;
-  c.beginPath(); c.moveTo(E1[0], E1[1] - barra); c.lineTo(E2[0], E2[1] - barra); c.stroke();
+  c.beginPath(); c.moveTo(E1[0], E1[1] - gauge); c.lineTo(E2[0], E2[1] - gauge); c.stroke();
   for (let k = 0; k < 2; k++) {
     const t = k ? .68 : .32;
-    const bx = E1[0] + (E2[0] - E1[0]) * t, by = E1[1] + (E2[1] - E1[1]) * t - barra;
+    const bx = E1[0] + (E2[0] - E1[0]) * t, by = E1[1] + (E2[1] - E1[1]) * t - gauge;
     const ang = Math.sin(_now / 680 + k * 2.4) * .38;
     const sx2 = bx + Math.sin(ang) * 15 * s, sy2 = by + Math.cos(ang) * 15 * s;
     c.strokeStyle = '#5a6b74'; c.lineWidth = 1.2 * s;
@@ -626,7 +626,7 @@ function drawPlayground(c, o, z) {
     c.beginPath(); c.moveTo(sx2 - 3.5 * s, sy2); c.lineTo(sx2 + 3.5 * s, sy2); c.stroke();
   }
   const cM = P(1.5, 1.5);
-  filaBadge(c, o, z, cM[0], cM[1] - 44 * s);
+  badgeQueue(c, o, z, cM[0], cM[1] - 44 * s);
 }
 function drawBuilding(c, o, z) {
   const B = BUILDINGS[o.kind];
@@ -739,11 +739,11 @@ function drawBuilding(c, o, z) {
   c.font = fs + 'px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText(B.em, cx, cy - fs * .1);
   // fila
-  if (o.fila.length) {
+  if (o.queue.length) {
     c.font = Math.max(8, 10 * z) + 'px system-ui'; c.fillStyle = '#fff';
     c.strokeStyle = '#2f2113'; c.lineWidth = 3;
     const tx = cx, ty = g.T[1] - g.up - 12 * z;
-    c.strokeText('👥' + o.fila.length, tx, ty); c.fillText('👥' + o.fila.length, tx, ty);
+    c.strokeText('👥' + o.queue.length, tx, ty); c.fillText('👥' + o.queue.length, tx, ty);
   }
 }
 function drawDeco(c, o, z) {
@@ -860,9 +860,9 @@ function drawDeco(c, o, z) {
   }
 }
 /** bacia isométrica com parede: base dos cochos (comedouro/bebedouro) */
-function baciaIso(c, sx, sy, rx, ry, alt, corParede, corBorda, corFundo, s) {
+function baciaIso(c, sx, sy, rx, ry, alt, wallColour, edgeColour, bgColour, s) {
   // parede lateral: metade de baixo da borda, extrudada até o chão
-  c.fillStyle = corParede; c.strokeStyle = shade(corParede, -.5); c.lineWidth = 2.4 * s;
+  c.fillStyle = wallColour; c.strokeStyle = shade(wallColour, -.5); c.lineWidth = 2.4 * s;
   c.beginPath();
   c.moveTo(sx - rx, sy - alt);
   c.lineTo(sx - rx, sy);
@@ -871,8 +871,8 @@ function baciaIso(c, sx, sy, rx, ry, alt, corParede, corBorda, corFundo, s) {
   c.ellipse(sx, sy - alt, rx, ry, 0, 0, Math.PI);   // volta pela boca
   c.closePath(); c.fill(); c.stroke();
   // boca
-  ellipse(c, sx, sy - alt, rx, ry); c.fillStyle = corBorda; c.fill(); c.stroke();
-  ellipse(c, sx, sy - alt, rx * .78, ry * .72); c.fillStyle = corFundo; c.fill();
+  ellipse(c, sx, sy - alt, rx, ry); c.fillStyle = edgeColour; c.fill(); c.stroke();
+  ellipse(c, sx, sy - alt, rx * .78, ry * .72); c.fillStyle = bgColour; c.fill();
 }
 function drawEncObj(c, o, z) {
   const sx = w2sx(o.x + .5, o.y + .5), sy = w2sy(o.x + .5, o.y + .5), s = z;
@@ -884,7 +884,7 @@ function drawEncObj(c, o, z) {
   if (o.kind === 'comedouro') {
     // cocho de madeira; a ração vai de verde (cheio) a vermelho (acabando)
     baciaIso(c, sx, sy - 2 * s, 13 * s, 6.5 * s, 7 * s, '#8a6a45', '#a87f52', '#54432c', s);
-    const nivel = e ? e.comida : 1;
+    const nivel = e ? e.food : 1;
     if (nivel > .05) {
       c.fillStyle = mixc('#c94a2a', '#7ac44a', nivel);
       ellipse(c, sx, sy - 9.5 * s - nivel * 1.5 * s, 9.5 * s, 4.2 * s); c.fill();
@@ -921,13 +921,13 @@ function drawEncObj(c, o, z) {
     c.quadraticCurveTo(dm[0], dm[1] - 12 * s, dm[0] + 4 * s, dm[1] - 8.5 * s); c.lineTo(dm[0] + 4 * s, dm[1]);
     c.closePath(); c.fill();
     // telhado piramidal de sapé com beiral curto (comprido engolia as paredes)
-    const topo = [cx2, cy2 - ap];
+    const top = [cx2, cy2 - ap];
     const beiral = .07;
     const A2 = P(-beiral, -beiral), B2 = P(1 + beiral, -beiral), C2 = P(1 + beiral, 1 + beiral), D2 = P(-beiral, 1 + beiral);
     c.strokeStyle = '#4a3520';
-    c.beginPath(); c.moveTo(D2[0], D2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(topo[0], topo[1]); c.closePath();
+    c.beginPath(); c.moveTo(D2[0], D2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(top[0], top[1]); c.closePath();
     c.fillStyle = '#c9a558'; c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(B2[0], B2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(topo[0], topo[1]); c.closePath();
+    c.beginPath(); c.moveTo(B2[0], B2[1] - up); c.lineTo(C2[0], C2[1] - up); c.lineTo(top[0], top[1]); c.closePath();
     c.fillStyle = '#b8924a'; c.fill(); c.stroke();
     // fiapos de sapé
     c.strokeStyle = 'rgba(74,53,32,.4)'; c.lineWidth = 1.2 * s;
@@ -935,17 +935,17 @@ function drawEncObj(c, o, z) {
       const t = i / 4;
       c.beginPath();
       c.moveTo(D2[0] + (C2[0] - D2[0]) * t, D2[1] - up + (C2[1] - D2[1]) * t);
-      c.lineTo(topo[0] + (D2[0] + (C2[0] - D2[0]) * t - topo[0]) * .25, topo[1] + (D2[1] - up + (C2[1] - D2[1]) * t - topo[1]) * .25);
+      c.lineTo(top[0] + (D2[0] + (C2[0] - D2[0]) * t - top[0]) * .25, top[1] + (D2[1] - up + (C2[1] - D2[1]) * t - top[1]) * .25);
       c.stroke();
     }
   } else if (o.kind === 'brinquedo') {
     // bola de brincar; fica frenética quando um bicho vem brincar com ela
-    const perto = e && e.animals.some(a2 =>
-      !a2.morto && a2.estado === 'brincando' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
-    const q = Math.abs(Math.sin(_now / (perto ? 210 : 420) + o.id * 1.3));
-    const rol = perto ? Math.sin(_now / 330 + o.id) * 6 * s : 0;
+    const near = e && e.animals.some(a2 =>
+      !a2.dead && a2.state === 'brincando' && dist2(a2.x, a2.y, o.x + .5, o.y + .5) < 2.9);
+    const q = Math.abs(Math.sin(_now / (near ? 210 : 420) + o.id * 1.3));
+    const rol = near ? Math.sin(_now / 330 + o.id) * 6 * s : 0;
     const bx = sx + rol;
-    const by = sy - 8.5 * s - q * (perto ? 9 : 5) * s;
+    const by = sy - 8.5 * s - q * (near ? 9 : 5) * s;
     ellipse(c, bx, sy, (7 - q * 1.6) * s, (3.4 - q * .8) * s);   // sombra própria
     c.fillStyle = 'rgba(0,0,0,.14)'; c.fill();
     c.fillStyle = '#ffc23c'; c.strokeStyle = '#8a5a1c'; c.lineWidth = 2.4 * s;
@@ -1037,7 +1037,7 @@ function drawFenceTile(c, x, y, e, z, lados) {
     else if (l === 'W') segs.push([P(x, y), P(x, y + 1)]);
     else if (l === 'E') segs.push([P(x + 1, y), P(x + 1, y + 1)]);
   }
-  const dano = 1 - e.integridade;
+  const dano = 1 - e.integrity;
   for (const [A, B] of segs) {
     if (F.aquarium || F.colour === '#a8d8e8') { // vidro
       isoPoly(c, [A, B, [B[0], B[1] - alt], [A[0], A[1] - alt]]);
@@ -1124,15 +1124,15 @@ function drawAnimal(c, a, z) {
   const sx = w2sx(a.x, a.y), sy = w2sy(a.x, a.y);
   const hp = spriteH(a.sp);              // altura base em px (zoom 1)
   // filhote nasce com metade do porte e cresce até ~1/4 da vida
-  const cres = clamp(.5 + .5 * a.idade / (a.sp.lifespan * .22), .5, 1);
+  const cres = clamp(.5 + .5 * a.age / (a.sp.lifespan * .22), .5, 1);
   const alt = hp * z * cres;             // altura na tela
   const px = clamp(Math.round(alt / 8) * 8, 24, 240); // resolução do cache, em degraus
   // em que ele está pisando? (água pintada ou piscina de recinto)
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const oc = world.occ[ti] && objects.get(world.occ[ti]);
-  const naAgua = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
-  const nadando = naAgua && a.sp.plan !== 'wader';   // pernalta vadeia; o resto nada
-  const parado = a.estado === 'parado' || a.estado === 'brincando' || a.estado === 'comendo';
+  const inWater = world.terr[ti] === T_AGUA || (oc && oc.kind === 'piscina');
+  const nadando = inWater && a.sp.plan !== 'wader';   // pernalta vadeia; o resto nada
+  const parado = a.state === 'parado' || a.state === 'brincando' || a.state === 'comendo';
   const spr = getSprite(a.sp, parado && !nadando ? 0 : a.frame, px);
   if (nadando) {
     // corpo afundado até a linha d'água, com balanço e esteira
@@ -1153,7 +1153,7 @@ function drawAnimal(c, a, z) {
       ellipse(c, sx, sy, alt * (.36 + t * .3), alt * (.14 + t * .13)); c.stroke();
     }
     c.globalAlpha = 1;
-    if (a.estado === 'andando') {        // esteira em V atrás
+    if (a.state === 'andando') {        // esteira em V atrás
       c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1.4 * z; c.lineCap = 'round';
       c.beginPath();
       c.moveTo(sx - a.dir * alt * .28, sy - 2 * z);
@@ -1162,17 +1162,17 @@ function drawAnimal(c, a, z) {
       c.quadraticCurveTo(sx - a.dir * alt * .55, sy + 3 * z, sx - a.dir * alt * .8, sy + 5 * z);
       c.stroke();
     }
-    filaBolhas(a, sx, sy + merg - alturaVisivel(a.sp) * (alt / SPR), z);
+    bubbleQueue(a, sx, sy + merg - visibleHeight(a.sp) * (alt / SPR), z);
     return;
   }
   // pulo da brincadeira / bocada da comida
   let hop = 0;
-  if (a.estado === 'brincando') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
-  else if (a.estado === 'comendo') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
+  if (a.state === 'brincando') hop = Math.abs(Math.sin(_now / 175 + a.id * 2.1)) * 4 * z;
+  else if (a.state === 'comendo') hop = -Math.abs(Math.sin(_now / 300 + a.id)) * 1.6 * z;
   const kSombra = 1 - hop * .022 / Math.max(z, .001);
   ellipse(c, sx, sy, hp * .26 * z * cres * Math.max(.7, kSombra), hp * .12 * z * cres * Math.max(.7, kSombra));
   c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
-  if (naAgua && z > .45) {               // ave vadeando: anéis no espelho d'água
+  if (inWater && z > .45) {               // ave vadeando: anéis no espelho d'água
     c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1.2 * z;
     for (let k = 0; k < 2; k++) {
       const t = (_now / 1100 + a.id * .37 + k / 2) % 1;
@@ -1182,7 +1182,7 @@ function drawAnimal(c, a, z) {
     c.globalAlpha = 1;
   }
   blitSprite(c, spr, sx, sy - hop, alt, a.dir);
-  if (a.estado === 'comendo' && z > .5) { // farelos caindo do focinho
+  if (a.state === 'comendo' && z > .5) { // farelos caindo do focinho
     c.fillStyle = 'rgba(96,66,34,.75)';
     for (let k = 0; k < 3; k++) {
       const t = (_now / 500 + k / 3 + a.id * .21) % 1;
@@ -1193,43 +1193,43 @@ function drawAnimal(c, a, z) {
     }
     c.globalAlpha = 1;
   }
-  filaBolhas(a, sx, sy - hop - alturaVisivel(a.sp) * (alt / SPR), z);
+  bubbleQueue(a, sx, sy - hop - visibleHeight(a.sp) * (alt / SPR), z);
 }
 /* ---- balões de pensamento ---- */
-const bolhas = [];
+const bubbles = [];
 const BOLHA_MAX = 42;        // teto de balões desenhados por frame
 const BOLHA_DIST = 30;       // distância mínima entre dois balões, em px de tela
 /** enfileira o balão; a triagem por urgência e espaçamento é feita no desenho */
-function filaBolhas(ent, sx, syTopo, z) {
-  if (!G.bolhas || z < .42 || !ent.pensa) return;
-  if (G.bolhas === 1 && ent.pensa.urg < .45) return;
-  bolhas.push({ sx, sy: syTopo - 6 * z, p: ent.pensa, z });
+function bubbleQueue(ent, sx, syTop, z) {
+  if (!G.bubbles || z < .42 || !ent.pensa) return;
+  if (G.bubbles === 1 && ent.pensa.urg < .45) return;
+  bubbles.push({ sx, sy: syTop - 6 * z, p: ent.pensa, z });
 }
 function drawBolhas(c, agora) {
-  if (!bolhas.length) return;
+  if (!bubbles.length) return;
   // Urgência primeiro: com o teto aplicado na ordem de desenho, quem aparecia
   // era quem estava na frente na fila de profundidade — um bicho em apuros no
   // fundo perdia o balão para um visitante "curtindo o dia".
-  bolhas.sort((a, b) => b.p.urg - a.p.urg);
+  bubbles.sort((a, b) => b.p.urg - a.p.urg);
   const aceitos = [];
   const dmin = BOLHA_DIST * BOLHA_DIST;
-  for (const b of bolhas) {
+  for (const b of bubbles) {
     if (aceitos.length >= BOLHA_MAX) break;
     // em multidão, um balão a cada ~30px: senão a fila vira um mural ilegível
-    let perto = false;
-    for (const a of aceitos) if (dist2(a.sx, a.sy, b.sx, b.sy) < dmin) { perto = true; break; }
-    if (!perto) aceitos.push(b);
+    let near = false;
+    for (const a of aceitos) if (dist2(a.sx, a.sy, b.sx, b.sy) < dmin) { near = true; break; }
+    if (!near) aceitos.push(b);
   }
   c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
   for (const b of aceitos) {
     const z = b.z, u = b.p.urg;
     const fundo = u >= .8 ? '#ffd2c8' : u >= .45 ? '#ffeec2' : '#e8f6dd';
-    const borda = u >= .8 ? '#bd3f2d' : u >= .45 ? '#c98a1c' : '#3b8c38';
+    const edge = u >= .8 ? '#bd3f2d' : u >= .45 ? '#c98a1c' : '#3b8c38';
     const w = 25 * z, h = 22 * z;
     const bob = Math.sin(agora / 520 + b.sx * .05) * 1.6 * z;
     const x = b.sx, y = b.sy + bob;
     c.lineWidth = Math.max(1, 2.2 * z);
-    c.strokeStyle = borda; c.fillStyle = fundo;
+    c.strokeStyle = edge; c.fillStyle = fundo;
     roundRectP(c, x - w / 2, y - h, w, h, 7 * z); c.fill(); c.stroke();
     // rastro de pensamento (duas bolinhas descendo até a cabeça)
     c.beginPath(); c.arc(x - 1.5 * z, y + 3.2 * z, 2.5 * z, 0, TAU); c.fill(); c.stroke();
@@ -1237,11 +1237,11 @@ function drawBolhas(c, agora) {
     c.font = Math.round(13.5 * z) + 'px system-ui';
     c.fillText(b.p.em, x, y - h / 2 + .5 * z);
   }
-  bolhas.length = 0;
+  bubbles.length = 0;
 }
 function drawPersonEnt(c, p, z) {
   const sx = w2sx(p.x, p.y), sy = w2sy(p.x, p.y);
-  const hp = 46 * (p.escala || 1);
+  const hp = 46 * (p.zoomScale || 1);
   const alt = hp * z;
   ellipse(c, sx, sy, 8 * z, 4 * z); c.fillStyle = 'rgba(0,0,0,.22)'; c.fill();
   const spr = getPerson(p, p.frame, clamp(Math.round(alt / 8) * 8, 24, 140));
@@ -1262,7 +1262,7 @@ function drawPersonEnt(c, p, z) {
     c.font = Math.round(11 * z) + 'px system-ui'; c.textAlign = 'center'; c.textBaseline = 'bottom';
     c.fillText(STAFF_TYPES[p.role].em, sx, sy - hp * z * .92);
   }
-  if (!p.role) filaBolhas(p, sx, sy - hp * z * .95, z);   // funcionário não pensa alto
+  if (!p.role) bubbleQueue(p, sx, sy - hp * z * .95, z);   // funcionário não pensa alto
 }
 
 /* ---- render principal ---- */
@@ -1273,12 +1273,12 @@ function render(now) {
   if (G.dirty.terr) buildTerrain();
   ctx.clearRect(0, 0, VW, VH);
   // céu: gradiente + estrelas + nuvens ao fundo (o mapa é um planalto flutuando nele)
-  const noite = G.hour < 6.5 || G.hour > 19;
+  const night = G.hour < 6.5 || G.hour > 19;
   const ceu = ctx.createLinearGradient(0, 0, 0, VH);
-  if (noite) { ceu.addColorStop(0, '#18263c'); ceu.addColorStop(1, '#2b3d52'); }
+  if (night) { ceu.addColorStop(0, '#18263c'); ceu.addColorStop(1, '#2b3d52'); }
   else { ceu.addColorStop(0, '#9ce0bb'); ceu.addColorStop(1, '#7bc79e'); }
   ctx.fillStyle = ceu; ctx.fillRect(0, 0, VW, VH);
-  if (noite) {
+  if (night) {
     for (let i = 0; i < 64; i++) {
       const h = (i * 2654435761) >>> 0;
       const px = (h % 9973) / 9973 * VW, py = ((h >> 12) % 9973) / 9973 * VH;
@@ -1293,7 +1293,7 @@ function render(now) {
     const cw = VW * (.16 + (i % 3) * .07);
     const px = ((i * .29 + .07) * VW + now * (.004 + i * .0012)) % (VW + cw * 2) - cw;
     const py = VH * (.1 + ((i * 37) % 50) / 100 * .5);
-    ctx.fillStyle = noite ? 'rgba(200,215,235,.05)' : 'rgba(255,255,255,.16)';
+    ctx.fillStyle = night ? 'rgba(200,215,235,.05)' : 'rgba(255,255,255,.16)';
     ellipse(ctx, px, py, cw * .5, cw * .14); ctx.fill();
     ellipse(ctx, px - cw * .24, py + cw * .04, cw * .28, cw * .1); ctx.fill();
     ellipse(ctx, px + cw * .22, py + cw * .03, cw * .3, cw * .11); ctx.fill();
@@ -1306,7 +1306,7 @@ function render(now) {
   ctx.drawImage(terrCv, 0, 0);
   ctx.restore();
   // sombras de nuvem passeando pelo chão (recortadas ao planalto)
-  if (!noite) {
+  if (!night) {
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(w2sx(0, 0), w2sy(0, 0)); ctx.lineTo(w2sx(W, 0), w2sy(W, 0));
@@ -1388,9 +1388,9 @@ function render(now) {
       // N/W ficam ATRÁS do bicho que pisa no tile; S/E ficam na frente. Com o
       // anel de cerca antigo isso não importava (ninguém pisava nele).
       const fundo = lados.filter(l => l === 'N' || l === 'W');
-      const frente = lados.filter(l => l === 'S' || l === 'E');
+      const front = lados.filter(l => l === 'S' || l === 'E');
       if (fundo.length) push(x + y - .45, 'fence', { x, y, e, lados: fundo });
-      if (frente.length) push(x + y + .45, 'fence', { x, y, e, lados: frente });
+      if (front.length) push(x + y + .45, 'fence', { x, y, e, lados: front });
     }
   }
   for (const o of objects.values()) {
@@ -1398,7 +1398,7 @@ function render(now) {
     push(o.x + o.y + (o.w + o.h) * .5 - .5, o.cat, o);
   }
   for (const a of G.animals) {
-    if (a.morto) continue;
+    if (a.dead) continue;
     if (a.x < x0 - 3 || a.x > x1 + 3 || a.y < y0 - 3 || a.y > y1 + 3) continue;
     push(a.x + a.y, 'animal', a);
   }
@@ -1422,14 +1422,14 @@ function render(now) {
     else if (it.t === 'person') drawPersonEnt(ctx, it.r, z);
   }
   drawEntrance(ctx, z, now);
-  passaros(ctx, now, noite);
+  passaros(ctx, now, night);
   drawBolhas(ctx, now);       // por cima das entidades, senão some atrás delas
   drawAvisos(ctx, z);
   drawSelection(ctx, z);
   drawGhost(ctx, z);
 
   // noite
-  if (noite) {
+  if (night) {
     const k = G.hour < 6.5 ? clamp((6.5 - G.hour) / 2.5, 0, 1) : clamp((G.hour - 19) / 3, 0, 1);
     ctx.fillStyle = 'rgba(24,34,66,' + (k * .46).toFixed(3) + ')';
     ctx.fillRect(0, 0, VW, VH);
@@ -1461,8 +1461,8 @@ function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
   }
 }
 /** bando de pássaros cruzando o céu de tempos em tempos */
-function passaros(c, now, noite) {
-  if (noite) return;
+function passaros(c, now, night) {
+  if (night) return;
   const ciclo = Math.floor(now / 26000);
   const t = (now % 26000) / 1000;
   if (t > 11) return;
@@ -1497,18 +1497,18 @@ function drawEntrance(c, z, now) {
     c.beginPath(); c.moveTo(P[0], P[1] - 2 * z); c.lineTo(P[0], P[1] - up + 2 * z); c.stroke();
   }
   // arco ligando os postes
-  const mx = (T[0] + R[0]) / 2, topo = Math.min(T[1], R[1]) - up - 20 * z;
-  const arco = () => { c.beginPath(); c.moveTo(T[0], T[1] - up); c.quadraticCurveTo(mx, topo, R[0], R[1] - up); };
+  const mx = (T[0] + R[0]) / 2, top = Math.min(T[1], R[1]) - up - 20 * z;
+  const arco = () => { c.beginPath(); c.moveTo(T[0], T[1] - up); c.quadraticCurveTo(mx, top, R[0], R[1] - up); };
   c.strokeStyle = '#3f2a12'; c.lineWidth = 6.2 * z; arco(); c.stroke();
   c.strokeStyle = '#a87a45'; c.lineWidth = 3.2 * z; arco(); c.stroke();
   // bandeirinhas penduradas no arco
-  const cores = ['#e2543f', '#ffc23c', '#3fa5e2', '#4fae4a', '#f28ab0', '#9a6ad4'];
+  const colours = ['#e2543f', '#ffc23c', '#3fa5e2', '#4fae4a', '#f28ab0', '#9a6ad4'];
   for (let i = 0; i < 6; i++) {
     const t = (i + 1) / 7;
     const qx = lerp(lerp(T[0], mx, t), lerp(mx, R[0], t), t);
-    const qy = lerp(lerp(T[1] - up, topo, t), lerp(topo, R[1] - up, t), t) + 2 * z;
+    const qy = lerp(lerp(T[1] - up, top, t), lerp(top, R[1] - up, t), t) + 2 * z;
     const sw = Math.sin(now / 620 + i * 1.1) * 1.2 * z;
-    c.fillStyle = cores[i];
+    c.fillStyle = colours[i];
     c.beginPath(); c.moveTo(qx - 3 * z, qy); c.lineTo(qx + 3 * z, qy);
     c.lineTo(qx + sw * .5, qy + 7 * z + Math.abs(sw) * .5); c.closePath(); c.fill();
   }
@@ -1532,7 +1532,7 @@ function drawEntrance(c, z, now) {
 function drawAvisos(c, z) {
   if (z < .35) return;
   for (const e of enclosures.values()) {
-    if (!e.animals.some(a => !a.morto)) continue;
+    if (!e.animals.some(a => !a.dead)) continue;
     if (encViewSpots(e).length) continue;
     const bb = encBBox(e);
     const cx = w2sx(bb.cx, bb.cy);
@@ -1587,10 +1587,10 @@ function drawGhost(c, z) {
     const r = dragRect();
     const p = planoDoArraste(r, t.key);
     // verde = recinto novo · dourado = ampliação do vizinho · vermelho = não dá
-    const cor = p.acao === 'criar' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
-      : p.acao === 'ampliar' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
+    const colour = p.action === 'criar' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
+      : p.action === 'ampliar' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
         : ['#e2543f', 'rgba(226,84,63,.24)', '#8a2f22'];
-    c.strokeStyle = cor[0]; c.lineWidth = 3 * z; c.fillStyle = cor[1];
+    c.strokeStyle = colour[0]; c.lineWidth = 3 * z; c.fillStyle = colour[1];
     // pinta só os tiles que realmente entram (o resto do retângulo é ocupado)
     if (p.tiles) {
       for (const k of p.tiles) {
@@ -1604,10 +1604,10 @@ function drawGhost(c, z) {
     [w2sx(r.x + r.w, r.y + r.h), w2sy(r.x + r.w, r.y + r.h)], [w2sx(r.x, r.y + r.h), w2sy(r.x, r.y + r.h)]]);
     c.stroke();
     c.globalAlpha = 1;
-    const rot = p.acao === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
-      : p.acao === 'ampliar' ? `Ampliar ${p.alvo.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
-        : p.motivo;
-    c.fillStyle = cor[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
+    const rot = p.action === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+      : p.action === 'ampliar' ? `Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+        : p.reason;
+    c.fillStyle = colour[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
     c.textAlign = 'center';
     const mx = w2sx(r.x + r.w / 2, r.y + r.h / 2), my = w2sy(r.x + r.w / 2, r.y + r.h / 2);
     c.strokeStyle = 'rgba(255,253,246,.85)'; c.lineWidth = 4 * z;
@@ -1615,7 +1615,7 @@ function drawGhost(c, z) {
     c.globalAlpha = .62;
   } else {
     const w = t.w || 1, h = t.h || 1;
-    const ok = podeColocar(t, hx, hy);
+    const ok = canPlace(t, hx, hy);
     c.strokeStyle = ok ? '#4fae4a' : '#e2543f'; c.lineWidth = 2.6 * z;
     c.fillStyle = ok ? 'rgba(79,174,74,.3)' : 'rgba(226,84,63,.3)';
     isoPoly(c, [[w2sx(hx, hy), w2sy(hx, hy)], [w2sx(hx + w, hy), w2sy(hx + w, hy)],

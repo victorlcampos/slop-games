@@ -1,87 +1,108 @@
 # slopkit
 
-O que todo jogo do slop-games precisa antes de virar jogo: tela que se adapta,
-laço que não muda de comportamento com o monitor, save que sobrevive à próxima
-versão, mudo que o jogador não precisa desligar duas vezes, e as duas bandeiras.
+What every slop-games game needs before it can be a game: a viewport that
+adapts, a loop that doesn't change behaviour with the monitor, a save that
+survives the next version, a mute the player doesn't have to switch off twice,
+and the two flags.
 
-Nada aqui desenha nada — o traço é de cada jogo. As bandeiras são a única
-exceção, e por um motivo: elas são as mesmas em todo lugar.
+Nothing here draws anything — the artwork belongs to each game. The flags are
+the one exception, and for a reason: they are the same everywhere.
 
-## Por que existe
+## Why it exists
 
-Os quatro jogos do catálogo resolviam os mesmos problemas, cada um de um jeito.
-Este pacote é o resultado de comparar as quatro implementações e ficar com a
-melhor de cada uma:
+The four games in the catalog solved the same problems, each one its own way.
+This package is the result of comparing the four implementations and keeping the
+best of each:
 
-| Peça | Veio do | Por quê |
+| Piece | Came from | Why it won |
 |---|---|---|
-| largura elástica | Animais vs Monstros | preenche qualquer proporção sem barra nem distorção |
-| teto de DPR adaptativo | Zoo Magnata | DPR 3 triplica a pintura sem ganho visível |
-| laço de passo fixo | Zoo Magnata | era o único imune a variação de framerate |
-| save em formato único | Zoo Magnata | mesmo retrato para autosave e arquivo |
-| normalização de save | Animais vs Monstros | save velho perde um campo, nunca a partida |
-| mudo persistido | 3 dos 4 jogos | o Animais era o único que esquecia |
-| dicionário por frase | novo | com um objeto por idioma, uma chave some no outro sem ninguém ver |
+| elastic width | Animals vs Monsters | fills any aspect ratio without letterboxing or stretching |
+| adaptive DPR ceiling | Zoo Tycoon | DPR 3 triples the fill area for no visible gain |
+| fixed-step loop | Zoo Tycoon | it was the only one immune to frame-rate variation |
+| one save format | Zoo Tycoon | the same snapshot serves the autosave and the file |
+| save normalisation | Animals vs Monsters | an old save loses a field, never the run |
+| persisted mute | 3 of the 4 games | Animals was the only one that forgot |
+| dictionary keyed by phrase | new | with one object per language, a key vanishes in the other and nobody sees it |
 
-## Uso
+## Usage
 
 ```js
 import { createViewport, createLoop, createSave, createSound, createI18n } from 'slopkit';
 
-const vp = createViewport(canvas);       // altura lógica 720, largura elástica
-vp.watch(() => reposition());            // só dispara se a largura mudar
+const vp = createViewport(canvas);        // logical height 720, elastic width
+vp.watch(() => reposition());             // only fires if the width really moves
 
 const i18n = createI18n({
-  dict: { play: { pt: 'Jogar', en: 'Play' } },   // as duas línguas lado a lado
+  dict: { play: { en: 'Play', pt: 'Jogar' } },   // both languages side by side
 });
 
 const vault = createSave({
-  game: 'meu-jogo',
+  game: 'my-game',
   version: 1,
   initial: () => ({ version: 1, coins: 0 }),
   normalize: (raw, base) => ({ ...base, ...raw }),
-  i18n,                                  // os avisos de save falam a língua certa
+  i18n,                                   // so the save notices speak the right language
 });
 let state = vault.load();
 
-const sound = createSound({ game: 'meu-jogo' });
+const sound = createSound({ game: 'my-game' });
 
 createLoop({
   step: 1 / 60,
-  update: (h) => world.tick(h),   // h é SEMPRE o mesmo valor
+  update: (h) => world.tick(h),   // h is ALWAYS the same value
   draw: () => { vp.begin(); paint(vp.ctx); },
 }).start();
 ```
 
-## Módulos
+## Modules
 
-- **`slopkit/viewport`** — `createViewport`, `measure` (a conta pura, testável sem browser)
-- **`slopkit/loop`** — `createLoop`, `stepsFor` (idem)
+- **`slopkit/viewport`** — `createViewport`, `measure` (the pure arithmetic, testable with no browser)
+- **`slopkit/loop`** — `createLoop`, `stepsFor` (same)
 - **`slopkit/save`** — `createSave`, `downloadText`, `readTextFile`
 - **`slopkit/sound`** — `createSound`
 - **`slopkit/i18n`** — `createI18n`, `pickLang`, `interpolate`, `missingKeys`
-- **`slopkit/flags`** — `drawFlag`, `flagDataURL` (bandeiras desenhadas em canvas)
+- **`slopkit/flags`** — `drawFlag`, `flagDataURL` (flags drawn on a canvas)
 - **`slopkit/langpicker`** — `mountLangPicker`, `bindText`, `drawLangPicker`, `pickLangAt`
-- **`slopkit/build`** — o build de todo jogo daqui
-- **`slopkit/testing`** — andaime de teste de jogo (Node + puppeteer-core)
+- **`slopkit/build`** — the build every game here uses
+- **`slopkit/testing`** — the game-testing scaffold (Node + puppeteer-core)
 
-Funções puras existem de propósito: a conta que importa cabe num teste de
-milissegundos, sem abrir Chrome. Vale para o i18n também — `pickLang`,
-`interpolate` e `missingKeys` são testados sem navegador nenhum.
+Pure functions exist on purpose: the arithmetic that matters fits in a test that
+runs in milliseconds, with no Chrome. That holds for i18n too — `pickLang`,
+`interpolate` and `missingKeys` are tested without a browser at all.
 
-## Sobre as bandeiras
+## The two languages
 
-Desenhadas em canvas, não emoji. O 🇧🇷 e o 🇺🇸 são pares de indicadores
-regionais, e o Windows não tem glifo para eles: no sistema desktop mais comum
-do mundo o seletor viraria as letras "BR" e "US" numa caixinha. Vinte linhas de
-canvas ganham disso em todo lugar — e ainda respeitam a regra nº 5 do
-repositório, que proíbe imagem.
+English is the product default. A browser asking for Portuguese still gets
+Portuguese; the fallback only decides what a French or Japanese visitor sees.
+The choice lives under a key the whole catalog shares (`slop:lang`), so picking
+a flag on the index carries into the next game the player opens.
 
-Uma rotina, duas saídas: `drawFlag` pinta em qualquer contexto 2D (jogo que
-desenha o menu no canvas) e `flagDataURL` roda a mesma rotina num canvas fora
-da tela para o DOM usar como `<img>`.
+The dictionary is keyed **by phrase, not by language**:
 
-## Testes
+```js
+// right: a missing translation is visible on the line you are editing
+{ play: { en: 'Play', pt: 'Jogar' } }
+
+// wrong: `pt.play` can simply not exist, and you only find out when a
+// player flips the flag and sees the raw key on screen
+{ en: { play: 'Play' }, pt: { /* … */ } }
+```
+
+`missingKeys(dict)` turns that into a test. Use it.
+
+## About the flags
+
+Drawn on a canvas, not emoji. 🇧🇷 and 🇺🇸 are regional indicator pairs, and
+Windows has no glyph for them: on the most common desktop OS in the world the
+picker would render as the letters "BR" and "US" in a box. Twenty lines of
+canvas beat that everywhere — and they keep rule nº 5 of the repository, which
+forbids shipping an image.
+
+One routine, two outputs: `drawFlag` paints into any 2D context (a game that
+draws its menu on canvas) and `flagDataURL` runs the same routine on an
+offscreen canvas so DOM menus can use it as an `<img>` source.
+
+## Tests
 
 ```bash
 npm test -w slopkit
