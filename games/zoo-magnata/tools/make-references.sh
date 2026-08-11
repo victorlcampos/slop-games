@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Baixa as gravações de referência usadas pelos comparadores de espectrograma.
-# Elas NÃO vão para o git (ver .gitignore): são material de terceiros e o repo
-# é um HTML só. Rode isto antes de abrir comparar.html / animais.html.
+# Downloads the reference recordings the spectrogram comparators use.
+# They do NOT go into git (see .gitignore): they are third-party material and
+# the repo is a single HTML file. Run this before opening compare.html / animals.html.
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p ref && cd ref
 
-# --- voz humana: TTS do próprio macOS, sem rede ---
+# --- the human voice: macOS' own TTS, no network ---
 if command -v say >/dev/null 2>&1; then
   diz() { say -v "$1" -o "$2.wav" --data-format=LEI16@22050 --channels=1 "$3"; }
   diz Daniel   h_ah    "ah"
@@ -17,11 +17,11 @@ if command -v say >/dev/null 2>&1; then
   diz Luciana  m_uau   "uau"
   echo "voz humana: ok"
 else
-  echo "aviso: 'say' só existe no macOS — comparar.html ficará sem referência"
+  echo "warning: 'say' only exists on macOS — compare.html will have no reference"
 fi
 
-# --- animais: Wikimedia Commons (licenças livres, ver página de cada arquivo) ---
-command -v ffmpeg >/dev/null 2>&1 || { echo "erro: precisa de ffmpeg"; exit 1; }
+# --- animals: Wikimedia Commons (free licences, see each file's page) ---
+command -v ffmpeg >/dev/null 2>&1 || { echo "error: ffmpeg is required"; exit 1; }
 baixa() {  # apelido, url
   sleep 2   # o Commons responde 429 em rajada
   curl -sL -A "zoo-audio-ref/1.0 (research)" -o /tmp/_zooref "$2"
@@ -44,4 +44,4 @@ baixa pinguim  "$C/2/2c/Little_Penguin_%28Eudyptula_minor%29.ogg"
 baixa peixe    "$C/5/5a/161691_felixblume_dolphin-screaming-underwater-in-caribbean-sea-mexico.wav"
 baixa suino    "$C/a/ac/Pig_grunt_-_Erdie.ogg"
 rm -f /tmp/_zooref
-echo "pronto. Sirva o repo (python3 -m http.server) e abra tools/comparar.html e tools/animais.html"
+echo "done. Serve the repo (python3 -m http.server) and open tools/compare.html and tools/animals.html"

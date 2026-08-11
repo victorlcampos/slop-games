@@ -126,11 +126,11 @@ right structure and still have it not sound like the thing. So the check is
 same STFT, and the difference shows up.
 
 ```bash
-tools/gerar-referencias.sh    # voice via macOS `say`; animals from Wikimedia Commons
+tools/make-references.sh    # voice via macOS `say`; animals from Wikimedia Commons
 python3 -m http.server 8000
-# tools/comparar.html  → real human voice vs synthesised
-# tools/animais.html   → 14 animal recordings vs the matching gesture
-# tools/espectro.html  → the synthesis alone, for isolated inspection
+# tools/compare.html  → real human voice vs synthesised
+# tools/animals.html   → 14 animal recordings vs the matching gesture
+# tools/spectrum.html  → the synthesis alone, for isolated inspection
 ```
 
 Each panel prints the energy in four bands (0–0.5 / 0.5–1.5 / 1.5–3 / 3–5 kHz).

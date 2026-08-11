@@ -35,8 +35,8 @@ const gestureOf = sp => GESTURE_SPECIES[sp.key] || GESTURE_PLAN[sp.plan] ||
 const SFX = {
   ctx: null, master: null, far: null,
   on: true, vol: .65,
-  _lastAt: new Map(),        // antisspam por evento
-  _ativas: 0,             // vozes tocando agora (teto de polifonia)
+  _lastAt: new Map(),        // anti-spam, per event
+  _active: 0,             // voices playing right now (the polyphony ceiling)
   _nextCritter: 0,
 
   /** The context can only be born in a user gesture (the autoplay policy). */
@@ -53,7 +53,7 @@ const SFX = {
     this.master.connect(lim).connect(this.ctx.destination);
     this._ambiente();
   },
-  aplicarVolume() {
+  applyVolume() {
     if (!this.ctx) return;
     const g = this.on ? this.vol : 0;
     this.master.gain.setTargetAtTime(g, this.ctx.currentTime, .05);
@@ -61,7 +61,7 @@ const SFX = {
   /** true if `name` can play right now (respecting the minimum interval) */
   _canPlay(name, msMin) {
     if (!this.ctx || !this.on) return false;
-    if (this._ativas > 14) return false;
+    if (this._active > 14) return false;
     const t = performance.now(), u = this._lastAt.get(name) || 0;
     if (t - u < (msMin || 45)) return false;
     this._lastAt.set(name, t);
@@ -89,7 +89,7 @@ const SFX = {
       o.connect(g).connect(f).connect(dest || this.master);
     } else o.connect(g).connect(dest || this.master);
     o.start(t0); o.stop(t0 + dur + .05);
-    this._ativas++; o.onended = () => this._ativas--;
+    this._active++; o.onended = () => this._active--;
   },
   /** a burst of filtered noise: a thud, a brush, a hiss, a puff */
   _noise({ t = 0, dur = .18, vol = .3, kind = 'lowpass', f = 900, f2, Q = 1, dest, lp }) {
@@ -111,7 +111,7 @@ const SFX = {
       src.connect(bq).connect(g).connect(fl).connect(dest || this.master);
     } else src.connect(bq).connect(g).connect(dest || this.master);
     src.start(t0); src.stop(t0 + dur + .02);
-    this._ativas++; src.onended = () => this._ativas--;
+    this._active++; src.onended = () => this._active--;
   },
   /** A vowel by formant synthesis, following Klatt (1980).
    *  Two things I had wrong and the literature corrects:
@@ -123,8 +123,8 @@ const SFX = {
    *     source that carries the vocal quality; a sawtooth sounds electric.
    *  Formant frequencies: Peterson & Barney (1952), adult male.
    *  F4/F5 = 3500/4500 Hz, the usual values in synthesis. */
-  _ondaGlotal() {
-    if (this._glote) return this._glote;
+  _glottalWave() {
+    if (this._glottis) return this._glottis;
     const n = 40, real = new Float32Array(n + 1), imag = new Float32Array(n + 1);
     // a ~12 dB/octave roll-off: the glottal pulse's profile (a sawtooth drops only 6)
     // Measured against a real voice: it concentrates 72–95% of its energy below
@@ -132,17 +132,17 @@ const SFX = {
     // strong and the result sounds like a synthesiser. This is close to a real
     // glottal pulse (~-12).
     for (let k = 1; k <= n; k++) imag[k] = 1 / Math.pow(k, 1.6);
-    return this._glote = this.ctx.createPeriodicWave(real, imag);
+    return this._glottis = this.ctx.createPeriodicWave(real, imag);
   },
-  _vogal({ f0 = 140, f0b, vogal = 'a', vogal2, dur = .3, vol = .22, t = 0, dest, kind = 'man' }) {
+  _vowel({ f0 = 140, f0b, vowel = 'a', vowel2, dur = .3, vol = .22, t = 0, dest, kind = 'man' }) {
     const c = this.ctx, t0 = c.currentTime + t;
     const V = {  // Peterson & Barney (1952), homem adulto
       i: [270, 2290, 3010], e: [530, 1840, 2480], a: [730, 1090, 2440],
       o: [570, 840, 2410], u: [300, 870, 2240], ae: [660, 1720, 2410], er: [490, 1350, 1690],
     };
     const sizeF = kind === 'child' ? 1.35 : kind === 'woman' ? 1.17 : 1;
-    const A = (V[vogal] || V.a).concat([3500, 4500]);
-    const B = (V[vogal2] || V[vogal] || V.a).concat([3500, 4500]);
+    const A = (V[vowel] || V.a).concat([3500, 4500]);
+    const B = (V[vowel2] || V[vowel] || V.a).concat([3500, 4500]);
     const BW = [60, 90, 120, 150, 200];        // typical bandwidths
     const LOCUS = [250, 1750, 2600, 3400, 4400];  // ponto de partida no ataque
 
@@ -152,7 +152,7 @@ const SFX = {
     // takes ~60 ms (locus theory).
     const TRANS = Math.min(.06, dur * .3);
     const o = c.createOscillator();
-    o.setPeriodicWave(this._ondaGlotal());
+    o.setPeriodicWave(this._glottalWave());
     o.frequency.setValueAtTime(f0, t0);
     o.frequency.setValueAtTime(f0, t0 + dur * .55);   // segura, depois entoa
     if (f0b) o.frequency.exponentialRampToValueAtTime(Math.max(40, f0b), t0 + dur);
@@ -195,7 +195,7 @@ const SFX = {
       r.frequency.setValueAtTime(fA + (LOCUS[i] - fA) * .55, t0);
       r.frequency.linearRampToValueAtTime(fA, t0 + TRANS);  // chega no alvo da vogal
       r.frequency.setValueAtTime(fA, t0 + dur * .55);       // e SEGURA
-      if (vogal2) r.frequency.linearRampToValueAtTime(fB, t0 + dur);
+      if (vowel2) r.frequency.linearRampToValueAtTime(fB, t0 + dur);
       no = no.connect(r);
     }
     const mouth = c.createBiquadFilter();   // a vocal tract does not radiate the top freely
@@ -210,7 +210,7 @@ const SFX = {
     no.connect(mouth).connect(g).connect(dest || this.master);
     o.start(t0); o.stop(t0 + dur + .05);
     ns.start(t0); ns.stop(t0 + dur + .05);
-    this._ativas++; o.onended = () => this._ativas--;
+    this._active++; o.onended = () => this._active--;
   },
 
   /** A human voice: a visitor lets out a short interjection, a staff member
@@ -229,7 +229,7 @@ const SFX = {
     const vogais = ['a', 'e', 'i', 'o', 'u'];
     const vg = vogais[(r() * vogais.length) | 0];
     const v = (opts && opts.vol) || .22;
-    const dest = (opts && opts.distante) ? this.far : undefined;
+    const dest = (opts && opts.distant) ? this.far : undefined;
 
     if (p.role === 'keeper') {            // tratador assobia, como quem chama bicho
       this._tone({ f: 1250, f2: 1850, kind: 'sine', dur: .16, vol: v * .5, dest });
@@ -238,21 +238,21 @@ const SFX = {
     }
     if (p.role === 'cleaner') {             // faxineiro suspira
       this._noise({ dur: .45, vol: v * .3, kind: 'bandpass', f: 900, f2: 500, Q: .8, lp: 1600, dest });
-      this._vogal({ f0, f0b: f0 * .82, vogal: 'u', dur: .4, vol: v * .5, kind, dest });
+      this._vowel({ f0, f0b: f0 * .82, vowel: 'u', dur: .4, vol: v * .5, kind, dest });
       return;
     }
     if (p.role) {                        // vet / security: two firm syllables
-      this._vogal({ f0: f0 * .95, vogal: 'o', vogal2: 'i', dur: .17, vol: v * .8, kind, dest });
-      this._vogal({ f0: f0 * .85, f0b: f0 * .7, vogal: 'a', vogal2: 'e', dur: .27, vol: v * .75, t: .18, kind, dest });
+      this._vowel({ f0: f0 * .95, vowel: 'o', vowel2: 'i', dur: .17, vol: v * .8, kind, dest });
+      this._vowel({ f0: f0 * .85, f0b: f0 * .7, vowel: 'a', vowel2: 'e', dur: .27, vol: v * .75, t: .18, kind, dest });
       return;
     }
     // visitor: a one-syllable interjection, with intonation (rising = a question)
     const sobe = r() < .5;
     const vg2 = vogais[(r() * vogais.length) | 0];
-    this._vogal({ f0, f0b: sobe ? f0 * 1.28 : f0 * .78, vogal: vg, vogal2: vg2,
+    this._vowel({ f0, f0b: sobe ? f0 * 1.28 : f0 * .78, vowel: vg, vowel2: vg2,
                   dur: .26 + r() * .12, vol: v, kind, dest });
     if (r() < .35)                       // sometimes a second syllable
-      this._vogal({ f0: f0 * .92, f0b: f0 * .75, vogal: vogais[(r() * 5) | 0],
+      this._vowel({ f0: f0 * .92, f0b: f0 * .75, vowel: vogais[(r() * 5) | 0],
                     dur: .24, vol: v * .8, t: .3, kind, dest });
   },
 
@@ -311,11 +311,11 @@ const SFX = {
      Size (sizeF) pulls the pitch down and the PRNG seeded by the name gives a
      stable detuning, so two species sharing a gesture never sound alike.
      ========================================================================== */
-  voz(sp, opts) {
+  animalVoice(sp, opts) {
     const wait = (opts && opts.now) ? 0 : 240;
     if (wait && !this._canPlay('voz' + sp.id, wait)) return;
     if (!this.ctx || !this.on) return;
-    const dest = (opts && opts.distante) ? this.far : undefined;
+    const dest = (opts && opts.distant) ? this.far : undefined;
     const _t = this._tone, _r = this._noise;
     this._tone = o => _t.call(this, { ...o, dest });
     this._noise = o => _r.call(this, { ...o, dest });
@@ -350,7 +350,7 @@ const SFX = {
       t += dur + .1 + r() * .07;                       // the silence between groans
     }
   },
-  _g_meow(F, v) {           // felino pequeno
+  _g_meow(F, v) {            // small cat
     this._tone({ f: F(620), f2: F(880), kind: 'sawtooth', dur: .18, vol: v * .8, atk: .03, vib: 24, vibF: 12 });
     this._tone({ f: F(880), f2: F(520), kind: 'sawtooth', dur: .3, vol: v * .7, t: .16, vib: 20, vibF: 10 });
   },
@@ -363,7 +363,7 @@ const SFX = {
                   atk: .1, vib: f0 * m * .09, vibF: 19, lp: F(3000) }));
     this._noise({ dur: .8, vol: v * .18, kind: 'bandpass', f: F(900), f2: F(500), Q: .9, lp: F(2400) });
   },
-  _g_howl(F, v) {            // lobo: sobe, sustenta, desce
+  _g_howl(F, v) {            // wolf: rises, holds, falls
     // A real howl is tonal but NOT a sine: it has a dense harmonic stack.
     // A triangle/sine (what I used) comes out too thin and sounds like a whistle.
     const a = F(360), b = F(600), lp = F(3000);
@@ -389,20 +389,20 @@ const SFX = {
     this._noise({ t: .04, dur: .55, vol: v * .75, kind: 'bandpass', f: F(4000), f2: F(2600), Q: .7 });  // a metallic blast
     this._tone({ f: F(78), dur: .85, vol: v * .45, kind: 'sine', atk: .05 });   // the rumble that gives it its size
   },
-  _g_huff(F, v) {            // girafa e okapi: bufo + zumbido grave
+  _g_huff(F, v) {            // giraffe and okapi: a huff + a low hum
     // A giraffe is a near-silent animal: it snorts, it huffs and it emits a ~92 Hz
     // hum. No roar — the "right" answer here is to be discreet.
     this._noise({ dur: .38, vol: v * .8, kind: 'bandpass', f: 1100, f2: 300, Q: .6, lp: 1800 });
     this._tone({ f: F(150), f2: F(96), kind: 'triangle', dur: .34, vol: v * .5, atk: .02, lp: 700 });
     this._tone({ f: 92, dur: 1.3, vol: v * .7, kind: 'sine', atk: .18, t: .16 });  // 92 Hz is a fact about the animal
   },
-  _g_bray(F, v) {           // zebra: late em duas partes
+  _g_bray(F, v) {            // zebra: a two-part bark
     for (let i = 0; i < 2; i++) {
       this._tone({ f: F(430), f2: F(230), kind: 'sawtooth', dur: .17, vol: v, t: i * .28, atk: .01, vib: 34, vibF: 17 });
       this._noise({ dur: .13, vol: v * .4, kind: 'bandpass', f: 800, f2: 340, Q: 1, t: i * .28, lp: 1900 });
     }
   },
-  _g_whinny(F, v) {        // cavalo, jumento
+  _g_whinny(F, v) {          // horse, donkey
     // real: 57% between 1.5 and 3 kHz — a whinny is shrill
     this._tone({ f: F(3100), f2: F(1500), kind: 'sawtooth', dur: .7, vol: v * .8, atk: .02, vib: 60, vibF: 16 });
     this._tone({ f: F(420), f2: F(300), kind: 'sawtooth', dur: .5, vol: v * .22, atk: .04, t: .3, lp: F(900) });
@@ -418,7 +418,7 @@ const SFX = {
     this._tone({ f: F(2500), f2: F(2050), kind: 'sawtooth', dur: .55, vol: v * .7, atk: .04, vib: 130, vibF: 21 });
     this._tone({ f: F(700), f2: F(600), kind: 'sawtooth', dur: .5, vol: v * .3, atk: .05, vib: 50, vibF: 21, lp: F(1100) });
   },
-  _g_call(F, v, r) {        // primata: pant-hoot que acelera e sobe
+  _g_call(F, v, r) {         // primate: a pant-hoot that speeds up and rises
     const n = 4 + (r() * 3 | 0);
     for (let i = 0; i < n; i++) {
       const k = i / n;
@@ -429,7 +429,7 @@ const SFX = {
                     f: F(700), Q: .8, lp: F(2200) });   // ar do arquejo
     }
   },
-  _g_chirp(F, v, r) {        // aves: varreduras curtas e agudas
+  _g_chirp(F, v, r) {        // birds: short, high sweeps
     for (let i = 0; i < 3 + (r() * 3 | 0); i++) {
       const f = F(1900 + r() * 1100);
       this._tone({ f, f2: f * (1.4 + r() * .6), kind: 'sine', dur: .06, vol: v * .55, t: i * .095, atk: .004 });
@@ -441,10 +441,10 @@ const SFX = {
       // real: 73% between 1.5 and 3 kHz — a squawk is harsh and high
       this._tone({ f: F(1750), f2: F(1350), kind: 'sawtooth', dur: .17, vol: v * .7, t: i * .21, vib: 45, vibF: 25, lp: F(2900) });
   },
-  _g_hiss(F, v) {          // serpente
+  _g_hiss(F, v) {            // snake
     this._noise({ dur: .8, vol: v * .8, kind: 'highpass', f: 3600, f2: 6800, Q: .5 });
   },
-  _g_reptile(F, v) {          // lagarto, crocodilo, tartaruga: sopro + ronco
+  _g_reptile(F, v) {         // lizard, crocodile, tortoise: a puff + a rumble
     this._noise({ dur: .5, vol: v * .55, kind: 'bandpass', f: F(760), f2: F(300), Q: 1.3 });
     this._tone({ f: F(105), f2: F(72), kind: 'sawtooth', dur: .45, vol: v * .6, vib: 9, vibF: 13 });
   },
@@ -455,7 +455,7 @@ const SFX = {
       this._noise({ t: i * .08, dur: .05, vol: v * .5, kind: 'bandpass', f: F(2200), Q: 2.2, lp: F(2900) });
     }
   },
-  _g_whistle(F, v) {         // golfinho, boto
+  _g_whistle(F, v) {         // dolphin, river dolphin
     this._tone({ f: F(1600), f2: F(2700), kind: 'sine', dur: .15, vol: v * .5, atk: .01 });
     this._tone({ f: F(2600), f2: F(1300), kind: 'sine', dur: .22, vol: v * .45, t: .14 });
     this._tone({ f: F(900), f2: F(1250), kind: 'sine', dur: .34, vol: v * .55, atk: .02 });  // corpo
@@ -467,7 +467,7 @@ const SFX = {
     for (let i = 0; i < 2; i++)
       this._tone({ f: F(330), f2: F(210), kind: 'sawtooth', dur: .21, vol: v * .85, t: i * .28, vib: 22, vibF: 15 });
   },
-  _g_squeak(F, v, r) {      // roedor, morcego, pequenos: agudo e curto
+  _g_squeak(F, v, r) {       // rodent, bat, the small ones: high and short
     for (let i = 0; i < 2 + (r() * 2 | 0); i++) {
       const f = F(1500 + r() * 700);
       this._tone({ f, f2: f * .6, kind: 'triangle', dur: .08, vol: v * .5, t: i * .11, atk: .005 });

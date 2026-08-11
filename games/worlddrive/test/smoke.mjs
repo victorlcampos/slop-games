@@ -6,8 +6,12 @@ import { findChrome } from 'slopkit/testing';
 
 // the Chrome path comes from the kit: covers macOS, CI Linux and Windows
 const CHROME = findChrome();
-const url = process.env.URL || 'file://' + path.resolve('dist/index.html');
-const shotDir = process.env.SHOT_DIR || 'test';
+// resolved against this file, not the cwd: run from the repo root, a bare
+// 'dist/index.html' is the catalog index and the smoke waits for a menu
+// that page does not have
+const GAME = path.resolve(import.meta.dirname, '../dist/index.html');
+const url = process.env.URL || 'file://' + GAME;
+const shotDir = process.env.SHOT_DIR || path.resolve(import.meta.dirname);
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,

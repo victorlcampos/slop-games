@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>Animais: real x sintetizado</title>
 <style>
   body{background:#12131a;color:#e8e8f0;font:13px system-ui;margin:0;padding:10px;max-width:1100px}
@@ -10,14 +10,21 @@
   .c small{color:#9aa;font-size:10px}
   canvas{width:100%;height:300px;display:block;border-radius:4px}
 </style></head><body>
-<h1>Esquerda = gravação real (Wikimedia Commons). Direita = minha síntese. Mesmo STFT, 0–5 kHz.</h1>
+<h1>Left = a real recording (Wikimedia Commons). Right = my synthesis. Same STFT, 0–5 kHz.</h1>
 <div class="g" id="g"></div>
+<!-- These tools load ../src directly, so they need what those files need:
+     01_i18n.js provides KEY()/LN() and expects a Slop. A dev page does not have
+     the bundle, so it stands in with the little the splitters actually use. -->
+<script>
+  window.Slop = { createI18n: () => ({ lang: 'en', t: (id) => id, extend() {}, onChange() {} }) };
+</script>
+<script src="../src/01_i18n.js"></script>
 <script src="../src/02_util.js"></script>
 <script src="../src/03_species.js"></script>
 <script src="../src/04_sprites.js"></script>
 <script src="../src/06b_audio.js"></script>
 <script>
-/* ---- FFT radix-2 ---- */
+/* ---- radix-2 FFT ---- */
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
@@ -45,18 +52,18 @@ const SR = 22050, N = 1024, HOP = 128, FMAX = 5000;
 
 async function renderiza(fn, dur) {
   const oc = new OfflineAudioContext(1, Math.ceil(SR * dur), SR);
-  SFX.ctx = oc; SFX.ligado = true; SFX._ativas = 0; SFX._ult = new Map(); SFX._glote = null;
-  SFX.mestre = oc.createGain(); SFX.mestre.gain.value = 1;
+  SFX.ctx = oc; SFX.on = true; SFX._active = 0; SFX._lastAt = new Map(); SFX._glottis = null;
+  SFX.master = oc.createGain(); SFX.master.gain.value = 1;
   const lim = oc.createDynamicsCompressor();
   lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
-  SFX.mestre.connect(lim).connect(oc.destination);
-  SFX.longe = SFX.mestre;
+  SFX.master.connect(lim).connect(oc.destination);
+  SFX.far = SFX.master;
   fn();
   const buf = await oc.startRendering();
   return buf.getChannelData(0);
 }
 
-function desenha(cv, x, titulo) {
+function drawPanel(cv, x, title) {
   const cols = Math.floor((x.length - N) / HOP);
   const bins = Math.floor(N * FMAX / SR);
   cv.width = cols; cv.height = bins;
@@ -85,20 +92,20 @@ function desenha(cv, x, titulo) {
     img.data[p+3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  // envelope de longo prazo: onde a energia realmente se concentra
+  // the long-term envelope: where the energy actually concentrates
   const env = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0; for (let c = 0; c < cols; c++) s += mag[c*bins+b]*mag[c*bins+b];
     env[b] = Math.sqrt(s / cols);
   }
-  // suaviza para achar o envelope espectral (não os harmônicos individuais)
+  // smoothed to find the spectral envelope (not the individual harmonics)
   const W = Math.round(330 * N / SR), sm = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0, n = 0;
     for (let k = -W; k <= W; k++) { const i = b+k; if (i>=0 && i<bins) { s += env[i]; n++; } }
     sm[b] = s/n;
   }
-  // impressão digital comparável: quanta energia mora em cada faixa
+  // a comparable fingerprint: how much energy lives in each band
   const FX = [[0,500],[500,1500],[1500,3000],[3000,5000]];
   const e = FX.map(([lo,hi]) => {
     let s = 0;
@@ -117,12 +124,12 @@ async function carrega(url) {
   const oc = new OfflineAudioContext(1, 2, SR);
   const buf = await oc.decodeAudioData(await (await fetch(url)).arrayBuffer());
   let x = buf.getChannelData(0);
-  if (buf.sampleRate !== SR) {          // reamostra para o mesmo SR da síntese
+  if (buf.sampleRate !== SR) {          // resample to the synthesis' own SR
     const o2 = new OfflineAudioContext(1, Math.ceil(x.length * SR / buf.sampleRate), SR);
     const s = o2.createBufferSource(); s.buffer = buf; s.connect(o2.destination); s.start();
     x = (await o2.startRendering()).getChannelData(0);
   }
-  // corta silêncio das pontas para os painéis alinharem no tempo
+  // trim the silence off both ends so the panels line up in time
   let pico = 0; for (let i = 0; i < x.length; i++) pico = Math.max(pico, Math.abs(x[i]));
   const lim = pico * .04;
   let a = 0, b = x.length - 1;
@@ -132,45 +139,45 @@ async function carrega(url) {
 }
 
 
-// cada referência aponta para o GESTO que ela deve validar
-const NOMES = [
-  ['leão',      'ref/a_leao.wav',     2.0, 'Leão'],
+// each reference points at the GESTURE it is meant to validate
+const ITEMS = [
+  ['lion',      'ref/a_leao.wav',     2.0, 'Lion'],
   ['tigre',     'ref/a_tigre.wav',    2.0, 'Tigre-de-bengala'],
   ['urso',      'ref/a_urso.wav',     2.0, 'Urso-pardo'],
   ['lobo',      'ref/a_lobo.wav',     2.4, 'Lobo-cinzento'],
   ['elefante',  'ref/a_elefante.wav', 2.2, 'Elefante-africano'],
-  ['chimpanzé', 'ref/a_primata.wav',  2.4, 'Chimpanzé'],
-  ['galo',      'ref/a_ave.wav',      1.8, { gesto:'piado', esc:.5 }],
-  ['rã',        'ref/a_anfibio.wav',  1.6, { gesto:'coaxo', esc:.2 }],
-  ['vaca',      'ref/a_bovino.wav',   2.2, { gesto:'mugido', esc:1.3 }],
-  ['cavalo',    'ref/a_equino.wav',   2.2, { gesto:'relincho', esc:1.3 }],
-  ['cabra',     'ref/a_ungulado.wav', 2.0, { gesto:'balido', esc:.7 }],
-  ['pinguim',   'ref/a_pinguim.wav',  2.0, { gesto:'grasnado', esc:.5 }],
-  ['golfinho',  'ref/a_peixe.wav',    2.0, { gesto:'assobio', esc:1.2 }],
-  ['porco',     'ref/a_suino.wav',    2.0, { gesto:'grunhido', esc:.9 }],
+  ['chimp',     'ref/a_primata.wav',  2.4, 'Chimpanzee'],
+  ['galo',      'ref/a_ave.wav',      1.8, { gesture:'piado', scale:.5 }],
+  ['frog',      'ref/a_anfibio.wav',  1.6, { gesture:'croak', scale:.2 }],
+  ['vaca',      'ref/a_bovino.wav',   2.2, { gesture:'mugido', scale:1.3 }],
+  ['cavalo',    'ref/a_equino.wav',   2.2, { gesture:'relincho', scale:1.3 }],
+  ['cabra',     'ref/a_ungulado.wav', 2.0, { gesture:'balido', scale:.7 }],
+  ['pinguim',   'ref/a_pinguim.wav',  2.0, { gesture:'grasnado', scale:.5 }],
+  ['golfinho',  'ref/a_peixe.wav',    2.0, { gesture:'assobio', scale:1.2 }],
+  ['porco',     'ref/a_suino.wav',    2.0, { gesture:'grunhido', scale:.9 }],
 ];
-const PARES = NOMES.map(([rot, url, dur, alvo]) => {
+const PAIRS = ITEMS.map(([label, url, dur, target]) => {
   let sp;
-  if (typeof alvo === 'string') sp = SPECIES.find(s => s.nome === alvo);
-  else {  // pega a espécie do gesto pedido com tamanho mais próximo do bicho gravado
-    const c = SPECIES.filter(s => gestoDe(s) === alvo.gesto);
-    c.sort((a, b) => Math.abs(a.esc - alvo.esc) - Math.abs(b.esc - alvo.esc));
+  if (typeof target === 'string') sp = SPECIES.find(s => s.key === target);
+  else {  // pick the species with the asked-for gesture whose size is closest to the recorded animal
+    const c = SPECIES.filter(s => gestureOf(s) === target.gesture);
+    c.sort((a, b) => Math.abs(a.esc - target.esc) - Math.abs(b.esc - target.esc));
     sp = c[0];
   }
-  return [rot + (sp ? ' · ' + sp.nome : ' · ?'), url, dur, sp];
+  return [label + (sp ? ' · ' + sp.key : ' · ?'), url, dur, sp];
 }).filter(p => p[3]);
 
 (async () => {
   const g = document.getElementById('g');
-  for (const [nome, url, dur, sp] of PARES) {
+  for (const [name, url, dur, sp] of PAIRS) {
     const h = document.createElement('div'); h.className = 'par';
-    h.textContent = nome + '  —  gesto: ' + gestoDe(sp); g.appendChild(h);
-    const fn = () => SFX.voz(sp, { imediato: true, vol: .6 });
-    for (const [rot, prod] of [['REAL', () => carrega(url)], ['MEU', () => renderiza(fn, dur)]]) {
+    h.textContent = name + '  —  gesto: ' + gestureOf(sp); g.appendChild(h);
+    const fn = () => SFX.animalVoice(sp, { now: true, vol: .6 });
+    for (const [label, prod] of [['REAL', () => carrega(url)], ['MEU', () => renderiza(fn, dur)]]) {
       const d = document.createElement('div'); d.className = 'c';
-      d.innerHTML = `<b>${rot}</b>`;
+      d.innerHTML = `<b>${label}</b>`;
       const cv = document.createElement('canvas'); d.appendChild(cv); g.appendChild(d);
-      try { const i = desenha(cv, await prod(), nome);
+      try { const i = drawPanel(cv, await prod(), name);
             const e = document.createElement('small'); e.style.color='#7fd'; e.textContent = i; d.appendChild(e); }
       catch (e) { d.innerHTML += `<small style="color:#f88">${e.message}</small>`; }
     }

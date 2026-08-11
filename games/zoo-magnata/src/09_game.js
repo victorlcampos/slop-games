@@ -449,7 +449,7 @@ function pointerEnd(e) {
       const p = pickAt(sx, sy);
       // tapping an animal makes it answer — that is the point of a voice per species
       if (p) {
-        if (p.kind === 'animal') SFX.voz(p.ref.sp, { vol: .3, now: true });
+        if (p.kind === 'animal') SFX.animalVoice(p.ref.sp, { vol: .3, now: true });
         else if (p.kind === 'vis' || p.kind === 'staff') SFX.humanVoice(p.ref, { vol: .26, now: true });
         select(p.kind, p.ref);
       }
@@ -497,7 +497,7 @@ function cycleSound() {
   if (!SFX.on) { SFX.on = true; SFX.vol = .65; }
   else if (SFX.vol > .5) SFX.vol = .3;
   else SFX.on = false;
-  SFX.aplicarVolume(); refreshSoundButton();
+  SFX.applyVolume(); refreshSoundButton();
   try { localStorage.setItem('zoo_som', JSON.stringify({ l: SFX.on, v: SFX.vol })); } catch (e) {}
   if (SFX.on) SFX.play('ui');
 }
@@ -1089,7 +1089,7 @@ function loop(now) {
       const vivos = G.animals.filter(a => !a.dead);
       const chance = clamp(.02 + vivos.length * .006, 0, .13);
       if (vivos.length && Math.random() < chance)
-        SFX.voz(pick(vivos).sp, { vol: .13, distante: true });
+        SFX.animalVoice(pick(vivos).sp, { vol: .13, distant: true });
     }
   }
   miniAcc += dt;

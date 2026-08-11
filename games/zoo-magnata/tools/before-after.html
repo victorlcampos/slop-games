@@ -1,5 +1,5 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>Real x sintetizado</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Before vs after</title>
 <style>
   body{background:#12131a;color:#e8e8f0;font:13px system-ui;margin:0;padding:10px;max-width:1100px}
   h1{font-size:15px;margin:0 0 10px}
@@ -10,14 +10,21 @@
   .c small{color:#9aa;font-size:10px}
   canvas{width:100%;height:300px;display:block;border-radius:4px}
 </style></head><body>
-<h1>Esquerda = voz humana real (macOS TTS). Direita = minha síntese. Mesmo STFT, 0–5 kHz.</h1>
+<h1>Left = the COMMITTED version (what is on GitHub Pages). Right = the NEW version (working tree).</h1>
 <div class="g" id="g"></div>
+<!-- These tools load ../src directly, so they need what those files need:
+     01_i18n.js provides KEY()/LN() and expects a Slop. A dev page does not have
+     the bundle, so it stands in with the little the splitters actually use. -->
+<script>
+  window.Slop = { createI18n: () => ({ lang: 'en', t: (id) => id, extend() {}, onChange() {} }) };
+</script>
+<script src="../src/01_i18n.js"></script>
 <script src="../src/02_util.js"></script>
 <script src="../src/03_species.js"></script>
 <script src="../src/04_sprites.js"></script>
-<script src="../src/06b_audio.js"></script>
+
 <script>
-/* ---- FFT radix-2 ---- */
+/* ---- radix-2 FFT ---- */
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
@@ -45,18 +52,18 @@ const SR = 22050, N = 1024, HOP = 128, FMAX = 5000;
 
 async function renderiza(fn, dur) {
   const oc = new OfflineAudioContext(1, Math.ceil(SR * dur), SR);
-  SFX.ctx = oc; SFX.ligado = true; SFX._ativas = 0; SFX._ult = new Map(); SFX._glote = null;
-  SFX.mestre = oc.createGain(); SFX.mestre.gain.value = 1;
+  SFX.ctx = oc; SFX.on = true; SFX._active = 0; SFX._lastAt = new Map(); SFX._glottis = null;
+  SFX.master = oc.createGain(); SFX.master.gain.value = 1;
   const lim = oc.createDynamicsCompressor();
   lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
-  SFX.mestre.connect(lim).connect(oc.destination);
-  SFX.longe = SFX.mestre;
+  SFX.master.connect(lim).connect(oc.destination);
+  SFX.far = SFX.master;
   fn();
   const buf = await oc.startRendering();
   return buf.getChannelData(0);
 }
 
-function desenha(cv, x, titulo) {
+function drawPanel(cv, x, title) {
   const cols = Math.floor((x.length - N) / HOP);
   const bins = Math.floor(N * FMAX / SR);
   cv.width = cols; cv.height = bins;
@@ -85,20 +92,20 @@ function desenha(cv, x, titulo) {
     img.data[p+3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  // envelope de longo prazo: onde a energia realmente se concentra
+  // the long-term envelope: where the energy actually concentrates
   const env = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0; for (let c = 0; c < cols; c++) s += mag[c*bins+b]*mag[c*bins+b];
     env[b] = Math.sqrt(s / cols);
   }
-  // suaviza para achar o envelope espectral (não os harmônicos individuais)
+  // smoothed to find the spectral envelope (not the individual harmonics)
   const W = Math.round(330 * N / SR), sm = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0, n = 0;
     for (let k = -W; k <= W; k++) { const i = b+k; if (i>=0 && i<bins) { s += env[i]; n++; } }
     sm[b] = s/n;
   }
-  // impressão digital comparável: quanta energia mora em cada faixa
+  // a comparable fingerprint: how much energy lives in each band
   const FX = [[0,500],[500,1500],[1500,3000],[3000,5000]];
   const e = FX.map(([lo,hi]) => {
     let s = 0;
@@ -117,12 +124,12 @@ async function carrega(url) {
   const oc = new OfflineAudioContext(1, 2, SR);
   const buf = await oc.decodeAudioData(await (await fetch(url)).arrayBuffer());
   let x = buf.getChannelData(0);
-  if (buf.sampleRate !== SR) {          // reamostra para o mesmo SR da síntese
+  if (buf.sampleRate !== SR) {          // resample to the synthesis' own SR
     const o2 = new OfflineAudioContext(1, Math.ceil(x.length * SR / buf.sampleRate), SR);
     const s = o2.createBufferSource(); s.buffer = buf; s.connect(o2.destination); s.start();
     x = (await o2.startRendering()).getChannelData(0);
   }
-  // corta silêncio das pontas para os painéis alinharem no tempo
+  // trim the silence off both ends so the panels line up in time
   let pico = 0; for (let i = 0; i < x.length; i++) pico = Math.max(pico, Math.abs(x[i]));
   const lim = pico * .04;
   let a = 0, b = x.length - 1;
@@ -131,26 +138,52 @@ async function carrega(url) {
   return x.slice(Math.max(0, a - 800), Math.min(x.length, b + 800));
 }
 
-const PARES = [
-  ['homem "ah"',   'ref/h_ah.wav',    .9, () => SFX._vogal({ f0:112, vogal:'a', dur:.45, vol:.5, tipo:'homem' })],
-  ['mulher "ah"',  'ref/m_ah.wav',    .9, () => SFX._vogal({ f0:200, vogal:'a', dur:.45, vol:.5, tipo:'mulher' })],
-  ['homem "oh"',   'ref/h_oi.wav',   1.0, () => SFX.vozHumana({ crianca:false, look:3, id:7 }, { imediato:true, vol:.5 })],
-  ['mulher "oi"',  'ref/m_oi.wav',   1.0, () => SFX.vozHumana({ crianca:false, look:11, id:2 }, { imediato:true, vol:.5 })],
-  ['mulher "uau"', 'ref/m_uau.wav',  1.0, () => SFX.vozHumana({ crianca:false, look:8, id:4 }, { imediato:true, vol:.5 })],
-  ['2 sílabas',    'ref/h_frase.wav',1.4, () => SFX.vozHumana({ crianca:false, role:'vet', look:4, id:1 }, { imediato:true, vol:.5 })],
+
+
+async function loadModule(url) {
+  const txt = await (await fetch(url)).text();
+  // the module declares `const SFX` at the top; wrapped to get hold of it
+  return new Function(txt + '\n; return SFX;')();
+}
+
+const CASOS = [
+  ['Lion',              'animal'], ['Bengal tiger',     'animal'],
+  ['Urso-pardo',        'animal'], ['Lobo-cinzento',    'animal'],
+  ['African elephant',  'animal'], ['Chimpanzee',       'animal'],
+  ['adult visitor',     'human'],  ['child',            'human'],
 ];
 
+async function renderizaCom(MOD, fn, dur) {
+  const oc = new OfflineAudioContext(1, Math.ceil(SR * dur), SR);
+  MOD.ctx = oc; MOD.on = true; MOD._active = 0; MOD._lastAt = new Map(); MOD._glottis = null;
+  MOD.master = oc.createGain(); MOD.master.gain.value = .65;
+  const lim = oc.createDynamicsCompressor();
+  lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
+  MOD.master.connect(lim).connect(oc.destination); MOD.far = MOD.master;
+  fn(MOD);
+  return (await oc.startRendering()).getChannelData(0);
+}
+
 (async () => {
+  const OLD = await loadModule('_audio_old.js');
+  const NEW  = await loadModule('../src/06b_audio.js');
   const g = document.getElementById('g');
-  for (const [nome, url, dur, fn] of PARES) {
-    const h = document.createElement('div'); h.className = 'par'; h.textContent = nome; g.appendChild(h);
-    for (const [rot, prod] of [['REAL', () => carrega(url)], ['MEU', () => renderiza(fn, dur)]]) {
-      const d = document.createElement('div'); d.className = 'c';
-      d.innerHTML = `<b>${rot}</b>`;
+  for (const [name, tipo] of CASOS) {
+    const h = document.createElement('div'); h.className = 'par'; h.textContent = name; g.appendChild(h);
+    const sp = tipo === 'animal' ? SPECIES.find(s => s.key === name) : null;
+    const fn = sp ? (M => M.voz(sp, { now: true, vol: .3 }))
+                  : (M => M.vozHumana({ child: name === 'child', look: 3, id: 77 }, { now: true, vol: .26 }));
+    const dur = sp ? 2.2 : 1.2;
+    for (const [label, MOD] of [['BEFORE (committed)', OLD], ['AFTER (working tree)', NEW]]) {
+      const d = document.createElement('div'); d.className = 'c'; d.innerHTML = `<b>${label}</b>`;
       const cv = document.createElement('canvas'); d.appendChild(cv); g.appendChild(d);
-      try { const i = desenha(cv, await prod(), nome);
-            const e = document.createElement('small'); e.style.color='#7fd'; e.textContent = i; d.appendChild(e); }
-      catch (e) { d.innerHTML += `<small style="color:#f88">${e.message}</small>`; }
+      try {
+        const x = await renderizaCom(MOD, fn, dur);
+        let pico = 0; for (let i = 0; i < x.length; i++) pico = Math.max(pico, Math.abs(x[i]));
+        const info = drawPanel(cv, x, name);
+        const e = document.createElement('small'); e.style.color = '#7fd';
+        e.textContent = 'pico ' + pico.toFixed(3) + '  ' + info; d.appendChild(e);
+      } catch (e) { d.innerHTML += `<small style="color:#f88">${e.message}</small>`; }
     }
   }
   document.title = 'pronto';

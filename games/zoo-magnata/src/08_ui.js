@@ -596,7 +596,7 @@ function inspectAnimal(a) {
     </div>`;
   $('#iav').appendChild(cv2);
   $('#ix').onclick = deselect;
-  $('#ivoz').onclick = () => { SFX.start(); SFX.voz(sp, { vol: .32, now: true }); };
+  $('#ivoz').onclick = () => { SFX.start(); SFX.animalVoice(sp, { vol: .32, now: true }); };
   $('#igo').onclick = () => centerOn(a.x, a.y);
   $('#isell').onclick = () => {
     const v = resaleValue(a);

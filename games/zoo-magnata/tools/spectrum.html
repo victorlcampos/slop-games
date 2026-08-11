@@ -1,5 +1,5 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>Espectrogramas — verificação do som</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Spectrograms — checking the sound</title>
 <style>
   body{background:#12131a;color:#e8e8f0;font:13px system-ui;margin:0;padding:14px}
   h1{font-size:15px;margin:0 0 10px}
@@ -9,14 +9,21 @@
   .c small{color:#9aa;font-size:10px}
   canvas{width:100%;display:block;border-radius:4px;image-rendering:pixelated}
 </style></head><body>
-<h1>Espectrograma — 0 a 5 kHz (onde moram os formantes). Eixo Y = frequência, X = tempo.</h1>
+<h1>Spectrogram — 0 to 5 kHz (where the formants live). Y axis = frequency, X = time.</h1>
 <div class="g" id="g"></div>
+<!-- These tools load ../src directly, so they need what those files need:
+     01_i18n.js provides KEY()/LN() and expects a Slop. A dev page does not have
+     the bundle, so it stands in with the little the splitters actually use. -->
+<script>
+  window.Slop = { createI18n: () => ({ lang: 'en', t: (id) => id, extend() {}, onChange() {} }) };
+</script>
+<script src="../src/01_i18n.js"></script>
 <script src="../src/02_util.js"></script>
 <script src="../src/03_species.js"></script>
 <script src="../src/04_sprites.js"></script>
 <script src="../src/06b_audio.js"></script>
 <script>
-/* ---- FFT radix-2 ---- */
+/* ---- radix-2 FFT ---- */
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
@@ -44,18 +51,18 @@ const SR = 22050, N = 1024, HOP = 128, FMAX = 5000;
 
 async function renderiza(fn, dur) {
   const oc = new OfflineAudioContext(1, Math.ceil(SR * dur), SR);
-  SFX.ctx = oc; SFX.ligado = true; SFX._ativas = 0; SFX._ult = new Map(); SFX._glote = null;
-  SFX.mestre = oc.createGain(); SFX.mestre.gain.value = 1;
+  SFX.ctx = oc; SFX.on = true; SFX._active = 0; SFX._lastAt = new Map(); SFX._glottis = null;
+  SFX.master = oc.createGain(); SFX.master.gain.value = 1;
   const lim = oc.createDynamicsCompressor();
   lim.threshold.value = -12; lim.knee.value = 12; lim.ratio.value = 6;
-  SFX.mestre.connect(lim).connect(oc.destination);
-  SFX.longe = SFX.mestre;
+  SFX.master.connect(lim).connect(oc.destination);
+  SFX.far = SFX.master;
   fn();
   const buf = await oc.startRendering();
   return buf.getChannelData(0);
 }
 
-function desenha(cv, x, titulo) {
+function drawPanel(cv, x, title) {
   const cols = Math.floor((x.length - N) / HOP);
   const bins = Math.floor(N * FMAX / SR);
   cv.width = cols; cv.height = bins;
@@ -84,20 +91,20 @@ function desenha(cv, x, titulo) {
     img.data[p+3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  // envelope de longo prazo: onde a energia realmente se concentra
+  // the long-term envelope: where the energy actually concentrates
   const env = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0; for (let c = 0; c < cols; c++) s += mag[c*bins+b]*mag[c*bins+b];
     env[b] = Math.sqrt(s / cols);
   }
-  // suaviza para achar o envelope espectral (não os harmônicos individuais)
+  // smoothed to find the spectral envelope (not the individual harmonics)
   const W = Math.round(330 * N / SR), sm = new Float32Array(bins);
   for (let b = 0; b < bins; b++) {
     let s = 0, n = 0;
     for (let k = -W; k <= W; k++) { const i = b+k; if (i>=0 && i<bins) { s += env[i]; n++; } }
     sm[b] = s/n;
   }
-  // impressão digital comparável: quanta energia mora em cada faixa
+  // a comparable fingerprint: how much energy lives in each band
   const FX = [[0,500],[500,1500],[1500,3000],[3000,5000]];
   const e = FX.map(([lo,hi]) => {
     let s = 0;
@@ -112,24 +119,24 @@ function desenha(cv, x, titulo) {
 }
 
 const CASOS = [
-  ['visitante adulto (masc)', 1.0, () => SFX.vozHumana({ crianca:false, look:3, id:7 }, { imediato:true, vol:.5 })],
-  ['visitante adulto (fem)',  1.0, () => SFX.vozHumana({ crianca:false, look:11, id:2 }, { imediato:true, vol:.5 })],
-  ['criança',                 1.0, () => SFX.vozHumana({ crianca:true, look:1, id:5 }, { imediato:true, vol:.5 })],
-  ['vogal /a/ isolada',        .6, () => SFX._vogal({ f0:118, vogal:'a', dur:.5, vol:.5, tipo:'homem' })],
-  ['vogal /i/ isolada',        .6, () => SFX._vogal({ f0:118, vogal:'i', dur:.5, vol:.5, tipo:'homem' })],
-  ['/a/ -> /i/ (transição)',   .6, () => SFX._vogal({ f0:118, f0b:150, vogal:'a', vogal2:'i', dur:.5, vol:.5, tipo:'homem' })],
-  ['veterinário (2 sílabas)', 1.0, () => SFX.vozHumana({ crianca:false, role:'vet', look:4, id:1 }, { imediato:true, vol:.5 })],
-  ['leão (referência OK)',    1.6, () => SFX.voz({ nome:'Leão', fam:'felino', esc:1.4 }, { imediato:true, vol:.6 })],
-  ['girafa (referência OK)',  1.6, () => SFX.voz({ nome:'Girafa', fam:'girafa', esc:1.8 }, { imediato:true, vol:.6 })],
+  ['adult visitor (male)',    1.0, () => SFX.humanVoice({ child:false, look:3, id:7 }, { now:true, vol:.5 })],
+  ['adult visitor (female)',  1.0, () => SFX.humanVoice({ child:false, look:11, id:2 }, { now:true, vol:.5 })],
+  ['child',                   1.0, () => SFX.humanVoice({ child:true, look:1, id:5 }, { now:true, vol:.5 })],
+  ['vogal /a/ isolada',        .6, () => SFX._vowel({ f0:118, vogal:'a', dur:.5, vol:.5, kind:'man' })],
+  ['vogal /i/ isolada',        .6, () => SFX._vowel({ f0:118, vogal:'i', dur:.5, vol:.5, kind:'man' })],
+  ['/a/ -> /i/ (transition)',  .6, () => SFX._vowel({ f0:118, f0b:150, vowel:'a', vowel2:'i', dur:.5, vol:.5, kind:'man' })],
+  ['vet (2 syllables)',       1.0, () => SFX.humanVoice({ child:false, role:'vet', look:4, id:1 }, { now:true, vol:.5 })],
+  ['lion (reference OK)',     1.6, () => SFX.animalVoice({ key:'Lion', plan:'feline', scale:1.4 }, { now:true, vol:.6 })],
+  ['giraffe (reference OK)',  1.6, () => SFX.animalVoice({ key:'Giraffe', plan:'giraffe', scale:1.8 }, { now:true, vol:.6 })],
 ];
 
 (async () => {
   const g = document.getElementById('g');
-  for (const [nome, dur, fn] of CASOS) {
+  for (const [name, dur, fn] of CASOS) {
     const d = document.createElement('div'); d.className = 'c';
-    d.innerHTML = `<b>${nome}</b><small>${dur}s · 0–5 kHz</small>`;
+    d.innerHTML = `<b>${name}</b><small>${dur}s · 0–5 kHz</small>`;
     const cv = document.createElement('canvas'); d.appendChild(cv); g.appendChild(d);
-    try { const info = desenha(cv, await renderiza(fn, dur), nome);
+    try { const info = drawPanel(cv, await renderiza(fn, dur), name);
           const e = document.createElement('small'); e.style.color='#7fd';
           e.textContent = 'picos: ' + info; d.appendChild(e); }
     catch (e) { d.innerHTML += `<small style="color:#f88">${e.message}</small>`; }
