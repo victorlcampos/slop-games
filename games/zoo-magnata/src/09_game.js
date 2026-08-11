@@ -60,7 +60,7 @@ function dragPlan(r, fenceKey) {
   if (free.length < MIN_ENC_TILES)
     return { action: 'none', reason: BI`Recinto muito pequeno: precisa de ${MIN_ENC_TILES} tiles livres.|Enclosure too small: it needs ${MIN_ENC_TILES} free tiles.` };
   const set = new Set(free);
-  return { action: 'criar', tiles: free, cost: countSegments(set) * FENCES[fenceKey].cost };
+  return { action: 'create', tiles: free, cost: countSegments(set) * FENCES[fenceKey].cost };
 }
 const fenceCostOf = e => encSegCount(e) * FENCES[e.fence].cost;
 
@@ -133,7 +133,7 @@ function applyTool(x, y, dragging) {
     if (dragging) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast(LN('🚫 Objetos de recinto só vão dentro de um recinto|🚫 Enclosure objects only go inside an enclosure'), 'bad'); return; }
-    if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
+    if (world.occ[k]) { toast(LN('🚫 Tile ocupado|🚫 Tile taken'), 'bad'); return; }
     if (G.money < t.cost) return noCash();
     spend(t.cost, 'build'); const oe = placeObject(t.key, 'encobj', x, y); SFX.play('building');
     undoRecord({ kind: 'object', cat: 'build', id: oe.id, cost: t.cost, label: t.n });
@@ -146,7 +146,7 @@ function applyTool(x, y, dragging) {
     demolishAt(x, y);
   }
 }
-function noCash() { SFX.play('error'); toast('💸 Caixa insuficiente', 'bad'); }
+function noCash() { SFX.play('error'); toast(LN('💸 Caixa insuficiente|💸 Not enough cash'), 'bad'); }
 function demolishAt(x, y) {
   const k = IDX(x, y);
   if (world.occ[k]) {
@@ -170,7 +170,7 @@ function demolishAt(x, y) {
     if (e.animals.length) { toast(LN('🚫 Tire os animais antes de demolir o recinto|🚫 Take the animals out before demolishing the enclosure'), 'bad'); return; }
     const dev = Math.round(fenceCostOf(e) * .5);
     deleteEnclosure(e.id); earn(dev, 'sell'); SFX.play('demolish');
-    toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
+    toast(BI`🔨 Recinto demolido (+${moneyFull(dev)})|🔨 Enclosure demolished (+${moneyFull(dev)})`, 'money');
   }
 }
 
@@ -280,7 +280,7 @@ function undoLast() {
     case 'path': {
       let n = 0;
       for (const [x, y] of ent.tiles) if (removePath(x, y)) n++;
-      if (n) { value = refund(ent.cost * n / ent.tiles.length); msg = `Trilha (${n} tile${n > 1 ? 's' : ''})`; }
+      if (n) { value = refund(ent.cost * n / ent.tiles.length); msg = BI`Trilha (${n} tile${n > 1 ? 's' : ''})|Path (${n} tile${n > 1 ? 's' : ''})`; }
       else msg = '!' + LN('a trilha já não existe mais|the path is gone already');
       break;
     }
@@ -296,7 +296,7 @@ function undoLast() {
       const o = objects.get(ent.id);
       if (o) {
         if (G.sel && G.sel.ref === o) deselect();
-        removeObject(ent.id); value = refund(ent.cost); msg = ent.label;
+        removeObject(ent.id); value = refund(ent.cost); msg = LN(ent.label);
       } else msg = '!' + LN(ent.label) + LN(' já foi removido| has already been removed');
       break;
     }
@@ -316,9 +316,9 @@ function undoLast() {
       const e = enclosures.get(ent.id);
       if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       if (e.animals.some(a => !a.dead)) { msg = '!' + LN('o recinto tem animais — venda ou transfira antes|the enclosure has animals — sell or transfer them first'); break; }
-      if (e.objs.length) { msg = '!o recinto tem objetos dentro — remova antes'; break; }
+      if (e.objs.length) { msg = '!' + LN('o recinto tem objetos dentro — remova antes|the enclosure has objects inside — remove them first'); break; }
       if (G.sel && G.sel.ref === e) deselect();
-      deleteEnclosure(ent.id); value = refund(ent.cost); msg = 'Recinto';
+      deleteEnclosure(ent.id); value = refund(ent.cost); msg = LN('Recinto|Enclosure');
       break;
     }
     case 'extension': {
@@ -326,7 +326,7 @@ function undoLast() {
       if (!e) { msg = '!' + LN('o recinto já foi demolido|the enclosure has been demolished'); break; }
       const set = new Set(ent.tiles.filter(k => e.tiles.has(k)));
       if (!set.size) { msg = '!' + LN('a ampliação já não existe|the extension is gone already'); break; }
-      if (set.size >= e.tiles.size) { msg = '!desfazer apagaria o recinto inteiro'; break; }
+      if (set.size >= e.tiles.size) { msg = '!' + LN('desfazer apagaria o recinto inteiro|undoing would erase the whole enclosure'); break; }
       if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!' + LN('há objetos na área ampliada — remova antes|there are objects in the extended area — remove them first'); break; }
       for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
       encInvalidate(e);
@@ -351,7 +351,7 @@ function undoLast() {
   }
   if (msg[0] !== '!') {
     SFX.play('demolish');
-    toast(`↩️ Desfeito: ${msg} — reembolso ${moneyFull(value)}`, 'good');
+    toast(BI`↩️ Desfeito: ${msg} — reembolso ${moneyFull(value)}|↩️ Undone: ${msg} — refund ${moneyFull(value)}`, 'good');
     if (typeof refreshInspector === 'function') refreshInspector();
   } else {
     SFX.play('error');
@@ -686,10 +686,10 @@ function repEvento(delta, reason, em) {
   if (G.repLog.length > 60) G.repLog.shift();
 }
 function parkQuality() {
-  const vivos = G.animals.filter(a => !a.dead);
-  if (!vivos.length) return .6;
-  const felAn = vivos.reduce((s, a) => s + a.happy, 0) / vivos.length;
-  const variety = new Set(vivos.map(a => a.sp.id)).size;
+  const alive = G.animals.filter(a => !a.dead);
+  if (!alive.length) return .6;
+  const felAn = alive.reduce((s, a) => s + a.happy, 0) / alive.length;
+  const variety = new Set(alive.map(a => a.sp.id)).size;
   const felVis = G.stats.happiness;
   const litterAvg = (() => { let s = 0, n = 0; for (let i = 0; i < W * H; i++) if (world.path[i]) { s += world.litter[i]; n++; } return n ? s / n : 0; })();
   let q = felAn * 1.7 + felVis * 1.9 + Math.min(variety, 30) / 30 * 1.1 - litterAvg * 1.2;
@@ -764,14 +764,14 @@ function gameSnapshot() {
 function saveGame(quiet) {
   try {
     localStorage.setItem('zoo_save', JSON.stringify(gameSnapshot()));
-    if (!quiet) toast('💾 Jogo salvo', 'good');
+    if (!quiet) toast(LN('💾 Jogo salvo|💾 Game saved'), 'good');
     return true;
   } catch (err) { if (!quiet) toast(BI`⚠️ Não foi possível salvar: ${err.message}|⚠️ Could not save: ${err.message}`, 'bad'); return false; }
 }
 function loadGame() {
   const raw = localStorage.getItem('zoo_save');
-  if (!raw) { toast('Nenhum jogo salvo encontrado', 'bad'); return false; }
-  return applySnapshot(raw, 'Jogo carregado');
+  if (!raw) { toast(LN('Nenhum jogo salvo encontrado|No saved game found'), 'bad'); return false; }
+  return applySnapshot(raw, LN('Jogo carregado|Game loaded'));
 }
 /** Applies a saved snapshot (from localStorage or an imported file). */
 function applySnapshot(raw, label) {
@@ -839,7 +839,7 @@ function applySnapshot(raw, label) {
     for (const st of s.staff) { const x = hire(modernKey(st.kind)); if (!x) continue; x.x = st.x; x.y = st.y; x.done = st.done || 0; }
     terrainChanged(); rebuildNet();   // rebuildNet already bumps netVer
     deselect(); closeModal();
-    toast('📂 ' + (label || 'Jogo carregado') + ' — dia ' + G.day, 'good');
+    toast('📂 ' + (label || LN('Jogo carregado|Game loaded')) + BI` — dia ${G.day}| — day ${G.day}`, 'good');
     return true;
   } catch (err) { toast(BI`⚠️ Save inválido: ${err.message}|⚠️ Invalid save: ${err.message}`, 'bad'); return false; }
 }
@@ -856,7 +856,7 @@ function downloadFile(name, conteudo, mime) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     return true;
-  } catch (err) { toast('⚠️ Download falhou: ' + err.message, 'bad'); return false; }
+  } catch (err) { toast(BI`⚠️ Download falhou: ${err.message}|⚠️ Download failed: ${err.message}`, 'bad'); return false; }
 }
 const selo = () => 'day' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour).replace(':', 'h');
 
@@ -873,7 +873,7 @@ function importSave(file, onDone) {
   const fr = new FileReader();
   fr.onload = () => {
     let ok = false;
-    if (/^\s*[{[]/.test(fr.result)) ok = applySnapshot(fr.result, 'Save importado');
+    if (/^\s*[{[]/.test(fr.result)) ok = applySnapshot(fr.result, LN('Save importado|Save imported'));
     else toast(LN('⚠️ Esse arquivo não é um save (.json) do jogo|⚠️ That file is not a game save (.json)'), 'bad');
     if (onDone) onDone(ok);
   };
@@ -887,9 +887,9 @@ function reportText() {
   const row = c => L.push(c);
   const reg = (rot, val) => row('  ' + rot.padEnd(30, '.') + ' ' + val);
   const miniGauge = v => '█'.repeat(Math.round(clamp(v, 0, 1) * 10)).padEnd(10, '░');
-  const vivos = G.animals.filter(a => !a.dead);
+  const alive = G.animals.filter(a => !a.dead);
   const moodV = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.happiness;
-  const moodA = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
+  const moodA = alive.length ? alive.reduce((s, a) => s + a.happy, 0) / alive.length : 0;
 
   row(LN('ZOO MAGNATA — STATUS|ZOO TYCOON — STATUS'));
   row('='.repeat(64));
@@ -907,7 +907,7 @@ function reportText() {
   reg(LN('Visitantes desde a abertura|Visitors since opening'), G.stats.visitorTotal);
   reg(LN('Satisfação dos visitantes|Visitor satisfaction'), Math.round(moodV * 100) + '%  ' + miniGauge(moodV));
   reg(LN('Felicidade dos animais|Animal happiness'), Math.round(moodA * 100) + '%  ' + miniGauge(moodA));
-  reg(LN('Animais vivos|Animals alive'), vivos.length + BI` de ${new Set(vivos.map(a => a.sp.id)).size} espécies| across ${new Set(vivos.map(a => a.sp.id)).size} species`);
+  reg(LN('Animais vivos|Animals alive'), alive.length + BI` de ${new Set(alive.map(a => a.sp.id)).size} espécies| across ${new Set(alive.map(a => a.sp.id)).size} species`);
   reg(LN('Recintos|Enclosures'), enclosures.size);
 
   const stuck = crowdDiagnosis();
@@ -920,25 +920,25 @@ function reportText() {
   row('');
   row(LN('FINANÇAS — HOJE|FINANCE — TODAY'));
   const h = G.ledger.today;
-  reg('Ingressos', '+' + moneyFull(h.ticket));
-  reg('Lojas e restaurantes', '+' + moneyFull(h.shop));
-  reg('Venda de animais', '+' + moneyFull(h.sell));
+  reg(LN('Ingressos|Tickets'), '+' + moneyFull(h.ticket));
+  reg(LN('Lojas e restaurantes|Shops and restaurants'), '+' + moneyFull(h.shop));
+  reg(LN('Venda de animais|Animal sales'), '+' + moneyFull(h.sell));
   reg(LN('Ração e insumos|Feed and supplies'), '-' + moneyFull(h.feed));
   reg(LN('Salários|Wages'), '-' + moneyFull(h.wage));
   reg(LN('Manutenção e veterinário|Upkeep and vet'), '-' + moneyFull(h.upkeep));
-  reg('Compra de animais', '-' + moneyFull(h.buy));
-  reg('Obras', '-' + moneyFull(h.build));
-  reg('SALDO DO DIA', moneyFull(balance(h)));
+  reg(LN('Compra de animais|Animal purchases'), '-' + moneyFull(h.buy));
+  reg(LN('Obras|Construction'), '-' + moneyFull(h.build));
+  reg(LN('SALDO DO DIA|BALANCE FOR THE DAY'), moneyFull(balance(h)));
   if (G.ledger.hist.length) {
     row('');
     row(LN('ÚLTIMOS DIAS|RECENT DAYS'));
     for (const d of G.ledger.hist.slice(-10))
-      row(`  dia ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitantes · saldo ${moneyFull(d.balance)}`);
+      row(BI`  dia ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitantes · saldo ${moneyFull(d.balance)}|  day ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitors · balance ${moneyFull(d.balance)}`);
   }
 
   row('');
-  row('RECINTOS');
-  if (!enclosures.size) row('  (nenhum)');
+  row(LN('RECINTOS|ENCLOSURES'));
+  if (!enclosures.size) row(LN('  (nenhum)|  (none)'));
   for (const e of enclosures.values()) {
     const av = e.animals.filter(a => !a.dead);
     const fel = av.length ? av.reduce((s, a) => s + a.happy, 0) / av.length : 0;
@@ -990,7 +990,7 @@ function reportText() {
   payroll += builds.reduce((s, o) => s + BUILDINGS[o.kind].wage, 0);
   reg(LN('Folha semanal total|Total weekly payroll'), moneyFull(payroll));
 
-  const rv = groupThoughts(G.visitors, visitorThought), ra = groupThoughts(vivos, animalThought);
+  const rv = groupThoughts(G.visitors, visitorThought), ra = groupThoughts(alive, animalThought);
   const section = (tit, rank, tot) => {
     row(''); row(tit);
     if (!rank.length) { row(LN('  (ninguém)|  (nobody)')); return; }
@@ -1000,7 +1000,7 @@ function reportText() {
     }
   };
   section(LN('POR QUE OS VISITANTES ESTÃO ASSIM|WHY THE VISITORS FEEL THIS WAY'), rv, G.visitors.length);
-  section(LN('POR QUE OS ANIMAIS ESTÃO ASSIM|WHY THE ANIMALS FEEL THIS WAY'), ra, vivos.length);
+  section(LN('POR QUE OS ANIMAIS ESTÃO ASSIM|WHY THE ANIMALS FEEL THIS WAY'), ra, alive.length);
 
   row('');
   row('='.repeat(64));
@@ -1086,10 +1086,10 @@ function loop(now) {
     // Animal voices in the background, muffled and sparse. No crowd murmur: the
     // park stays quiet and what you hear are the animals themselves.
     if (G.speed > 0 && SFX.on) {
-      const vivos = G.animals.filter(a => !a.dead);
-      const chance = clamp(.02 + vivos.length * .006, 0, .13);
-      if (vivos.length && Math.random() < chance)
-        SFX.animalVoice(pick(vivos).sp, { vol: .13, distant: true });
+      const alive = G.animals.filter(a => !a.dead);
+      const chance = clamp(.02 + alive.length * .006, 0, .13);
+      if (alive.length && Math.random() < chance)
+        SFX.animalVoice(pick(alive).sp, { vol: .13, distant: true });
     }
   }
   miniAcc += dt;
@@ -1111,10 +1111,18 @@ const comecar = loadSaveFile => {
 $('#btnStart').onclick = () => comecar(false);
 $('#btnUpload').onclick = () => $('#fileSave').click();
 if (hasSave) {
-  $('#btnStart').innerHTML = LN('Começar do zero 🎟️|Start from scratch 🎟️');
-  const b = el('button', 'btn b big', LN('Continuar jogo salvo 📂|Continue saved game 📂'));
+  // Both buttons carry data-pt/data-en instead of a one-off LN(): bindText runs
+  // right below and applies immediately, so anything written straight into
+  // textContent here would be overwritten by the markup's copy — the start
+  // button ended up reading "Open the zoo!" while it actually starts over.
+  const start = $('#btnStart');
+  start.dataset.pt = 'Começar do zero 🎟️';
+  start.dataset.en = 'Start from scratch 🎟️';
+  const b = el('button', 'btn b big', '');
+  b.dataset.pt = 'Continuar jogo salvo 📂';
+  b.dataset.en = 'Continue saved game 📂';
   b.onclick = () => comecar(true);
-  $('#btnStart').after(b);
+  start.after(b);
 }
 /* ==========================================================================
    THE TWO FLAGS
@@ -1140,6 +1148,7 @@ I18N.onChange(() => {
   if (G.tool && G.tool.cat) buildPalette(G.tool.cat);
   showInspector();
   renderAlerts();
+  reopenModal();
 });
 
 // the test bridge — the kit looks for this name

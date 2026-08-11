@@ -21,13 +21,15 @@ export const t = (id, values) => i18n.t(id, values);
 /**
  * Reads a bilingual field. Anything that isn't `{ pt, en }` comes back
  * untouched, so numbers and already-plain strings pass straight through.
+ *
+ * A field is resolved WHERE IT IS DRAWN, never stored resolved: the battle
+ * notice used to keep the string it was built with and sat there for seven
+ * seconds in the language the player had just left.
  */
 export function pick(field) {
   if (field && typeof field === 'object' && !Array.isArray(field)) {
-    return field[i18n.lang] !== undefined ? field[i18n.lang] : field.pt;
+    if (field[i18n.lang] !== undefined) return field[i18n.lang];
+    return field.en !== undefined ? field.en : field.pt;   // English is the default
   }
   return field;
 }
-
-/** For sprite cache keys: two languages, two cached drawings. */
-export const langKey = () => i18n.lang;

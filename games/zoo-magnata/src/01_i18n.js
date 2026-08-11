@@ -7,13 +7,14 @@
    Three conventions live here, and all three keep the translation next to the
    string instead of in a table far away:
 
-     LN('Savanna|Savana')   a bilingual value written inline, split on `|`.
-                            Used by the dense data tables — the species
-                            catalogue, the biomes, the buildings — where a
-                            `{ pt, en }` object per field would triple the file
-                            and make it unreadable.
+     LN('Savana|Savanna')   a bilingual value written inline, split on `|`.
+                            PORTUGUESE FIRST — see the note below. Used by the
+                            dense data tables — the species catalogue, the
+                            biomes, the buildings — where a `{ pt, en }` object
+                            per field would triple the file and make it
+                            unreadable.
 
-     BI`Day ${n}|Dia ${n}`  the same, for an interpolated sentence.
+     BI`Dia ${n}|Day ${n}`  the same, for an interpolated sentence.
 
      TX('key')              the dictionary, for phrases assembled at runtime
                             and for anything long enough that a pipe in the
@@ -57,7 +58,7 @@ function KEY(value) {
  * The same idea for a template literal, so an interpolated sentence can carry
  * both languages without being torn into a dictionary key plus arguments:
  *
- *   BI`A ${name} was born!|Nasceu um filhote de ${name}!`
+ *   BI`Nasceu um filhote de ${name}!|A ${name} was born!`
  *
  * The values are parked behind a marker, the joined text is split on the pipe,
  * and the markers are filled back in. That way `${}` can appear on both sides

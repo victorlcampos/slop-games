@@ -5,7 +5,7 @@
    starts from it and a loaded save is measured against it (see keepShape). */
 const newBooks = () => ({ ticket: 0, shop: 0, feed: 0, wage: 0, upkeep: 0, buy: 0, sell: 0, build: 0 });
 const newLedger = () => ({ today: newBooks(), week: newBooks(), hist: [] });
-const newStats = () => ({ visToday: 0, visitorTotal: 0, happiness: .7, gateToday: 0 });
+const newStats = () => ({ visToday: 0, visitorTotal: 0, happiness: .7, gateToday: 0, repVis: 0 });
 
 const G = {
   // a low opening ticket: a zoo that just opened has little to show, and a high
@@ -254,7 +254,7 @@ function updAnimal(a, dt, gh) {
       }
     } else {
       const fert = 5 / (sp.lifespan * YEAR_DAYS * 24)          // ~2-3 crias por vida
-        * clamp(sp.gmax / 6, .6, 2)                        // a herd breeds more
+        * clamp(sp.groupMax / 6, .6, 2)                    // a herd breeds more
         * (1 + .25 * Math.min(G.nVets, 4));                // the vets' breeding programme
       if (Math.random() < gh * fert &&
         e.animals.some(z => z.sp.id === sp.id && z.sex === 'M' && !z.dead && z.age > sp.lifespan * .18)) {
@@ -303,7 +303,7 @@ function moveAnimal(a, dt, gh) {
   const ti = IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1));
   const inWater = TKEYS[world.terr[ti]] === 'water';
   const vel = (a.sick ? .35 : 1) * (.5 + Math.min(sp.scale, 1.4) * .55) * (sp.plan === 'sloth' ? .25 : 1)
-    * (inWater ? (sp.aquatico ? 1.15 : sp.plano === 'pernalta' ? .8 : .55) : 1);
+    * (inWater ? (sp.aquatic ? 1.15 : sp.plan === 'wader' ? .8 : .55) : 1);
   if (d > .08) {
     const s = Math.min(vel * dt, d);
     const nx = a.x + (a.tx - a.x) / d * s, ny = a.y + (a.ty - a.y) / d * s;

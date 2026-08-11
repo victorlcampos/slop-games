@@ -49,8 +49,8 @@ function updateHUD() {
   $('#stMoney').classList.toggle('neg', G.money < 0);
   $('#vDay').textContent = G.day;
   $('#vVis').textContent = G.visitors.length;
-  const vivos = G.animals.filter(a => !a.dead);
-  $('#vAni').textContent = vivos.length;
+  const alive = G.animals.filter(a => !a.dead);
+  $('#vAni').textContent = alive.length;
   const hp = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.happiness;
   G.stats.happiness = hp;
   $('#vHappy').textContent = Math.round(hp * 100) + '%';
@@ -156,7 +156,7 @@ function buildDock() {
     b.onclick = () => openCategory(c.k);
     UI.dock.appendChild(b);
   }
-  const bh = el('button', 'btn', '<i>❓</i>Ajuda');
+  const bh = el('button', 'btn', '<i>❓</i>' + LN('Ajuda|Help'));
   bh.onclick = openHelp; UI.dock.appendChild(bh);
 }
 function openCategory(k) {
@@ -198,7 +198,7 @@ function buildPalette(k) {
     title.textContent = LN('Recintos — arraste um retângulo (mínimo 3×3). O preço cobre a cerca do perímetro.|Enclosures — drag a rectangle (3×3 minimum). The price covers the perimeter fence.');
     for (const key in FENCES) {
       const F = FENCES[key];
-      add(F.n, F.em, F.cost, { cat: 'enclosure', key, em: F.em, n: F.n, cost: F.cost },
+      add(LN(F.n), F.em, F.cost, { cat: 'enclosure', key, em: F.em, n: F.n, cost: F.cost },
         BI`<span class="pr">força ${F.strength} · visão ${Math.round(F.sight * 100)}%</span>|<span class="pr">strength ${F.strength} · sight ${Math.round(F.sight * 100)}%</span>`);
     }
   } else if (k === 'terrain') {
@@ -206,28 +206,28 @@ function buildPalette(k) {
     for (const key of TKEYS) {
       if (key === 'pavement') continue;
       const T = TERRAIN[key];
-      add(T.n, T.em, T.cost, { cat: 'terrain', key, em: T.em, n: T.n, cost: T.cost });
+      add(LN(T.n), T.em, T.cost, { cat: 'terrain', key, em: T.em, n: T.n, cost: T.cost });
     }
   } else if (k === 'encobj') {
     title.textContent = LN('Objetos de recinto — comedouro e bebedouro são obrigatórios para manter os animais vivos|Enclosure objects — a feeder and a water trough are required to keep the animals alive');
     for (const key in ENCOBJ) {
       const O = ENCOBJ[key];
-      add(O.n, O.em, O.cost, { cat: 'encobj', key, em: O.em, n: O.n, cost: O.cost, w: 1, h: 1 },
-        O.enr ? `<span class="pr">enriquecimento +${O.enr}</span>` : '');
+      add(LN(O.n), O.em, O.cost, { cat: 'encobj', key, em: O.em, n: O.n, cost: O.cost, w: 1, h: 1 },
+        O.enr ? `<span class="pr">${BI`enriquecimento +${O.enr}|enrichment +${O.enr}`}</span>` : '');
     }
   } else if (k === 'build') {
     title.textContent = LN('Comércio e serviços — cada um atende uma necessidade dos visitantes|Shops and services — each one meets a visitor need');
     for (const key in BUILDINGS) {
       const B = BUILDINGS[key];
-      add(B.n, B.em, B.cost, { cat: 'build', key, em: B.em, n: B.n, cost: B.cost, w: B.w, h: B.h },
-        `<span class="pr">${B.w}×${B.h}${B.supplies ? ' · ' + B.supplies : ''}</span>`);
+      add(LN(B.n), B.em, B.cost, { cat: 'build', key, em: B.em, n: B.n, cost: B.cost, w: B.w, h: B.h },
+        `<span class="pr">${B.w}×${B.h}${B.supplies ? ' · ' + LN(NEED_NAMES[B.supplies] || B.supplies) : ''}</span>`);
     }
   } else if (k === 'deco') {
     title.textContent = LN('Decoração — aumenta a beleza da área e o humor de quem passa perto|Decor — raises the beauty of the area and the mood of whoever walks past');
     for (const key in DECOS) {
       const D = DECOS[key];
-      add(D.n, D.em, D.cost, { cat: 'deco', key, em: D.em, n: D.n, cost: D.cost, w: 1, h: 1 },
-        `<span class="pr">beleza +${D.beauty}</span>`);
+      add(LN(D.n), D.em, D.cost, { cat: 'deco', key, em: D.em, n: D.n, cost: D.cost, w: 1, h: 1 },
+        `<span class="pr">${BI`beleza +${D.beauty}|beauty +${D.beauty}`}</span>`);
     }
   }
 }
@@ -235,23 +235,29 @@ function setTool(t) {
   if (t) SFX.play('tab');
   G.tool = t; G.drag = null;
   if (!t) { hint(null); return; }
+  // keyed by t.cat, which is English — while these keys were Portuguese, four
+  // of the seven hints simply came out blank
   const tips = {
-    caminho: LN('Arraste para desenhar a trilha.|Drag to draw the path.'),
-    recinto: t.ampliando
+    path: LN('Arraste para desenhar a trilha.|Drag to draw the path.'),
+    enclosure: t.extending
       ? LN('Arraste <b>encostando no recinto</b> para ampliá-lo. Pode repetir para fazer L, T ou U.|Drag <b>touching the enclosure</b> to extend it. Repeat to make an L, a T or a U.')
       : LN('Arraste um retângulo para criar. Depois arraste <b>colado nele</b> para ampliar — o formato não precisa ser quadrado.|Drag a rectangle to create one. Then drag <b>against it</b> to extend — the shape does not have to be square.'),
-    terreno: LN('Arraste para pintar o terreno.<span class="ctrlMouse"> <kbd>Shift</kbd> pinta 3×3.</span>|Drag to paint the terrain.<span class="ctrlMouse"> <kbd>Shift</kbd> paints 3×3.</span>'),
+    terrain: LN('Arraste para pintar o terreno.<span class="ctrlMouse"> <kbd>Shift</kbd> pinta 3×3.</span>|Drag to paint the terrain.<span class="ctrlMouse"> <kbd>Shift</kbd> paints 3×3.</span>'),
     encobj: LN('Coloque dentro de um recinto já construído.|Place it inside an enclosure you already built.'),
     build: LN('Posicione junto a uma trilha para os visitantes conseguirem chegar.|Put it next to a path so visitors can reach it.'),
     deco: LN('Espalhe pelo parque — quanto mais bonito, mais felizes os visitantes.|Scatter it around the park — the prettier it is, the happier the visitors.'),
     animal: BI`Toque num recinto para soltar <b>${t.sp ? LN(t.sp.name) : ''}</b> lá dentro.|Tap an enclosure to release <b>${t.sp ? LN(t.sp.name) : ''}</b> into it.`,
-    demolir: LN('Toque no que quiser remover. Recintos devolvem metade do valor da cerca.|Tap whatever you want removed. Enclosures refund half the fence value.'),
+    demolish: LN('Toque no que quiser remover. Recintos devolvem metade do valor da cerca.|Tap whatever you want removed. Enclosures refund half the fence value.'),
   };
   hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${LN(t.n || '')}</b> — ${tips[t.cat] || ''}` +
-    `<button class="btn r sm" id="hintX" title="Cancelar ferramenta">✕</button>`);
+    `<button class="btn r sm" id="hintX" title="${LN('Cancelar ferramenta|Cancel the tool')}">✕</button>`);
 }
 
 /* ---- modais ---- */
+/* Which panel is on screen, so a language change can rebuild it. Every panel
+   is an HTML string built once, so without this the open modal keeps the words
+   of the language the player just left. */
+let modalReopen = null;
 function openModal(title, bodyHTML, footHTML) {
   SFX.play('open');
   UI.mTitle.textContent = title;
@@ -262,6 +268,11 @@ function openModal(title, bodyHTML, footHTML) {
 function closeModal() {
   if (UI.modalBg.classList.contains('show')) SFX.play('close');
   UI.modalBg.classList.remove('show'); closePalette();
+  modalReopen = null;
+}
+/** Rebuilds the open panel, if any, in the language now selected. */
+function reopenModal() {
+  if (modalReopen && UI.modalBg.classList.contains('show')) modalReopen();
 }
 $('#modalX').onclick = closeModal;
 UI.modalBg.onclick = e => { if (e.target === UI.modalBg) closeModal(); };
@@ -270,6 +281,7 @@ UI.modalBg.onclick = e => { if (e.target === UI.modalBg) closeModal(); };
 let shopFiltro = { q: '', biome: '', diet: '', ord: 'appeal' };
 let shopEncId = null;
 function openShop(encId) {
+  modalReopen = () => openShop(encId);
   shopEncId = encId || null;
   const e = encId ? enclosures.get(encId) : null;
   const optB = [`<option value="">${LN('Todos os biomas|All biomes')}</option>`]
@@ -364,8 +376,8 @@ function renderShop() {
 }
 function buyFor(sp, e) {
   const notice = checkEnclosure(sp, e);
-  if (notice.bloqueia) { toast('🚫 ' + notice.msg, 'bad'); return false; }
-  if (G.money < sp.price) { toast('💸 Dinheiro insuficiente', 'bad'); return false; }
+  if (notice.blocks) { toast('🚫 ' + notice.msg, 'bad'); return false; }
+  if (G.money < sp.price) { toast(LN('💸 Dinheiro insuficiente|💸 Not enough money'), 'bad'); return false; }
   spend(sp.price, 'buy');
   const a = newAnimal(sp, e.id);
   e.animals.push(a);
@@ -377,18 +389,18 @@ function buyFor(sp, e) {
 function checkEnclosure(sp, e) {
   const F = FENCES[e.fence];
   const kin = e.animals.filter(z => z.sp.id === sp.id).length;
-  const outras = new Set(e.animals.map(z => z.sp.id)); outras.delete(sp.id);
-  if (outras.size > 0) {
-    const carnivoro = sp.diet === 'carn' || e.animals.some(z => z.diet === 'carn');
-    if (carnivoro) return { bloqueia: true, msg: LN('Não dá para misturar carnívoros com outras espécies nesse recinto.|You cannot mix carnivores with other species in that enclosure.') };
+  const others = new Set(e.animals.map(z => z.sp.id)); others.delete(sp.id);
+  if (others.size > 0) {
+    const carnivore = sp.diet === 'carn' || e.animals.some(z => z.diet === 'carn');
+    if (carnivore) return { blocks: true, msg: LN('Não dá para misturar carnívoros com outras espécies nesse recinto.|You cannot mix carnivores with other species in that enclosure.') };
   }
-  if (encArea(e) < sp.space) return { bloqueia: true, msg: BI`${LN(sp.name)} precisa de ${sp.space} tiles e o recinto só tem ${encArea(e)}.|A ${LN(sp.name)} needs ${sp.space} tiles and the enclosure only has ${encArea(e)}.` };
-  if (encArea(e) < sp.space * (kin + 1)) return { bloqueia: false, msg: 'O recinto vai ficar tight — a felicidade cai.' };
-  if (sp.danger > F.strength) return { bloqueia: false, msg: BI`${LN(FENCES[e.fence].n)} é fraca demais: risco de fuga.|${LN(FENCES[e.fence].n)} is too weak: escape risk.` };
-  if (sp.flies && !F.aviary) return { bloqueia: false, msg: LN('Ave sem tela de aviário fica infeliz e pode escapar.|A bird without aviary mesh is unhappy and may escape.') };
-  if (sp.aquatic && !F.aquarium) return { bloqueia: false, msg: LN('Espécie aquática pede vidro de aquário.|An aquatic species needs aquarium glass.') };
-  if (terrainScore(e, sp) < .35) return { bloqueia: false, msg: BI`Terreno não combina com o bioma ${LN(sp.biomeName)}.|The terrain does not match the ${LN(sp.biomeName)} biome.` };
-  return { bloqueia: false, msg: null };
+  if (encArea(e) < sp.space) return { blocks: true, msg: BI`${LN(sp.name)} precisa de ${sp.space} tiles e o recinto só tem ${encArea(e)}.|A ${LN(sp.name)} needs ${sp.space} tiles and the enclosure only has ${encArea(e)}.` };
+  if (encArea(e) < sp.space * (kin + 1)) return { blocks: false, msg: LN('O recinto vai ficar apertado — a felicidade cai.|The enclosure will be cramped — happiness drops.') };
+  if (sp.danger > F.strength) return { blocks: false, msg: BI`${LN(FENCES[e.fence].n)} é fraca demais: risco de fuga.|${LN(FENCES[e.fence].n)} is too weak: escape risk.` };
+  if (sp.flies && !F.aviary) return { blocks: false, msg: LN('Ave sem tela de aviário fica infeliz e pode escapar.|A bird without aviary mesh is unhappy and may escape.') };
+  if (sp.aquatic && !F.aquarium) return { blocks: false, msg: LN('Espécie aquática pede vidro de aquário.|An aquatic species needs aquarium glass.') };
+  if (terrainScore(e, sp) < .35) return { blocks: false, msg: BI`Terreno não combina com o bioma ${LN(sp.biomeName)}.|The terrain does not match the ${LN(sp.biomeName)} biome.` };
+  return { blocks: false, msg: null };
 }
 
 /* ---- inspetor ---- */
@@ -447,65 +459,66 @@ const encMixHTML = e => Object.entries(encMix(e)).sort((a, b) => b[1] - a[1]).sl
   .map(([k, v]) => `<span class="tag">${TERRAIN[k].em} ${LN(TERRAIN[k].n)} ${Math.round(v * 100)}%</span>`).join('');
 function encAlertsHTML(e) {
   const F = FENCES[e.fence];
-  const vivos = e.animals.filter(a => !a.dead);
-  const sp0 = vivos[0] ? vivos[0].sp : null;
+  const alive = e.animals.filter(a => !a.dead);
+  const sp0 = alive[0] ? alive[0].sp : null;
   const alerts = [];
-  if (!encHasFeeder(e) && vivos.length) alerts.push(['bad', '🥣 Sem comedouro']);
-  if (!encHasWater(e) && vivos.length) alerts.push(['bad', '🚰 Sem bebedouro']);
-  if (e.cleanliness < .4) alerts.push(['bad', '💩 Sujo']);
-  if (encEnrich(e) < .3 && vivos.length) alerts.push(['warn', '🎾 Pouco enriquecimento']);
-  if (sp0 && sp0.danger > F.strength) alerts.push(['bad', '⚠️ Cerca fraca']);
+  if (!encHasFeeder(e) && alive.length) alerts.push(['bad', LN('🥣 Sem comedouro|🥣 No feeder')]);
+  if (!encHasWater(e) && alive.length) alerts.push(['bad', LN('🚰 Sem bebedouro|🚰 No water trough')]);
+  if (e.cleanliness < .4) alerts.push(['bad', LN('💩 Sujo|💩 Filthy')]);
+  if (encEnrich(e) < .3 && alive.length) alerts.push(['warn', LN('🎾 Pouco enriquecimento|🎾 Little enrichment')]);
+  if (sp0 && sp0.danger > F.strength) alerts.push(['bad', LN('⚠️ Cerca fraca|⚠️ Weak fence')]);
   if (!encViewSpots(e).length) alerts.push(['warn', LN('👀 Sem trilha ao redor — ninguém vê|👀 No path around it — nobody sees in')]);
-  if (!alerts.length && vivos.length) alerts.push(['ok', LN('✅ Tudo em ordem|✅ All in order')]);
+  if (!alerts.length && alive.length) alerts.push(['ok', LN('✅ Tudo em ordem|✅ All in order')]);
   return alerts.map(([c, t]) => `<span class="tag ${c}">${t}</span>`).join('');
 }
 function inspEnclosure(e) {
   if (!enclosures.has(e.id)) { deselect(); return; }
   const F = FENCES[e.fence];
-  const vivos = e.animals.filter(a => !a.dead);
-  const felic = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
-  const sp0 = vivos[0] ? vivos[0].sp : null;
+  const alive = e.animals.filter(a => !a.dead);
+  const avgHappy = alive.length ? alive.reduce((s, a) => s + a.happy, 0) / alive.length : 0;
+  const sp0 = alive[0] ? alive[0].sp : null;
   const ts = sp0 ? terrainScore(e, sp0) : null;
   UI.insp.dataset.sig = encSig(e);
 
   UI.insp.innerHTML = `
     <div class="ihead">
       <div class="av" style="font-size:26px">${sp0 ? BIOMES[sp0.biome].em : '🚧'}</div>
-      <div><h3>${esc(e.name)}</h3><div class="sub">${F.em} ${F.n} · ${encArea(e)} tiles · cerca de ${encSegCount(e)} trechos</div></div>
+      <div><h3>${esc(e.name)}</h3><div class="sub">${F.em} ${LN(F.n)} · ${BI`${encArea(e)} tiles · cerca de ${encSegCount(e)} trechos|${encArea(e)} tiles · a fence of ${encSegCount(e)} runs`}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="tagline" id="iAlerts">${encAlertsHTML(e)}</div>
-    ${bar(LN('Felicidade média|Average happiness'), felic, colourFor(felic), undefined, 'felic')}
-    ${bar('Limpeza', e.cleanliness, colourFor(e.cleanliness), undefined, 'limp')}
+    ${bar(LN('Felicidade média|Average happiness'), avgHappy, colourFor(avgHappy), undefined, 'felic')}
+    ${bar(LN('Limpeza|Cleanliness'), e.cleanliness, colourFor(e.cleanliness), undefined, 'limp')}
     ${bar(LN('Comida no cocho|Food in the feeder'), e.food, colourFor(e.food), undefined, 'food')}
     ${bar(LN('Água|Water'), e.water, colourFor(e.water), undefined, 'water')}
-    ${bar('Enriquecimento', encEnrich(e), colourFor(encEnrich(e)), undefined, 'enr')}
+    ${bar(LN('Enriquecimento|Enrichment'), encEnrich(e), colourFor(encEnrich(e)), undefined, 'enr')}
     ${ts !== null ? bar(LN('Terreno x bioma|Terrain vs biome') + ' (' + LN(sp0.biomeName) + ')', ts, colourFor(ts), undefined, 'terr') : ''}
-    <h4 class="sec">Terreno</h4><div class="tagline" id="iMix">${encMixHTML(e)}</div>
-    ${sp0 ? `<div style="font-size:11px;opacity:.7;margin-top:4px">Ideal: ${Object.entries(sp0.mix).map(([k, v]) => `${TERRAIN[k].em}${Math.round(v * 100)}%`).join(' · ')}</div>` : ''}
-    <h4 class="sec">Animais (${vivos.length})</h4>
-    <div id="ilist">${vivos.length ? vivos.map(a => `
+    <h4 class="sec">${LN('Terreno|Terrain')}</h4><div class="tagline" id="iMix">${encMixHTML(e)}</div>
+    ${sp0 ? `<div style="font-size:11px;opacity:.7;margin-top:4px">${LN('Ideal|Ideal')}: ${Object.entries(sp0.mix).map(([k, v]) => `${TERRAIN[k].em}${Math.round(v * 100)}%`).join(' · ')}</div>` : ''}
+    <h4 class="sec">${BI`Animais (${alive.length})|Animals (${alive.length})`}</h4>
+    <div id="ilist">${alive.length ? alive.map(a => `
       <div class="kv" data-a="${a.id}" style="cursor:pointer">
-        <span>${a.sick ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sex === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${a.age.toFixed(1)}a</small></span>
+        <span>${a.sick ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sex === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${a.age.toFixed(1)}${LN('a|y')}</small></span>
         <b style="color:${colourFor(a.happy)}">${Math.round(a.happy * 100)}%</b>
-      </div>`).join('') : '<div style="font-size:12px;opacity:.6">Recinto vazio.</div>'}</div>
-    <h4 class="sec">Objetos (${e.objs.length})</h4>
+      </div>`).join('') : `<div style="font-size:12px;opacity:.6">${LN('Recinto vazio.|Empty enclosure.')}</div>`}</div>
+    <h4 class="sec">${BI`Objetos (${e.objs.length})|Objects (${e.objs.length})`}</h4>
     <div class="tagline">${e.objs.length ? e.objs.map(o => `<span class="tag">${ENCOBJ[o.kind].em} ${LN(ENCOBJ[o.kind].n)}</span>`).join('') : `<span style="font-size:12px;opacity:.6">${LN('Nenhum|None')}</span>`}</div>
     <div class="rowbtns">
-      <button class="btn g sm" id="ibuy">🦁 Comprar animal</button>
-      <button class="btn b sm" id="igrow">➕ Ampliar</button>
-      <button class="btn sm" id="iobj">🥣 Objetos</button>
-      <button class="btn sm" id="ipaint">🎨 Terreno</button>
-      <button class="btn sm" id="iren">✏️ Renomear</button>
-      <button class="btn sm" id="ifence">🚧 Trocar cerca</button>
-      <button class="btn r sm" id="idel">🔨 Demolir</button>
+      <button class="btn g sm" id="ibuy">${LN('🦁 Comprar animal|🦁 Buy an animal')}</button>
+      <button class="btn b sm" id="igrow">${LN('➕ Ampliar|➕ Extend')}</button>
+      <button class="btn sm" id="iobj">${LN('🥣 Objetos|🥣 Objects')}</button>
+      <button class="btn sm" id="ipaint">${LN('🎨 Terreno|🎨 Terrain')}</button>
+      <button class="btn sm" id="iren">${LN('✏️ Renomear|✏️ Rename')}</button>
+      <button class="btn sm" id="ifence">${LN('🚧 Trocar cerca|🚧 Change fence')}</button>
+      <button class="btn r sm" id="idel">${LN('🔨 Demolir|🔨 Demolish')}</button>
     </div>`;
   $('#ix').onclick = deselect;
   $('#ibuy').onclick = () => openShop(e.id);
   $('#igrow').onclick = () => {
     // hands over the tool already carrying this enclosure's fence type
-    setTool({ cat: 'enclosure', key: e.fence, em: FENCES[e.fence].em, n: 'Ampliar ' + e.name,
-              cost: FENCES[e.fence].cost, ampliando: e.id });
+    setTool({ cat: 'enclosure', key: e.fence, em: FENCES[e.fence].em,
+              n: LN('Ampliar |Extend ') + e.name,
+              cost: FENCES[e.fence].cost, extending: e.id });
     if (singlePanel()) deselect();
   };
   $('#iobj').onclick = () => { openCategory('encobj'); };
@@ -519,13 +532,14 @@ function inspEnclosure(e) {
     if (e.animals.length) { toast(LN('🚫 Venda ou mova os animais antes de demolir|🚫 Sell or move the animals before demolishing'), 'bad'); return; }
     const dev = Math.round(fenceCostOf(e) * .5);
     deleteEnclosure(e.id); earn(dev, 'sell'); deselect();
-    toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
+    toast(BI`🔨 Recinto demolido (+${moneyFull(dev)})|🔨 Enclosure demolished (+${moneyFull(dev)})`, 'money');
   };
   $$('#ilist .kv').forEach(d => d.onclick = () => {
     const a = G.animals.find(z => z.id === +d.dataset.a); if (a) select('animal', a);
   });
 }
 function swapFence(e) {
+  modalReopen = () => swapFence(e);
   const opts = Object.keys(FENCES).map(k => {
     const F = FENCES[k], cost = encSegCount(e) * F.cost - Math.round(fenceCostOf(e) * .4);
     return `<div class="pitem" data-f="${k}" style="width:118px">
@@ -546,10 +560,11 @@ function swapFence(e) {
   });
 }
 const scoreHTML = p => p.items.map(([n, v, w]) =>
-  `<div class="kv"><span>${n} <small style="opacity:.5">peso ${Math.round(w * 100)}%</small></span>
+  `<div class="kv"><span>${n} <small style="opacity:.5">${BI`peso ${Math.round(w * 100)}%|weight ${Math.round(w * 100)}%`}</small></span>
     <b style="color:${colourFor(v)}">${Math.round(v * 100)}%</b></div>`).join('');
-const animalEstado = a => a.escaped ? '🚨 FUGIU' : a.sick ? '🤒 Doente'
-  : a.state === 'eating' ? '🍽️ Comendo' : a.state === 'walking' ? '🚶 Andando' : '😴 Descansando';
+const animalEstado = a => a.escaped ? LN('🚨 FUGIU|🚨 ESCAPED') : a.sick ? LN('🤒 Doente|🤒 Sick')
+  : a.state === 'eating' ? LN('🍽️ Comendo|🍽️ Eating')
+  : a.state === 'walking' ? LN('🚶 Andando|🚶 Walking') : LN('😴 Descansando|😴 Resting');
 const animalSig = a => [a.id, a.enc, a.sick ? 1 : 0, a.pregnant > 0 ? 1 : 0].join('|');
 
 function inspectAnimal(a) {
@@ -572,12 +587,12 @@ function inspectAnimal(a) {
       <span class="tag ${pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok'}" id="iPensa">${pa.em} ${esc(pa.txt)}</span>
       <span class="tag">${BIOMES[sp.biome].em} ${LN(sp.biomeName)}</span>
       <span class="tag">${DIETS[sp.diet].em} ${LN(sp.dietName)}</span>
-      ${a.pregnant > 0 ? '<span class="tag ok">🤰 Gestante</span>' : ''}
+      ${a.pregnant > 0 ? `<span class="tag ok">${LN('🤰 Gestante|🤰 Expecting')}</span>` : ''}
     </div>
-    ${bar('Felicidade', a.happy, colourFor(a.happy), undefined, 'feliz')}
+    ${bar(LN('Felicidade|Happiness'), a.happy, colourFor(a.happy), undefined, 'feliz')}
     ${bar(LN('Saúde|Health'), a.health, colourFor(a.health), undefined, 'health')}
-    ${bar('Fome', 1 - a.hunger, colourFor(1 - a.hunger), undefined, 'hunger')}
-    ${bar('Sede', 1 - a.thirst, colourFor(1 - a.thirst), undefined, 'thirst')}
+    ${bar(LN('Fome|Hunger'), 1 - a.hunger, colourFor(1 - a.hunger), undefined, 'hunger')}
+    ${bar(LN('Sede|Thirst'), 1 - a.thirst, colourFor(1 - a.thirst), undefined, 'thirst')}
     ${bar(LN('Idade|Age'), a.age / sp.lifespan, a.age / sp.lifespan > .85 ? '#e2543f' : '#9a6ad4', a.age.toFixed(1) + ' / ' + sp.lifespan + LN(' anos| years'), 'age')}
     <h4 class="sec">${LN('De onde vem a felicidade|Where the happiness comes from')}</h4>
     <div id="iPontos">${scoreHTML(p)}</div>
@@ -589,10 +604,10 @@ function inspectAnimal(a) {
     <div class="kv"><span>${LN('Popularidade|Popularity')}</span><b class="stars">${stars(sp.appeal / 2)}</b></div>
     <div class="kv"><span>${LN('Valor de revenda|Resale value')}</span><b>${moneyFull(resaleValue(a))}</b></div>
     <div class="rowbtns">
-      <button class="btn sm" id="ivoz">🔊 Ouvir</button>
-      <button class="btn sm" id="igo">🎯 Centralizar</button>
-      <button class="btn sm" id="isell">💰 Vender</button>
-      <button class="btn sm" id="imove">📦 Transferir</button>
+      <button class="btn sm" id="ivoz">${LN('🔊 Ouvir|🔊 Listen')}</button>
+      <button class="btn sm" id="igo">${LN('🎯 Centralizar|🎯 Centre')}</button>
+      <button class="btn sm" id="isell">${LN('💰 Vender|💰 Sell')}</button>
+      <button class="btn sm" id="imove">${LN('📦 Transferir|📦 Transfer')}</button>
     </div>`;
   $('#iav').appendChild(cv2);
   $('#ix').onclick = deselect;
@@ -612,15 +627,15 @@ const resaleValue = a => Math.round(a.sp.price * clamp(1.05 - a.age / a.sp.lifes
 function transferir(a) {
   const opts = [...enclosures.values()].filter(e => e.id !== a.enc).map(e => {
     const chk = checkEnclosure(a.sp, e);
-    return `<div class="pitem" data-e="${e.id}" style="width:auto;min-width:150px;text-align:left;padding:8px 10px;${chk.bloqueia ? 'opacity:.45' : ''}">
-      <b>${esc(e.name)}</b><br><span class="pr">${FENCES[e.fence].n} · ${encArea(e)} tiles · ${e.animals.length} animais</span>
-      <br><span class="pr" style="color:${chk.bloqueia ? '#bd3f2d' : chk.msg ? '#c98a1c' : '#3b8c38'}">${chk.bloqueia ? '🚫 ' + chk.msg : chk.msg ? '⚠️ ' + chk.msg : '✅ Combina bem'}</span></div>`;
+    return `<div class="pitem" data-e="${e.id}" style="width:auto;min-width:150px;text-align:left;padding:8px 10px;${chk.blocks ? 'opacity:.45' : ''}">
+      <b>${esc(e.name)}</b><br><span class="pr">${LN(FENCES[e.fence].n)} · ${BI`${encArea(e)} tiles · ${e.animals.length} animais|${encArea(e)} tiles · ${e.animals.length} animals`}</span>
+      <br><span class="pr" style="color:${chk.blocks ? '#bd3f2d' : chk.msg ? '#c98a1c' : '#3b8c38'}">${chk.blocks ? '🚫 ' + chk.msg : chk.msg ? '⚠️ ' + chk.msg : LN('✅ Combina bem|✅ A good match')}</span></div>`;
   }).join('');
   openModal(LN('Transferir |Transfer ') + a.name, opts || `<p>${LN('Não há outro recinto construído.|There is no other enclosure built.')}</p>`);
   $$('#modalBody .pitem').forEach(d => d.onclick = () => {
     const e2 = enclosures.get(+d.dataset.e);
     const chk = checkEnclosure(a.sp, e2);
-    if (chk.bloqueia) { toast('🚫 ' + chk.msg, 'bad'); return; }
+    if (chk.blocks) { toast('🚫 ' + chk.msg, 'bad'); return; }
     const e1 = enclosures.get(a.enc);
     if (e1) e1.animals = e1.animals.filter(z => z.id !== a.id);
     e2.animals.push(a); a.enc = e2.id;
@@ -640,18 +655,18 @@ function refreshInspector() {
     const e = s.ref;
     if (!enclosures.has(e.id)) { deselect(); return; }
     if (UI.insp.dataset.sig !== encSig(e)) { showInspector(); return; }
-    const vivos = e.animals.filter(a => !a.dead);
-    const felic = vivos.length ? vivos.reduce((x, a) => x + a.happy, 0) / vivos.length : 0;
-    setBar('felic', felic, colourFor(felic));
+    const alive = e.animals.filter(a => !a.dead);
+    const avgHappy = alive.length ? alive.reduce((x, a) => x + a.happy, 0) / alive.length : 0;
+    setBar('felic', avgHappy, colourFor(avgHappy));
     setBar('limp', e.cleanliness, colourFor(e.cleanliness));
     setBar('food', e.food, colourFor(e.food));
     setBar('water', e.water, colourFor(e.water));
     const enr = encEnrich(e); setBar('enr', enr, colourFor(enr));
-    if (vivos[0]) { const t = terrainScore(e, vivos[0].sp); setBar('terr', t, colourFor(t)); }
+    if (alive[0]) { const t = terrainScore(e, alive[0].sp); setBar('terr', t, colourFor(t)); }
     const al = $('#iAlerts'); if (al) al.innerHTML = encAlertsHTML(e);
     const mx = $('#iMix'); if (mx) mx.innerHTML = encMixHTML(e);
     for (const row of UI.insp.querySelectorAll('#ilist .kv')) {
-      const a = vivos.find(z => z.id === +row.dataset.a); if (!a) continue;
+      const a = alive.find(z => z.id === +row.dataset.a); if (!a) continue;
       const b = row.querySelector('b');
       b.textContent = Math.round(a.happy * 100) + '%'; b.style.color = colourFor(a.happy);
     }
@@ -698,7 +713,7 @@ function inspObject(o) {
   UI.insp.innerHTML = `
     <div class="ihead">
       <div class="av" style="font-size:26px">${B.em}</div>
-      <div><h3>${B.n}</h3><div class="sub">${o.w}×${o.h}${BUILDINGS[o.kind] ? ' · fila: ' + o.queue.length : ''}</div></div>
+      <div><h3>${LN(B.n)}</h3><div class="sub">${o.w}×${o.h}${BUILDINGS[o.kind] ? BI` · fila: ${o.queue.length}| · queue: ${o.queue.length}` : ''}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     ${isShop ? `
@@ -713,7 +728,7 @@ function inspObject(o) {
     ${BUILDINGS[o.kind] ? `<div class="kv"><span>${LN('Salário/semana|Wage/week')}</span><b>${moneyFull(BUILDINGS[o.kind].wage)}</b></div>` : ''}
     ${BUILDINGS[o.kind] && BUILDINGS[o.kind].supplies ? `<div class="kv"><span>${LN('Atende|Serves')}</span><b>${LN(NEED_NAMES[BUILDINGS[o.kind].supplies] || BUILDINGS[o.kind].supplies)}</b></div>` : ''}
     ${DECOS[o.kind] ? `<div class="kv"><span>${LN('Beleza|Beauty')}</span><b>${BI`+${DECOS[o.kind].beauty} (raio ${DECOS[o.kind].r})|+${DECOS[o.kind].beauty} (radius ${DECOS[o.kind].r})`}</b></div>` : ''}
-    <div class="rowbtns"><button class="btn r sm" id="idel">🔨 Remover (+${moneyFull(Math.round((B.cost || 0) * .5))})</button></div>`;
+    <div class="rowbtns"><button class="btn r sm" id="idel">${BI`🔨 Remover (+${moneyFull(Math.round((B.cost || 0) * .5))})|🔨 Remove (+${moneyFull(Math.round((B.cost || 0) * .5))})`}</button></div>`;
   $('#ix').onclick = deselect;
   $('#idel').onclick = () => { earn(Math.round((B.cost || 0) * .5), 'sell'); removeObject(o.id); deselect(); };
   if (isShop) {
@@ -726,7 +741,7 @@ function inspStaff(s) {
   UI.insp.innerHTML = `
     <div class="ihead">
       <div class="av" style="font-size:26px">${T.em}</div>
-      <div><h3>${T.n}</h3><div class="sub">${T.desc}</div></div>
+      <div><h3>${LN(T.n)}</h3><div class="sub">${LN(T.desc)}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="kv"><span>${LN('Salário|Wage')}</span><b>${BI`${moneyFull(T.wage)}/semana|${moneyFull(T.wage)}/week`}</b></div>
@@ -748,6 +763,7 @@ function inspStaff(s) {
 
 /* ---- the staff panel ---- */
 function openStaff() {
+  modalReopen = () => openStaff();
   const cont = Object.keys(STAFF_TYPES).map(k => {
     const T = STAFF_TYPES[k], n = G.staff.filter(s => s.kind === k).length;
     // Do NOT use data-t here: it is slopkit's dictionary attribute, and bindText
@@ -770,7 +786,7 @@ function openStaff() {
     ev.stopPropagation();
     const k = b.dataset.hire, T = STAFF_TYPES[k];
     if (G.money < T.wage) { toast(LN('💸 Sem caixa para o primeiro salário|💸 Not enough cash for the first wage'), 'bad'); return; }
-    hire(k); toast('🤝 ' + T.n + ' contratado', 'good'); openStaff();
+    hire(k); toast(BI`🤝 ${LN(T.n)} contratado|🤝 ${LN(T.n)} hired`, 'good'); openStaff();
   });
   $$('[data-fire]').forEach(b => b.onclick = ev => {
     ev.stopPropagation();
@@ -782,6 +798,7 @@ function openStaff() {
 
 /* ---- finance ---- */
 function openFinance() {
+  modalReopen = () => openFinance();
   const L = G.ledger;
   const row = (n, v, neg) => `<tr><td>${n}</td><td class="n ${v ? (neg ? 'negv' : 'pos') : ''}">${neg ? '-' : '+'}${moneyFull(v)}</td></tr>`;
   const weeklyPayroll = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0)
@@ -863,8 +880,8 @@ function openFinance() {
   });
   $$('[data-pay]').forEach(b => b.onclick = () => {
     const v = Math.min(G.money, G.loan);
-    if (v <= 0) { toast('Nada a quitar', ''); return; }
-    G.money -= v; G.loan -= v; toast('🏦 Abatido ' + moneyFull(v), 'money'); openFinance();
+    if (v <= 0) { toast(LN('Nada a quitar|Nothing to pay off'), ''); return; }
+    G.money -= v; G.loan -= v; toast(BI`🏦 Abatido ${moneyFull(v)}|🏦 Paid off ${moneyFull(v)}`, 'money'); openFinance();
   });
 }
 const balance = o => o.ticket + o.shop + o.sell - o.feed - o.wage - o.upkeep - o.buy - o.build;
@@ -877,8 +894,8 @@ function crowdDiagnosis() {
   // `key` identifies the diagnosis regardless of language — the HUD compares
   // against it instead of against the translated headline
   const D = (em, short, long, key) => ({ em, short, long, key });
-  const vivos = G.animals.filter(a => !a.dead && !a.escaped);
-  if (!vivos.length)
+  const alive = G.animals.filter(a => !a.dead && !a.escaped);
+  if (!alive.length)
     return D('🦁', LN('Sem animais|No animals'), LN('<b>Nenhum animal no zoológico.</b> Sem atração ninguém paga ingresso — compre bichos na aba Animais.|<b>No animals in the zoo.</b> With no attraction nobody pays for a ticket — buy some on the Animals tab.'), 'noanimals');
   if (!pathConnected(ENTRANCE.x, ENTRANCE.y))
     return D('🛣️', LN('Portão sem trilha|Gate with no path'), LN('<b>Nenhuma trilha ligada ao portão</b> (base do mapa). Sem caminho a partir da entrada, ninguém consegue entrar.|<b>No path connected to the gate</b> (bottom of the map). With no route from the entrance, nobody can get in.'), 'nopath');
@@ -908,7 +925,9 @@ function fairPrice() {
 /* ==========================================================================
    11b. THE SATISFACTION REPORT — where each complaint comes from
    ========================================================================== */
-/** what to do about it, indexed by the thought's icon */
+/** What to do about it, indexed by the thought's icon.
+ *  Values stay as the raw `pt|en` pair — an LN() here would resolve once, at
+ *  module load, and freeze whichever language was up at that instant. */
 const TIPS = {
   '🚻': 'Construa Banheiros perto das trilhas movimentadas.|Build Restrooms near the busy paths.',
   '🥤': 'Um Quiosque de Bebidas ou Bebedouro resolve a sede.|A Drinks Kiosk or a Water Fountain settles the thirst.',
@@ -925,18 +944,18 @@ const TIPS = {
   '💧': 'Ponha Bebedouro no recinto e tenha um Tratador de plantão.|Put a Water Trough in the enclosure and keep a Keeper on duty.',
   '😖': 'Recinto apertado: amplie ou separe os animais.|Cramped enclosure: extend it or split the animals up.',
   '💩': 'Contrate mais Tratadores — eles limpam os recintos.|Hire more Keepers — they clean the enclosures.',
-  '⚠️': LN('Troque por uma cerca mais forte (inspetor do recinto).|Swap in a stronger fence (enclosure inspector).'),
+  '⚠️': 'Troque por uma cerca mais forte (inspetor do recinto).|Swap in a stronger fence (enclosure inspector).',
   '🤕': 'Contrate um Veterinário.|Hire a Vet.',
   '🤒': 'Contrate um Veterinário.|Hire a Vet.',
   '👥': 'Compre mais animais da mesma espécie.|Buy more animals of the same species.',
   '😤': 'Grupo grande demais: venda ou transfira alguns.|The group is too big: sell or transfer a few.',
-  '🕸️': LN('Troque a cerca por Tela de Aviário.|Swap the fence for Aviary Mesh.'),
+  '🕸️': 'Troque a cerca por Tela de Aviário.|Swap the fence for Aviary Mesh.',
   '🌊': 'Troque a cerca por Vidro de Aquário.|Swap the fence for Aquarium Glass.',
   '🏃': 'Contrate Segurança para recapturar o animal.|Hire Security to recapture the animal.',
   '👴': 'Idade avançada — considere trazer animais mais jovens.|Old age — consider bringing in younger animals.',
 };
-for (const k in FOOD_EM) TIPS[FOOD_EM[k]] = LN('Ponha Comedouro no recinto e tenha um Tratador.|Put a Feeder in the enclosure and hire a Keeper.');
-for (const k in BIOMES) TIPS[BIOMES[k].em] = LN('Pinte o terreno do recinto com o bioma pedido (aba Terreno).|Paint the enclosure terrain with the biome it asks for (Terrain tab).');
+for (const k in FOOD_EM) TIPS[FOOD_EM[k]] = 'Ponha Comedouro no recinto e tenha um Tratador.|Put a Feeder in the enclosure and hire a Keeper.';
+for (const k in BIOMES) TIPS[BIOMES[k].em] = 'Pinte o terreno do recinto com o bioma pedido (aba Terreno).|Paint the enclosure terrain with the biome it asks for (Terrain tab).';
 
 /** Counts a population's thoughts and returns a ranking.
  *  It computes on the spot for whoever hasn't got one yet: with the game paused
@@ -955,7 +974,7 @@ function groupThoughts(lista, fn) {
 function reasonRow(r, total) {
   const p = Math.round(r.n / Math.max(1, total) * 100);
   const col = r.urg >= .8 ? '#e2543f' : r.urg >= .45 ? '#ffc23c' : '#4fae4a';
-  const dica = TIPS[r.em];
+  const dica = LN(TIPS[r.em] || '');
   return `<div style="margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
       <span style="font-size:17px;flex:none">${r.em}</span>
@@ -968,6 +987,7 @@ function reasonRow(r, total) {
   </div>`;
 }
 function openSatisfaction() {
+  modalReopen = () => openSatisfaction();
   closePalette();
   const vis = G.visitors;
   const ani = G.animals.filter(a => !a.dead);
@@ -1005,11 +1025,12 @@ function openSatisfaction() {
 
 /* ---- the reputation panel: where the score comes from ---- */
 function openReputation() {
+  modalReopen = () => openReputation();
   closePalette();
-  const vivos = G.animals.filter(a => !a.dead);
-  const felAn = vivos.length ? vivos.reduce((s, a) => s + a.happy, 0) / vivos.length : 0;
+  const alive = G.animals.filter(a => !a.dead);
+  const felAn = alive.length ? alive.reduce((s, a) => s + a.happy, 0) / alive.length : 0;
   const felVis = G.stats.happiness;
-  const variety = new Set(vivos.map(a => a.sp.id)).size;
+  const variety = new Set(alive.map(a => a.sp.id)).size;
   let litterS = 0, litterN = 0;
   for (let i = 0; i < W * H; i++) if (world.path[i]) { litterS += world.litter[i]; litterN++; }
   const litterAvg = litterN ? litterS / litterN : 0;
@@ -1084,17 +1105,17 @@ function inspVisitor(v) {
     <div class="ihead">
       <div class="av" style="font-size:25px">${v.child ? '🧒' : '🧑'}</div>
       <div><h3>${v.child ? LN('Criança|Child') : LN('Visitante|Visitor')}</h3>
-        <div class="sub">${v.leaving ? 'Indo embora' : 'Passeando'} · ${v.time.toFixed(1)}h no parque</div></div>
+        <div class="sub">${v.leaving ? LN('Indo embora|Leaving') : LN('Passeando|Strolling')} · ${BI`${v.time.toFixed(1)}h no parque|${v.time.toFixed(1)}h in the park`}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="tagline"><span class="tag ${p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok'}" id="iEstado">
       ${p.em} ${esc(p.txt)}</span></div>
     ${bar(LN('Satisfação|Satisfaction'), v.mood, colourFor(v.mood), undefined, 'mood')}
-    <h4 class="sec">Necessidades (cheio = tranquilo)</h4>
+    <h4 class="sec">${LN('Necessidades (cheio = tranquilo)|Needs (full = content)')}</h4>
     ${Object.keys(NEED_INFO).map(k => bar(NEED_INFO[k][0] + ' ' + LN(NEED_INFO[k][1]),
       1 - v.need[k], colourFor(1 - v.need[k]), undefined, 'n_' + k)).join('')}
-    <h4 class="sec">Carteira e passeio</h4>
-    <div class="kv"><span>Dinheiro no bolso</span><b id="iDin">${moneyFull(v.money)}</b></div>
+    <h4 class="sec">${LN('Carteira e passeio|Wallet and visit')}</h4>
+    <div class="kv"><span>${LN('Dinheiro no bolso|Money in pocket')}</span><b id="iDin">${moneyFull(v.money)}</b></div>
     <div class="kv"><span>${LN('Recintos que já viu|Enclosures seen')}</span><b id="iViu">${v.seen.size}</b></div>
     <div class="kv"><span>${LN('Levando|Carrying')}</span><b>${v.item === 'balloon' ? LN('🎈 Balão|🎈 Balloon') : v.item === 'food' ? LN('🍔 Comida|🍔 Food') : '—'}</b></div>
     <div class="rowbtns">
@@ -1108,6 +1129,7 @@ function inspVisitor(v) {
 
 /* ---- ajuda ---- */
 function openHelp() {
+  modalReopen = () => openHelp();
   closePalette();
   const li = (pt, en) => `<li>${LN(pt + '|' + en)}</li>`;
   openModal(LN('Como jogar|How to play'),

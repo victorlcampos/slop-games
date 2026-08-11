@@ -1589,7 +1589,7 @@ function drawGhost(c, z) {
     const r = dragRect();
     const p = dragPlan(r, t.key);
     // green = a new enclosure · gold = extending the neighbour · red = not allowed
-    const colour = p.action === 'criar' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
+    const colour = p.action === 'create' ? ['#4fae4a', 'rgba(79,174,74,.26)', '#1f5a1c']
       : p.action === 'extend' ? ['#e8a01c', 'rgba(255,194,60,.3)', '#7a5210']
         : ['#e2543f', 'rgba(226,84,63,.24)', '#8a2f22'];
     c.strokeStyle = colour[0]; c.lineWidth = 3 * z; c.fillStyle = colour[1];
@@ -1606,8 +1606,10 @@ function drawGhost(c, z) {
     [w2sx(r.x + r.w, r.y + r.h), w2sy(r.x + r.w, r.y + r.h)], [w2sx(r.x, r.y + r.h), w2sy(r.x, r.y + r.h)]]);
     c.stroke();
     c.globalAlpha = 1;
-    const rot = p.action === 'criar' ? `Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
-      : p.action === 'extend' ? `Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+    const rot = p.action === 'create'
+      ? BI`Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}|New enclosure · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+      : p.action === 'extend'
+        ? BI`Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}|Extend ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
         : p.reason;
     c.fillStyle = colour[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
     c.textAlign = 'center';

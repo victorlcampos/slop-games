@@ -16,6 +16,8 @@ const DICT = {
   'load.title': { pt: 'Preparando o mundo…', en: 'Preparing the world…' },
   'load.goingTo': { pt: 'Indo para {place}…', en: 'Heading to {place}…' },
   'load.osm': { pt: 'Ruas e prédios (OpenStreetMap)', en: 'Streets and buildings (OpenStreetMap)' },
+  'load.mirror': { pt: 'espelho {i}/{n}', en: 'mirror {i}/{n}' },
+  'load.retry': { pt: ' · 2ª rodada', en: ' · 2nd round' },
   'load.dem': { pt: 'Elevação do terreno (satélite)', en: 'Terrain elevation (satellite)' },
   'load.sat': { pt: 'Imagens de satélite', en: 'Satellite imagery' },
   'load.build': { pt: 'Construindo o mundo 3D', en: 'Building the 3D world' },

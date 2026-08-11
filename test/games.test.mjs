@@ -312,6 +312,36 @@ scenario('the flag actually changes which language is on screen', async () => {
   }
 });
 
+scenario('no game shows a raw pt|en string or a missing dictionary key', async () => {
+  for (const game of catalog) {
+    const g = await open(browser, path.join(DIST, game.slug, 'index.html'), DEVICES.desktop, { bootWait: 2600 });
+
+    for (const lang of ['en', 'pt']) {
+      await g.setLang(lang);
+      await g.waitFrames(3);
+
+      // A bar that reaches the screen means somebody built a bilingual value
+      // into the HTML without splitting it. It reads as garbage in BOTH
+      // languages, which is why it survived every check that only compared the
+      // two sides against each other.
+      const raw = await g.exec((gm) => {
+        const canvas = gm && typeof gm.screenText === 'function' ? gm.screenText() : '';
+        const text = (document.body.innerText || '') + '\n' + canvas;
+        return text.split('\n').filter((l) => /\S\|\S/.test(l)).slice(0, 3);
+      });
+      check(!raw.length, `${game.slug} (${lang}): raw pt|en on screen — ${JSON.stringify(raw)}`);
+
+      // A one-sided dictionary entry never shows a raw key: t() falls back to
+      // the other language and the player silently gets the wrong one.
+      const holes = await g.exec((gm) => (gm && gm.dictHoles ? gm.dictHoles() : []));
+      check(!holes.length, `${game.slug}: dictionary entries missing a language — ${JSON.stringify(holes.slice(0, 5))}`);
+    }
+
+    g.expectNoErrors(`${game.slug} raw strings`);
+    await g.close();
+  }
+});
+
 scenario('the index ships in both languages and remembers the choice', async () => {
   const g = await open(browser, path.join(DIST, 'index.html'), DEVICES.desktop, { bootWait: 800 });
   // the picker is built in JavaScript: wait for it instead of betting on bootWait,

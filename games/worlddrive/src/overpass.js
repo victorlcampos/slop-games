@@ -25,14 +25,15 @@ way["natural"~"^(wood|scrub)$"]${bb};
 );out geom;`;
 }
 
-// onProgress(bytesRecebidos, nota)
+// onProgress(bytesReceived, note)
 export async function fetchOSM(bbox, onProgress) {
   const body = 'data=' + encodeURIComponent(buildQuery(bbox));
   let lastErr = null;
   for (let round = 1; round <= 2; round++) {
     for (let i = 0; i < ENDPOINTS.length; i++) {
       const url = ENDPOINTS[i];
-      const tag = `espelho ${i + 1}/${ENDPOINTS.length}` + (round > 1 ? ' · 2ª rodada' : '');
+      // the note reaches the loading screen, so it goes through the dictionary
+      const tag = t('load.mirror', { i: i + 1, n: ENDPOINTS.length }) + (round > 1 ? t('load.retry') : '');
       try {
         if (onProgress) onProgress(0, tag);
         const res = await fetchWithTimeout(url, {

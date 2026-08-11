@@ -141,7 +141,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     // where each seed came from — the end-of-stage screen shows this
     killGain: 0,
     pickupGain: 0,
-    notice: stage.whatsNew ? { text: pick(stage.whatsNew.note), t: 7 } : null,
+    notice: stage.whatsNew ? { field: stage.whatsNew.note, t: 7 } : null,
     shake: 0,
     killed: 0,
     revealed: false,
@@ -342,7 +342,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     if (def.boss) {
       sfx.boss();
       st.shake = 1.2;
-      st.notice = { text: `${pick(def.name)} — ${pick(def.lore)}`, t: 6 };
+      st.notice = { field: () => `${pick(def.name)} — ${pick(def.lore)}`, t: 6 };
     } else if (def.miniboss) {
       sfx.boss();
       st.shake = 0.6;
@@ -385,7 +385,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     if (prize >= 50) sfx.coin();
     if (m.def.boss) {
       st.shake = 1.6;
-      st.notice = { text: pick(T.bossDown), t: 5 };
+      st.notice = { field: T.bossDown, t: 5 };
     }
   }
 
@@ -552,7 +552,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       if (d.phases) {
         const frac = m.hp / m.maxHp;
         while (m.bossPhase < d.phases.length && frac <= d.phases[m.bossPhase].hp) {
-          st.notice = { text: pick(d.phases[m.bossPhase].line), t: 4 };
+          st.notice = { field: d.phases[m.bossPhase].line, t: 4 };
           st.shake = 1;
           sfx.boss();
           m.bossPhase++;
@@ -566,7 +566,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
             const kind = d.summons.types[Math.floor(Math.random() * d.summons.types.length)];
             spawnMonster(kind, Math.floor(Math.random() * ROWS));
           }
-          st.notice = { text: pick(T.bossBackup), t: 2.5 };
+          st.notice = { field: T.bossBackup, t: 2.5 };
         }
       }
 
@@ -1275,7 +1275,10 @@ export function createBattle(stage, deck, onDone, levels = {}) {
   function drawNotice(ctx) {
     if (!st.notice) return;
     const alpha = Math.min(1, st.notice.t);
-    const lines = wrapText(ctx, st.notice.text, 760, 21);
+    // NOT `text`: that is the imported drawing helper, and shadowing it here
+    // turned the next call into "string is not a function"
+    const notice = typeof st.notice.field === 'function' ? st.notice.field() : pick(st.notice.field);
+    const lines = wrapText(ctx, notice, 760, 21);
     const h = 30 + lines.length * 28;
     const y = FIELD_Y + 30;
     ctx.save();

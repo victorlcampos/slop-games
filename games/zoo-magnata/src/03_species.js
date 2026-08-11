@@ -269,7 +269,7 @@ const SPECIES = SPECIES_RAW.map((r, i) => {
   return {
     id: i, name, plan, c1, c2, pattern, scale, biome, diet,
     groupMin, groupMax, price, appeal, lifespan, danger, o: opts,
-    // The Portuguese side of the name is the species' stable identity: it seeds
+    // The ENGLISH side of the name is the species' stable identity: it seeds
     // the drawing (`hashStr(sp.key)`), so an animal looks the same whichever
     // flag is up. Seeding from the displayed name would redraw all 219 the
     // moment somebody switched language.

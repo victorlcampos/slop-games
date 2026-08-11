@@ -144,7 +144,7 @@ const SIDES = [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']];
 function makeEnclosure(tiles, fenceKey) {
   const id = uid();
   const e = {
-    id, fence: fenceKey, name: 'Recinto ' + id, tiles: new Set(),
+    id, fence: fenceKey, name: LN('Recinto |Enclosure ') + id, tiles: new Set(),
     animals: [], objs: [], cleanliness: 1, food: 1, water: 1,
     happy: .7, alerts: [], integrity: 1,
   };
