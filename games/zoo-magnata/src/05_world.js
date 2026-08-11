@@ -70,7 +70,7 @@ const world = {
   bel: new Float32Array(W * H), // beleza acumulada
   lixo: new Float32Array(W * H),// sujeira na trilha
 };
-const objects = new Map();      // id -> objeto (prédio/deco/objeto de recinto)
+const objects = new Map();      // id -> object (building/decoration/enclosure prop)
 const enclosures = new Map();   // id -> recinto
 
 function genTerrain() {
@@ -132,14 +132,14 @@ function removePath(x, y) {
 }
 
 /* ==========================================================================
-   RECINTOS — conjunto livre de tiles, cerca nas ARESTAS
-   Antes o recinto era um retângulo cujo anel externo virava cerca: não dava
-   para fazer forma em L nem ampliar depois, e o anel era área perdida. Agora
-   `e.tiles` é um Set de índices e a cerca é derivada das bordas que dão para
-   fora — o que permite qualquer formato, ampliação incremental, e faz todo
-   tile pago virar área útil.
+   ENCLOSURES — a free set of tiles, with the fence on the EDGES
+   An enclosure used to be a rectangle whose outer ring became the fence: there
+   was no way to build an L shape or to extend it later, and the ring was wasted
+   area. Now `e.tiles` is a Set of indices and the fence is derived from the
+   borders that face outwards — which allows any shape, incremental extension,
+   and turns every paid tile into usable area.
    ========================================================================== */
-const LADOS = [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']];
+const SIDES = [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']];
 
 function makeEnclosure(tiles, fenceKey) {
   const id = uid();
@@ -154,7 +154,7 @@ function makeEnclosure(tiles, fenceKey) {
 }
 function encAddTiles(e, tiles) {
   for (const k of tiles) {
-    if (world.enc[k]) continue;              // já é de alguém
+    if (world.enc[k]) continue;              // already belongs to someone
     e.tiles.add(k); world.enc[k] = e.id; world.path[k] = 0;
   }
   encInvalida(e);
@@ -190,7 +190,7 @@ function countSegments(set) {
   let n = 0;
   for (const k of set) {
     const x = k % W, y = (k / W) | 0;
-    for (const [dx, dy] of LADOS) {
+    for (const [dx, dy] of SIDES) {
       const nx = x + dx, ny = y + dy;
       if (!inB(nx, ny) || !set.has(IDX(nx, ny))) n++;
     }
@@ -204,9 +204,9 @@ function encSegPorTile(e) {
   for (const k of e.tiles) {
     const x = k % W, y = (k / W) | 0;
     let l = null;
-    for (const [dx, dy, lado] of LADOS) {
+    for (const [dx, dy, side] of SIDES) {
       const nx = x + dx, ny = y + dy;
-      if (!inB(nx, ny) || !e.tiles.has(IDX(nx, ny))) (l || (l = [])).push(lado);
+      if (!inB(nx, ny) || !e.tiles.has(IDX(nx, ny))) (l || (l = [])).push(side);
     }
     if (l) m.set(k, l);
   }
@@ -264,7 +264,7 @@ function encViewSpots(e) {
   const out = [], visto = new Set();
   for (const k of e.tiles) {
     const x = k % W, y = (k / W) | 0;
-    for (const [dx, dy] of LADOS) {
+    for (const [dx, dy] of SIDES) {
       const nx = x + dx, ny = y + dy;
       if (!inB(nx, ny)) continue;
       const ni = IDX(nx, ny);

@@ -1,6 +1,12 @@
 /* ==========================================================================
    6. ESTADO GLOBAL
    ========================================================================== */
+/* The shape of the two bookkeeping objects, in one place: the running game
+   starts from it and a loaded save is measured against it (see keepShape). */
+const newBooks = () => ({ ticket: 0, shop: 0, feed: 0, wage: 0, upkeep: 0, buy: 0, sell: 0, build: 0 });
+const newLedger = () => ({ today: newBooks(), week: newBooks(), hist: [] });
+const newStats = () => ({ visToday: 0, visitorTotal: 0, happiness: .7, gateToday: 0 });
+
 const G = {
   // a low opening ticket: a zoo that just opened has little to show, and a high
   // starting price would scare the public off before the first enclosure pays
@@ -13,12 +19,8 @@ const G = {
   toolCat: null,
   drag: null,            // arraste de construção
   cam: { x: 0, y: 0, z: 1 },
-  stats: { visHoje: 0, visitorTotal: 0, happiness: .7, entrHoje: 0 },
-  ledger: {
-    hoje: { ticket: 0, loja: 0, feed: 0, wage: 0, manut: 0, compra: 0, venda: 0, obra: 0 },
-    week: { ticket: 0, loja: 0, feed: 0, wage: 0, manut: 0, compra: 0, venda: 0, obra: 0 },
-    hist: [],
-  },
+  stats: newStats(),
+  ledger: newLedger(),
   research: { marketing: 0 },
   repLog: [],            // extrato de choques na reputação (painel ⭐)
   nVets: 0,              // veterinários no quadro (contado no tick; acelera cria)
@@ -31,9 +33,15 @@ const G = {
   loan: 0, dailyInterest: 0,
   gameOver: false,
 };
-function lgr(k, v) { G.ledger.hoje[k] += v; G.ledger.week[k] += v; }
-function spend(v, k) { G.money -= v; lgr(k || 'obra', v); }
-function earn(v, k) { G.money += v; lgr(k || 'loja', v); }
+/* Every entry lands on a key that EXISTS in the ledger. A typo used to be
+   silent: `hoje['ingresso'] += v` on an absent key gives NaN, and one NaN
+   spreads through the daily balance and the whole history. */
+function lgr(k, v) {
+  if (!(k in G.ledger.today)) { console.warn('unknown ledger key:', k); k = 'build'; }
+  G.ledger.today[k] += v; G.ledger.week[k] += v;
+}
+function spend(v, k) { G.money -= v; lgr(k || 'build', v); }
+function earn(v, k) { G.money += v; lgr(k || 'shop', v); }
 
 /* ==========================================================================
    6b. PENSAMENTOS — o que cada bicho e cada pessoa está achando
@@ -334,8 +342,8 @@ function newVisitor() {
     balao: pick(SHIRTS),
     zoomScale: child ? .72 : 1,
   };
-  G.visitors.push(v); G.stats.visHoje++; G.stats.visitorTotal++;
-  earn(G.ticket, 'ingresso'); G.stats.entrHoje += G.ticket;
+  G.visitors.push(v); G.stats.visToday++; G.stats.visitorTotal++;
+  earn(G.ticket, 'ticket'); G.stats.gateToday += G.ticket;
   return v;
 }
 function bestTarget(v) {
@@ -509,7 +517,7 @@ function finishAction(v) {
   const price = priceOf(o);
   if (B.value > 0) {
     if (v.money < price) { v.mood = clamp(v.mood - .06, 0, 1); return; }
-    v.money -= price; earn(price, 'loja'); spend(B.unitCost, 'feed'); SFX.play('moeda');
+    v.money -= price; earn(price, 'shop'); spend(B.unitCost, 'feed'); SFX.play('moeda');
     o.revenue += price - B.unitCost; o.sales++;
     // price perception: too dear and they resent it
     const just = clamp(1 - (price / Math.max(1, B.value) - 1) * .7, .1, 1.25);
@@ -626,7 +634,7 @@ function runTask(s) {
   } else if (T.kind === 'animal') {
     const a = T.ref; if (a.dead) return;
     a.sick = false; a.health = clamp(a.health + .45, 0, 1);
-    spend(320, 'manut');
+    spend(320, 'upkeep');
     toast(BI`💉 ${a.name} foi tratado pelo veterinário|💉 ${a.name} was treated by the vet`, 'good');
   } else if (T.kind === 'lixo') {
     world.lixo[IDX(T.ref[0], T.ref[1])] = 0;

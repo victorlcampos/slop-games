@@ -200,7 +200,7 @@ function medalhoesDePraca(c) {
     while (q.length) {
       const k = q.pop(); comp.push(k);
       sx += k % W + .5; sy += ((k / W) | 0) + .5; n++;
-      for (const [dx, dy] of LADOS) {
+      for (const [dx, dy] of SIDES) {
         const j = IDX(k % W + dx, ((k / W) | 0) + dy);
         if (isInt.has(j) && !visto.has(j)) { visto.add(j); q.push(j); }
       }
@@ -271,7 +271,7 @@ function terrainFringes(c) {
     if (a === T_PISO) continue;
     const pa = FRANJA_PRIO[ka];
     for (let s = 0; s < 4; s++) {
-      const [dx, dy] = LADOS[s];
+      const [dx, dy] = SIDES[s];
       const nx = x + dx, ny = y + dy;
       if (!inB(nx, ny)) continue;
       const j = IDX(nx, ny), b = _eff[j], kb = TKEYS[b];
@@ -348,7 +348,7 @@ function pathDetails(c, x, y, con, ponte) {
   c.lineCap = 'butt';
   for (let k = 0; k < 4; k++) {
     if (!con[k]) continue;
-    const [dx, dy] = LADOS[k];
+    const [dx, dy] = SIDES[k];
     if (ponte) {                                  // tábuas atravessadas
       c.strokeStyle = 'rgba(80,55,28,.4)'; c.lineWidth = .035;
       for (const t of [.16, .34]) {
@@ -387,7 +387,7 @@ function drawPaths(c) {
     const i = IDX(x, y);
     if (!world.path[i]) continue;
     const mir = [];
-    for (let s = 0; s < 4; s++) { const [dx, dy] = LADOS[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
+    for (let s = 0; s < 4; s++) { const [dx, dy] = SIDES[s]; if (encAo(x + dx, y + dy)) mir.push(s); }
     tiles.push([x, y, pathLinks(x, y), _eff[i] === T_AGUA, mir]);
   }
   // first the outline (the kerb) of them all, then the fill: the cores cover the
@@ -802,10 +802,10 @@ function drawDeco(c, o, z) {
     if (s > .5 && !(G.hour < 6.5 || G.hour > 19)) { // borboleta rondando o canteiro
       const t = _now / 1000 + o.id * 2.3;
       const bx = sx + Math.cos(t * 1.1) * 15 * s, by = sy - 15 * s - Math.sin(t * 1.9) * 6 * s;
-      const asa = Math.abs(Math.sin(t * 14)) * .8 + .2;
+      const wing = Math.abs(Math.sin(t * 14)) * .8 + .2;
       c.fillStyle = ['#e8a01c', '#7ab4e0', '#e2749f'][o.id % 3];
-      ellipse(c, bx - 2 * s * asa, by, 2.2 * s * asa, 1.5 * s, .5); c.fill();
-      ellipse(c, bx + 2 * s * asa, by, 2.2 * s * asa, 1.5 * s, -.5); c.fill();
+      ellipse(c, bx - 2 * s * wing, by, 2.2 * s * wing, 1.5 * s, .5); c.fill();
+      ellipse(c, bx + 2 * s * wing, by, 2.2 * s * wing, 1.5 * s, -.5); c.fill();
       c.fillStyle = '#3a2d20'; ellipse(c, bx, by, .8 * s, 1.6 * s); c.fill();
     } else if (s > .5) {                            // vagalume à noite
       const t = _now / 1400 + o.id;

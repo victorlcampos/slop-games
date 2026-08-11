@@ -1,11 +1,12 @@
 /* ==========================================================================
    3. GERADOR PROCEDURAL DE SPRITES
-   Espaço local: 128x128, chão em y=116, animal olhando para a direita.
+   Local space: 128x128, ground at y=116, the animal facing right.
    ========================================================================== */
 /* Drawing space: SPR wide, ground at GND.
-   PAD é folga ACIMA da moldura: sem ela sobravam 12 unidades sobre o corpo e
-   pescoço de girafa (-28) e chifres de cudo/alce/órix (-24 a -9) saíam cortados.
-   Todo desenho é relativo a GND, então basta transladar na hora de rasterizar —
+   PAD is headroom ABOVE the frame: without it only 12 units were left over the
+   body, and a giraffe's neck (-28) or the horns of a kudu/moose/oryx (-24 to -9)
+   came out clipped. Every drawing is relative to GND, so it is enough to
+   translate at raster time —
    nenhum desenhista precisa saber que a folga existe. */
 const SPR = 128, GND = 116, PAD = 48, BOT = 18, SPRH = GND + PAD + BOT, FRAMES = 6;
 const spriteCache = new Map();
@@ -221,7 +222,7 @@ function drawQuad(c, sp, t) {
   limb2(c, shoX, bCY + 4 - bob, shoX + sw * 4, GND - legL * .5, shoX + sw * 8, GND, P.legW, dk);
   // tail behind the body
   if (P.tail !== 'long') drawTail(c, x0 + 1, bCY - P.bH * .25 - bob, o.tail || P.tail, P.tailL, c1, c2, sw * 3);
-  // corpo
+  // the body
   bodyPath(); ink(c, c1, 4.6);
   if (o.furry) { // pelagem longa
     c.strokeStyle = shade(c1, -.18); c.lineWidth = 2.2;
@@ -309,7 +310,7 @@ function drawQuad(c, sp, t) {
     for (const d of [-1, 1]) { limb(c, hx + d * 4, hy - hr * .8, hx + d * 5, hy - hr * 1.9, 3.4, c1); ellipse(c, hx + d * 5, hy - hr * 1.95, 3.2, 3.2); ink(c, c2, 2.6); }
   }
   eye(c, hx + hr * .42, hy - hr * .18, hr * .3 * (o.bigEye ? 1.5 : 1));
-  if (o.upright) { /* suricato em pé — marcador */ }
+  if (o.upright) { /* a meerkat standing up — a marker */ }
 }
 function rndSeeded(sp, i) { return mulberry(hashStr(sp.key) + i * 31)(); }
 
@@ -380,16 +381,16 @@ function drawBird(c, sp, t) {
   limb2(c, bx - 3, bY + 6, bx - 5 + sw * 4, GND - legL * .45, bx - 6 + sw * 7, GND, 4, '#e0a83c');
   limb2(c, bx + 3, bY + 6, bx + 5 - sw * 4, GND - legL * .45, bx + 6 - sw * 7, GND, 4, '#e0a83c');
   if (o.swims) { ellipse(c, bx, GND - 4, 26, 6); c.fillStyle = 'rgba(80,150,190,.5)'; c.fill(); }
-  // corpo
+  // the body
   ellipse(c, bx, bY, 24, 17, -.12); ink(c, c1, 4.6);
   const bp = () => { c.beginPath(); c.ellipse(bx, bY, 24, 17, -.12, 0, TAU); };
   applyPattern(c, sp, bp, bx - 24, bY - 17, bx + 24, bY + 17);
-  // asa
-  const asa = o.wing || 1;
+  // the wing
+  const wing = o.wing || 1;
   c.save(); c.translate(bx - 2, bY - 2); c.rotate(sw * .12);
-  ellipse(c, 0, 0, 15 * asa, 9 * asa, -.25); ink(c, shade(c1, -.16), 3.6);
+  ellipse(c, 0, 0, 15 * wing, 9 * wing, -.25); ink(c, shade(c1, -.16), 3.6);
   c.restore();
-  if (o.tail === 'fan') { // pavão
+  if (o.tail === 'fan') { // peacock
     for (let i = 0; i < 9; i++) {
       const a = -2.3 + i / 8 * 1.9;
       limb(c, bx - 18, bY + 4, bx - 18 + Math.cos(a) * 46, bY + 4 + Math.sin(a) * 46, 5, i % 2 ? c1 : c2);
@@ -517,7 +518,7 @@ function drawTurtle(c, sp, t) {
   } else {
     for (const d of [-1, 1]) { ellipse(c, bx + d * 18 + sw * d * 3, GND - 4, 8, 5); ink(c, shade(c1, -.15), 3.4); }
   }
-  ellipse(c, bx, bY + 8, 30, 9); ink(c, mixc(c1, '#f4ecd8', .5), 3.6); // plastrão
+  ellipse(c, bx, bY + 8, 30, 9); ink(c, mixc(c1, '#f4ecd8', .5), 3.6); // the plastron
   c.beginPath(); c.ellipse(bx, bY, 30, 20, 0, Math.PI, 0); c.closePath(); ink(c, c2, 4.6);
   c.save(); c.beginPath(); c.ellipse(bx, bY, 30, 20, 0, Math.PI, 0); c.clip();
   c.strokeStyle = shade(c2, -.35); c.lineWidth = 2.4;
@@ -556,7 +557,7 @@ function drawFish(c, sp, t) {
     // the tail sweeps back; pointing down it touched the ground and the ray
     // turned into a mushroom
     limb(c, -4, 2, -40, 20, 3, shade(c1, -.1));
-    const asa = () => {                                     // losango achatado com pontas caídas
+    const wing = () => {                                    // a flattened rhombus with drooping tips
       c.beginPath();
       c.moveTo(0, -13);
       c.quadraticCurveTo(-30, -13 - flap, -52, 2 - flap);
@@ -565,11 +566,11 @@ function drawFish(c, sp, t) {
       c.quadraticCurveTo(30, -13 + flap, 0, -13);
       c.closePath();
     };
-    asa(); ink(c, c1, 4.6);
-    c.save(); asa(); c.clip();
-    c.fillStyle = shade(c1, .3); ellipse(c, 0, -4, 15, 9); c.fill();  // dorso mais claro no meio
+    wing(); ink(c, c1, 4.6);
+    c.save(); wing(); c.clip();
+    c.fillStyle = shade(c1, .3); ellipse(c, 0, -4, 15, 9); c.fill();  // a lighter back down the middle
     c.restore();
-    for (const d of [-1, 1]) limb(c, d * 9, -11, d * 14, -21, 4.5, c1); // lobos cefálicos
+    for (const d of [-1, 1]) limb(c, d * 9, -11, d * 14, -21, 4.5, c1); // the cephalic lobes
     dotEye(c, -12, -6, 2.8); dotEye(c, 12, -6, 2.8);
     c.restore(); return;
   }
@@ -580,7 +581,7 @@ function drawFish(c, sp, t) {
   if (o.dolphin) { c.moveTo(4, 0); c.lineTo(-16, -9); c.quadraticCurveTo(-8, 0, -16, 9); c.closePath(); }
   else { c.moveTo(4, 0); c.lineTo(-15, -13); c.lineTo(-9, 0); c.lineTo(-15, 13); c.closePath(); }
   ink(c, shade(c1, -.12), 3.8); c.restore();
-  // corpo
+  // the body
   c.beginPath();
   c.moveTo(bx - L, bY);
   c.bezierCurveTo(bx - L * .5, bY - Hh, bx + L * .5, bY - Hh * .9, bx + L * (o.longSnout ? 1.35 : 1.05), bY - (o.dolphin ? 2 : 0));
@@ -747,7 +748,7 @@ function measureTop(sp, cv) {
       }
     }
     sp._topN = 0.5;
-  } catch (e) { sp._topN = 0.25; }   // canvas sujo: cai num palpite razoável
+  } catch (e) { sp._topN = 0.25; }   // a tainted canvas: fall back on a sane guess
 }
 /** the animal's visible height, from the ground to the top of the line, in local units */
 const visibleHeight = sp => (GND + PAD) - (sp._topN === undefined ? 40 : sp._topN * SPRH);
@@ -783,10 +784,10 @@ const spriteH = sp => Math.round(26 + 52 * Math.pow(Math.min(sp.scale, 2.3), .85
  *  2) `max-height:100%` does not clamp the canvas inside the shop grid, and the
  *     giraffe (the tallest) spilled 6px out of its box. */
 function spriteThumb(sp, maxW, maxH) {
-  getSprite(sp, 0, 64);                       // garante a medição de _topN
+  getSprite(sp, 0, 64);                       // makes sure _topN got measured
   const top = (sp._topN === undefined ? .2 : sp._topN) * SPRH;
   const yIni = Math.max(0, top - 5);
-  const yEnd = GND + PAD + 5;                 // um respiro abaixo dos pés
+  const yEnd = GND + PAD + 5;                 // a little breathing room below the feet
   const altLocal = Math.max(10, yEnd - yIni);
   const sc = maxH ? Math.min(maxW / SPR, maxH / altLocal) : maxW / SPR;
   const c2 = document.createElement('canvas');
@@ -800,7 +801,7 @@ function spriteThumb(sp, maxW, maxH) {
 }
 
 /* ==========================================================================
-   3b. PESSOAS (visitantes e funcionários)
+   3b. PEOPLE (visitors and staff)
    ========================================================================== */
 const PEOPLE_CACHE = new Map();
 const SKINS = ['#f2c9a0', '#e0aa78', '#c48a56', '#8a5c38', '#5e3c26', '#f7d9b8'];
@@ -809,9 +810,9 @@ const HAIRS = ['#2b2118', '#5e3a20', '#c9a04a', '#8a4a2a', '#3a3a3a', '#d9d2c2']
 const PANTS = ['#3a4a6a', '#5e4a3a', '#33333a', '#6a5a4a', '#4a5a4a'];
 
 /* A fixed cast of visitor looks.
-   Sortear cada peça por visitante daria ~79 mil combinações: nenhum sprite
+   Rolling every piece per visitor would give ~79 thousand combinations: no sprite
    seria reaproveitado e o cache viveria em despejo. Com um elenco fechado o
-   cache fica limitado e ainda há variedade de sobra na multidão. */
+   cache stays bounded and there is still plenty of variety in the crowd. */
 const VISITOR_LOOKS = (() => {
   const r = mulberry(20240729), out = [];
   for (let i = 0; i < 22; i++) {
@@ -836,7 +837,7 @@ function drawPerson(c, o, frame) {
   limb(c, bx + 3, legY, bx + 4 - sw * 6, GND, 6, shade(o.pants, -.12));
   // tronco
   roundRectP(c, bx - 11, legY - 30 - bob, 22, 33, 8); ink(c, o.shirt, 4.4);
-  if (o.role) { // colete de funcionário
+  if (o.role) { // a staff vest
     roundRectP(c, bx - 11, legY - 24 - bob, 22, 14, 4); c.fillStyle = 'rgba(255,255,255,.28)'; c.fill();
   }
   limb(c, bx - 10, legY - 26 - bob, bx - 14 - sw * 5, legY - 8 - bob, 5.5, o.skin);

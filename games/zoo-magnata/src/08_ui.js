@@ -366,10 +366,10 @@ function comprarPara(sp, e) {
   const notice = checkEnclosure(sp, e);
   if (notice.bloqueia) { toast('🚫 ' + notice.msg, 'bad'); return false; }
   if (G.money < sp.price) { toast('💸 Dinheiro insuficiente', 'bad'); return false; }
-  spend(sp.price, 'compra');
+  spend(sp.price, 'buy');
   const a = newAnimal(sp, e.id);
   e.animals.push(a);
-  undoRecord({ kind: 'animal', cat: 'compra', id: a.id, cost: sp.price, label: LN(sp.name) });
+  undoRecord({ kind: 'animal', cat: 'buy', id: a.id, cost: sp.price, label: LN(sp.name) });
   toast(BI`🎉 ${LN(sp.name)} chegou ao ${e.name}!|🎉 A ${LN(sp.name)} arrived at ${e.name}!`, 'good');
   if (notice.msg) toast('⚠️ ' + notice.msg, 'bad');
   return true;
@@ -518,7 +518,7 @@ function inspEnclosure(e) {
   $('#idel').onclick = () => {
     if (e.animals.length) { toast(LN('🚫 Venda ou mova os animais antes de demolir|🚫 Sell or move the animals before demolishing'), 'bad'); return; }
     const dev = Math.round(fenceCostOf(e) * .5);
-    deleteEnclosure(e.id); earn(dev, 'venda'); deselect();
+    deleteEnclosure(e.id); earn(dev, 'sell'); deselect();
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
   };
   $$('#ilist .kv').forEach(d => d.onclick = () => {
@@ -540,8 +540,8 @@ function swapFence(e) {
     const cost = Math.max(0, encSegCount(e) * FENCES[k].cost - Math.round(fenceCostOf(e) * .4));
     if (G.money < cost) { toast('💸 Dinheiro insuficiente', 'bad'); return; }
     const before = e.fence;
-    spend(cost, 'obra'); e.fence = k; e.integrity = 1;
-    undoRecord({ kind: 'cerca', cat: 'obra', id: e.id, before, after: k, cost });
+    spend(cost, 'build'); e.fence = k; e.integrity = 1;
+    undoRecord({ kind: 'cerca', cat: 'build', id: e.id, before, after: k, cost });
     closeModal(); showInspector(); toast(BI`🚧 Cerca trocada para ${LN(FENCES[k].n)}|🚧 Fence changed to ${LN(FENCES[k].n)}`, 'good');
   });
 }
@@ -601,7 +601,7 @@ function inspectAnimal(a) {
   $('#isell').onclick = () => {
     const v = resaleValue(a);
     if (!confirm(`Vender ${a.name} (${LN(sp.name)}) por ${moneyFull(v)}?`)) return;
-    earn(v, 'venda'); a.dead = true;
+    earn(v, 'sell'); a.dead = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
     G.animals = G.animals.filter(z => z.id !== a.id);
     deselect(); toast('💰 ' + LN(sp.name) + ' vendido por ' + moneyFull(v), 'money');
@@ -715,7 +715,7 @@ function inspObject(o) {
     ${DECOS[o.kind] ? `<div class="kv"><span>Beleza</span><b>+${DECOS[o.kind].beauty} (raio ${DECOS[o.kind].r})</b></div>` : ''}
     <div class="rowbtns"><button class="btn r sm" id="idel">🔨 Remover (+${moneyFull(Math.round((B.cost || 0) * .5))})</button></div>`;
   $('#ix').onclick = deselect;
-  $('#idel').onclick = () => { earn(Math.round((B.cost || 0) * .5), 'venda'); removeObject(o.id); deselect(); };
+  $('#idel').onclick = () => { earn(Math.round((B.cost || 0) * .5), 'sell'); removeObject(o.id); deselect(); };
   if (isShop) {
     const r = $('#ipr');
     r.oninput = () => { o.mult = r.value / 100; $('#iprv').textContent = moneyFull(priceOf(o)); };
@@ -795,15 +795,15 @@ function openFinance() {
       <div>
         <h4 class="sec" style="margin-top:0">Hoje (dia ${G.day})</h4>
         <table class="fin">
-          ${row('Ingressos', L.hoje.ticket)}
-          ${row(LN('Lojas e restaurantes|Shops and restaurants'), L.hoje.loja)}
-          ${row(LN('Venda de animais|Animal sales'), L.hoje.venda)}
-          ${row(LN('Ração e insumos|Feed and supplies'), L.hoje.feed, 1)}
-          ${row(LN('Salários|Wages'), L.hoje.wage, 1)}
-          ${row(LN('Manutenção e veterinário|Upkeep and vet'), L.hoje.manut, 1)}
-          ${row(LN('Compra de animais|Animal purchases'), L.hoje.compra, 1)}
-          ${row('Obras', L.hoje.obra, 1)}
-          <tr><th>Saldo do dia</th><th class="n ${saldo(L.hoje) >= 0 ? 'pos' : 'negv'}">${moneyFull(saldo(L.hoje))}</th></tr>
+          ${row('Ingressos', L.today.ticket)}
+          ${row(LN('Lojas e restaurantes|Shops and restaurants'), L.today.shop)}
+          ${row(LN('Venda de animais|Animal sales'), L.today.sell)}
+          ${row(LN('Ração e insumos|Feed and supplies'), L.today.feed, 1)}
+          ${row(LN('Salários|Wages'), L.today.wage, 1)}
+          ${row(LN('Manutenção e veterinário|Upkeep and vet'), L.today.upkeep, 1)}
+          ${row(LN('Compra de animais|Animal purchases'), L.today.buy, 1)}
+          ${row('Obras', L.today.build, 1)}
+          <tr><th>Saldo do dia</th><th class="n ${balance(L.today) >= 0 ? 'pos' : 'negv'}">${moneyFull(balance(L.today))}</th></tr>
         </table>
         <h4 class="sec">Compromissos fixos</h4>
         <table class="fin">
@@ -839,7 +839,7 @@ function openFinance() {
         <div style="font-size:11.5px;opacity:.7;margin-top:5px">Juros de 0,4% ao dia sobre o saldo devedor.</div>
         <h4 class="sec">Últimos dias</h4>
         <table class="fin"><tr><th>Dia</th><th class="n">Visitantes</th><th class="n">Saldo</th></tr>
-        ${hist.map(h => `<tr><td>${h.day}</td><td class="n">${h.vis}</td><td class="n ${h.saldo >= 0 ? 'pos' : 'negv'}">${moneyFull(h.saldo)}</td></tr>`).join('') || '<tr><td colspan="3" style="opacity:.6">Ainda não fechou um dia</td></tr>'}
+        ${hist.map(h => `<tr><td>${h.day}</td><td class="n">${h.vis}</td><td class="n ${h.balance >= 0 ? 'pos' : 'negv'}">${moneyFull(h.balance)}</td></tr>`).join('') || '<tr><td colspan="3" style="opacity:.6">Ainda não fechou um dia</td></tr>'}
         </table>
       </div>
     </div>`,
@@ -867,7 +867,7 @@ function openFinance() {
     G.money -= v; G.loan -= v; toast('🏦 Abatido ' + moneyFull(v), 'money'); openFinance();
   });
 }
-const saldo = o => o.ticket + o.loja + o.venda - o.feed - o.wage - o.manut - o.compra - o.obra;
+const balance = o => o.ticket + o.shop + o.sell - o.feed - o.wage - o.upkeep - o.buy - o.build;
 
 /** Why has the box office stalled? Returns the first structural reason, in the
  *  order the player needs to solve them — or null if everything is fine.

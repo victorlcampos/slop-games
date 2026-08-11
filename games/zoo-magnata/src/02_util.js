@@ -1,5 +1,5 @@
 /* ==========================================================================
-   0. UTILITÁRIOS
+   0. UTILITIES
    ========================================================================== */
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -135,15 +135,15 @@ function dotEye(c, x, y, r) {
 }
 
 /* ==========================================================================
-   1. CONSTANTES DO MUNDO
+   1. WORLD CONSTANTS
    ========================================================================== */
-const W = 56, H = 56;             // tamanho do mapa em tiles
-const TW = 64, TH = 32;           // tile isométrico
-const ENTRANCE = { x: 27, y: 55 }; // portão (borda sul)
+const W = 56, H = 56;             // map size, in tiles
+const TW = 64, TH = 32;           // the isometric tile
+const ENTRANCE = { x: 27, y: 55 }; // the gate (south edge)
 
-const DAY_SEC = 110;              // segundos reais por dia de jogo a 1x
-const OPEN_H = 8, CLOSE_H = 20;   // horário de funcionamento
-const YEAR_DAYS = 2;              // dias de jogo por "ano de vida" do animal
+const DAY_SEC = 110;              // real seconds per game day at 1x
+const OPEN_H = 8, CLOSE_H = 20;   // opening hours
+const YEAR_DAYS = 2;              // game days per "year of life" of an animal
 const BILL_EVERY = 7;             // contas a cada N dias
 
 /* Terrenos */

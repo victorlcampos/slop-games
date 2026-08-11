@@ -94,12 +94,12 @@ function aplicarFerramenta(x, y, arrastando) {
   const t = G.tool; if (!t || !inB(x, y)) return;
   const k = IDX(x, y);
   if (t.cat === 'caminho') {
-    if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'venda'); SFX.play('demolir'); } return; }
+    if (t.key === 'del') { if (removePath(x, y)) { earn(6, 'sell'); SFX.play('demolir'); } return; }
     if (G.money < t.cost) return semGrana();
     if (addPath(x, y)) {
-      spend(t.cost, 'obra'); SFX.play('trilha');
+      spend(t.cost, 'build'); SFX.play('trilha');
       // one whole stroke = 1 undo (the group closes when the finger lifts)
-      if (!undoGroup || undoGroup.kind !== 'trilha') undoGroup = { kind: 'trilha', cat: 'obra', tiles: [], cost: 0 };
+      if (!undoGroup || undoGroup.kind !== 'trilha') undoGroup = { kind: 'trilha', cat: 'build', tiles: [], cost: 0 };
       undoGroup.tiles.push([x, y]); undoGroup.cost += t.cost;
     }
   } else if (t.cat === 'terreno') {
@@ -113,30 +113,30 @@ function aplicarFerramenta(x, y, arrastando) {
       if (world.terr[nk] === target) continue;
       if (G.money < t.cost) return semGrana();
       const before = world.terr[nk];
-      world.terr[nk] = target; spend(t.cost, 'obra'); terrainChanged(); SFX.play('terreno');
-      if (!undoGroup || undoGroup.kind !== 'terreno') undoGroup = { kind: 'terreno', cat: 'obra', changes: [], cost: 0 };
+      world.terr[nk] = target; spend(t.cost, 'build'); terrainChanged(); SFX.play('terreno');
+      if (!undoGroup || undoGroup.kind !== 'terreno') undoGroup = { kind: 'terreno', cat: 'build', changes: [], cost: 0 };
       undoGroup.changes.push([nk, before, target]); undoGroup.cost += t.cost;
     }
   } else if (t.cat === 'build') {
     if (arrastando) return;
     if (!rectFree(x, y, t.w, t.h)) { toast(LN('🚫 Espaço ocupado|🚫 Space taken'), 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); const ob = placeObject(t.key, 'build', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'obra', id: ob.id, cost: t.cost, label: t.n });
+    spend(t.cost, 'build'); const ob = placeObject(t.key, 'build', x, y); SFX.play('predio');
+    undoRecord({ kind: 'objeto', cat: 'build', id: ob.id, cost: t.cost, label: t.n });
     if (!nearestPathTile(x, y, 4)) toast(LN('⚠️ Sem trilha por perto — visitantes não vão conseguir chegar|⚠️ No path nearby — visitors will not be able to reach it'), 'bad');
   } else if (t.cat === 'deco') {
     if (!tileFree(x, y)) return;
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); const od = placeObject(t.key, 'deco', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'obra', id: od.id, cost: t.cost, label: t.n });
+    spend(t.cost, 'build'); const od = placeObject(t.key, 'deco', x, y); SFX.play('predio');
+    undoRecord({ kind: 'objeto', cat: 'build', id: od.id, cost: t.cost, label: t.n });
   } else if (t.cat === 'encobj') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
     if (!e) { toast(LN('🚫 Objetos de recinto só vão dentro de um recinto|🚫 Enclosure objects only go inside an enclosure'), 'bad'); return; }
     if (world.occ[k]) { toast('🚫 Tile ocupado', 'bad'); return; }
     if (G.money < t.cost) return semGrana();
-    spend(t.cost, 'obra'); const oe = placeObject(t.key, 'encobj', x, y); SFX.play('predio');
-    undoRecord({ kind: 'objeto', cat: 'obra', id: oe.id, cost: t.cost, label: t.n });
+    spend(t.cost, 'build'); const oe = placeObject(t.key, 'encobj', x, y); SFX.play('predio');
+    undoRecord({ kind: 'objeto', cat: 'build', id: oe.id, cost: t.cost, label: t.n });
   } else if (t.cat === 'animal') {
     if (arrastando) return;
     const e = enclosures.get(world.enc[k]);
@@ -153,7 +153,7 @@ function demolishAt(x, y) {
     const o = objects.get(world.occ[k]);
     if (o) {
       const def = BUILDINGS[o.kind] || DECOS[o.kind] || ENCOBJ[o.kind];
-      earn(Math.round((def.cost || 0) * .5), 'venda'); removeObject(o.id); SFX.play('demolir');
+      earn(Math.round((def.cost || 0) * .5), 'sell'); removeObject(o.id); SFX.play('demolir');
     }
     return;
   }
@@ -162,14 +162,14 @@ function demolishAt(x, y) {
       toast(LN('🚪 A trilha do portão não pode ser removida — é por ali que os visitantes entram.|🚪 The gate path cannot be removed — that is where the visitors come in.'), 'bad');
       return;
     }
-    removePath(x, y); earn(6, 'venda'); return;
+    removePath(x, y); earn(6, 'sell'); return;
   }
   if (world.enc[k]) {
     const e = enclosures.get(world.enc[k]);
     if (!e) return;
     if (e.animals.length) { toast(LN('🚫 Tire os animais antes de demolir o recinto|🚫 Take the animals out before demolishing the enclosure'), 'bad'); return; }
     const dev = Math.round(fenceCostOf(e) * .5);
-    deleteEnclosure(e.id); earn(dev, 'venda'); SFX.play('demolir');
+    deleteEnclosure(e.id); earn(dev, 'sell'); SFX.play('demolir');
     toast('🔨 Recinto demolido (+' + moneyFull(dev) + ')', 'money');
   }
 }
@@ -233,15 +233,15 @@ function endEnclosureDrag() {
   const p = planoDoArraste(r, G.tool.key);
   if (p.action === 'swims') { toast('🚫 ' + p.reason, 'bad'); return; }
   if (G.money < p.cost) return semGrana();
-  spend(p.cost, 'obra');
+  spend(p.cost, 'build');
   if (p.action === 'ampliar') {
     encAddTiles(p.target, p.tiles); SFX.play('ampliar');
-    undoRecord({ kind: 'ampliacao', cat: 'obra', id: p.target.id, tiles: [...p.tiles], cost: p.cost });
+    undoRecord({ kind: 'ampliacao', cat: 'build', id: p.target.id, tiles: [...p.tiles], cost: p.cost });
     select('enc', p.target);
     toast(BI`➕ ${p.target.name} ampliado para ${encArea(p.target)} tiles|➕ ${p.target.name} extended to ${encArea(p.target)} tiles`, 'good');
   } else {
     const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.play('construir');
-    undoRecord({ kind: 'recinto', cat: 'obra', id: e2.id, cost: p.cost });
+    undoRecord({ kind: 'recinto', cat: 'build', id: e2.id, cost: p.cost });
     select('enc', e2);
     toast(BI`🚧 ${e2.name} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar|🚧 ${e2.name} built (${encArea(e2)} tiles) — drag alongside it to extend`, 'good');
   }
@@ -274,7 +274,7 @@ function undoLast() {
   const ent = G.undo.pop();
   refreshUndoButton();
   if (!ent) { SFX.play('ui'); toast(LN('↩️ Nada para desfazer|↩️ Nothing to undo'), ''); return; }
-  const refund = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'obra', -v); return v; };
+  const refund = v => { v = Math.round(v); G.money += v; lgr(ent.cat || 'build', -v); return v; };
   let msg = '', value = 0;
   switch (ent.kind) {
     case 'trilha': {
@@ -622,17 +622,17 @@ function tick(dt) {
   // juros
   if (G.loan > 0) {
     const j = G.loan * .004 * gh / 24;
-    G.loan += j; G.money -= j; lgr('manut', j);
+    G.loan += j; G.money -= j; lgr('upkeep', j);
   }
 }
 function closeDay() {
   SFX.play('dia');
-  const visitorsToday = G.stats.visHoje;   // lido antes do reset abaixo
+  const visitorsToday = G.stats.visToday;   // read before the reset below
   G.day++;
-  G.ledger.hist.push({ day: G.day - 1, vis: G.stats.visHoje, saldo: saldo(G.ledger.hoje) });
+  G.ledger.hist.push({ day: G.day - 1, vis: G.stats.visToday, balance: balance(G.ledger.today) });
   if (G.ledger.hist.length > 60) G.ledger.hist.shift();
-  for (const k in G.ledger.hoje) G.ledger.hoje[k] = 0;
-  G.stats.visHoje = 0; G.stats.entrHoje = 0;
+  for (const k in G.ledger.today) G.ledger.today[k] = 0;
+  G.stats.visToday = 0; G.stats.gateToday = 0;
   for (const e of enclosures.values()) e.visitsToday = 0;
 
   // contas semanais
@@ -641,7 +641,7 @@ function closeDay() {
     let payroll = G.staff.reduce((s, x) => s + STAFF_TYPES[x.kind].wage, 0);
     payroll += [...objects.values()].reduce((s, o) => s + (BUILDINGS[o.kind] ? BUILDINGS[o.kind].wage : 0), 0);
     const mk = [0, 1500, 5000, 14000][G.research.marketing];
-    spend(payroll + mk, 'salario'); SFX.play('contas');
+    spend(payroll + mk, 'wage'); SFX.play('contas');
     toast(BI`🧾 Contas da semana: ${moneyFull(payroll + mk)} (folha${mk ? ' + marketing' : ''})|🧾 Weekly bills: ${moneyFull(payroll + mk)} (payroll${mk ? ' + marketing' : ''})`, 'money');
   }
   // If the day closed with no visitors, say why — once a day. Being left in the
@@ -701,6 +701,25 @@ function parkQuality() {
 /* ==========================================================================
    15. SALVAR / CARREGAR
    ========================================================================== */
+/** Keeps only the keys the running game knows, and fills in what the save is
+ *  missing. A save written before a field was renamed would otherwise bring the
+ *  old name in and leave the new one undefined — and `undefined + 10` is NaN,
+ *  which then spreads through every sum that touches it. */
+function keepShape(model, saved) {
+  const out = {};
+  for (const k in model) out[k] = (saved && typeof saved[k] === typeof model[k]) ? saved[k] : model[k];
+  return out;
+}
+function loadLedger(saved) {
+  saved = saved || {};
+  const fresh = newLedger();
+  return {
+    today: keepShape(fresh.today, saved.today),
+    week: keepShape(fresh.week, saved.week),
+    hist: Array.isArray(saved.hist) ? saved.hist.filter(h => h && Number.isFinite(h.balance)) : [],
+  };
+}
+
 /** A complete snapshot of the game. It serves the autosave (localStorage) and
  *  the file export — one format, so there are never two "saves" drifting apart. */
 function gameSnapshot() {
@@ -747,7 +766,7 @@ function aplicarSnapshot(raw, label) {
     G.undo = []; undoGroup = null; refreshUndoButton();   // ids de outro mundo não valem aqui
     G.lastBill = s.lastBill || 1; G.loan = s.loan || 0;
     G.research.marketing = s.marketing || 0;
-    G.stats = s.stats; G.ledger = s.ledger;
+    G.stats = keepShape(newStats(), s.stats); G.ledger = loadLedger(s.ledger);
     cam.x = s.cam.x; cam.y = s.cam.y; cam.z = s.cam.z;
     world.terr.set(s.terr); world.path.set(s.path);
     // fixes an old save where the gate's doormat was demolished (it locked the zoo)
@@ -863,7 +882,7 @@ function reportText() {
   reg('Preço do ingresso', moneyFull(G.ticket) + '  (referência: ' + moneyFull(fairPrice()) + ')');
   reg('Marketing', ['nenhum', 'local', 'regional', 'nacional'][G.research.marketing]);
   reg('Visitantes agora', G.visitors.length);
-  reg('Visitantes hoje', G.stats.visHoje);
+  reg('Visitantes hoje', G.stats.visToday);
   reg('Visitantes desde a abertura', G.stats.visitorTotal);
   reg('Satisfação dos visitantes', Math.round(moodV * 100) + '%  ' + miniGauge(moodV));
   reg('Felicidade dos animais', Math.round(moodA * 100) + '%  ' + miniGauge(moodA));
@@ -879,21 +898,21 @@ function reportText() {
 
   row('');
   row('FINANÇAS — HOJE');
-  const h = G.ledger.hoje;
+  const h = G.ledger.today;
   reg('Ingressos', '+' + moneyFull(h.ticket));
-  reg('Lojas e restaurantes', '+' + moneyFull(h.loja));
-  reg('Venda de animais', '+' + moneyFull(h.venda));
+  reg('Lojas e restaurantes', '+' + moneyFull(h.shop));
+  reg('Venda de animais', '+' + moneyFull(h.sell));
   reg('Ração e insumos', '-' + moneyFull(h.feed));
   reg('Salários', '-' + moneyFull(h.wage));
-  reg('Manutenção e veterinário', '-' + moneyFull(h.manut));
-  reg('Compra de animais', '-' + moneyFull(h.compra));
-  reg('Obras', '-' + moneyFull(h.obra));
-  reg('SALDO DO DIA', moneyFull(saldo(h)));
+  reg('Manutenção e veterinário', '-' + moneyFull(h.upkeep));
+  reg('Compra de animais', '-' + moneyFull(h.buy));
+  reg('Obras', '-' + moneyFull(h.build));
+  reg('SALDO DO DIA', moneyFull(balance(h)));
   if (G.ledger.hist.length) {
     row('');
     row('ÚLTIMOS DIAS');
     for (const d of G.ledger.hist.slice(-10))
-      row(`  dia ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitantes · saldo ${moneyFull(d.saldo)}`);
+      row(`  dia ${String(d.day).padStart(3)} · ${String(d.vis).padStart(5)} visitantes · saldo ${moneyFull(d.balance)}`);
   }
 
   row('');
@@ -977,7 +996,7 @@ function startingPath() {
   for (let x = ENTRANCE.x - 6; x <= ENTRANCE.x + 6; x++) addPath(x, H - 12);
   for (let x = ENTRANCE.x - 6; x <= ENTRANCE.x + 6; x++) addPath(x, H - 6);
   for (const dx of [-6, 6]) for (let y = H - 12; y <= H - 6; y++) addPath(ENTRANCE.x + dx, y);
-  G.ledger.hoje.obra = 0; G.ledger.week.obra = 0;
+  G.ledger.today.build = 0; G.ledger.week.build = 0;
 }
 /** adjusts what depends on the screen size (at boot and on every rotate/resize) */
 function ajustarParaTela() {
