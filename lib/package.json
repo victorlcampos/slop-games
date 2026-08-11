@@ -1,13 +1,13 @@
 {
   "name": "slopkit",
   "version": "1.0.0",
-  "description": "O que todo jogo do slop-games precisa: tela elástica, laço estável, save que sobrevive a versão nova.",
+  "description": "What every slop-games game needs: elastic viewport, stable loop, a save that survives the next version, and two languages.",
   "type": "module",
   "private": true,
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./testes": "./testes.mjs",
+    "./testing": "./testing.mjs",
     "./*": "./src/*.js",
     "./build": "./build.mjs"
   },

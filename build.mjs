@@ -1,108 +1,158 @@
 #!/usr/bin/env node
-// Builda todos os jogos e monta o índice em dist/.
+// Builds every game and assembles the index in dist/.
 //
-//   node build.mjs              -> builda tudo
-//   node build.mjs zoo-magnata  -> builda só um jogo (e o índice)
+//   node build.mjs              -> build everything
+//   node build.mjs zoo-magnata  -> build one game (and the index)
 //
-// Resultado: dist/index.html (o índice) + dist/<slug>/index.html (cada jogo).
-// Tudo abre com duplo clique — os links são relativos, então funciona por file://
-// do mesmo jeito que funciona no GitHub Pages.
+// Result: dist/index.html (the index) + dist/<slug>/index.html (each game).
+// Everything opens on a double click — the links are relative, so it works over
+// file:// exactly as it does on GitHub Pages.
 
+import { build } from 'slopkit/build';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const JOGOS = join(ROOT, 'jogos');
+const GAMES = join(ROOT, 'games');
 const DIST = join(ROOT, 'dist');
 
-const filtro = process.argv.slice(2);
+const filter = process.argv.slice(2);
 const kb = (bytes) => (bytes / 1024).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-// ------------------------------------------------------------------ catálogo
-const catalogo = readdirSync(JOGOS)
+/**
+ * Tag names, in both languages.
+ *
+ * game.json carries the canonical English slug and the translation lives here,
+ * in one place — otherwise every game would repeat "2d" twice and the day a tag
+ * is reworded you would have to find all of them.
+ */
+const TAGS = {
+  '2d': { pt: '2d', en: '2d' },
+  '3d': { pt: '3d', en: '3d' },
+  arcade: { pt: 'arcade', en: 'arcade' },
+  'open-world': { pt: 'mundo aberto', en: 'open world' },
+  puzzle: { pt: 'quebra-cabeça', en: 'puzzle' },
+  racing: { pt: 'corrida', en: 'racing' },
+  remake: { pt: 'remake', en: 'remake' },
+  simulation: { pt: 'simulação', en: 'simulation' },
+  strategy: { pt: 'estratégia', en: 'strategy' },
+  'tower-defense': { pt: 'tower defense', en: 'tower defense' },
+  tycoon: { pt: 'tycoon', en: 'tycoon' },
+};
+
+const UI = {
+  offline: { pt: 'offline', en: 'offline' },
+  offlineHint: { pt: 'Roda sem internet', en: 'Runs without internet' },
+  online: { pt: 'precisa de rede', en: 'needs network' },
+  onlineHint: { pt: 'Precisa de internet', en: 'Needs internet' },
+  noDeps: { pt: 'sem dependências', en: 'no dependencies' },
+};
+
+/** HTML-escape — game.json is ours, but a stray `&` still has to survive. */
+const esc = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/** `data-pt="…" data-en="…"` for a bilingual field — see bindText in the kit. */
+const both = (value, attr = '') =>
+  `data-pt${attr && '-' + attr}="${esc(value.pt)}" data-en${attr && '-' + attr}="${esc(value.en)}"`;
+
+// ------------------------------------------------------------------ catalog
+const catalog = readdirSync(GAMES)
   .filter((slug) => {
     try {
-      return statSync(join(JOGOS, slug, 'jogo.json')).isFile();
+      return statSync(join(GAMES, slug, 'game.json')).isFile();
     } catch {
       return false;
     }
   })
   .map((slug) => {
-    const meta = JSON.parse(readFileSync(join(JOGOS, slug, 'jogo.json'), 'utf8'));
+    const meta = JSON.parse(readFileSync(join(GAMES, slug, 'game.json'), 'utf8'));
     if (meta.slug !== slug) {
-      throw new Error(`jogos/${slug}/jogo.json: campo "slug" diz "${meta.slug}", devia dizer "${slug}"`);
+      throw new Error(`games/${slug}/game.json: the "slug" field says "${meta.slug}", it should say "${slug}"`);
+    }
+    for (const field of ['name', 'description']) {
+      const v = meta[field];
+      if (!v || !v.pt || !v.en) {
+        throw new Error(`games/${slug}/game.json: "${field}" needs both a "pt" and an "en" — the catalog ships in two languages`);
+      }
+    }
+    for (const tag of meta.tags || []) {
+      if (!TAGS[tag]) throw new Error(`games/${slug}/game.json: unknown tag "${tag}" — add it to TAGS in build.mjs`);
     }
     return meta;
   })
-  .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  .sort((a, b) => a.name.pt.localeCompare(b.name.pt, 'pt-BR'));
 
-if (!catalogo.length) throw new Error('nenhum jogo encontrado em jogos/*/jogo.json');
+if (!catalog.length) throw new Error('no game found in games/*/game.json');
 
-const aBuildar = filtro.length ? catalogo.filter((j) => filtro.includes(j.slug)) : catalogo;
-for (const slug of filtro) {
-  if (!catalogo.some((j) => j.slug === slug)) throw new Error(`jogo desconhecido: ${slug}`);
+const toBuild = filter.length ? catalog.filter((g) => filter.includes(g.slug)) : catalog;
+for (const slug of filter) {
+  if (!catalog.some((g) => g.slug === slug)) throw new Error(`unknown game: ${slug}`);
 }
 
 // -------------------------------------------------------------------- build
-if (!filtro.length) rmSync(DIST, { recursive: true, force: true });
+if (!filter.length) rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
-for (const jogo of aBuildar) {
-  const pasta = join(JOGOS, jogo.slug);
-  process.stdout.write(`  ${jogo.emoji}  ${jogo.nome} … `);
+for (const game of toBuild) {
+  const folder = join(GAMES, game.slug);
+  process.stdout.write(`  ${game.emoji}  ${game.name.pt} … `);
 
-  execFileSync('npm', ['run', '--silent', 'build'], { cwd: pasta, stdio: ['ignore', 'ignore', 'inherit'] });
+  execFileSync('npm', ['run', '--silent', 'build'], { cwd: folder, stdio: ['ignore', 'ignore', 'inherit'] });
 
-  const gerado = join(pasta, 'dist/index.html');
-  let tamanho;
+  const generated = join(folder, 'dist/index.html');
+  let size;
   try {
-    tamanho = statSync(gerado).size;
+    size = statSync(generated).size;
   } catch {
-    throw new Error(`\n${jogo.slug}: o build não gerou dist/index.html — veja o contrato no CLAUDE.md`);
+    throw new Error(`\n${game.slug}: the build produced no dist/index.html — see the contract in CLAUDE.md`);
   }
 
-  // O jogo tem que ser autossuficiente: nada de <script src> nem <link stylesheet>
-  // apontando para fora do arquivo, senão ele não abre por file://.
-  const html = readFileSync(gerado, 'utf8');
-  const externo =
+  // The game has to be self-contained: no <script src> or <link stylesheet>
+  // pointing outside the file, or it won't open over file://.
+  const html = readFileSync(generated, 'utf8');
+  const external =
     html.match(/<script\b[^>]*\bsrc=["']?(?!data:)[^"'>\s]+/i) ||
     html.match(/<link\b[^>]*\bstylesheet[^>]*\bhref=["']?(?!data:)[^"'>\s]+/i) ||
     html.match(/<link\b[^>]*\bhref=["']?(?!data:|#)[^"'>\s]+[^>]*\bstylesheet/i);
-  if (externo) {
-    throw new Error(`\n${jogo.slug}: dist/index.html carrega arquivo externo (${externo[0].slice(0, 60)}…) — o jogo tem que ser um HTML só`);
+  if (external) {
+    throw new Error(
+      `\n${game.slug}: dist/index.html loads an external file (${external[0].slice(0, 60)}…) — the game has to be one HTML file`
+    );
   }
 
-  mkdirSync(join(DIST, jogo.slug), { recursive: true });
-  // A cópia do catálogo ganha o caminho de volta; o arquivo do jogo em
-  // jogos/<slug>/dist continua puro, para quem baixa só ele.
-  writeFileSync(join(DIST, jogo.slug, 'index.html'), comVoltaAoCatalogo(html), 'utf8');
-  console.log(`${kb(tamanho)} KB`);
+  mkdirSync(join(DIST, game.slug), { recursive: true });
+  // The catalog's copy gets the way back; the file in games/<slug>/dist stays
+  // pure, for whoever downloads only that.
+  writeFileSync(join(DIST, game.slug, 'index.html'), withCatalogExit(html), 'utf8');
+  console.log(`${kb(size)} KB`);
 }
 
 /**
- * Liga a volta ao catálogo na cópia publicada.
+ * Wire up the exit back to the catalog in the published copy.
  *
- * O catálogo é o app instalável e os jogos rodam dentro do escopo dele. Em modo
- * app não existe barra de navegador: sem uma saída, quem entra num jogo fica
- * preso — no Android ainda há o botão do sistema, no iOS não há nada.
+ * The catalog is the installable app and the games run inside its scope. In app
+ * mode there is no browser chrome: without an exit, whoever enters a game is
+ * stuck — on Android there is still the system button, on iOS there is nothing.
  *
- * O contrato é o inverso de injetar um botão por cima do jogo: **cada jogo diz
- * onde quer a saída**, na tela inicial dele e com a cara dele, e o catálogo só
- * ativa. Quem baixa o HTML do jogo sozinho não recebe este script, o elemento
- * continua escondido e não sobra link para um catálogo que não existe.
+ * The contract is the opposite of injecting a button over the game: **each game
+ * says where it wants the exit**, on its own home screen and in its own style,
+ * and the catalog merely switches it on. Whoever downloads the game's HTML by
+ * itself doesn't get this script, the element stays hidden, and no link is left
+ * pointing at a catalog that isn't there.
  *
- *   DOM:    <a data-voltar-catalogo hidden>← todos os jogos</a>
- *   canvas: leia `window.__catalogo` e desenhe do seu jeito
+ *   DOM:    <a data-back-to-catalog hidden>← all games</a>
+ *   canvas: read `window.__catalog` and draw it your way
  */
-function comVoltaAoCatalogo(html) {
+function withCatalogExit(html) {
   const script = `<script>
-window.__catalogo = '../index.html';
+window.__catalog = '../index.html';
 addEventListener('DOMContentLoaded', function () {
-  var links = document.querySelectorAll('[data-voltar-catalogo]');
+  var links = document.querySelectorAll('[data-back-to-catalog]');
   for (var i = 0; i < links.length; i++) {
-    links[i].href = window.__catalogo;
+    links[i].href = window.__catalog;
     links[i].hidden = false;
   }
 });
@@ -110,70 +160,56 @@ addEventListener('DOMContentLoaded', function () {
   return html.replace('</head>', script + '\n</head>');
 }
 
-// -------------------------------------------------------------------- índice
-const cards = catalogo
-  .map((jogo) => {
-    const selo = jogo.offline
-      ? '<span class="selo selo--offline" title="Roda sem internet">offline</span>'
-      : '<span class="selo selo--online" title="Precisa de internet">precisa de rede</span>';
-    const tags = jogo.tags.map((t) => `<li>${t}</li>`).join('');
-    const libs = jogo.libs.length ? jogo.libs.join(' · ') : 'sem dependências';
-    return `        <a class="card" href="./${jogo.slug}/index.html">
-          <span class="card__emoji" aria-hidden="true">${jogo.emoji}</span>
-          <h2 class="card__nome">${jogo.nome}</h2>
-          <p class="card__desc">${jogo.descricao}</p>
+// -------------------------------------------------------------------- index
+const cards = catalog
+  .map((game) => {
+    const [text, hint, kind] = game.offline
+      ? [UI.offline, UI.offlineHint, 'offline']
+      : [UI.online, UI.onlineHint, 'online'];
+    const badge =
+      `<span class="badge badge--${kind}" title="${esc(hint.pt)}" ` +
+      `${both(hint, 'title')} ${both(text)}>${esc(text.pt)}</span>`;
+    const tags = (game.tags || [])
+      .map((t) => `<li ${both(TAGS[t])}>${esc(TAGS[t].pt)}</li>`)
+      .join('');
+    const libs = game.libs.length
+      ? `<span class="card__libs">${esc(game.libs.join(' · '))}</span>`
+      : `<span class="card__libs" ${both(UI.noDeps)}>${esc(UI.noDeps.pt)}</span>`;
+    return `        <a class="card" href="./${game.slug}/index.html">
+          <span class="card__emoji" aria-hidden="true">${game.emoji}</span>
+          <h2 class="card__name" ${both(game.name)}>${esc(game.name.pt)}</h2>
+          <p class="card__desc" ${both(game.description)}>${esc(game.description.pt)}</p>
           <ul class="card__tags">${tags}</ul>
-          <footer class="card__pe"><span class="card__libs">${libs}</span>${selo}</footer>
+          <footer class="card__foot">${libs}${badge}</footer>
         </a>`;
   })
   .join('\n');
 
-const template = readFileSync(join(ROOT, 'site/index.html'), 'utf8');
-if (!template.includes('<!--__JOGOS__-->')) throw new Error('site/index.html: placeholder <!--__JOGOS__--> ausente');
+// The index is installable too: adding it to the home screen gives the whole
+// catalog behind one icon, and every game opens from there.
+await build({
+  root: ROOT,
+  entry: 'site/index.js',
+  template: 'site/index.html',
+  out: 'dist/index.html',
+  replace: {
+    '<!--__GAMES__-->': cards,
+    '<!--__TOTAL__-->': String(catalog.length),
+  },
+  pwa: {
+    name: 'slop-games',
+    short: 'slop-games',
+    description: 'Games that run entirely in the browser.',
+    emoji: '🕹️',
+    background: '#0c0d12',
+    color: '#0c0d12',
+    // standalone (not fullscreen): keeps the system status bar, which is where
+    // the player reads the clock and the battery while browsing
+    display: 'standalone',
+  },
+});
 
-// o índice também é instalável: quem adiciona à tela inicial ganha o catálogo
-// inteiro num ícone, e de lá abre qualquer jogo
-const manifestoIndice = {
-  name: 'slop-games',
-  short_name: 'slop-games',
-  description: 'Jogos que rodam inteiros no navegador.',
-  start_url: './',
-  scope: './',
-  // standalone (e não fullscreen): mantém a barra de status do sistema, que é
-  // onde o usuário vê horas e bateria enquanto joga
-  display: 'standalone',
-  background_color: '#0c0d12',
-  theme_color: '#0c0d12',
-  icons: [192, 512].map((t) => ({
-    src:
-      'data:image/svg+xml,' +
-      encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${t} ${t}">` +
-          `<rect width="${t}" height="${t}" fill="#0c0d12"/>` +
-          `<text x="50%" y="50%" dy=".1em" font-size="${Math.round(t * 0.62)}" ` +
-          `text-anchor="middle" dominant-baseline="middle">🕹️</text></svg>`
-      ),
-    sizes: `${t}x${t}`,
-    type: 'image/svg+xml',
-    purpose: t === 512 ? 'maskable' : 'any',
-  })),
-};
-
-const tagsPWA = [
-  `<link rel="manifest" href="data:application/manifest+json,${encodeURIComponent(JSON.stringify(manifestoIndice))}">`,
-  '<meta name="theme-color" content="#0c0d12">',
-  '<meta name="apple-mobile-web-app-capable" content="yes">',
-  '<meta name="apple-mobile-web-app-title" content="slop-games">',
-  `<link rel="apple-touch-icon" href="${manifestoIndice.icons[0].src}">`,
-].join('\n');
-
-const indice = template
-  .replace('</head>', () => tagsPWA + '\n</head>')
-  .replace('<!--__JOGOS__-->', () => cards)
-  .replace('<!--__TOTAL__-->', () => String(catalogo.length));
-
-writeFileSync(join(DIST, 'index.html'), indice, 'utf8');
 writeFileSync(join(DIST, '.nojekyll'), '', 'utf8');
 
-console.log(`\n  ✔ dist/index.html  (${catalogo.length} jogos no catálogo)`);
-console.log('    Abra com duplo clique — não precisa de servidor.\n');
+console.log(`\n  ✔ dist/index.html  (${catalog.length} games in the catalog)`);
+console.log('    Open it on a double click — no server needed.\n');

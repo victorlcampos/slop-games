@@ -1,18 +1,18 @@
 {
   "name": "slop-games",
   "version": "1.0.0",
-  "description": "Jogos que rodam inteiros no navegador, cada um em um único arquivo HTML.",
+  "description": "Games that run entirely in the browser, each one a single HTML file.",
   "type": "module",
   "private": true,
   "workspaces": [
     "lib",
-    "jogos/*"
+    "games/*"
   ],
   "scripts": {
     "build": "node build.mjs",
-    "test": "node lib/test/kit.test.mjs && node test/jogos.test.mjs",
-    "abrir": "node build.mjs && open dist/index.html",
-    "test:jogos": "npm run test --workspaces --if-present"
+    "test": "node lib/test/kit.test.mjs && node test/games.test.mjs",
+    "open": "node build.mjs && open dist/index.html",
+    "test:games": "npm run test --workspaces --if-present"
   },
   "license": "MIT"
 }
