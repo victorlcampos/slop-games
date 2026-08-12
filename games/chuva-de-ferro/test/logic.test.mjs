@@ -5,14 +5,16 @@
 // ammo, cargo that lands in a way nothing implements, a name written in one
 // language, a road that is different every time you walk it.
 
-import { scenario, check, checkEqual, run } from 'slopkit/testing';
+import { scenario, check, checkEqual, headlessContext, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit';
 
 import { WEAPONS, WEAPON_BY_ID, PRIMARY, DROPPABLE, rollWeapon, loadout } from '../src/weapons.js';
 import { OBJECTS, OBJECT_BY_ID, DROPPED, rollObject, spawnObject } from '../src/objects.js';
+import { GUN_ART, gunOf } from '../src/draw/guns.js';
+import { drawCargo } from '../src/draw/cargo.js';
 import { createWorld } from '../src/world.js';
 import { dict } from '../src/i18n.js';
-import { makeRng, GROUND, PLAYER } from '../src/config.js';
+import { DAY, daylightAt, makeRng, phaseAt, GROUND, PLAYER } from '../src/config.js';
 import { AIM, STICK, stickInput, createTouchControls } from '../src/controls.js';
 
 const KINDS = ['bullet', 'pellet', 'beam', 'rocket', 'lobbed', 'flame', 'orb', 'homing'];
@@ -182,6 +184,68 @@ scenario('the open road has no ceiling, and says so the right way round', () => 
   check(world.ceilingAt(200) === -Infinity, 'the open sky came back as a ceiling');
   check(world.groundAt(200) - world.ceilingAt(200) === Infinity,
     'headroom under the open sky is not infinite — that is what crouched the soldier on an empty road');
+});
+
+// ------------------------------------------------------------ the drawings
+
+scenario('every gun has its own drawing — not twenty names for one rifle', () => {
+  for (const w of WEAPONS) {
+    const art = GUN_ART[w.id];
+    check(art, `${w.id} would be drawn as the service rifle`);
+    check(art.tip > 40 && art.tip < 130, `${w.id}: the muzzle flash comes out at ${art && art.tip}`);
+    check(Array.isArray(art.grips) && art.grips.length === 2, `${w.id}: a gun is held with two hands`);
+    art.draw(headlessContext());                       // and the painter itself holds up
+  }
+  const distinct = new Set(WEAPONS.map((w) => GUN_ART[w.id]));
+  checkEqual(distinct.size, WEAPONS.length, 'two guns share one drawing');
+  checkEqual(gunOf('nonsense'), GUN_ART.rifle, 'an unknown gun did not fall back to the rifle');
+});
+
+scenario('every piece of cargo draws, and the four saucer crews are four ships', () => {
+  for (const def of OBJECTS) {
+    const o = spawnObject(def, 0, 0);
+    o.age = 1.3;
+    drawCargo(headlessContext(), o);                   // must not throw, all twenty
+  }
+  const painted = [];
+  for (let v = 0; v < 4; v++) {
+    const ctx = headlessContext();
+    const calls = [];
+    const spy = new Proxy(ctx, {
+      get: (t, k) => (typeof k === 'string' && typeof t[k] !== 'object' && k !== 'measureText'
+        ? (...a) => { calls.push(k + ':' + a.map((x) => (typeof x === 'number' ? x.toFixed(1) : '')).join(',')); return t[k](...a); }
+        : t[k]),
+      set: () => true,
+    });
+    drawCargo(spy, {
+      def: { id: 'ufo', ufo: true }, x: 0, y: 0, r: 40,
+      variant: v, age: 1.2, spin: 0, hp: 14, maxHp: 14, frozen: 0, burning: 0, hit: 0,
+    });
+    painted.push(calls.join('|'));
+  }
+  checkEqual(new Set(painted).size, 4, 'two saucer variants painted the same strokes');
+});
+
+// ---------------------------------------------------------------- the day
+
+scenario('the sun rises, sets, and comes back — a long run fights through a night', () => {
+  check(daylightAt(0) > 0.7, `a run starts at ${daylightAt(0).toFixed(2)} of daylight — it should start in the morning`);
+
+  let brightest = 0, darkest = 1, firstDark = null;
+  for (let t = 0; t <= DAY.cycle; t += 1) {
+    const l = daylightAt(t);
+    check(l >= 0 && l <= 1, `daylight left its range: ${l} at ${t}s`);
+    brightest = Math.max(brightest, l);
+    darkest = Math.min(darkest, l);
+    if (firstDark === null && l < 0.1) firstDark = t;
+  }
+  check(brightest > 0.95, `the brightest hour of the day is ${brightest.toFixed(2)}`);
+  check(darkest < 0.05, `the darkest hour of the night is ${darkest.toFixed(2)}`);
+  check(firstDark > 60, `night fell at ${firstDark}s — before the player found their feet`);
+
+  const wrap = Math.abs(daylightAt(10) - daylightAt(10 + DAY.cycle));
+  check(wrap < 1e-9, `one full cycle later the light differs by ${wrap}`);
+  check(Math.abs(phaseAt(0) - phaseAt(DAY.cycle)) < 1e-9, 'the phase does not wrap with the cycle');
 });
 
 // -------------------------------------------------------------- the words

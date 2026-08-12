@@ -5,7 +5,7 @@
 // moment the trigger goes, everything else is a body that flies.
 
 import { GRAVITY, clamp } from './config.js';
-import { surfaceAt } from './world.js';
+import { insideTerrain, surfaceAt } from './world.js';
 
 /**
  * Pulls the trigger. `ctx` is what the shot is allowed to touch:
@@ -49,7 +49,12 @@ export function fire(ctx, weapon, from, aim, extra = {}) {
 function resolveBeam(ctx, weapon, from, aim, base) {
   const dx = Math.cos(aim);
   const dy = Math.sin(aim);
-  const reach = 2200;
+  // the line ends at the first rock it meets: a marksman round does not come
+  // out the other side of the arch that forced you to crouch
+  let reach = 2200;
+  for (let d = 24; d < 2200; d += 24) {
+    if (insideTerrain(ctx.world, from.x + dx * d, from.y + dy * d)) { reach = d; break; }
+  }
   const hit = [];
   for (const o of ctx.objects) {
     if (o.dead) continue;
@@ -71,6 +76,7 @@ function resolveBeam(ctx, weapon, from, aim, base) {
     last = { x: o.x, y: o.y };
   }
   if (weapon.effect === 'chain' && hit.length) chain(ctx, weapon, hit[0].o, base);
+  if (reach < 2200 && !hit.length) ctx.fx.spark(last.x, last.y, weapon.colour, 5);
   ctx.fx.beam(from.x, from.y, last.x, last.y, weapon.colour);
 }
 
@@ -129,6 +135,26 @@ export function updateShots(shots, dt, ctx) {
       } else {
         if (s.splash) ctx.boom(s.x, s.y, s.splash, s.dmg, s);
         else ctx.fx.spark(s.x, floor, s.colour, 5);
+        s.dead = true;
+        continue;
+      }
+    }
+    // rocks, arches and landed furniture stop a round the same way the ground
+    // does — before this, the obstacle that forced you to crouch let your own
+    // shot sail straight through it, which read as nonsense
+    if (!s.dead && insideTerrain(ctx.world, s.x, s.y)) {
+      if (s.bounces > 0) {
+        s.bounces--;
+        // back out and reflect off whichever axis got it inside
+        if (!insideTerrain(ctx.world, s.x - s.vx * dt, s.y)) {
+          s.x -= s.vx * dt; s.vx = -s.vx * 0.7;
+        } else {
+          s.y -= s.vy * dt; s.vy = -s.vy * 0.62;
+        }
+        ctx.fx.spark(s.x, s.y, s.colour, 4);
+      } else {
+        if (s.splash) ctx.boom(s.x, s.y, s.splash, s.dmg, s);
+        else ctx.fx.spark(s.x, s.y, s.colour, 5);
         s.dead = true;
         continue;
       }

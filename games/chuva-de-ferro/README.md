@@ -7,7 +7,7 @@ fight the invasion with the guns that fall out of it.
 
 ```bash
 npm run build --workspace games/chuva-de-ferro   # dist/index.html, one file
-npm test --workspace games/chuva-de-ferro        # 26 scenarios, in Node
+npm test --workspace games/chuva-de-ferro        # 38 scenarios, in Node
 ```
 
 ## Controls
@@ -24,11 +24,21 @@ device however you like, the game lies down on its own.
   thumb for a reticle, so the barrel picks the nearest piece of cargo, weighted
   towards whatever is about to land on the soldier's head. Holding ↑ overrides it
   and fires straight up — the one shot the auto-aim cannot guess for you.
-- **Twenty guns, one table.** Every weapon is a row in `src/weapons.js`: fire
-  rate, spread, pierce, splash, ammo, and which of the eight projectile
-  behaviours it uses. The service rifle is the only one with infinite ammo, and
+- **Twenty guns, one table — and twenty drawings.** Every weapon is a row in
+  `src/weapons.js`: fire rate, spread, pierce, splash, ammo, and which of the
+  eight projectile behaviours it uses. Each row also has its own silhouette in
+  the soldier's hands (`src/draw/guns.js`), with its own muzzle and its own
+  grip points. The service rifle is the only one with infinite ammo, and
   running a magazine dry drops you back to it — that fallback is the rhythm of
   the whole game.
+- **The day passes.** A run starts mid-morning; around the two-minute mark the
+  sun goes down and the fight carries on under stars, the freighter's vents
+  glowing overhead, until dawn brings the desert back. The light curve is a
+  pure function (`daylightAt`), so the tests can watch a whole day in a loop.
+- **The obstacles play fair.** A rock blocks your shot the same way it blocks
+  your run, and the arch you crouch under is rock all the way up — jump on top
+  of it and it is the best firing position on the road. Four different saucer
+  crews do the dropping, and none of them fly the same ship.
 - **Twenty things fall, and none of them fall alike.** An egg sticks where it
   lands and leaks; a ball keeps bouncing; a barrel takes its neighbours with it;
   a safe soaks thirty shots and, once it is down, becomes the only high ground on

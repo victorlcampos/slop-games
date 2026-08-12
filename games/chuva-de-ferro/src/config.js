@@ -39,6 +39,20 @@ export const CARGO = {
  */
 export const pressureAt = (seconds) => Math.min(1, seconds / CARGO.ramp);
 
+/**
+ * The clock on the wall. A run starts mid-morning, the first dusk arrives
+ * around the two-minute mark, and a soldier who lasts a whole cycle has fought
+ * through a night. `phase` walks 0..1 — 0 dawn, 0.25 noon, 0.5 dusk, 0.75
+ * midnight — and `daylight` is how much sun that phase gets, 0..1.
+ */
+export const DAY = { cycle: 260, offset: 0.13 };
+
+export const phaseAt = (seconds) => (seconds / DAY.cycle + DAY.offset) % 1;
+
+export function daylightAt(seconds) {
+  return clamp(0.5 + 0.62 * Math.sin(phaseAt(seconds) * Math.PI * 2), 0, 1);
+}
+
 export const COLOURS = {
   skyTop: '#2b3f5c',
   skyLow: '#f0a862',

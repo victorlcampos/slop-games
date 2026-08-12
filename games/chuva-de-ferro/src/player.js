@@ -42,7 +42,7 @@ export function stepSoldier(s, dt, input, world) {
   if (wants) s.facing = wants;
 
   // crouching: asked for, or forced by a ceiling that is too low to stand under
-  const roof = world.ceilingAt(s.x);
+  const roof = world.ceilingAt(s.x, s.y);
   const ground = surfaceAt(world, s.x, s.y);
   const headroom = ground - roof;
   const mustDuck = s.onGround && headroom < PLAYER.h;
@@ -83,30 +83,42 @@ export function stepSoldier(s, dt, input, world) {
   if (s.vy >= 0) s.jumping = false;
 
   s.vy += GRAVITY * dt;
-  const nextX = s.x + s.vx * dt;
+  let nextX = s.x + s.vx * dt;
 
   // Walls: a rock you did not jump stops you where it starts. Anything low
   // enough is a step instead — an anvil that landed inside a cave, where nobody
-  // can jump, would otherwise be the end of the run.
+  // can jump, would otherwise be the end of the run. Blocking clamps `nextX`
+  // to the wall's face instead of freezing him where he stands, and a soldier
+  // who somehow woke up INSIDE a box (a safe landing around him) is pushed out
+  // through the nearest face — the old version left him wedged there for good.
   s.blocked = false;
-  const feet = s.y;
-  const head = s.y - heightOf(s);
   const half = PLAYER.w / 2;
   for (const solid of world.solidsNear(s.x, 200)) {
     const top = solid.y;
     const bottom = solid.y + solid.h;
-    if (feet <= top + 6 || head >= bottom) continue;         // above it or under it
+    const feet = s.y;
+    if (feet <= top + 6 || feet - heightOf(s) >= bottom) continue;   // above it or under it
     if (nextX + half <= solid.x || nextX - half >= solid.x + solid.w) continue;
     if (s.onGround && feet - top <= PLAYER.stepUp) { s.y = top; continue; }
-    if (s.x <= solid.x) { s.x = solid.x - half; s.blocked = true; }
-    else if (s.x >= solid.x + solid.w) { s.x = solid.x + solid.w + half; s.blocked = true; }
+    if (s.x + half <= solid.x + 1) {
+      nextX = solid.x - half;                                 // walking into the left face
+      s.blocked = true;
+    } else if (s.x - half >= solid.x + solid.w - 1) {
+      nextX = solid.x + solid.w + half;                       // into the right face
+      s.blocked = true;
+    } else {
+      const throughLeft = s.x + half - solid.x;               // wedged: shortest way out
+      const throughRight = solid.x + solid.w - (s.x - half);
+      nextX = throughLeft <= throughRight ? solid.x - half : solid.x + solid.w + half;
+      s.blocked = true;
+    }
   }
-  if (!s.blocked) s.x = nextX;
+  s.x = nextX;
   if (s.x < 40) s.x = 40;                                     // the road only goes one way
 
   s.y += s.vy * dt;
 
-  // the floor: the road, or the top of whatever landed there
+  // the floor: the road, the top of whatever landed there, or the arch's back
   const floor = surfaceAt(world, s.x, s.y - s.vy * dt);
   if (s.y >= floor) {
     if (!s.onGround && s.vy > 240) s.landed = 0.18;      // a landing worth a puff of dust
@@ -118,13 +130,15 @@ export function stepSoldier(s, dt, input, world) {
   }
 
   // a low ceiling in the air: bump the head instead of clipping through the rock
-  const roofHere = world.ceilingAt(s.x);
+  const roofHere = world.ceilingAt(s.x, s.y);
   if (s.y - heightOf(s) < roofHere && s.vy < 0) {
     s.y = roofHere + heightOf(s);
     s.vy = 0;
   }
 
-  s.step += Math.abs(s.vx) * dt * 0.02;
+  // the run cycle in radians: at full speed roughly three strides a second.
+  // (0.02 with a 7.4 multiplier downstream gave him fifty — the Sonic legs)
+  s.step += Math.abs(s.vx) * dt * 0.032;
   if (s.landed > 0) s.landed -= dt;
   if (s.invuln > 0) s.invuln -= dt;
   if (s.recoil > 0) s.recoil = Math.max(0, s.recoil - dt * 6);

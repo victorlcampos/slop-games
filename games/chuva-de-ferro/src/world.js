@@ -68,15 +68,17 @@ export function createWorld(seed = 1) {
           solids.push({ kind: 'rock', x, y: groundAt(x + w / 2) - h, w, h });
         }
       } else if (pick < 0.58) {
-        // an arch: a ceiling low enough that standing up under it stops you
+        // an arch: a ceiling low enough that standing up under it stops you.
+        // `thick` is the band of rock over the gap — its top is real ground,
+        // so the arch is also a platform, not only a reason to crouch
         const w = 190 + hash2(index, seed + 7) * 150;
         const clear = 74 + hash2(index, seed + 9) * 18;
-        roof.push({ kind: 'arch', x: fit(index, x0, w), w, clear });
+        roof.push({ kind: 'arch', x: fit(index, x0, w), w, clear, thick: 58 });
       } else if (pick < 0.72) {
         // a cave: the same idea, long enough that you cross it crouched
         const w = 420 + hash2(index, seed + 8) * 90;
         const clear = 70 + hash2(index, seed + 3) * 12;
-        roof.push({ kind: 'cave', x: fit(index, x0, w), w, clear });
+        roof.push({ kind: 'cave', x: fit(index, x0, w), w, clear, thick: 78 });
       }
       // the rest of the segments are open road — the game needs room to breathe
     }
@@ -118,8 +120,13 @@ export function createWorld(seed = 1) {
    * sky**, not Infinity: a ceiling is a y, and higher up is a smaller number.
    * Getting that backwards left the soldier permanently crouched on an empty
    * road, walking at 45% speed with nothing over his head.
+   *
+   * `feetY` says where whoever is asking stands: a ceiling only presses on
+   * somebody who is UNDER it. Standing on top of the arch, its underside is
+   * below your boots — without this check the band's own top was "too low to
+   * stand on" and the soldier crouched on the roof he had just climbed.
    */
-  function ceilingAt(x) {
+  function ceilingAt(x, feetY = Infinity) {
     let best = -Infinity;
     const a = Math.floor((x - SEG) / SEG);
     const b = Math.floor((x + SEG) / SEG);
@@ -127,7 +134,9 @@ export function createWorld(seed = 1) {
       const seg = segments.get(i);
       if (!seg) continue;
       for (const r of seg.roof) {
-        if (x >= r.x && x <= r.x + r.w) best = Math.max(best, groundAt(x) - r.clear);
+        if (x < r.x || x > r.x + r.w) continue;
+        const under = groundAt(x) - r.clear;
+        if (under < feetY) best = Math.max(best, under);
       }
     }
     return best;
@@ -152,10 +161,22 @@ export function createWorld(seed = 1) {
     return prop;
   }
 
+  /**
+   * The cargo was destroyed: its footprint leaves the road with it. Without
+   * this a shot-down safe kept blocking (and holding up) the soldier as an
+   * invisible box, right where its weapon pickup had just landed.
+   */
+  function removeProp(prop) {
+    const seg = segments.get(Math.floor(prop.x / SEG));
+    if (!seg) return;
+    const i = seg.props.indexOf(prop);
+    if (i >= 0) seg.props.splice(i, 1);
+  }
+
   ensure(0, SEG * 3);
 
   return {
-    seed, groundAt, ceilingAt, solidsNear, roofNear, ensure, addProp,
+    seed, groundAt, ceilingAt, solidsNear, roofNear, ensure, addProp, removeProp,
     segment, get count() { return segments.size; },
   };
 }
@@ -167,5 +188,29 @@ export function surfaceAt(world, x, fromY) {
     if (x < s.x || x > s.x + s.w) continue;
     if (s.y >= fromY - 4 && s.y < y) y = s.y;
   }
+  // the top of an arch is rock like any other: below your feet, it is a floor
+  for (const r of world.roofNear(x, SEG)) {
+    if (x < r.x || x > r.x + r.w) continue;
+    const top = world.groundAt(x) - r.clear - r.thick;
+    if (top >= fromY - 4 && top < y) y = top;
+  }
   return y;
+}
+
+/**
+ * True when the point is inside a rock, or a roof band, or under the ground —
+ * what a shot cannot cross. Landed cargo is left out on purpose: it is still
+ * an object with hit points, and the shot has to reach it to spend them.
+ */
+export function insideTerrain(world, x, y) {
+  for (const s of world.solidsNear(x, 80)) {
+    if (s.cargo) continue;
+    if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return true;
+  }
+  for (const r of world.roofNear(x, SEG)) {
+    if (x < r.x || x > r.x + r.w) continue;
+    const under = world.groundAt(x) - r.clear;
+    if (y <= under && y >= under - r.thick) return true;
+  }
+  return y >= world.groundAt(x);
 }

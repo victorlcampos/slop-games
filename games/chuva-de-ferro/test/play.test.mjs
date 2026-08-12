@@ -7,11 +7,13 @@
 import { scenario, check, checkEqual, run } from 'slopkit/testing';
 
 import { createGame } from '../src/game.js';
-import { createWorld, surfaceAt } from '../src/world.js';
+import { createWorld, surfaceAt, insideTerrain } from '../src/world.js';
 import { createSoldier, stepSoldier, heightOf, hurt, heal } from '../src/player.js';
 import { OBJECT_BY_ID, spawnObject } from '../src/objects.js';
 import { WEAPON_BY_ID, PRIMARY, loadout } from '../src/weapons.js';
-import { PLAYER, pressureAt } from '../src/config.js';
+import { fire, updateShots } from '../src/shots.js';
+import { silentFx } from '../src/fx.js';
+import { PLAYER, makeRng, pressureAt } from '../src/config.js';
 
 const STEP = 1 / 120;
 const STILL = { left: false, right: false, jump: false, down: false, up: false, fire: false };
@@ -134,6 +136,91 @@ scenario('a rock is something to jump, not to walk through', () => {
   s.x = rock.x + rock.w / 2;
   for (let t = 0; t < 0.5; t += STEP) stepSoldier(s, STEP, STILL, world);
   check(Math.abs(s.y - rock.y) < 3, `standing on the rock he is at ${s.y.toFixed(0)}, the top is ${rock.y.toFixed(0)}`);
+});
+
+scenario('the back of an arch is ground: he can stand on the thing he ducks under', () => {
+  const world = createWorld(4);
+  const arch = findRoof(world);
+  check(arch, 'a kilometre of road with no arch');
+  const mid = arch.x + arch.w / 2;
+  const top = world.groundAt(mid) - arch.clear - arch.thick;
+
+  // reachable at all: the band's top has to be inside a jump's height
+  check(world.groundAt(mid) - top < 200, `the arch top is ${(world.groundAt(mid) - top).toFixed(0)} px up — no jump reaches it`);
+
+  const s = createSoldier(mid);
+  s.y = top;
+  for (let t = 0; t < 0.5; t += STEP) stepSoldier(s, STEP, STILL, world);
+  check(s.onGround, 'standing on the arch he fell through it');
+  check(Math.abs(s.y - top) < 3, `on the arch his feet are at ${s.y.toFixed(0)}, the band top is ${top.toFixed(0)}`);
+  check(!s.crouching, 'on top of the arch he crouched under his own floor');
+});
+
+scenario('a shot ends at the rock it hits — the obstacle blocks fire the way it blocks you', () => {
+  const world = createWorld(4);
+  world.ensure(0, 40000);
+  let rock = null;
+  for (let i = 2; i < 64 && !rock; i++) {
+    const seg = world.segment(i);
+    if (seg.solids.length && seg.solids[0].h > 60) rock = seg.solids[0];
+  }
+  check(rock, 'no rock tall enough to shoot at');
+
+  // a crate parked behind the rock, dead centre of its body
+  const midY = rock.y + rock.h / 2;
+  const crate = spawnObject(OBJECT_BY_ID.crate, rock.x + rock.w + 120, midY);
+  const objects = [crate];
+  const shots = [];
+  let dealt = 0;
+  const ctx = {
+    world, objects, shots, fx: silentFx(), rand: makeRng(9),
+    damage: (o, amount) => { dealt += amount; },
+    boom: () => {},
+  };
+  check(insideTerrain(world, rock.x + rock.w / 2, midY), 'the rock has no body for a shot to hit');
+
+  // a bullet, fired flat through the rock's belly
+  fire(ctx, WEAPON_BY_ID.rifle, { x: rock.x - 160, y: midY }, 0);
+  for (let t = 0; t < 1.5; t += STEP) updateShots(shots, STEP, ctx);
+  checkEqual(dealt, 0, `the bullet went through the rock and dealt ${dealt}`);
+  checkEqual(shots.length, 0, 'the bullet is still flying inside the rock');
+
+  // and a marksman beam, which resolves at once: it stops at the rock too
+  fire(ctx, WEAPON_BY_ID.marksman, { x: rock.x - 160, y: midY }, 0);
+  checkEqual(dealt, 0, `the beam came out the far side of the rock and dealt ${dealt}`);
+});
+
+scenario('a destroyed safe stops being a wall: no ghost footprint on the road', () => {
+  const g = createGame({ seed: 8 });
+  const safe = spawnObject(OBJECT_BY_ID.safe, g.soldier.x + 260, 120);
+  g.objects.push(safe);
+  play(g, 4);
+  check(safe.landed && safe.prop, 'the safe never became furniture');
+  const ground = g.world.groundAt(safe.x);
+  check(surfaceAt(g.world, safe.x, 0) < ground - 20, 'the landed safe is not high ground');
+
+  g.damage(safe, 999, null);
+  check(safe.dead, 'a point-blank 999 left the safe standing');
+  check(!g.world.solidsNear(safe.x, 100).some((s) => s.cargo === safe),
+    'the dead safe left its footprint behind — an invisible wall over its own pickup');
+  check(Math.abs(surfaceAt(g.world, safe.x, 0) - ground) < 1,
+    'the road under the dead safe did not come back');
+});
+
+scenario('a safe that lands around him leaves him beside it, not wedged inside', () => {
+  const g = createGame({ seed: 8 });
+  g.objects.length = 0;
+  const safe = spawnObject(OBJECT_BY_ID.safe, g.soldier.x, g.soldier.y - 500);
+  g.objects.push(safe);
+  play(g, 3);
+  check(safe.landed && safe.prop, 'the safe never landed');
+  const p = safe.prop;
+  const half = PLAYER.w / 2;
+  const s = g.soldier;
+  check(s.x + half <= p.x + 1 || s.x - half >= p.x + p.w - 1,
+    `he is still inside the safe (soldier at ${s.x.toFixed(0)}, safe ${p.x.toFixed(0)}..${(p.x + p.w).toFixed(0)})`);
+  check(s.onGround && Math.abs(s.y - surfaceAt(g.world, s.x, 0)) < 3,
+    'shoved out of the safe he is not standing on the road');
 });
 
 scenario('three lives, mercy after a hit, and a medkit that gives one back', () => {

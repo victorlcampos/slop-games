@@ -59,6 +59,8 @@ export function createGame(options = {}) {
     const x = soldier.x + (rng() < 0.78 ? ahead : -ahead * 0.5);
     // the saucer comes in first and lets go of the cargo a moment later
     const ufo = spawnObject(UFO, x, 70 + rng() * 60);
+    // four crews fly for the freighter, and they do not fly the same ship
+    ufo.variant = Math.floor(rng() * 4) % 4;
     ufo.vx = (rng() < 0.5 ? -1 : 1) * (70 + rng() * 90);
     ufo.carry = rollObject(rng, pressure);
     ufo.dropIn = 0.5 + rng() * 0.7;
@@ -94,6 +96,10 @@ export function createGame(options = {}) {
     if (o.dead) return;
     o.dead = true;
     state.killed++;
+    // what was furniture stops being a wall: without this a shot-down safe
+    // kept its invisible footprint, blocking the road and holding the soldier
+    // up in mid-air right over the pickup it had just dropped
+    if (o.prop) { world.removeProp(o.prop); o.prop = null; }
     const points = Math.round(o.def.score * (o.landed ? 0.4 : 1));
     state.score += points;
     fx.float(o.x, o.y - o.r, '+' + points);
@@ -244,7 +250,7 @@ export function createGame(options = {}) {
         o.vx = 0;
         // under a cave there is no room for it to stand, and a safe wedged in
         // there would seal the road for a soldier who cannot jump
-        if (o.def.solid && world.ceilingAt(o.x) > -Infinity) { destroy(o, null); break; }
+        if (o.def.solid && world.ceilingAt(o.x, o.y + o.r) > -Infinity) { destroy(o, null); break; }
         if (o.def.solid) {
           // from here on it is part of the road: you can stand on it
           const w = o.r * 1.8;
@@ -252,6 +258,14 @@ export function createGame(options = {}) {
           o.prop = world.addProp({
             kind: o.def.id, x: o.x - w / 2, y: o.y + o.r - h, w, h, cargo: o,
           });
+          // if it came down around the soldier, he steps out of it — the old
+          // behaviour quietly hoisted him on top, or wedged him inside for good
+          const half = PLAYER.w / 2;
+          const p = o.prop;
+          if (soldier.y > p.y + 4 && soldier.y - heightOf(soldier) < p.y + p.h
+            && soldier.x + half > p.x && soldier.x - half < p.x + p.w) {
+            soldier.x = soldier.x < o.x ? p.x - half : p.x + p.w + half;
+          }
         }
         break;
     }
@@ -387,11 +401,17 @@ export function createGame(options = {}) {
     stepPickups(dt);
     contact();
 
-    // forget what is far behind: an endless road cannot keep everything
+    // forget what is far behind: an endless road cannot keep everything.
+    // Landed furniture is kept further out — its footprint lives in the world,
+    // and dropping the object while the footprint stayed made invisible walls
     let w = 0;
     for (let i = 0; i < objects.length; i++) {
       const o = objects[i];
-      if (o.dead || o.x < soldier.x - 1800) continue;
+      const horizon = o.prop ? 3400 : 1800;
+      if (o.dead || o.x < soldier.x - horizon) {
+        if (!o.dead && o.prop) world.removeProp(o.prop);
+        continue;
+      }
       objects[w++] = o;
     }
     objects.length = w;
