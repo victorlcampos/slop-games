@@ -148,10 +148,16 @@ export function createRenderer() {
       // enough to read as a cave mouth and no thicker. Drawing it up to the top
       // of the screen turned the desert into two brown walls.
       const lip = (i) => world.groundAt(r.x + i) - r.clear + Math.sin(clamp((i + 30) / (r.w + 60), 0, 1) * Math.PI) * 22;
-      const thick = r.kind === 'cave' ? 210 : 130;
+      // thin, and rocky on top: a band 60 px deep reads as an overhang, a band
+      // 200 px deep reads as a wall with a hole in it
+      const thick = r.kind === 'cave' ? 78 : 58;
       ctx.beginPath();
-      ctx.moveTo(x - 40, lip(-40) - thick);
-      ctx.lineTo(x + r.w + 40, lip(r.w + 40) - thick);
+      ctx.moveTo(x - 40, lip(-40) - thick * 0.5);
+      for (let i = -40; i <= r.w + 40; i += 40) {
+        const bump = Math.sin((r.x + i) * 0.013) * 14 + Math.sin((r.x + i) * 0.041) * 7;
+        ctx.lineTo(x + i, lip(i) - thick - bump);
+      }
+      ctx.lineTo(x + r.w + 40, lip(r.w + 40) - thick * 0.5);
       ctx.lineTo(x + r.w + 40, lip(r.w + 40));
       for (let i = r.w + 40; i >= -40; i -= 22) ctx.lineTo(x + i, lip(i));
       ctx.closePath();
@@ -177,62 +183,180 @@ export function createRenderer() {
     }
   }
 
+  /**
+   * The soldier, closer to the sprite this game is quoting: a helmet that reads
+   * from across the screen, boots, a vest, and both hands on the rifle so the
+   * gun swings with the aim instead of floating beside him.
+   */
   function soldierArt(ctx, s, time) {
     const h = heightOf(s);
+    const crouch = s.crouching;
     const x = s.x;
     const y = s.y;
+    const f = s.facing;
     const blink = s.invuln > 0 && Math.floor(time * 14) % 2 === 0;
+
+    groundShadow(ctx, x, y + 2, crouch ? 26 : 22, 0.42);
     ctx.save();
-    if (blink) ctx.globalAlpha = 0.45;
-    groundShadow(ctx, x, y + 2, 22, 0.4);
+    if (blink) ctx.globalAlpha = 0.5;
 
-    const walk = Math.abs(s.vx) > 4 && s.onGround;
-    const swing = walk ? Math.sin(s.step * 7.2) : 0;
-    const hip = y - h * 0.46;
+    const running = Math.abs(s.vx) > 8 && s.onGround;
+    const ph = s.step * 7.4;
+    const swing = running ? Math.sin(ph) : 0;
+    const bob = running ? Math.abs(Math.cos(ph)) * 3 : 0;
 
-    // legs
-    for (const side of [-1, 1]) {
-      const a = swing * side * 0.6 + (s.onGround ? 0 : -0.35 * side);
+    const hipY = y - h * (crouch ? 0.34 : 0.46) + bob;
+    const chestY = y - h * (crouch ? 0.62 : 0.80) + bob;
+    const KHAKI = '#5c6b45';
+    const KHAKI_D = '#3f4b2f';
+    const BOOT = '#2a2721';
+
+    // ---------------------------------------------------------------- legs
+    const leg = (side, lean) => {
+      const thigh = h * (crouch ? 0.2 : 0.27);
+      const shin = h * (crouch ? 0.16 : 0.24);
       ctx.save();
-      ctx.translate(x, hip);
-      ctx.rotate(a);
-      block(ctx, -7, 0, 14, h * 0.5, side > 0 ? COLOURS.soldierDark : COLOURS.soldier, { r: 5 });
-      block(ctx, -9, h * 0.44, 20, 10, '#2c2a24', { r: 3, line: 2 });
+      ctx.translate(x - f * 2, hipY);
+      ctx.rotate(lean);
+      block(ctx, -8, 0, 16, thigh, side < 0 ? KHAKI_D : KHAKI, { r: 6 });
+      ctx.translate(0, thigh - 2);
+      ctx.rotate(crouch ? -1.1 : Math.max(0, -lean) * 1.5 + (s.onGround ? 0 : 0.5));
+      block(ctx, -7, 0, 14, shin, side < 0 ? KHAKI_D : KHAKI, { r: 5 });
+      block(ctx, -9 + f * 3, shin - 3, 20, 11, BOOT, { r: 4, line: 2.5 });
       ctx.restore();
-    }
+    };
+    leg(-1, swing * 0.62 - (crouch ? 0.5 : 0) + (s.onGround ? 0 : -0.3));
+    leg(1, -swing * 0.62 - (crouch ? 0.8 : 0) + (s.onGround ? 0 : 0.35));
 
-    // torso + backpack
-    const chest = y - h * (s.crouching ? 0.66 : 0.78);
-    block(ctx, x - 15, chest, 30, h * 0.36, COLOURS.soldier, { r: 6 });
-    block(ctx, x - 24 * s.facing, chest + 4, 12, h * 0.24, '#3a4430', { r: 4, line: 2 });
+    // -------------------------------------------------------------- torso
+    const torsoH = h * (crouch ? 0.3 : 0.36);
+    ctx.save();
+    ctx.translate(x, chestY);
+    ctx.rotate(f * (crouch ? 0.22 : 0.06) + (running ? Math.sin(ph * 2) * 0.02 : 0));
+    // backpack, behind
+    block(ctx, -f * 26, 2, 16, torsoH * 0.8, '#414b33', { r: 5, line: 2.5 });
+    block(ctx, -16, -2, 32, torsoH, KHAKI, { r: 8 });
+    // webbing
+    ctx.fillStyle = 'rgba(20,18,12,0.45)';
+    ctx.fillRect(-16, torsoH * 0.45, 32, 6);
+    ctx.fillStyle = '#8a6a3a';
+    ctx.fillRect(-16, torsoH * 0.45, 32, 3);
+    // two pouches on the belt
+    block(ctx, -14, torsoH * 0.52, 11, 9, '#4a3f2a', { r: 2, line: 2 });
+    block(ctx, 3, torsoH * 0.52, 11, 9, '#4a3f2a', { r: 2, line: 2 });
+    ctx.restore();
 
-    // head + helmet
-    const head = chest - h * 0.1;
-    ball(ctx, x + 2 * s.facing, head, 11, COLOURS.skin, { line: 2.5 });
+    // --------------------------------------------------------------- head
+    const headY = chestY - h * (crouch ? 0.1 : 0.1);
+    ctx.save();
+    ctx.translate(x + f * 3, headY);
+    // jaw and face
+    ball(ctx, 0, 0, 12, COLOURS.skin, { line: 2.5 });
+    ctx.fillStyle = '#2a2016';
     ctx.beginPath();
-    ctx.ellipse(x + 1 * s.facing, head - 4, 15, 12, 0, Math.PI, 0);
-    ctx.fillStyle = '#43502f';
+    ctx.ellipse(f * 5, -1, 2.4, 3.2, 0, 0, Math.PI * 2);      // the eye
+    ctx.fill();
+    // helmet: a dome with a real brim, which is the whole silhouette
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 16, 14, 0, Math.PI, 0);
+    ctx.fillStyle = '#4e5b34';
+    ctx.fill();
+    outline(ctx, 3);
+    ctx.beginPath();
+    ctx.moveTo(-17, -4);
+    ctx.quadraticCurveTo(f * 4, 3, f * 22, -6);
+    ctx.lineTo(f * 20, -10);
+    ctx.quadraticCurveTo(f * 4, -2, -16, -9);
+    ctx.closePath();
+    ctx.fillStyle = '#5c6b3c';
     ctx.fill();
     outline(ctx, 2.5);
-    ctx.fillStyle = '#43502f';
-    ctx.fillRect(x - 15 + (s.facing > 0 ? 6 : -6), head - 5, 20, 5);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(-4, -11, 8, 4, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // chin strap
+    ctx.strokeStyle = '#2b2a20';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, -2, 13, 0.5, 2.4);
+    ctx.stroke();
+    ctx.restore();
 
-    // the arm holds the gun where the aim says
-    const shoulder = { x: x + 4 * s.facing, y: chest + 8 };
-    const gunLen = 34;
+    // ---------------------------------------------------------- the rifle
+    const shoulder = { x: x + f * 2, y: chestY + torsoH * 0.28 };
+    const kick = s.recoil > 0 ? s.recoil * 6 : 0;
     ctx.save();
     ctx.translate(shoulder.x, shoulder.y);
-    ctx.rotate(s.aim - (s.recoil > 0 ? 0.12 * s.recoil * s.facing : 0));
-    block(ctx, 0, -4, 12, 9, COLOURS.skin, { r: 3, line: 2 });
-    block(ctx, 8, -5, gunLen, 10, '#3b3f45', { r: 3 });
-    block(ctx, 16, 2, 8, 9, '#2c2f34', { r: 2, line: 2 });
+    ctx.rotate(s.aim);
+    ctx.scale(1, f);                       // the gun never draws upside down
+    ctx.translate(-kick, 0);
+
+    block(ctx, 6, -4, 26, 8, '#4a3c2a', { r: 2 });                           // stock
+    block(ctx, 22, -6, 40, 11, '#3d434a', { r: 3 });                        // receiver
+    block(ctx, 56, -3, 26, 6, '#2f353b', { r: 2 });                         // barrel
+    block(ctx, 34, 4, 10, 14, '#2c3238', { r: 2, line: 2 });                // magazine
+    block(ctx, 48, -9, 12, 4, '#2c3238', { r: 1, line: 2 });                // sight
+    // rear hand at the grip, front hand on the barrel: both on the gun
+    ball(ctx, 30, 6, 6, COLOURS.skin, { line: 2 });
+    ball(ctx, 54, 2, 6, COLOURS.skin, { line: 2 });
+    // and the arms reaching for them
+    ctx.strokeStyle = KHAKI;
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(2, 2); ctx.lineTo(30, 6);
+    ctx.moveTo(2, 0); ctx.lineTo(54, 2);
+    ctx.stroke();
+    ctx.strokeStyle = COLOURS.ink;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
     if (s.muzzle > 0) {
-      ctx.globalAlpha = 0.9;
-      polygon(ctx, [[gunLen + 8, -9], [gunLen + 30, 0], [gunLen + 8, 9]], '#ffd88a', 0);
-      ball(ctx, gunLen + 10, 0, 8, '#fff3c4', { line: 0 });
+      const k = s.muzzle / 0.06;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.9 * k;
+      polygon(ctx, [[80, -14 * k], [124 * k + 80, 0], [80, 14 * k]], '#ffcf6a', 0);
+      polygon(ctx, [[80, -7 * k], [70 * k + 80, 0], [80, 7 * k]], '#fff6d8', 0);
+      ball(ctx, 82, 0, 11 * k, '#fff3c4', { line: 0 });
+      ctx.restore();
     }
     ctx.restore();
     ctx.restore();
+
+    // dust: running kicks it up, landing throws it
+    if (running && Math.random() < 0.35) {
+      dust.push({ x: x - f * 12, y: y - 2, vx: -f * (30 + Math.random() * 40), vy: -20 - Math.random() * 30, t: 0.45, r: 4 + Math.random() * 5 });
+    }
+    if (s.landed > 0.16) {
+      for (let i = 0; i < 7; i++) {
+        dust.push({ x, y: y - 2, vx: (Math.random() - 0.5) * 260, vy: -40 - Math.random() * 40, t: 0.55, r: 6 + Math.random() * 7 });
+      }
+    }
+  }
+
+  /** Dust lives in the renderer: it changes nothing and belongs to nobody. */
+  const dust = [];
+  function dustArt(ctx, dt, cam) {
+    for (const d of dust) {
+      d.t -= dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.vy += 120 * dt;
+      d.r += dt * 14;
+      if (d.t <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.45, d.t);
+      ctx.fillStyle = '#c9a877';
+      ctx.beginPath();
+      ctx.arc(d.x - cam, d.y, d.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    let w = 0;
+    for (let i = 0; i < dust.length; i++) if (dust[i].t > 0) dust[w++] = dust[i];
+    dust.length = w;
   }
 
   function shots(ctx, game, cam, W) {
@@ -420,7 +544,25 @@ export function createRenderer() {
       text(ctx, String(ammo), 26 + bar + 12, H - 16, { size: 18, colour: COLOURS.hud });
     }
 
-    // what the gun is looking at
+    // where the finger is pointing: the crosshair IS the aim now
+    if (game.aimPoint) {
+      const cx = game.aimPoint.x - game.camX;
+      const cy = game.aimPoint.y;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = '#ffd88a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+      ctx.moveTo(cx - 26, cy); ctx.lineTo(cx - 8, cy);
+      ctx.moveTo(cx + 8, cy); ctx.lineTo(cx + 26, cy);
+      ctx.moveTo(cx, cy - 26); ctx.lineTo(cx, cy - 8);
+      ctx.moveTo(cx, cy + 8); ctx.lineTo(cx, cy + 26);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // what the gun picked on its own, when nobody is pointing
     if (game.state.target && !game.state.target.dead) {
       const tg = game.state.target;
       ctx.save();
@@ -555,6 +697,7 @@ export function createRenderer() {
     ctx.restore();
 
     shots(ctx, game, cam, W);
+    dustArt(ctx, 1 / 60, cam);
     effects(ctx, game, cam);
     ctx.restore();
 

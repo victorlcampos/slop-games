@@ -36,16 +36,46 @@ scenario('he stands on the road, runs, and comes back down when he jumps', () =>
   check(s.x > from + 200, `a second of running covered ${(s.x - from).toFixed(0)} px`);
   check(s.facing === 1, 'he ran right facing left');
 
-  stepSoldier(s, STEP, { ...STILL, jump: true }, world);
-  check(!s.onGround && s.vy < 0, 'the jump did not leave the ground');
+  // held, the jump is a full one; the button is read on its edge, so a player
+  // who leans on it does not pogo
+  const floor = world.groundAt(s.x);
   let peak = s.y;
   for (let t = 0; t < 1.4; t += STEP) {
-    stepSoldier(s, STEP, STILL, world);
+    stepSoldier(s, STEP, { ...STILL, jump: t < 0.35 }, world);
     peak = Math.min(peak, s.y);
   }
-  const height = world.groundAt(s.x) - peak;
-  check(height > 120 && height < 320, `the jump reached ${height.toFixed(0)} px`);
+  const height = floor - peak;
+  check(height > 120 && height < 340, `the jump reached ${height.toFixed(0)} px`);
   check(s.onGround, 'he never came back down');
+});
+
+scenario('a tap is a hop, a hold is a jump, and the edge of a ledge forgives', () => {
+  const world = createWorld(4);
+  const tap = createSoldier(300);
+  tap.y = world.groundAt(300);
+  const held = createSoldier(300);
+  held.y = world.groundAt(300);
+
+  let tapPeak = tap.y, heldPeak = held.y;
+  for (let t = 0; t < 1.4; t += STEP) {
+    stepSoldier(tap, STEP, { ...STILL, jump: t < 0.06 }, world);
+    stepSoldier(held, STEP, { ...STILL, jump: t < 0.4 }, world);
+    tapPeak = Math.min(tapPeak, tap.y);
+    heldPeak = Math.min(heldPeak, held.y);
+  }
+  const short = world.groundAt(300) - tapPeak;
+  const full = world.groundAt(300) - heldPeak;
+  check(full > short * 1.6, `a tap reached ${short.toFixed(0)} px and a hold ${full.toFixed(0)} — the same jump`);
+  check(short > 30, `a tap barely left the ground (${short.toFixed(0)} px)`);
+
+  // coyote time: a jump asked for just after the ground ran out still happens
+  const late = createSoldier(300);
+  late.y = world.groundAt(300);
+  for (let i = 0; i < 6; i++) stepSoldier(late, STEP, STILL, world);   // stands, charging the grace
+  late.onGround = false;                       // and steps off something
+  late.y -= 10;
+  stepSoldier(late, STEP, { ...STILL, jump: true }, world);
+  check(late.vy < -400, `a jump inside the coyote window came out at ${late.vy.toFixed(0)}`);
 });
 
 scenario('crouching makes him short, and a low ceiling makes him crouch', () => {
@@ -135,7 +165,11 @@ scenario('the road never ends, and the run survives ten minutes of it', () => {
   g.soldier.lives = 1e9;                       // this scenario is about the road, not the man
   // and he jumps, because a rock he does not jump is a rock he stands against
   // for ten minutes — which is what the first version of this scenario measured
-  play(g, 600, { ...STILL, right: true, jump: true, fire: true });
+  // and he taps the jump, the way a player does — the button is read on its
+  // edge, so leaning on it clears exactly one rock and then stands there
+  for (let t = 0; t < 600; t += STEP) {
+    g.update(STEP, { ...STILL, right: true, jump: Math.floor(t * 2) % 2 === 0, fire: true });
+  }
   check(g.state.time > 599, `the clock stopped at ${g.state.time.toFixed(0)}s`);
   check(g.soldier.x > 20000, `ten minutes of running covered ${Math.round(g.soldier.x)} px`);
   check(g.world.count < 40, `${g.world.count} segments alive — the road is not forgetting what is behind`);

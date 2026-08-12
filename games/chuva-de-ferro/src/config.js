@@ -6,13 +6,19 @@ export const GRAVITY = 2300;        // px/s²
 export const SKY = 90;              // above this the cargo is still out of reach
 
 export const PLAYER = {
-  speed: 300,
-  air: 0.72,                        // how much of that steering you keep in the air
-  jump: 940,
-  w: 34,
-  h: 82,
-  crouchH: 46,
-  stepUp: 34,                       // anything lower than this is walked onto, not into
+  speed: 330,
+  accel: 3200,                      // px/s² on the ground: a shove, not a switch
+  airAccel: 1900,                   // less in the air, but never none
+  friction: 4200,                   // how fast he stops when nothing is asked
+  air: 0.86,                        // ceiling on air steering, as a share of `speed`
+  jump: 980,
+  cut: 0.42,                        // let go early and the jump is cut short
+  coyote: 0.11,                     // grace after walking off an edge
+  buffer: 0.13,                     // a jump asked for just before landing still counts
+  w: 40,
+  h: 112,
+  crouchH: 62,
+  stepUp: 38,                       // anything lower than this is walked onto, not into
   lives: 3,
   invuln: 2.2,                      // seconds of mercy after a hit
   aimRange: 900,                    // how far the auto-aim looks for a target

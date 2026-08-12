@@ -70,12 +70,12 @@ export function createWorld(seed = 1) {
       } else if (pick < 0.58) {
         // an arch: a ceiling low enough that standing up under it stops you
         const w = 190 + hash2(index, seed + 7) * 150;
-        const clear = 52 + hash2(index, seed + 9) * 14;
+        const clear = 74 + hash2(index, seed + 9) * 18;
         roof.push({ kind: 'arch', x: fit(index, x0, w), w, clear });
       } else if (pick < 0.72) {
         // a cave: the same idea, long enough that you cross it crouched
         const w = 420 + hash2(index, seed + 8) * 90;
-        const clear = 48 + hash2(index, seed + 3) * 10;
+        const clear = 70 + hash2(index, seed + 3) * 12;
         roof.push({ kind: 'cave', x: fit(index, x0, w), w, clear });
       }
       // the rest of the segments are open road — the game needs room to breathe

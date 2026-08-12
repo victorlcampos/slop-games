@@ -49,7 +49,7 @@ let phase = 'menu';
 // ------------------------------------------------------------------ input
 
 const keys = new Set();
-const input = { left: false, right: false, jump: false, down: false, up: false, fire: false };
+const input = { left: false, right: false, jump: false, down: false, up: false, fire: false, aim: null };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -71,9 +71,19 @@ function readKeys() {
   input.fire = keys.has('KeyJ') || keys.has('KeyZ') || keys.has('ShiftLeft') || mouseDown;
 }
 
+// The mouse is the aim on a desktop, whether or not the button is down: the gun
+// follows the cursor and the click only pulls the trigger.
 let mouseDown = false;
-canvas.addEventListener('mousedown', () => { mouseDown = true; sound.resume(); });
+let mouse = null;
+canvas.addEventListener('mousedown', (e) => { mouseDown = true; mouse = vp.point(e.clientX, e.clientY); sound.resume(); });
+canvas.addEventListener('mousemove', (e) => { mouse = vp.point(e.clientX, e.clientY); });
+canvas.addEventListener('mouseleave', () => { mouse = null; });
 addEventListener('mouseup', () => { mouseDown = false; });
+
+/** A point on the screen, in the world the game is drawing. */
+function toWorld(p) {
+  return p ? { x: p.x + renderer.camX, y: p.y } : null;
+}
 
 // The touch controls appear where the thumb lands: left half is the stick,
 // right half is the trigger (see src/controls.js).
@@ -101,6 +111,10 @@ for (const [type, handler] of [
 
 function applyTouch() {
   const asked = touch.read();
+  // the trigger thumb also points: where it is, is what he shoots at
+  if (touch.trigger.on) input.aim = toWorld({ x: touch.trigger.x, y: touch.trigger.y });
+  else if (mouse) input.aim = toWorld(mouse);
+  else input.aim = null;
   input.left = input.left || asked.left;
   input.right = input.right || asked.right;
   input.down = input.down || asked.down;
@@ -159,6 +173,7 @@ createLoop({
   update: (h) => {
     if (phase !== 'playing' || !game) return;
     readKeys();
+    input.aim = mouse ? toWorld(mouse) : null;
     applyTouch();
     const before = game.shots.length;
     game.update(h, input);

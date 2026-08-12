@@ -23,6 +23,10 @@ export function createSoldier(x = 120) {
     muzzle: 0,
     dead: false,
     blocked: false,
+    coyote: 0,                // grace after leaving the ground
+    buffered: 0,              // a jump asked for a moment too early
+    heldJump: false,
+    landed: 0,                // counts down after a landing, for the dust
   };
 }
 
@@ -44,13 +48,39 @@ export function stepSoldier(s, dt, input, world) {
   const mustDuck = s.onGround && headroom < PLAYER.h;
   s.crouching = (input.down && s.onGround) || mustDuck;
 
-  const speed = PLAYER.speed * (s.crouching ? 0.45 : 1) * (s.onGround ? 1 : PLAYER.air);
-  s.vx = wants * speed;
+  // Movement is a shove, not a switch: he leans into a run and slides a little
+  // when he stops. A velocity assigned straight from the key made him feel like
+  // a cursor — the difference between "moving" and "running" is all in here.
+  const top = PLAYER.speed * (s.crouching ? 0.45 : 1) * (s.onGround ? 1 : PLAYER.air);
+  const push = s.onGround ? PLAYER.accel : PLAYER.airAccel;
+  if (wants) {
+    s.vx += wants * push * dt;
+    if (Math.abs(s.vx) > top) s.vx = wants * top;
+  } else if (s.onGround) {
+    const drop = PLAYER.friction * dt;
+    s.vx = Math.abs(s.vx) <= drop ? 0 : s.vx - Math.sign(s.vx) * drop;
+  }
 
-  if (input.jump && s.onGround && !mustDuck) {
+  // coyote time and a jump buffer: the two things that separate a jump that
+  // answers from a jump that argues
+  if (s.onGround) s.coyote = PLAYER.coyote; else s.coyote = Math.max(0, s.coyote - dt);
+  if (input.jump && !s.heldJump) s.buffered = PLAYER.buffer;
+  else s.buffered = Math.max(0, s.buffered - dt);
+  s.heldJump = !!input.jump;
+
+  if (s.buffered > 0 && s.coyote > 0 && !mustDuck) {
     s.vy = -PLAYER.jump;
     s.onGround = false;
+    s.coyote = 0;
+    s.buffered = 0;
+    s.jumping = true;
   }
+  // a short tap is a short hop
+  if (s.jumping && !input.jump && s.vy < -PLAYER.jump * PLAYER.cut) {
+    s.vy = -PLAYER.jump * PLAYER.cut;
+    s.jumping = false;
+  }
+  if (s.vy >= 0) s.jumping = false;
 
   s.vy += GRAVITY * dt;
   const nextX = s.x + s.vx * dt;
@@ -79,7 +109,7 @@ export function stepSoldier(s, dt, input, world) {
   // the floor: the road, or the top of whatever landed there
   const floor = surfaceAt(world, s.x, s.y - s.vy * dt);
   if (s.y >= floor) {
-    if (!s.onGround && s.vy > 0) s.landed = true;
+    if (!s.onGround && s.vy > 240) s.landed = 0.18;      // a landing worth a puff of dust
     s.y = floor;
     s.vy = 0;
     s.onGround = true;
@@ -95,6 +125,7 @@ export function stepSoldier(s, dt, input, world) {
   }
 
   s.step += Math.abs(s.vx) * dt * 0.02;
+  if (s.landed > 0) s.landed -= dt;
   if (s.invuln > 0) s.invuln -= dt;
   if (s.recoil > 0) s.recoil = Math.max(0, s.recoil - dt * 6);
   if (s.muzzle > 0) s.muzzle = Math.max(0, s.muzzle - dt);
@@ -115,11 +146,24 @@ export function muzzleOf(s) {
  * it, which is what makes the auto-aim feel like a decision instead of a cheat.
  */
 export function aimAt(s, objects, input) {
+  const shoulder = s.y - heightOf(s) * 0.72;
+
+  // The finger — or the mouse — is the aim. Pointing at what you want dead is
+  // the whole verb of a run-and-gun, and an auto-aim that picks for you takes
+  // the decision away. It stays as a fallback for a keyboard with no pointer.
+  if (input.aim) {
+    const dx = input.aim.x - s.x;
+    const dy = input.aim.y - shoulder;
+    if (Math.hypot(dx, dy) > 12) {
+      s.aim = Math.atan2(dy, dx);
+      s.facing = Math.cos(s.aim) >= 0 ? 1 : -1;
+      return null;
+    }
+  }
   if (input.up) {
     s.aim = -Math.PI / 2;
     return null;
   }
-  const shoulder = s.y - heightOf(s) * 0.72;
   let best = null;
   let bestScore = Infinity;
   for (const o of objects) {

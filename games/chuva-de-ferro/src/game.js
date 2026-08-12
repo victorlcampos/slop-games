@@ -370,6 +370,7 @@ export function createGame(options = {}) {
     world.ensure(soldier.x - 900, soldier.x + 2400);
     stepSoldier(soldier, dt, input, world);
     state.target = aimAt(soldier, objects, input);
+    game.aimPoint = input.aim || null;
     pullTrigger(dt, input.fire);
 
     state.dropIn -= dt;
@@ -429,11 +430,13 @@ export function createGame(options = {}) {
     if (options.onOver) options.onOver({ score: state.score, time: state.time, killed: state.killed });
   }
 
-  return {
+  const game = {
     state, world, soldier, objects, shots, pickups, hazards, fx,
     update, damage, boom, spawnDrop,
     /** the gun as the HUD needs it */
     weapon: () => WEAPON_BY_ID[state.weapon.id],
     ammo: () => state.weapon.ammo,
+    aimPoint: null,
   };
+  return game;
 }
