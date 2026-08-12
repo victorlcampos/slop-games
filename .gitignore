@@ -10,6 +10,9 @@ dist/
 test/*.png
 games/*/test/*.png
 
+# audit scratch: a probe an agent leaves behind while driving a game
+games/*/test/_scratch_*.mjs
+
 # automation scratch (a scheduled script, a commit message being drafted)
 .agendado.sh
 .commit-msg.tmp

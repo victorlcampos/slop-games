@@ -55,8 +55,11 @@ jobs:
       - name: Unit and catalog tests
         run: npm test
 
+      # every game that has one, including World Drive's offline test: it cuts
+      # the network on purpose and proves the loading path fails gracefully
+      # rather than falling over, which is exactly what the floor cannot see
       - name: Each game's own tests
-        run: npm run test --workspace games/animais-vs-monstros
+        run: npm run test --workspaces --if-present
 
       # This one really drives on a real OpenStreetMap map. It is a good test
       # and a terrible gate: it depends on a third-party public API that goes
@@ -64,7 +67,7 @@ jobs:
       # block the deploy.
       - name: Network integration test (non-blocking)
         continue-on-error: true
-        run: npm run test --workspace games/worlddrive
+        run: npm run test:network --workspace games/worlddrive
 
       # when something breaks, the screenshot is worth more than the log
       - name: Keep the screenshots on failure

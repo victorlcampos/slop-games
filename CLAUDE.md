@@ -581,9 +581,10 @@ Gone along the way: a 150-line homegrown ES bundler (SkiFree), a bash `build.sh`
 
 ```bash
 npm test               # the kit's unit tests + the floor every game clears
-npm run test:games     # each game's own test, if it has one
+npm run test:games     # each game's own test (all four have one)
 node lib/test/kit.test.mjs            # only the unit tests (milliseconds, no Chrome)
 node games/<slug>/test/game.test.mjs  # only one game
+npm run test:network --workspace games/worlddrive   # the one that needs the internet
 ```
 
 ### Three layers, and what goes in each
@@ -598,6 +599,13 @@ node games/<slug>/test/game.test.mjs  # only one game
    language**. It is the test that enforces the rules in section 1.
 3. **The game itself** (`games/<slug>/test/`) — playability and whatever only
    breaks in a browser: touch, drag, a save that persists, a screen that adapts.
+
+**The floor is a floor, not a gate on play.** It opens each game and checks it
+draws — it never starts a match, a run or a load. World Drive once shipped two
+commits unable to load a world at all, with all 21 floor scenarios green,
+because the thing that broke happens after you click a city. Whatever a game's
+main action is, its own test is the only place that will notice it stopped
+working.
 
 ### How to write one
 
@@ -705,13 +713,19 @@ What blocks the deploy:
    with an external reference (rule nº 2) or a `game.json` missing a language.
 2. `npm test` — the kit's unit tests + the floor for every game, including the
    flag switch in each one.
-3. The Animals vs Monsters test.
+3. Every game's own test (`npm run test --workspaces --if-present`).
 
-What does **not** block it: World Drive's smoke test, which drives on a real
+What does **not** block it: World Drive's `test:network`, which drives on a real
 OpenStreetMap map. It is a good test and a terrible gate — it depends on a
 third-party public API that goes down and rate-limits. It runs with
 `continue-on-error` to give visibility without being able to hold the whole
 catalog hostage.
+
+Its blocking half cuts the network **on purpose** and asks a different question:
+does the loading path fail *gracefully*? An error card, a retry button, no
+uncaught exception. That distinction is what catches a game that is broken
+rather than merely offline — the two look identical from the outside, and the
+retry loop reports both as "the servers are busy".
 
 When something breaks, the tests' screenshots go up as an artifact
 (`telas-da-falha`): on a layout failure, the image says in one second what the

@@ -249,17 +249,30 @@ scenario('every game offers the two flags and really switches', async () => {
     check(stored === other, `${game.slug}: stored "${stored}" instead of "${other}"`);
 
     if (readFileSync(file, 'utf8').includes('data-lang-picker')) {
-      const flags = await g.page.evaluate(() =>
-        Array.from(document.querySelectorAll('[data-lang-picker] button')).map((b) => ({
-          visible: b.getBoundingClientRect().width > 0,
-          hasImage: !!b.querySelector('img') && b.querySelector('img').src.startsWith('data:image/png'),
+      // a game may host the picker in more than one place — the Zoo carries it
+      // on the splash AND in the HUD, because its splash never comes back — so
+      // this counts per host rather than per page
+      const hosts = await g.page.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-lang-picker]')).map((host) => ({
+          shown: host.getBoundingClientRect().width > 0,
+          flags: Array.from(host.querySelectorAll('button')).map((b) => ({
+            visible: b.getBoundingClientRect().width > 0,
+            hasImage: !!b.querySelector('img') && b.querySelector('img').src.startsWith('data:image/png'),
+          })),
         }))
       );
-      check(flags.length === 2, `${game.slug}: ${flags.length} flags instead of 2`);
-      check(flags.every((f) => f.visible), `${game.slug}: a flag rendered with zero width`);
-      // the flags are painted by code and inlined as a data URI — rule nº 5,
-      // and the reason the picker doesn't rely on the 🇧🇷 emoji
-      check(flags.every((f) => f.hasImage), `${game.slug}: a flag came without its drawn image`);
+      check(hosts.length >= 1, `${game.slug}: the picker was never mounted`);
+      for (const host of hosts) {
+        check(host.flags.length === 2, `${game.slug}: a picker has ${host.flags.length} flags instead of 2`);
+        // a host inside a hidden panel measures zero, and that is fine — what
+        // must never happen is a flag with no width in a picker that IS shown
+        if (host.shown) {
+          check(host.flags.every((f) => f.visible), `${game.slug}: a flag rendered with zero width`);
+        }
+        // the flags are painted by code and inlined as a data URI — rule nº 5,
+        // and the reason the picker doesn't rely on the 🇧🇷 emoji
+        check(host.flags.every((f) => f.hasImage), `${game.slug}: a flag came without its drawn image`);
+      }
     }
 
     g.expectNoErrors(`${game.slug} language switch`);

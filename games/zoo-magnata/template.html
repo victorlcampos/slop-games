@@ -249,6 +249,10 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 .back-to-games{display:inline-flex;align-items:center;gap:7px;text-decoration:none;margin-top:14px}
 .back-to-games[hidden]{display:none}
 .langs{display:inline-flex;gap:8px;vertical-align:middle;margin-left:12px}
+/* in the HUD the pair sits in the button row, so it follows its rhythm and
+   its wrap instead of the splash's margin */
+.hudLangs{margin-left:4px;gap:5px;align-self:center}
+.hudLangs button{padding:0;border:none;background:none;cursor:pointer;line-height:0}
 #splash{position:absolute;inset:0;z-index:60;display:grid;place-items:center;padding:20px;
   background:radial-gradient(circle at 50% 30%,#9fdcb8,#4d9c7a 70%,#2f6b52)}
 #splash .card{width:min(620px,100%);text-align:center;padding:26px 28px 22px}
@@ -442,6 +446,12 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn spd soToque" id="zMap" title="Minimapa" data-pt-title="Minimapa" data-en-title="Minimap">🗺️</button>
       <button class="btn spd" id="zSave" title="Baixar save do jogo (.json)" data-pt-title="Baixar save do jogo (.json)" data-en-title="Download the save file (.json)">📥</button>
       <button class="btn spd" id="zLoad" title="Abrir save de um arquivo" data-pt-title="Abrir save de um arquivo" data-en-title="Open a save file">📤</button>
+      <!-- The Zoo used to offer the flags on the splash only, and the splash
+           never comes back — so the choice was one-shot per page load, in the
+           game whose 219 species names and every panel are bilingual data.
+           mountLangPicker fills EVERY [data-lang-picker], so a second host is
+           all it takes: markup, no JavaScript. -->
+      <span class="langs hudLangs" data-lang-picker></span>
     
     </div>
   </div>

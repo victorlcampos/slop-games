@@ -1219,6 +1219,11 @@ I18N.onChange(() => {
   refreshHint();
   refreshUndoButton();
   reopenModal();
+  // A toast is a transient notice about something the player already did,
+  // and it takes its text already resolved from forty-odd call sites.
+  // Dismissing the ones on screen beats leaving them 4.7 s in the language
+  // just turned off, and beats threading the pair through all of them.
+  UI.toasts.innerHTML = '';
 });
 
 // the test bridge — the kit looks for this name

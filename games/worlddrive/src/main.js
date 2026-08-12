@@ -140,7 +140,11 @@ async function startDrive(lat, lon, label) {
     Object.assign(prefs, { lat, lon, zoom: 16, label: label || null });
     vault.save(prefs);
   } catch (err) {
-    console.error(err);
+    // A failure the game raised for the player and is about to show is not an
+    // application error: console.error would make every offline load look like
+    // a crash, in the browser console and in any test that watches it.
+    if (err && err.i18nKey) console.warn('load failed:', err.i18nKey, err.i18nValues || '');
+    else console.error(err);
     app.state = 'loading';
     // An error the game raised for the player carries its dictionary key, so it
     // is shown on its own AND follows the flag. Anything else is an engine
