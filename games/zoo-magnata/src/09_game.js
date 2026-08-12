@@ -959,7 +959,7 @@ function reportText() {
   row(LN('VISÃO GERAL|OVERVIEW'));
   reg(LN('Caixa|Cash'), moneyFull(G.money));
   reg(LN('Empréstimo em aberto|Outstanding loan'), moneyFull(G.loan));
-  reg(LN('Reputação|Reputation'), dec(G.rep, 2) + ' / 5.00  ' + miniGauge(G.rep / 5));
+  reg(LN('Reputação|Reputation'), dec(G.rep, 2) + ' / ' + dec(5, 2) + '  ' + miniGauge(G.rep / 5));
   reg(LN('Preço do ingresso|Ticket price'), moneyFull(G.ticket) + LN('  (referência: |  (reference: ') + moneyFull(fairPrice()) + ')');
   reg('Marketing', LN(['nenhum|none', 'local|local', 'regional|regional', 'nacional|national'][G.research.marketing]));
   reg(LN('Visitantes agora|Visitors right now'), G.visitors.length);

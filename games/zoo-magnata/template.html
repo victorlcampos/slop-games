@@ -123,7 +123,11 @@ canvas{display:block;max-width:100%}
 .pitem.dis{opacity:.4;filter:grayscale(.7);cursor:not-allowed}
 .swatch{width:26px;height:26px;border-radius:8px;border:2px solid var(--ink);display:inline-block;vertical-align:middle}
 #dock{display:flex;gap:6px;flex-wrap:wrap}
-#dock .btn{display:flex;flex-direction:column;align-items:center;gap:1px;width:66px;padding:6px 3px;font-size:10px}
+/* The label wraps instead of overflowing: the buttons are a fixed width by
+   design, and `nowrap` from .btn made the longer of the two translations
+   paint over the border — "In Enclosure" lost its first letter to it. */
+#dock .btn{display:flex;flex-direction:column;align-items:center;gap:1px;width:66px;padding:6px 3px;
+  font-size:10px;white-space:normal;line-height:1.05;text-align:center;hyphens:auto}
 #dock .btn i{font-style:normal;font-size:20px;line-height:1}
 
 /* ---------- Inspector direita ---------- */
@@ -309,7 +313,10 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
     padding:3px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #dock::-webkit-scrollbar{display:none}
-  #dock .btn{flex:0 0 auto;width:60px;min-height:48px;padding:5px 3px;font-size:9.5px;line-height:1.1}
+  /* 66, not 60: "Enclosures" is one word and cannot wrap, and at 60 it painted
+     over its own border. The dock scrolls horizontally here, so the extra 6px
+     per button costs nothing. */
+  #dock .btn{flex:0 0 auto;width:66px;min-height:48px;padding:5px 3px;font-size:9.5px;line-height:1.1}
   #dock .btn i{font-size:19px}
 
   /* Paleta ocupa a largura toda, acima do dock */
@@ -365,7 +372,8 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
 @media(max-width:400px){
   #stAni{display:none}
   .pitem{width:calc(50% - 3px)}
-  #dock .btn{width:56px;font-size:9px}
+  /* wide enough for "Enclosures", the longest label that cannot wrap */
+  #dock .btn{width:64px;font-size:9px}
 }
 
 /* Short screens (phone in landscape): the bottom drawer doesn't fit, so it goes back to the side.
@@ -385,7 +393,7 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
     padding:3px 2px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #dock::-webkit-scrollbar{display:none}
-  #dock .btn{flex:0 0 auto;width:58px;min-height:44px;padding:4px 3px;font-size:9.5px;line-height:1.1}
+  #dock .btn{flex:0 0 auto;width:64px;min-height:44px;padding:4px 3px;font-size:9.5px;line-height:1.1}
   #dock .btn i{font-size:17px}
   #dockWrap{left:6px;bottom:calc(6px + env(safe-area-inset-bottom))}
   /* toasts saem do canto que o inspetor lateral ocupa */
