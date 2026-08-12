@@ -26,6 +26,7 @@ const WEIGHTS = { osm: 0.4, dem: 0.12, sat: 0.33, build: 0.15 };
 export class UI {
   constructor() {
     this.progress = {};
+    this._notes = {};
     this._toastT = null;
     // the preset chips and the loading steps are built in JS, so they are the
     // two places that have to be repainted when the flag changes
@@ -180,6 +181,7 @@ export class UI {
 
   showLoading(label) {
     this.progress = {};
+    this._notes = {};
     $('menu').classList.add('hide');
     $('loading').classList.remove('hide');
     $('hud').classList.add('hide');
