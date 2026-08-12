@@ -326,16 +326,22 @@ scenario('the save survives a reload', async () => {
     s.currentStage = 3;
     game.goToMap();
   });
-  // the game only writes at a consistency point; force one
-  await g.exec((game) => game.goToBattle(1));
-  await wait(300);
+  // The game only writes at its own consistency points, and goToBattle is not
+  // one — this scenario used to call it and then accept `777 || 0`, which is
+  // every outcome there is. It asks for a real write and a real round trip now.
+  await g.exec((game) => game.save());
+  const stored = await g.exec(() => localStorage.getItem('animais-vs-monstros:save'));
+  check(stored && JSON.parse(stored).coins === 777, `storage holds ${String(stored).slice(0, 60)}`);
+
   await g.page.reload({ waitUntil: 'load' });
-  await wait(600);
+  await wait(900);
   const after = await g.exec((game) => {
     const s = game.state();
-    return { coins: s.coins, won: s.won.length };
+    return { coins: s.coins, won: s.won.length, stage: s.currentStage };
   });
-  check(after.coins === 777 || after.coins === 0, 'either it persisted or it went back to zero — never garbage');
+  check(after.coins === 777, `the coins came back as ${after.coins}`);
+  check(after.won === 2, `${after.won} won stages came back, expected 2`);
+  check(after.stage === 3, `the campaign came back on stage ${after.stage}`);
   await g.close();
 });
 

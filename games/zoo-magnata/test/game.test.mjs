@@ -317,5 +317,56 @@ scenario('the reputation statement translates, and it is persisted', async () =>
   await g.close();
 });
 
+scenario('the park comes back through localStorage, the way a player returns', async () => {
+  const g = await open(browser, GAME);
+  await g.waitFrames(3);
+  await g.exec(() => { document.querySelector('#splash .btn')?.click(); });
+  await g.waitFrames(3);
+  await g.exec(buildPark);
+  await g.waitFrames(4);
+
+  // Everything else here goes through applySnapshot in memory. This is the path
+  // every returning player takes: saveGame -> localStorage -> reload -> the
+  // splash's "continue" button -> loadGame. If it broke, the suite stayed green
+  // while everyone lost their park.
+  const saved = await g.exec(() => {
+    G.money = 424242;
+    saveGame(true);
+    return { stored: !!localStorage.getItem('zoo_save'), money: G.money, day: G.day,
+             animals: G.animals.length, encs: enclosures.size, objs: objects.size, staff: G.staff.length };
+  });
+  check(saved.stored, 'saveGame wrote nothing to localStorage');
+
+  await g.page.reload({ waitUntil: 'networkidle2' });
+  await g.waitFrames(4);
+
+  // the splash offers a second button only when there is a save to continue
+  const splash = await g.exec(() => [...document.querySelectorAll('#splashBtns .btn')].map((b) => b.textContent.trim()));
+  check(splash.length >= 3, `the splash offers ${splash.length} buttons — no "continue"`);
+
+  await g.exec(() => {
+    const btn = [...document.querySelectorAll('#splashBtns .btn')][1];
+    btn.click();
+  });
+  await g.waitFrames(4);
+
+  const back = await g.exec(() => ({
+    money: G.money, day: G.day, animals: G.animals.length,
+    encs: enclosures.size, objs: objects.size, staff: G.staff.length,
+    splashGone: document.getElementById('splash').classList.contains('hidden'),
+    finite: G.animals.every((a) => [a.age, a.hunger, a.health, a.happy].every(Number.isFinite)),
+  }));
+  check(back.splashGone, 'the splash is still up — the continue button did nothing');
+  check(back.money === saved.money, `money came back as ${back.money}, saved ${saved.money}`);
+  check(back.animals === saved.animals && back.encs === saved.encs,
+    `${back.animals} animals / ${back.encs} enclosures, saved ${saved.animals}/${saved.encs}`);
+  check(back.objs === saved.objs && back.staff === saved.staff,
+    `${back.objs} objects / ${back.staff} staff, saved ${saved.objs}/${saved.staff}`);
+  check(back.finite, 'an animal came back NaN');
+
+  g.expectNoErrors();
+  await g.close();
+});
+
 await run('zoo tycoon');
 await browser.close();

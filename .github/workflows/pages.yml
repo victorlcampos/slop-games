@@ -55,9 +55,9 @@ jobs:
       - name: Unit and catalog tests
         run: npm test
 
-      # every game that has one, including World Drive's offline test: it cuts
-      # the network on purpose and proves the loading path fails gracefully
-      # rather than falling over, which is exactly what the floor cannot see
+      # All four games have one now. World Drive's serves the streets from a
+      # canned response so the SUCCESS path is a gate too — the floor never
+      # starts a load, and that is how it shipped twice unable to load a world.
       - name: Each game's own tests
         run: npm run test --workspaces --if-present
 

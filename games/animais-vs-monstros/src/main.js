@@ -399,6 +399,10 @@ window.__game = {
   loop,
   // the test uses this to wait for the screen to draw, instead of sleeping
   frames: () => frames,
+  // the game only writes at its own consistency points (a stage won, the
+  // intro seen, a save imported). A test that wants to check the round trip
+  // needs to reach one without playing a whole stage.
+  save: () => Save.save(state),
   // this game has no DOM to read: its whole UI is drawn on the canvas, so the
   // bridge hands back the strings the last frame actually wrote
   screenText,

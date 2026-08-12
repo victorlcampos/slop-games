@@ -137,7 +137,12 @@ async function startDrive(lat, lon, label) {
     app.state = 'driving';
     ui.showHUD(isTouch);
     ui.toast(w.spawn.name ? t('toast.youAreIn', { street: w.spawn.name }) : t('toast.goodTrip'));
-    Object.assign(prefs, { lat, lon, zoom: 16, label: label || null });
+    // the label may be a thunk (so the HUD re-resolves it on a flag change),
+    // and JSON.stringify drops a function — so the saved copy is the text
+    Object.assign(prefs, {
+      lat, lon, zoom: 16,
+      label: (typeof label === 'function' ? label() : label) || null,
+    });
     vault.save(prefs);
   } catch (err) {
     // A failure the game raised for the player and is about to show is not an

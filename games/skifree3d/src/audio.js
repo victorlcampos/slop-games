@@ -4,7 +4,15 @@
 let ctx = null;
 let master = null;
 let started = false;
-let muted = false;
+/* The choice is remembered, like the other three games do. It used to live
+   only in this module, so every reload came back unmuted — and CLAUDE.md
+   §2b credits "persisted mute" to the kit precisely because forgetting it
+   was the one thing Animals got wrong before the kit existed. */
+const MUTE_KEY = 'skifree3d:sound';
+let muted = (() => {
+  try { return JSON.parse(localStorage.getItem(MUTE_KEY) || 'null')?.muted === true; }
+  catch (e) { return false; }
+})();
 
 let noiseBuffer = null;
 const loops = {};
@@ -68,6 +76,7 @@ export function resumeAudio() {
 export function toggleMute() {
   muted = !muted;
   if (master) master.gain.setTargetAtTime(muted ? 0 : 0.85, ctx.currentTime, 0.05);
+  try { localStorage.setItem(MUTE_KEY, JSON.stringify({ muted })); } catch (e) { /* private mode */ }
   return muted;
 }
 

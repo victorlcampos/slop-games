@@ -5,7 +5,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node test/game.test.mjs"
   },
   "keywords": [
     "threejs",

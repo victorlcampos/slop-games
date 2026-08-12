@@ -179,6 +179,12 @@ return:
 | World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
 | Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ |
 
+SkiFree kept its own mute flag in a module variable and forgot it on every
+reload — the one thing the kit's `sound` exists to prevent. It persists now,
+under `skifree3d:sound`, without importing the module: the game's audio is a
+hand-built WebAudio graph and swapping it wholesale would be risk with no
+return.
+
 Zoo is the origin of half the kit — its save, its viewport and its loop **are**
 the standard; it just doesn't import the module because it runs in global scope
 (`window.Slop` is there if it needs it). SkiFree and World Drive have their
@@ -616,9 +622,17 @@ npm run test:network --workspace games/worlddrive   # the one that needs the int
 **The floor is a floor, not a gate on play.** It opens each game and checks it
 draws — it never starts a match, a run or a load. World Drive once shipped two
 commits unable to load a world at all, with all 21 floor scenarios green,
-because the thing that broke happens after you click a city. Whatever a game's
-main action is, its own test is the only place that will notice it stopped
-working.
+because the thing that broke happens after you click a city. SkiFree could have
+done the same for longer: its canvas exists at the menu, so the floor would have
+passed a game that could not start a run. Whatever a game's main action is, its
+own test is the only place that will notice it stopped working — and the first
+scenario in each should be exactly that: **does it start, and does it move?**
+
+**A test that cannot fail is worse than no test**, because it reads as coverage.
+`check(coins === 777 || coins === 0)` accepted every outcome there is: the save
+it claimed to verify was never written, and the assertion said so out loud
+without anyone hearing it. When a scenario passes the first time you write it,
+break the thing on purpose and watch it go red.
 
 ### How to write one
 
@@ -734,11 +748,18 @@ third-party public API that goes down and rate-limits. It runs with
 `continue-on-error` to give visibility without being able to hold the whole
 catalog hostage.
 
-Its blocking half cuts the network **on purpose** and asks a different question:
-does the loading path fail *gracefully*? An error card, a retry button, no
-uncaught exception. That distinction is what catches a game that is broken
-rather than merely offline — the two look identical from the outside, and the
-retry loop reports both as "the servers are busy".
+Its blocking half never touches the network. Two of its scenarios cut it **on
+purpose** and ask whether the loading path fails *gracefully* — an error card, a
+retry button, no uncaught exception; the two look identical from outside, and
+the retry loop reports a broken game and an offline one alike as "the servers
+are busy". The third **serves the streets from a canned Overpass response and a
+flat terrain tile**, so the success path is a gate too: a world is built, the
+HUD replaces the loading card, and the car drives.
+
+That last one exists because failure-path coverage alone was not enough. A
+deliberate `throw` inside `setProgress` — the exact shape of the bug that
+shipped — leaves both offline scenarios passing, because the retry loop converts
+it into the same "servers are busy" the test was written to expect.
 
 When something breaks, the tests' screenshots go up as an artifact
 (`telas-da-falha`): on a layout failure, the image says in one second what the
