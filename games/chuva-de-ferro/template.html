@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16130f">
+<title>Iron Rain</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪖</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #14110e;
+    color: #f0e4c8;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  /* Every card sits over the canvas, which keeps painting the desert behind it. */
+  .card {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4vh 6vw;
+    background: radial-gradient(ellipse 80% 70% at 50% 45%, rgba(20,16,12,0.72) 0%, rgba(12,10,8,0.94) 78%);
+    text-align: center;
+    z-index: 3;
+  }
+  .card[hidden] { display: none; }
+
+  .inner { max-width: 46rem; }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #ffd88a;
+    text-shadow: 0 3px 0 #6b3f1c, 0 0 30px rgba(255,180,90,0.25);
+  }
+
+  .tagline { color: #d8c6a4; margin: 0.5rem 0 1.4rem; font-size: clamp(0.95rem, 2.2vw, 1.15rem); }
+
+  .story {
+    text-align: left;
+    display: grid;
+    gap: 0.5rem;
+    margin: 0 auto 1.4rem;
+    max-width: 40rem;
+    color: #c9b89a;
+    font-size: clamp(0.85rem, 1.9vw, 1rem);
+    line-height: 1.5;
+  }
+  .story p::before { content: "▸ "; color: #8a6a3a; }
+
+  .btnrow { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+
+  .btn {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #1b160f;
+    background: linear-gradient(#ffd88a, #d9a253);
+    border: 3px solid #12100d;
+    border-radius: 10px;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #12100d;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: none; }
+
+  .btn.ghost {
+    background: transparent;
+    color: #e8d7b4;
+    border-color: #6b5c44;
+    box-shadow: none;
+  }
+
+  /* The exit only exists inside the catalog — the build switches it on. */
+  .back-to-games {
+    display: none;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+  }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .foot { color: #9c8b70; font-size: clamp(0.75rem, 1.7vw, 0.88rem); line-height: 1.6; }
+
+  .stats { display: flex; gap: 1.6rem; justify-content: center; margin: 0 0 1.2rem; flex-wrap: wrap; }
+  .stat { min-width: 6rem; }
+  .stat b { display: block; font-size: clamp(1.4rem, 4vw, 2rem); color: #ffd88a; }
+  .stat span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #9c8b70; }
+
+  .record { color: #8fd07a; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.8rem; }
+
+  .corner {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
+    z-index: 4;
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    align-items: center;
+  }
+  .icon {
+    font-size: 1.2rem;
+    background: rgba(20,16,12,0.6);
+    border: 2px solid #6b5c44;
+    border-radius: 8px;
+    color: #f0e4c8;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #9c8b70; z-index: 5; }
+  /* `hidden` loses to `display: grid` — without this the line stays on screen
+     for the whole run, in the middle of the road */
+  #boot[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="boot" data-pt="carregando a estrada…" data-en="loading the road…">loading the road…</div>
+
+  <div class="corner">
+    <span data-lang-picker></span>
+    <button class="icon" id="btn-sound" title="M">🔊</button>
+  </div>
+
+  <div class="card" id="menu">
+    <div class="inner">
+      <h1 data-pt="Chuva de Ferro" data-en="Iron Rain">Iron Rain</h1>
+      <p class="tagline"
+         data-pt="A carga deles não para de cair. Você não pode parar de atirar."
+         data-en="Their cargo will not stop falling. You cannot stop shooting.">Their cargo will not stop falling. You cannot stop shooting.</p>
+
+      <div class="story">
+        <p data-pt="Ninguém viu a nave chegar. Viram o casco abrir."
+           data-en="Nobody saw the ship arrive. They saw the hull split.">Nobody saw the ship arrive. They saw the hull split.</p>
+        <p data-pt="Não desceram soldados: desceu o porão. Engradados, cofres, bigornas, coisas que ninguém sabe nomear — tudo caindo sobre a estrada 14, a noite inteira, sem pressa e sem alvo."
+           data-en="No soldiers came down: the hold did. Crates, safes, anvils, things nobody has a name for — all of it falling on Route 14, all night, in no hurry and at nothing in particular.">No soldiers came down: the hold did.</p>
+        <p data-pt="O posto avançado tinha quatro homens e um fuzil de dotação para cada. Sobrou você e o seu."
+           data-en="The outpost had four men and one service rifle each. What is left is you and yours.">The outpost had four men and one service rifle each. What is left is you and yours.</p>
+        <p data-pt="A ordem é simples: mantenha a estrada limpa. O que eles largam é o seu arsenal — derrube antes de tocar o chão."
+           data-en="The order is simple: keep the road clear. What they drop is your arsenal — bring it down before it lands.">The order is simple: keep the road clear.</p>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn" id="btn-start" data-pt="Entrar na estrada" data-en="Take the road">Take the road</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+
+      <p class="foot">
+        <span data-pt="Setas ou A/D andam · W, ↑ ou espaço pula · S ou ↓ agacha · segure J, Z ou o clique para atirar"
+              data-en="Arrows or A/D to move · W, ↑ or space to jump · S or ↓ to crouch · hold J, Z or the mouse to fire">Arrows or A/D to move · W, ↑ or space to jump · S or ↓ to crouch · hold J, Z or the mouse to fire</span><br>
+        <span data-pt="A mira é automática — ela escolhe o que está prestes a cair na sua cabeça. Segure ↑ para atirar reto para cima."
+              data-en="The gun aims itself — it picks whatever is about to land on your head. Hold ↑ to fire straight up.">The gun aims itself.</span><br>
+        <span data-pt="No celular os comandos aparecem na tela; o tiro é o botão da direita."
+              data-en="On a phone the controls are drawn on screen; the trigger is the right-hand button.">On a phone the controls are drawn on screen.</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" id="over" hidden>
+    <div class="inner">
+      <h1 data-pt="A estrada ficou com você" data-en="The road kept you">The road kept you</h1>
+      <p class="record" id="o-record" hidden data-pt="Novo recorde!" data-en="New record!">New record!</p>
+      <div class="stats">
+        <div class="stat"><b id="o-score">0</b><span data-pt="pontos" data-en="score">score</span></div>
+        <div class="stat"><b id="o-time">00:00</b><span data-pt="tempo vivo" data-en="time alive">time alive</span></div>
+        <div class="stat"><b id="o-killed">0</b><span data-pt="carga destruída" data-en="cargo destroyed">cargo destroyed</span></div>
+      </div>
+      <p class="foot" style="margin-bottom:1rem">
+        <span data-pt="recorde" data-en="best">best</span>: <span id="o-best">0 · 00:00</span>
+      </p>
+      <div class="btnrow">
+        <button class="btn" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>

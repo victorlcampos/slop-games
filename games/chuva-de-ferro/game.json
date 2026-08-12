@@ -1,0 +1,20 @@
+{
+  "slug": "chuva-de-ferro",
+  "name": {
+    "en": "Iron Rain",
+    "pt": "Chuva de Ferro"
+  },
+  "emoji": "🪖",
+  "description": {
+    "en": "An alien freighter split open over the desert and its cargo never stopped falling. You are the last soldier on the road: shoot it down before it lands, and fight the invasion with what it drops.",
+    "pt": "Um cargueiro alienígena rachou sobre o deserto e a carga nunca parou de cair. Você é o último soldado na estrada: derrube tudo antes de tocar o chão e lute contra a invasão com o que ela larga."
+  },
+  "tags": [
+    "2d",
+    "arcade",
+    "run-and-gun"
+  ],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

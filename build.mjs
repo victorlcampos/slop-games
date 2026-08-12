@@ -36,6 +36,7 @@ const TAGS = {
   puzzle: { pt: 'quebra-cabeça', en: 'puzzle' },
   racing: { pt: 'corrida', en: 'racing' },
   remake: { pt: 'remake', en: 'remake' },
+  'run-and-gun': { pt: 'run and gun', en: 'run and gun' },
   simulation: { pt: 'simulação', en: 'simulation' },
   strategy: { pt: 'estratégia', en: 'strategy' },
   'tower-defense': { pt: 'tower defense', en: 'tower defense' },
