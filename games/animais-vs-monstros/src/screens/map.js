@@ -289,9 +289,24 @@ export function createMap(state, actions) {
     }
 
     if (notice) {
-      text(ctx, typeof notice.txt === 'function' ? notice.txt() : pick(notice.txt), MENU_W - 40, y + 9, {
-        size: 17, align: 'right', color: notice.color, alpha: Math.min(1, notice.t),
-      });
+      // right-aligned, but never back into the button bar beside it: the bar is
+      // measured (above) and grows with the translation, and the published copy
+      // carries one button more than the loose file — which is why this only
+      // overlapped there
+      const msg = typeof notice.txt === 'function' ? notice.txt() : pick(notice.txt);
+      const right = MENU_W - 40;
+      const room = right - x - 12;
+      const size = measureText(ctx, msg, 17) > room ? 13 : 17;
+      if (measureText(ctx, msg, size) <= room) {
+        text(ctx, msg, right, y + 9, {
+          size, align: 'right', color: notice.color, alpha: Math.min(1, notice.t),
+        });
+      } else {
+        // still too long: put it above the bar instead of across it
+        text(ctx, msg, right, y - 14, {
+          size: 15, align: 'right', color: notice.color, alpha: Math.min(1, notice.t),
+        });
+      }
     }
   }
 

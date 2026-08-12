@@ -1064,7 +1064,7 @@ function openReputation() {
       <span style="flex:1;font-size:12.5px">${name}</span>
       ${frac === null ? '' : `<div style="width:110px;height:8px;background:#e8e0cc;border-radius:4px;overflow:hidden">
         <div style="width:${Math.round(clamp(frac, 0, 1) * 100)}%;height:100%;background:${pts >= 0 ? '#4fae4a' : '#e2543f'}"></div></div>`}
-      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${dec(pts, 2)}★</b>
+      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts > 0 ? '+' : ''}${dec(pts + 0, 2)}★</b>
     </div>`;
   // the statement: a summary by kind + the latest events
   const EVENT_NAMES = { '💀': 'mortes|deaths', '🚨': 'fugas|escapes', '🎉': 'nascimentos|births', '🗳️': 'avaliações do público|public ratings', '📉': 'quedas|drops', '📈': 'subidas|rises' };

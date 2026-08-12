@@ -1255,7 +1255,11 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     // the pips start after the label, measured: "STAGE 10" is wider than
     // "FASE 10" and ran under the first one at a fixed x
     const pipX = Math.max(74, 20 + measureText(ctx, stageLabel, 12) + 10);
-    const waveW = Math.min(22, (150 - (pipX - 62)) / waves - 4);
+    // the row has to END before the first card, not at a constant that used to
+    // mean the same thing: with a measured start, `150 - (pipX - 62)` let the
+    // last pip run under the card's corner
+    const pipRoom = CARDS_X0 - 12 - pipX;
+    const waveW = Math.max(6, Math.min(22, pipRoom / waves - 4));
     for (let i = 0; i < waves; i++) {
       const filled = i <= st.currentWave;
       const last = i === waves - 1;

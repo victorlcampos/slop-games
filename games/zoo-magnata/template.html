@@ -170,7 +170,11 @@ h4.sec{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.55;ma
   box-shadow:0 10px 0 rgba(70,44,20,.4),0 22px 50px rgba(0,0,0,.4);overflow:hidden}
 #modalHead{display:flex;align-items:center;gap:10px;padding:12px 16px;
   background:linear-gradient(var(--gold),var(--gold2));border-bottom:4px solid var(--ink)}
-#modalHead h2{font-size:19px;flex:none}
+/* The title SHRINKS. With `flex:none` it never did, so a long one pushed the
+   ✕ past the modal's edge, where `overflow:hidden` clipped it away — and on
+   a phone that modal fills the screen, so there was no backdrop to tap and
+   no footer button either. The player had to rotate the device. */
+#modalHead h2{font-size:19px;flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 #modalBody{padding:14px 16px;overflow-y:auto}
 #modalFoot{padding:10px 16px;border-top:3px solid var(--ink);background:var(--cream2);
   display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -390,6 +394,10 @@ table.fin td.n{text-align:right;font-variant-numeric:tabular-nums}
   .stat .ic{font-size:14px}
   .spd{width:33px;height:33px;font-size:13px}
   /* the dock as a single scrollable strip */
+  /* the palette card keeps its 96px basis here and flex-shrinks below its own
+     text — "Enriquecimento" is 90px in an 80px box. Same hardening the
+     narrow-portrait block already does. */
+  .pitem{width:calc(50% - 4px);min-width:0;overflow-wrap:anywhere}
   #dock{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;
     padding:3px 2px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #dock::-webkit-scrollbar{display:none}
