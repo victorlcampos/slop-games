@@ -178,5 +178,79 @@ scenario('the sprite of a species does not change with the flag', async () => {
   await g.close();
 });
 
+/* A save in the shape the game wrote BEFORE the translation to English: both
+   the catalogue keys (madeira, lanchonete, trat) and the field names (idade,
+   fome, saude) are Portuguese. It used to load looking fine and then fall
+   apart — clamp passes NaN through, so within days every animal was NaN,
+   reputation was NaN and nobody came through the gate again. */
+const LEGACY_SAVE = (world) => ({
+  v: 1, money: 150000, ticket: 12, day: 4, hour: 10, rep: 3.1, repLog: [],
+  lastBill: 1, loan: 0, marketing: 0,
+  stats: { visHoje: 3, visitanteTotal: 40, felicidade: .6, entrHoje: 30 },
+  ledger: { hoje: { ingresso: 30 }, semana: { ingresso: 90 }, hist: [] },
+  cam: { x: 0, y: 0, z: 1 },
+  terr: world.terr, path: world.path,
+  objs: [
+    { id: 900, kind: 'lanchonete', cat: 'predio', x: 22, y: 51, mult: 1, revenue: 0, sales: 0 },
+    { id: 901, kind: 'comedouro', cat: 'encobj', x: 21, y: 45, encId: 800 },
+  ],
+  encs: [{ id: 800, fence: 'madeira', nome: 'Recinto 800', tiles: world.tiles,
+           limpeza: .8, comida: .9, agua: .7, integridade: 1 }],
+  animals: [{ id: 810, sp: 0, enc: 800, nome: 'Simba', sexo: 'F', idade: 6,
+              fome: .2, sede: .1, saude: 1, feliz: .8, doente: false,
+              gravida: 0, fugiu: false, x: 22, y: 46 }],
+  staff: [{ tipo: 'trat', x: 27, y: 55, feitos: 5 }],
+  uid: 950,
+});
+
+scenario('a save written before the rename still opens, and stays a number', async () => {
+  const g = await open(browser, GAME);
+  await g.waitFrames(3);
+  await g.exec(() => { document.querySelector('#splash .btn')?.click(); });
+  await g.waitFrames(3);
+
+  const loaded = await g.exec((game, save) => {
+    const tiles = [];
+    for (let y = 44; y < 49; y++) for (let x = 20; x < 25; x++) tiles.push(IDX(x, y));
+    save.terr = Array.from(world.terr);
+    save.path = Array.from(world.path);
+    save.encs[0].tiles = tiles;
+    if (!applySnapshot(save, 'legacy')) return { ok: false };
+    const a = G.animals[0], e = [...enclosures.values()][0];
+    return {
+      ok: true,
+      fence: e.fence,
+      kinds: [...objects.values()].map((o) => o.kind + '/' + o.cat).sort(),
+      staffKind: G.staff[0] && G.staff[0].kind,
+      finite: [a.age, a.hunger, a.thirst, a.health, a.happy].every(Number.isFinite),
+      sex: a.sex,
+    };
+  }, LEGACY_SAVE({ terr: [], path: [], tiles: [] }));
+
+  check(loaded.ok, 'the legacy save was rejected outright');
+  check(loaded.fence === 'wood', `fence "madeira" became "${loaded.fence}"`);
+  check(JSON.stringify(loaded.kinds) === '["feeder/encobj","snackbar/build"]',
+    `object kinds came out as ${JSON.stringify(loaded.kinds)}`);
+  check(loaded.staffKind === 'keeper', `staff "trat" became "${loaded.staffKind}"`);
+  check(loaded.finite && loaded.sex === 'F',
+    'the animal lost its Portuguese-named fields — every number would go NaN');
+
+  // the NaN only showed once the simulation touched those fields
+  await g.exec(() => { setSpeed(4); window.__d = G.day; });
+  await g.waitUntil(() => G.day >= window.__d + 1, { timeout: 60000, what: 'a day to pass' });
+  const after = await g.exec(() => ({
+    animals: G.animals.every((a) => [a.age, a.hunger, a.health, a.happy].every(Number.isFinite)),
+    rep: Number.isFinite(G.rep),
+    quality: Number.isFinite(parkQuality()),
+    report: !reportText().includes('NaN'),
+  }));
+  check(after.animals, 'an animal went NaN after a day');
+  check(after.rep && after.quality, 'reputation or park quality went NaN');
+  check(after.report, 'the status report is printing NaN');
+
+  g.expectNoErrors();
+  await g.close();
+});
+
 await run('zoo tycoon');
 await browser.close();

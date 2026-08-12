@@ -1609,7 +1609,7 @@ function drawGhost(c, z) {
     const rot = p.action === 'create'
       ? BI`Novo recinto · ${p.tiles.length} tiles · ${moneyFull(p.cost)}|New enclosure · ${p.tiles.length} tiles · ${moneyFull(p.cost)}`
       : p.action === 'extend'
-        ? BI`Ampliar ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}|Extend ${p.target.name} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
+        ? BI`Ampliar ${encName(p.target)} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}|Extend ${encName(p.target)} · +${p.tiles.length} tiles · ${moneyFull(p.cost)}`
         : p.reason;
     c.fillStyle = colour[2]; c.font = 'bold ' + Math.round(12.5 * z) + 'px system-ui';
     c.textAlign = 'center';

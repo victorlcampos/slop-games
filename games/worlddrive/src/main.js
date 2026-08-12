@@ -141,7 +141,7 @@ async function startDrive(lat, lon, label) {
     app.state = 'loading';
     // the translated sentence first: err.message is an engine string, in English
     // only, and it is what the player was seeing on every failure
-    ui.showLoadError(t('load.error') + (err && err.message ? ` (${err.message})` : ''), () => {
+    ui.showLoadError(() => t('load.error') + (err && err.message ? ` (${err.message})` : ''), () => {
       app.state = 'menu';
       startDrive(lat, lon, label);
     });
@@ -171,7 +171,9 @@ input.on('camera', () => {
 input.on('reload', () => {
   if (app.state !== 'driving' || !app.world) return;
   const [lat, lon] = app.world.proj.toLatLon(car.x, car.z);
-  startDrive(lat, lon, t('hud.thisSpot'));
+  // the field, not the resolved string: this label lives in the HUD for the
+  // whole drive and would freeze in the language it was built with
+  startDrive(lat, lon, () => t('hud.thisSpot'));
 });
 input.on('mute', () => {
   audio.setMuted(!audio.muted);

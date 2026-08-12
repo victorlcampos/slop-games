@@ -105,6 +105,8 @@ export function createShop(result, state, onContinue) {
   let notice = null;
   const buttons = [];
 
+  // keeps the FIELD, not the resolved text: the notice stays on screen for
+  // 2.4 s and used to sit there in the language the player had just left
   function say(txt, color) {
     notice = { txt, color, t: 2.4 };
   }
@@ -202,7 +204,7 @@ export function createShop(result, state, onContinue) {
     buttons.push({ x: MENU_W / 2 - 180, y: HEIGHT - 84, w: 360, h: 64, action: 'continue' });
 
     if (notice) {
-      text(ctx, notice.txt, MENU_W / 2, HEIGHT - 96, {
+      text(ctx, typeof notice.txt === 'function' ? notice.txt() : pick(notice.txt), MENU_W / 2, HEIGHT - 96, {
         size: 18, align: 'center', color: notice.color, alpha: Math.min(1, notice.t),
       });
     }
@@ -345,14 +347,14 @@ export function createShop(result, state, onContinue) {
           const c = b.card;
           if (state.coins < c.price) {
             sfx.error();
-            say(pick(T.notEnough), COLORS.danger);
+            say(T.notEnough, COLORS.danger);
             return;
           }
           state.coins -= c.price;
           state.deck.push(c.id);
           bought.add(c.id);
           sfx.coin();
-          say(fill(T.joinedDeck, { name: pick(c.name) }), COLORS.good);
+          say(() => fill(T.joinedDeck, { name: pick(c.name) }), COLORS.good);
           return;
         }
         if (b.action === 'tab') {
@@ -364,13 +366,13 @@ export function createShop(result, state, onContinue) {
           const { id, cost, level, base } = b.item;
           if (state.coins < cost) {
             sfx.error();
-            say(pick(T.notEnough), COLORS.danger);
+            say(T.notEnough, COLORS.danger);
             return;
           }
           state.coins -= cost;
           state.levels[id] = level + 1;
           sfx.coin();
-          say(fill(T.nowLevel, { name: pick(base.name), n: level + 1 }), COLORS.good);
+          say(() => fill(T.nowLevel, { name: pick(base.name), n: level + 1 }), COLORS.good);
           return;
         }
         if (b.action === 'continue') {

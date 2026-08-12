@@ -238,12 +238,12 @@ function endEnclosureDrag() {
     encAddTiles(p.target, p.tiles); SFX.play('extend');
     undoRecord({ kind: 'extension', cat: 'build', id: p.target.id, tiles: [...p.tiles], cost: p.cost });
     select('enc', p.target);
-    toast(BI`➕ ${p.target.name} ampliado para ${encArea(p.target)} tiles|➕ ${p.target.name} extended to ${encArea(p.target)} tiles`, 'good');
+    toast(BI`➕ ${encName(p.target)} ampliado para ${encArea(p.target)} tiles|➕ ${encName(p.target)} extended to ${encArea(p.target)} tiles`, 'good');
   } else {
     const e2 = makeEnclosure(p.tiles, G.tool.key); SFX.play('construct');
     undoRecord({ kind: 'enclosure', cat: 'build', id: e2.id, cost: p.cost });
     select('enc', e2);
-    toast(BI`🚧 ${e2.name} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar|🚧 ${e2.name} built (${encArea(e2)} tiles) — drag alongside it to extend`, 'good');
+    toast(BI`🚧 ${encName(e2)} construído (${encArea(e2)} tiles) — arraste ao lado para ampliar|🚧 ${encName(e2)} built (${encArea(e2)} tiles) — drag alongside it to extend`, 'good');
   }
 }
 
@@ -263,6 +263,10 @@ function undoCloseGroup() {
   const g = undoGroup; undoGroup = null;
   if ((g.tiles && g.tiles.length) || (g.changes && g.changes.length)) undoRecord(g);
 }
+/* The button's title is written here AND declared as data-<lang>-title in the
+   markup, and bindText rewrites every one of those on a flag change — so the
+   static "nothing to undo" won over the live count. The markup pair is gone;
+   this is the only writer, and the flag change calls it. */
 function refreshUndoButton() {
   const b = $('#zUndo'); if (!b) return;
   b.disabled = !G.undo.length;
@@ -653,7 +657,7 @@ function closeDay() {
   // the day's visitor ratings enter the statement as 1 aggregated row
   const rv = G.stats.repVis || 0;
   if (Math.abs(rv) >= .02) {
-    G.repLog.push({ day: G.day - 1, delta: rv, reason: BI`Avaliações de ${visitorsToday} visitantes|Ratings from ${visitorsToday} visitors`, em: rv > 0 ? '🗳️' : '📉' });
+    G.repLog.push({ day: G.day - 1, delta: rv, reason: `Avaliações de ${visitorsToday} visitantes|Ratings from ${visitorsToday} visitors`, em: rv > 0 ? '🗳️' : '📉' });
     if (G.repLog.length > 60) G.repLog.shift();
   }
   G.stats.repVis = 0;
@@ -673,11 +677,16 @@ function closeDay() {
 
   if (G.money < -120000 && !G.gameOver) {
     G.gameOver = true; setSpeed(0); SFX.play('bankrupt');
-    openModal(LN('🏚️ Falência|🏚️ Bankruptcy'),
-      `<p style="font-size:14px;line-height:1.6">${BI`O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias. Você recebeu ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitantes e chegou a ter ${G.animals.filter(a => !a.dead).length} animais.|The zoo went under with <b>${moneyFull(G.money)}</b> in the red after ${G.day} days. You took in ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitors and got as far as ${G.animals.filter(a => !a.dead).length} animals.`}</p>`,
-      `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">${LN('Recomeçar|Start over')}</button>
-       <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">${BI`Aceitar resgate de ${moneyFull(100000)}|Accept a ${moneyFull(100000)} bailout`}</button>`);
+    showBankruptcy();
   }
+}
+/** The bankruptcy screen, in a function so a language change can rebuild it. */
+function showBankruptcy() {
+  modalReopen = showBankruptcy;
+  openModal(LN('🏚️ Falência|🏚️ Bankruptcy'),
+    `<p style="font-size:14px;line-height:1.6">${BI`O zoológico quebrou com <b>${moneyFull(G.money)}</b> no vermelho após ${G.day} dias. Você recebeu ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitantes e chegou a ter ${G.animals.filter(a => !a.dead).length} animais.|The zoo went under with <b>${moneyFull(G.money)}</b> in the red after ${G.day} days. You took in ${G.stats.visitorTotal.toLocaleString(currency().tag)} visitors and got as far as ${G.animals.filter(a => !a.dead).length} animals.`}</p>`,
+    `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">${LN('Recomeçar|Start over')}</button>
+     <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">${BI`Aceitar resgate de ${moneyFull(100000)}|Accept a ${moneyFull(100000)} bailout`}</button>`);
 }
 /** a one-off shock to the reputation + a row in the statement (visible on ⭐) */
 function repEvento(delta, reason, em) {
@@ -722,6 +731,29 @@ const LEGACY_KEYS = {
   predio: 'build',
 };
 const modernKey = (k) => LEGACY_KEYS[k] || k;
+
+/* And the FIELD names moved too. A save written before the rename carries
+   `limpeza`, `fome`, `saude`… — names nothing reads any more. That load looked
+   fine and then went to pieces: `clamp` passes NaN straight through, so within
+   three game-days every animal's hunger, health and age were NaN, reputation
+   was NaN, `visitorRate()` returned 0, and nobody came through the gate again.
+   Worse, closeDay() autosaves, so the wreck overwrote the save. */
+const LEGACY_FIELDS = {
+  nome: 'name', sexo: 'sex', idade: 'age', fome: 'hunger', sede: 'thirst',
+  saude: 'health', feliz: 'happy', doente: 'sick', gravida: 'pregnant',
+  fugiu: 'escaped', morto: 'dead',
+  limpeza: 'cleanliness', comida: 'food', agua: 'water', integridade: 'integrity',
+  tipo: 'kind', feitos: 'done',
+};
+/** A finite number off disk, or the fallback. One NaN spreads everywhere. */
+const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
+
+/** A saved row with today's field names, whichever names it was written with. */
+function modernRow(row) {
+  const out = {};
+  for (const k in row) out[LEGACY_FIELDS[k] || k] = row[k];
+  return out;
+}
 
 function keepShape(model, saved) {
   const out = {};
@@ -797,7 +829,8 @@ function applySnapshot(raw, label) {
     objects.clear(); enclosures.clear();
     G.animals = []; G.visitors = []; G.staff = []; G.escaped = [];
     _uid = s.uid || 1;
-    for (const e of s.encs) {
+    for (const raw of s.encs) {
+      const e = modernRow(raw);
       // An old save stored a rectangle (x,y,w,h) with the outer ring becoming the
       // fence. That rectangle's interior becomes today's tile set.
       let tiles = e.tiles;
@@ -807,16 +840,17 @@ function applySnapshot(raw, label) {
           tiles.push(IDX(e.x + i, e.y + j));
       }
       const en = {
-        id: e.id, fence: modernKey(e.fence), name: e.name, tiles: new Set(),
+        id: e.id, fence: modernKey(e.fence), name: e.name || null, tiles: new Set(),
         animals: [], objs: [], happy: .7, alerts: [],
-        cleanliness: e.cleanliness, food: e.food, water: e.water,
-        integrity: e.integrity === undefined ? 1 : e.integrity,
+        cleanliness: num(e.cleanliness, 1), food: num(e.food, 1), water: num(e.water, 1),
+        integrity: num(e.integrity, 1),
       };
       enclosures.set(e.id, en);
       for (const k of tiles) { en.tiles.add(k); world.enc[k] = e.id; }
       encInvalidate(en);
     }
-    for (const o of s.objs) {
+    for (const rawObj of s.objs) {
+      const o = modernRow(rawObj);
       const kind = modernKey(o.kind), cat = modernKey(o.cat);
       const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
       if (!def) { console.warn('save has an unknown object:', o.cat, o.kind); continue; }
@@ -826,17 +860,29 @@ function applySnapshot(raw, label) {
       if (ob.cat === 'deco') applyBeauty(ob, +1);
       if (ob.cat === 'encobj') { const e = enclosures.get(ob.encId); if (e) e.objs.push(ob); }
     }
-    for (const a of s.animals) {
+    for (const rawAnimal of s.animals) {
+      const a = modernRow(rawAnimal);
+      const sp = SPECIES[a.sp];
+      if (!sp) { console.warn('save has an unknown species:', a.sp); continue; }
       const an = {
-        ...a, sp: SPECIES[a.sp], dead: false, tx: a.x, ty: a.y, dir: 1,
+        ...a, sp, dead: false, tx: a.x, ty: a.y, dir: 1,
         frame: 0, anim: 0, state: 'idle', wait: rnd(1, 4),
+        // every number the simulation divides or clamps: one NaN off disk and
+        // the whole park follows it down
+        age: num(a.age, sp.lifespan * .3), hunger: num(a.hunger, .2), thirst: num(a.thirst, .2),
+        health: num(a.health, 1), happy: num(a.happy, .7), pregnant: num(a.pregnant, 0),
+        x: num(a.x, 0), y: num(a.y, 0), tx: num(a.x, 0), ty: num(a.y, 0),
       };
       G.animals.push(an);
       const e = enclosures.get(a.enc);
       if (e && !a.escaped) e.animals.push(an);
       if (a.escaped) G.escaped.push(an);
     }
-    for (const st of s.staff) { const x = hire(modernKey(st.kind)); if (!x) continue; x.x = st.x; x.y = st.y; x.done = st.done || 0; }
+    for (const rawStaff of s.staff) {
+      const st = modernRow(rawStaff);
+      const x = hire(modernKey(st.kind)); if (!x) continue;
+      x.x = st.x; x.y = st.y; x.done = st.done || 0;
+    }
     terrainChanged(); rebuildNet();   // rebuildNet already bumps netVer
     deselect(); closeModal();
     toast('📂 ' + (label || LN('Jogo carregado|Game loaded')) + BI` — dia ${G.day}| — day ${G.day}`, 'good');
@@ -944,7 +990,7 @@ function reportText() {
     const fel = av.length ? av.reduce((s, a) => s + a.happy, 0) / av.length : 0;
     const sp0 = av[0] ? av[0].sp : null;
     row('');
-    row(`  ${e.name} — ${LN(FENCES[e.fence].n)}, ` +
+    row(`  ${encName(e)} — ${LN(FENCES[e.fence].n)}, ` +
       BI`${encArea(e)} tiles, cerca de ${encSegCount(e)} trechos|${encArea(e)} tiles, a fence of ${encSegCount(e)} runs`);
     row(BI`    felicidade ${miniGauge(fel)} ${Math.round(fel * 100)}%   limpeza ${miniGauge(e.cleanliness)} ${Math.round(e.cleanliness * 100)}%|    happiness ${miniGauge(fel)} ${Math.round(fel * 100)}%   cleanliness ${miniGauge(e.cleanliness)} ${Math.round(e.cleanliness * 100)}%`);
     row(BI`    comida    ${miniGauge(e.food)} ${Math.round(e.food * 100)}%   água    ${miniGauge(e.water)} ${Math.round(e.water * 100)}%|    food      ${miniGauge(e.food)} ${Math.round(e.food * 100)}%   water   ${miniGauge(e.water)} ${Math.round(e.water * 100)}%`);
@@ -1148,6 +1194,8 @@ I18N.onChange(() => {
   if (G.tool && G.tool.cat) buildPalette(G.tool.cat);
   showInspector();
   renderAlerts();
+  refreshHint();
+  refreshUndoButton();
   reopenModal();
 });
 

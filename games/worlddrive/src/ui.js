@@ -87,6 +87,11 @@ export class UI {
       const li = $('st-' + key);
       if (li) li.querySelector('span:last-of-type').textContent = t('load.' + key);
     }
+    if (this._errMsg && !$('load-err').classList.contains('hide')) {
+      $('load-err-msg').textContent =
+        typeof this._errMsg === 'function' ? this._errMsg() : this._errMsg;
+    }
+    if (this._loadLabel !== undefined) this._paintLoadTitle();
   }
 
   async _search(q) {
@@ -138,6 +143,13 @@ export class UI {
     setTimeout(() => this.picker && this.picker.resize(), 30);
   }
 
+  /* #load-title carries no data-pt/data-en any more: bindText would put the
+     generic "preparing the world" back over the place the player picked. */
+  _paintLoadTitle() {
+    const label = typeof this._loadLabel === 'function' ? this._loadLabel() : this._loadLabel;
+    $('load-title').textContent = label ? t('load.goingTo', { place: label }) : t('load.title');
+  }
+
   showLoading(label) {
     this.progress = {};
     $('menu').classList.add('hide');
@@ -145,7 +157,8 @@ export class UI {
     $('hud').classList.add('hide');
     $('load-err').classList.add('hide');
     $('load-steps').classList.remove('hide');
-    $('load-title').textContent = label ? t('load.goingTo', { place: label }) : t('load.title');
+    this._loadLabel = label;
+    this._paintLoadTitle();
     const ul = $('load-steps');
     ul.innerHTML = '';
     for (const key of STAGES) {
@@ -175,9 +188,12 @@ export class UI {
 
   showLoadError(msg, retry) {
     this._retry = retry;
+    // the message is kept so _repaint can re-resolve it: this card stays on
+    // screen until the player acts, and an Overpass failure is routine
+    this._errMsg = msg;
     $('load-steps').classList.add('hide');
     $('load-err').classList.remove('hide');
-    $('load-err-msg').textContent = msg;
+    $('load-err-msg').textContent = typeof msg === 'function' ? msg() : msg;
   }
 
   showHUD(touch) {
@@ -190,7 +206,7 @@ export class UI {
   setSpeed(kmh) { $('speed').textContent = Math.round(kmh); }
   setStreet(name, place) {
     $('street').textContent = name || t('hud.noName');
-    $('place').textContent = place || '';
+    $('place').textContent = (typeof place === 'function' ? place() : place) || '';
   }
 
   toast(msg, ms = 2600) {

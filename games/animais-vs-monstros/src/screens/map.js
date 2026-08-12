@@ -84,6 +84,7 @@ export function createMap(state, actions) {
   const buttons = [];
   let langZones = [];
 
+  // keeps the FIELD, not the resolved text — see the same note in shop.js
   function say(txt, color = INK) {
     notice = { txt, color, t: 3 };
   }
@@ -288,7 +289,7 @@ export function createMap(state, actions) {
     }
 
     if (notice) {
-      text(ctx, notice.txt, MENU_W - 40, y + 9, {
+      text(ctx, typeof notice.txt === 'function' ? notice.txt() : pick(notice.txt), MENU_W - 40, y + 9, {
         size: 17, align: 'right', color: notice.color, alpha: Math.min(1, notice.t),
       });
     }
@@ -393,13 +394,13 @@ export function createMap(state, actions) {
             return;
           case 'download':
             actions.download();
-            say(pick(T.saved), COLORS.good);
+            say(T.saved, COLORS.good);
             return;
           case 'load':
             actions
               .load()
-              .then(() => say(pick(T.loaded), COLORS.good))
-              .catch((e) => say(e.message || pick(T.loadFailed), COLORS.danger));
+              .then(() => say(T.loaded, COLORS.good))
+              .catch((e) => say(e.message || T.loadFailed, COLORS.danger));
             return;
           case 'sound':
             actions.sound();

@@ -141,10 +141,16 @@ function removePath(x, y) {
    ========================================================================== */
 const SIDES = [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']];
 
+/* The enclosure's shown name. `e.name` is null until the player renames it:
+   the default is a LABEL and has to follow the flag, while a name the player
+   typed is DATA and must not. Storing the resolved default meant a park built
+   in Portuguese kept "Recinto 3" in English, in the save, forever. */
+const encName = (e) => e.name || LN('Recinto |Enclosure ') + e.id;
+
 function makeEnclosure(tiles, fenceKey) {
   const id = uid();
   const e = {
-    id, fence: fenceKey, name: LN('Recinto |Enclosure ') + id, tiles: new Set(),
+    id, fence: fenceKey, name: null, tiles: new Set(),
     animals: [], objs: [], cleanliness: 1, food: 1, water: 1,
     happy: .7, alerts: [], integrity: 1,
   };
