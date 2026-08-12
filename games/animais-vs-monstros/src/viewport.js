@@ -11,18 +11,23 @@ export const HEIGHT = 720;
 export const FRAME = 1280;
 
 /** A stable object: the rest of the game keeps the reference and reads fields. */
-export const vp = { W: 1280, H: HEIGHT, scale: 1, dpr: 1, touch: false };
+export const vp = { W: 1280, H: HEIGHT, scale: 1, dpr: 1, touch: false, turned: false };
 
 let kit = null;
 
 export function resize(canvas) {
-  if (!kit) kit = createViewport(canvas, { height: HEIGHT, frame: FRAME });
+  // `landscape`: the board is nine columns wide and never fitted upright. The
+  // game used to cover itself with a "turn your device" card, which asks the
+  // player to unlock rotation on their phone before they can play. Now the kit
+  // lays the canvas on its side and the game runs as it is held.
+  if (!kit) kit = createViewport(canvas, { height: HEIGHT, frame: FRAME, landscape: true });
   const widthChanged = kit.resize();
   vp.W = kit.W;
   vp.H = kit.H;
   vp.scale = kit.scale;
   vp.dpr = kit.dpr;
   vp.touch = kit.touch;
+  vp.turned = kit.turned;
   return widthChanged;
 }
 
@@ -33,6 +38,7 @@ export function begin(ctx) {
   vp.scale = kit.scale;
   vp.dpr = kit.dpr;
   vp.touch = kit.touch;
+  vp.turned = kit.turned;
 }
 
 /**
@@ -45,6 +51,7 @@ export function watch(onChange) {
     vp.scale = kit.scale;
     vp.dpr = kit.dpr;
     vp.touch = kit.touch;
+    vp.turned = kit.turned;
     onChange();
   });
 }

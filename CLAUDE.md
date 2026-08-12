@@ -482,8 +482,16 @@ single HTML file with nothing to fetch. (Chrome's automatic install prompt
 requires a SW; "Add to Home Screen" from the menu works without one, and on iOS
 that is the only way anyway.)
 
-`orientation` in `game.json` is optional, defaulting to `any`. Declare
-`landscape` only if the game genuinely doesn't work upright.
+`orientation` in `game.json` is optional and should stay that way. **A board that
+only works lying down is the game's problem, not the player's**: pass
+`landscape: true` to `createViewport` and the kit lays the canvas on its side
+inside the upright window — the game gets the wide viewport it needs, the finger
+is turned with it, and the player holds their phone however they like.
+
+That replaced the "turn your device" card Animals vs Monsters used to show. The
+card looked polite and was a wall: a phone with rotation locked — which is most
+phones — cannot obey it, so the game simply did not open. Locking `orientation`
+in the manifest has the same flaw, and only for whoever installed the game.
 
 The installed manifest speaks **one language only** — an app's name doesn't
 change with the flag. It uses the English side; the `<title>`, which JavaScript

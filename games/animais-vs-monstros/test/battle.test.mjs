@@ -246,4 +246,40 @@ scenario('clearing every wave wins the stage', async () => {
   check(b.ended.summary.waves === STAGES[1].waves.length, 'the summary lost count of the waves');
 });
 
+// ------------------------------------------------------- upright and sideways
+
+scenario('a phone held upright gets the board laid on its side, not a wall', async () => {
+  // The game used to cover itself with "turn your device", which asks the player
+  // to unlock rotation before they can play. Upright, the canvas is turned
+  // instead — and everything downstream has to follow: what the game sees is a
+  // landscape viewport, and a finger has to land where it looks.
+  const { createViewport, turnedPoint } = await import('slopkit/viewport');
+  const canvas = { style: {}, width: 0, height: 0, getContext: () => ({ setTransform() {}, clearRect() {} }),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: innerWidth, height: innerHeight }) };
+
+  globalThis.innerWidth = 390;      // a phone, upright
+  globalThis.innerHeight = 844;
+  const vp = createViewport(canvas, { height: 720, frame: 1280, landscape: true });
+
+  check(vp.turned, 'the canvas was not turned on an upright phone');
+  check(vp.W > 1280, `upright it sees ${vp.W} of world — the board needs nine columns`);
+  check(canvas.style.transform.includes('rotate(90deg)'), `the canvas transform is "${canvas.style.transform}"`);
+  check(canvas.style.transform.includes('translate(390px'), 'the turned canvas was not slid back into the window');
+  check(parseInt(canvas.style.width, 10) === 844 && parseInt(canvas.style.height, 10) === 390,
+    `the turned canvas is ${canvas.style.width} x ${canvas.style.height}`);
+
+  // a tap near the bottom of the phone is a tap near the left of the board
+  const bottomLeft = vp.point(10, 800);
+  check(bottomLeft.x > 1400, `a tap at the bottom of the phone landed at x ${bottomLeft.x.toFixed(0)}`);
+  check(bottomLeft.y > 690, `and at y ${bottomLeft.y.toFixed(0)} — it should be near the bottom of the board`);
+  checkEqual(vp.point(10, 800), turnedPoint(10, 800, 390, vp.scale), 'the two roads to a point disagree');
+
+  // held the right way round, nothing is turned and no transform is left behind
+  globalThis.innerWidth = 844;
+  globalThis.innerHeight = 390;
+  vp.resize();
+  check(!vp.turned, 'a phone already lying down was turned again');
+  check(!canvas.style.transform, `a transform survived the turn back: "${canvas.style.transform}"`);
+});
+
 await run('animals vs monsters — battle');

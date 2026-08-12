@@ -63,51 +63,6 @@
     letter-spacing: 0.04em;
   }
 
-  /* The board has 9 columns: upright it doesn't fit at all. Instead of
-     squeezing it, we ask for a turn — only on a touch device, because in a
-     narrow desktop window the canvas still shrinks and stays playable. */
-  #rotate {
-    display: none;
-    position: fixed;
-    inset: 0;
-    /* A `fixed; inset: 0` without this swallows every touch on the screen if it
-       ever becomes visible when it shouldn't — and the orientation media query
-       is slow to re-evaluate in some mobile browsers, precisely after a
-       rotation. There is nothing clickable here, so ignoring the pointer costs
-       nothing. */
-    pointer-events: none;
-    place-items: center;
-    text-align: center;
-    padding: 2rem;
-    background: radial-gradient(ellipse 70% 55% at 50% 45%, #2a2119 0%, #16130f 75%);
-    color: #f2e2c0;
-  }
-
-  #rotate .device {
-    width: 84px;
-    height: 140px;
-    margin: 0 auto 1.6rem;
-    border: 5px solid #c9a165;
-    border-radius: 14px;
-    animation: turn 2.4s ease-in-out infinite;
-  }
-
-  #rotate h1 { font-size: 1.5rem; margin-bottom: 0.6rem; font-weight: 800; }
-  #rotate p { color: #c9b490; font-size: 1rem; max-width: 22rem; margin: 0 auto; }
-
-  @keyframes turn {
-    0%, 30% { transform: rotate(0deg); }
-    60%, 100% { transform: rotate(-90deg); }
-  }
-
-  @media (orientation: portrait) and (pointer: coarse) {
-    #stage { display: none; }
-    #rotate { display: grid; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    #rotate .device { animation: none; transform: rotate(-90deg); }
-  }
 </style>
 </head>
 <body>
@@ -116,14 +71,6 @@
     <canvas id="canvas" hidden></canvas>
   </div>
 
-  <div id="rotate">
-    <div>
-      <div class="device"></div>
-      <h1 data-pt="Vire o aparelho" data-en="Turn your device">Turn your device</h1>
-      <p data-pt="O tabuleiro tem nove colunas de largura — deitado, dá para ver a fileira inteira e o que vem vindo."
-         data-en="The board is nine columns wide — in landscape you can see the whole lane and what is coming.">The board is nine columns wide — in landscape you can see the whole lane and what is coming.</p>
-    </div>
-  </div>
   <input id="file" type="file" accept="application/json,.json">
 <script>/*__APP__*/</script>
 </body>
