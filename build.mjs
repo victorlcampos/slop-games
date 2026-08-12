@@ -10,6 +10,7 @@
 
 import { build } from 'slopkit/build';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -138,7 +139,8 @@ for (const game of toBuild) {
 }
 
 /**
- * Wire up the exit back to the catalog in the published copy.
+ * What the published copy of a game gets and the loose download does not: the
+ * exit back to the catalog, and the offline cache.
  *
  * The catalog is the installable app and the games run inside its scope. In app
  * mode there is no browser chrome: without an exit, whoever enters a game is
@@ -152,6 +154,17 @@ for (const game of toBuild) {
  *
  *   DOM:    <a data-back-to-catalog hidden>← all games</a>
  *   canvas: read `window.__catalog` and draw it your way
+ *
+ * The service worker is registered here too, and for the same reason it is
+ * injected rather than written into the game: a player can arrive straight at a
+ * game's URL, and that visit should be enough to make the whole catalog work
+ * offline. The loose download never sees this script, so it stays a file with
+ * nothing outside it.
+ *
+ * The guard is on the protocol, not on `'serviceWorker' in navigator`: over
+ * `file://` that property is present (and `isSecureContext` is true), and
+ * registering there throws an uncaught `The URL protocol of the current origin
+ * ('null') is not supported` on the console of every double click.
  */
 function withCatalogExit(html) {
   const script = `<script>
@@ -163,8 +176,37 @@ addEventListener('DOMContentLoaded', function () {
     links[i].hidden = false;
   }
 });
+if (location.protocol.indexOf('http') === 0 && 'serviceWorker' in navigator) {
+  addEventListener('load', function () {
+    navigator.serviceWorker.register('../sw.js').catch(function () {});
+  });
+}
 <\/script>`;
   return html.replace('</head>', script + '\n</head>');
+}
+
+/**
+ * The service worker, stamped with the build it belongs to.
+ *
+ * The version is a hash of everything published, so an unchanged site produces
+ * an unchanged worker (no pointless cache churn) and any change at all produces
+ * a new one — which is what lets the fetch handler serve from the cache without
+ * ever handing out a stale build: a new version is a new cache, and the old one
+ * is deleted the moment it activates.
+ */
+function writeServiceWorker(files) {
+  const hash = createHash('sha256');
+  for (const file of files) hash.update(readFileSync(join(DIST, file)));
+  const version = hash.digest('hex').slice(0, 12);
+
+  const source = readFileSync(join(ROOT, 'site/sw.js'), 'utf8');
+  const list = ['./index.html', ...files.filter((f) => f !== 'index.html').map((f) => './' + f), './app.webmanifest'];
+  const sw = source
+    .replace('/*__VERSION__*/', () => version)
+    .replace('/*__FILES__*/ []', () => JSON.stringify(list, null, 2));
+
+  writeFileSync(join(DIST, 'sw.js'), sw, 'utf8');
+  return { version, list };
 }
 
 // -------------------------------------------------------------------- index
@@ -216,10 +258,26 @@ await build({
     // standalone (not fullscreen): keeps the system status bar, which is where
     // the player reads the clock and the battery while browsing
     display: 'standalone',
+    // a real file, not a data: URI — that is the only form in which `start_url`
+    // and `scope` survive, and the scope is what puts the games inside the app
+    file: 'app.webmanifest',
   },
 });
 
 writeFileSync(join(DIST, '.nojekyll'), '', 'utf8');
 
+// The offline cache covers whatever is really in dist/. A one-game build leaves
+// the rest of the catalog from the previous run, and a game that was never
+// built is not in there to be cached — say so instead of failing on a read.
+const published = ['index.html', ...catalog.map((g) => `${g.slug}/index.html`)];
+const present = published.filter((f) => {
+  try { return statSync(join(DIST, f)).isFile(); } catch { return false; }
+});
+const { version, list } = writeServiceWorker(present);
+for (const missing of published.filter((f) => !present.includes(f))) {
+  console.log(`  ⚠ ${missing} is not in dist/ — it will not be available offline until a full build`);
+}
+
 console.log(`\n  ✔ dist/index.html  (${catalog.length} games in the catalog)`);
+console.log(`  ✔ dist/sw.js       (${list.length} files cached offline, build ${version})`);
 console.log('    Open it on a double click — no server needed.\n');

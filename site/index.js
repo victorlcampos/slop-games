@@ -22,5 +22,20 @@ const applyTitle = () => {
 applyTitle();
 i18n.onChange(applyTitle);
 
+// The offline cache. It is the catalog's job because the catalog is the app:
+// one registration here takes the index and all five games with it, so an
+// installed icon opens on a plane exactly as it does on wifi.
+//
+// **`'serviceWorker' in navigator` is not the guard it looks like.** Over
+// `file://` the property is there — and `isSecureContext` is even true — so the
+// registration goes ahead and throws `The URL protocol of the current origin
+// ('null') is not supported`, an uncaught error on the console of every double
+// click. The protocol is what actually decides this; the catch covers a browser
+// that refuses for its own reasons. Registration waits for `load` so it never
+// competes with the page for the connection.
+if (location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
+  addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+}
+
 // the tests drive the page through this, the same bridge every game exposes
 window.__game = { name: 'slop-games', i18n };

@@ -24,6 +24,13 @@ picker — the emoji has no glyph on Windows, so they are drawn on a canvas.
 catalog: switching the flag on the index switches it in whatever game you open
 next.
 
+**Install it and it works with no signal.** Add the catalog to your home screen
+and the whole thing — the index and all five games — is kept on the device, so
+it opens on a plane, on the underground, or with the wifi off. A single
+self-contained file still has to be *downloaded* once; that is what the service
+worker behind the catalog is for. With a connection you always get the current
+build.
+
 ## Running locally
 
 ```bash

@@ -19,7 +19,10 @@ changes — not the rule.
 2. **One `index.html`.** The final artifact is a single file, with HTML, CSS, JS
    and assets embedded. No `<script src>`, `<link rel=stylesheet>`, `<img src>`
    or `fetch` pointing at a neighbouring file — over `file://` that breaks (or
-   hits CORS).
+   hits CORS). The published *catalog* carries two files of its own next to the
+   games — `sw.js` and `app.webmanifest`, which is what makes the installed app
+   work offline (section 5) — and no game depends on either: remove them and
+   every game still opens on a double click.
 3. **It has to open on a double click.** The acceptance test is literal: open
    `dist/<slug>/index.html` from the Finder, with no local server, and the game
    runs. If it needs `python -m http.server` to work, it is wrong.
@@ -48,6 +51,12 @@ World Drive, which fetches its streets from Overpass (OpenStreetMap). What it ma
 not have is **a backend of its own**. When a game depends on the network, mark
 `"offline": false` in `game.json` and explain in `"note"` — the index shows a
 "needs network" badge so the player isn't caught out.
+
+And the reverse trap, which this project fell into and only noticed once somebody
+tried it: **a file with nothing to fetch is not the same as an app that opens
+with no signal.** The page itself is a request. `"offline": true` on a card is a
+promise about the game's runtime; the service worker in section 5 is what makes
+it true of the installed app.
 
 ---
 
@@ -534,15 +543,82 @@ await build({
 index, and from there you enter any game — four separate icons would just be
 clutter.
 
-The manifest lives in the root `build.mjs`, embedded in the index as a `data:`
-URI along with an SVG icon. `scope: './'` makes the games run inside the app, and
-`display: standalone` keeps the system status bar — a player wants to see the
-clock and the battery.
+The manifest lives in the root `build.mjs`, with an SVG icon carrying the emoji.
+`scope: './'` makes the games run inside the app, and `display: standalone` keeps
+the system status bar — a player wants to see the clock and the battery.
 
-**There is no service worker, and none is missed.** Everything here is already a
-single HTML file with nothing to fetch. (Chrome's automatic install prompt
-requires a SW; "Add to Home Screen" from the menu works without one, and on iOS
-that is the only way anyway.)
+**The catalog's manifest is a file (`dist/app.webmanifest`), not a `data:` URI**,
+and that is not a preference. Asked through the devtools protocol what it made of
+the embedded one, Chromium answers:
+
+```
+property 'start_url' ignored, URL is invalid.
+property 'scope'     ignored, URL is invalid.
+```
+
+The relative URLs inside a manifest resolve against the *manifest's* URL, and
+`data:` is not a base anything resolves against. The browser then falls back to
+the page it was installed from — which is why this looked fine for so long:
+install from the index and the scope lands on the catalog by accident. Install
+from inside a game and the app is scoped to that one game, with every other game
+opening outside it. A game on its own still embeds the manifest and keeps its
+single file (`pwa.file` in the kit chooses): it has nothing under it to scope.
+
+### It has to work offline (`dist/sw.js`)
+
+**A single self-contained HTML file still has to come from somewhere.** For years
+this document said a service worker "would exist only to cache what is already
+cached" — that was wrong, and the mistake is worth keeping written down: nothing
+inside a game needs fetching, but *the page itself* is a request, and an
+installed app with no connection shows the dinosaur no matter how self-contained
+the file behind it is. Offline was never true; it was only untested.
+
+So the published catalog gains **exactly two files that live on the server and
+nowhere else**: `app.webmanifest` and `sw.js`. Rule nº 2 stands unchanged — a
+game is still one file, still opens on a double click, and the loose download in
+`games/<slug>/dist/` mentions neither of them.
+
+The worker is written in `site/sw.js`, readable and unminified — it is the piece
+of the site that lives longest in a player's browser and the one nobody can fix
+with a refresh. The build fills in two blanks: the file list (the index and every
+game) and a version, which is a hash of everything published.
+
+Three decisions in it earned their comments the hard way:
+
+- **A page asks the network first, everything else asks the cache first.** The
+  first version was cache-first throughout, and a browser test caught what
+  review would not: with a new build deployed, a player who already had the app
+  came back *twice* and was still reading the old page, two caches side by side,
+  because the worker answered from its cache before the new worker had taken
+  over. A page here is the whole app, so one round trip when there is a
+  connection buys "every push reaches everybody on the next open". With no
+  connection — or a connection that drags past four seconds — the cache answers,
+  which is strictly better than the spinner a page with no worker gives you.
+- **Everything is precached on install, not as it is visited.** The player who
+  needs this is the one who installed the app on airport wifi. Caching only what
+  has been opened would leave them one game and four dinosaurs. It is under 2 MB
+  for the whole catalog. The index must land or there is no app; the games are
+  best-effort, so one failed request cannot throw away a good install.
+- **A directory and its `index.html` are one page and two cache keys.** The
+  manifest's `start_url` is the directory, every card links to the file. The
+  worker asks for both under the file's name.
+
+**`'serviceWorker' in navigator` is not a guard.** Over `file://` that property
+is there — and `isSecureContext` is even `true` — so the registration goes ahead
+and throws `The URL protocol of the current origin ('null') is not supported`,
+uncaught, on the console of everyone who opens the game on a double click. The
+guard is `location.protocol`, with a `catch` behind it. The catalog test enforces
+it, because it is invisible in the one place we all test first: the served copy.
+
+What a test suite with no browser cannot answer here is whether any of this
+actually works, so **that lap is by hand before a deploy**: serve `dist/` under a
+`/slop-games/` prefix, load it, kill the server (Playwright's `setOffline` does
+not reach the worker's own fetches — with it alone the requests still arrive),
+then reload the catalog and open a game. What the suite does enforce is
+everything that is a property of the files: the worker exists, it is stamped, it
+precaches every game in the catalog, it deletes what it replaces, the
+registration is switched on in the published copies and absent from the loose
+ones.
 
 `orientation` in `game.json` is optional and should stay that way: a board that
 only works lying down turns itself (section 2b, "turning the canvas instead of
@@ -832,6 +908,13 @@ A push to `main` runs the tests and, **if they pass**, publishes to GitHub Pages
 
 A pull request runs the same tests and does not publish. There is no manual
 deploy and `dist/` is not committed.
+
+Whatever is in `dist/` goes up, and that now includes `sw.js` — so **a deploy is
+also a cache invalidation.** The worker is stamped with a hash of everything
+published: a build that changed nothing produces the same worker and nobody
+re-downloads anything, and any change at all produces a new one, which installs,
+replaces the old cache and deletes it. Nothing here needs a version bumped by
+hand.
 
 ### The gate
 
