@@ -534,6 +534,19 @@ window.location.href = window.__catalog;
 length; a fixed width clips one of them. Animals measures with `measureText` and
 adds the padding — that is what lets the bar survive a flag change.
 
+**And so does a DOM one.** The same trap caught the Zoo's dock — `width: 66px`
+plus the `white-space: nowrap` it inherited from `.btn`, so "In Enclosure"
+painted over its own border and the button read "n Enclosure". Portuguese fit;
+English, the default, did not. It caught Animals' wave pips too, where the label
+was drawn left-aligned and the first pip at a fixed x, so only "STAGE 10"
+overlapped. Three times in one pass, always in the language nobody was looking
+at.
+
+Two rules come out of it. **Let text wrap unless you have measured it**, which
+is the half that survives a label you haven't written yet. And **check both
+languages on both viewports** — the failure is invisible in the language you
+happen to be reading, and a phone breakpoint is narrower than the one you tested.
+
 In both cases the root build injects, **only into the published copy**, a script
 that defines `window.__catalog` and reveals the marked elements. Whoever
 downloads the game's HTML on its own doesn't get that script: the element stays
