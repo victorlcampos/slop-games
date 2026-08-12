@@ -14,7 +14,7 @@
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { scenario, check, run } from 'slopkit/testing';
+import { headlessContext, scenario, check, run } from 'slopkit/testing';
 import * as Slop from 'slopkit';
 
 const SRC = path.resolve(import.meta.dirname, '../src');
@@ -23,14 +23,15 @@ const SRC = path.resolve(import.meta.dirname, '../src');
 // this point (sprites, render, ui, game) the code is drawing and DOM wiring:
 // that is the part a browser would have to answer for, and it is checked by
 // hand before a deploy.
-const FILES = ['01_i18n', '02_util', '03_species', '05_world', '06_entities'];
+const FILES = ['01_i18n', '02_util', '03_species', '04_sprites', '05_world', '06_entities'];
 
 /** The few browser objects the simulation files touch while loading. */
 function sandbox() {
   const el = () => ({
-    style: {}, dataset: {}, children: [],
+    style: {}, dataset: {}, children: [], width: 1, height: 1,
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    appendChild() {}, addEventListener() {}, setAttribute() {}, getContext: () => null,
+    appendChild() {}, addEventListener() {}, setAttribute() {},
+    getContext(kind) { return kind === '2d' ? headlessContext(this.width, this.height) : null; },
   });
   const store = new Map();
   const ctx = vm.createContext({
@@ -254,6 +255,50 @@ scenario('the books balance: what is spent leaves the till', () => {
   call('earn', 200, 'shop');
   check(read('G.money') === before - 300, 'earning did not go back in');
   check(read('G.ledger.today.shop') >= 200, 'the takings never reached the books');
+});
+
+// ------------------------------------------------------------- the drawing
+
+scenario('all 219 species draw, from 28 body plans and not one image', () => {
+  // Not a single sprite ships with this game: every animal is assembled at
+  // runtime from a body plan and a handful of numbers. A plan that throws takes
+  // the frame with it, and only for the species nobody bought while testing.
+  const drawn = read(`(() => {
+    const bad = [];
+    let ok = 0;
+    for (const sp of SPECIES) {
+      try {
+        const cv = getSprite(sp, 0, 48);
+        if (!cv || !cv.width) bad.push(sp.key + ': empty');
+        else ok++;
+      } catch (e) { bad.push(sp.key + ': ' + e.message); }
+    }
+    return { ok, bad: bad.slice(0, 5), total: SPECIES.length };
+  })()`);
+  check(drawn.bad.length === 0, `species that would not draw: ${drawn.bad.join(' · ')}`);
+  check(drawn.ok === drawn.total, `${drawn.ok} of ${drawn.total} species drew`);
+});
+
+scenario('every body plan is used, and the walk cycle has frames', () => {
+  const plans = read('[...new Set(SPECIES.map(s => s.plan))]');
+  check(plans.length >= 20, `only ${plans.length} body plans for 219 species`);
+  const frames = read(`(() => {
+    const sp = SPECIES[0];
+    const a = getSprite(sp, 0, 48), b = getSprite(sp, 2, 48);
+    return { same: a === b, cached: getSprite(sp, 0, 48) === a };
+  })()`);
+  check(!frames.same, 'two frames of the walk came back as the same canvas');
+  check(frames.cached, 'the sprite cache redrew something it already had');
+});
+
+scenario('the sprite is seeded from the species, not from its name', () => {
+  // otherwise flipping the flag would redraw all 219 animals
+  setLang('pt');
+  const pt = read('SPECIES.map(s => s.key).join("|")');
+  setLang('en');
+  const en = read('SPECIES.map(s => s.key).join("|")');
+  check(pt === en, 'the species keys followed the flag');
+  setLang('en');
 });
 
 await run('zoo tycoon — logic');

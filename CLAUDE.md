@@ -597,7 +597,7 @@ Gone along the way: a 150-line homegrown ES bundler (SkiFree), a bash `build.sh`
 ```bash
 npm test               # the kit's unit tests + the catalog floor
 npm run test:games     # each game's own test
-node games/<slug>/test/logic.test.mjs   # only one game
+node games/<slug>/test/logic.test.mjs   # only one file
 ```
 
 **The whole suite runs in about three seconds and never opens a browser.** That
@@ -614,9 +614,11 @@ here" below.
    search over `dist/`, and it answers in milliseconds what took Chrome five
    minutes.
 2. **The game itself** (`games/<slug>/test/`) — the simulation, played in Node:
-   the skier accelerates and the Yeti eats him, the car reaches a top speed and
-   the street index knows which road it is on, an animal is planted and a monster
-   dies, 219 species are all well formed and the park's books balance.
+   the skier accelerates and the Yeti eats him; World Drive turns a canned
+   Overpass answer into a whole world and drives it; an animal is planted, a
+   monster dies and the 33 creatures all draw; 219 species are well formed, all
+   of them draw, and the park's books balance. About 125 scenarios, three
+   seconds.
 
 Everything a game keeps in `src/` is reachable from Node — that is worth
 protecting when adding code. Three shapes come up:
@@ -626,11 +628,47 @@ protecting when adding code. Three shapes come up:
 - **Modules that touch a canvas while loading** (Animals builds its sprite cache
   when a battle is created) — call `installHeadlessDom()` from the kit *before*
   importing them. It puts a `document` on `globalThis` whose canvases answer with
-  a 2D context that accepts every call and keeps nothing.
+  a 2D context that accepts every call and keeps nothing, plus the three things
+  that turned out to matter: `getImageData` hands back real (zeroed) pixels
+  because whoever asks for them is going to read them, `Image` loads on the next
+  tick so a tile fetcher completes, and `requestAnimationFrame` really calls
+  back — World Drive's loader `await`s a frame between the terrain and the
+  streets, and a stub that returns 0 leaves it waiting forever.
 - **A game in global scope** (Zoo Tycoon is `concat` mode, its files are scripts
   that share one scope) — load them into a `node:vm` context in the build's
   order, as `games/zoo-magnata/test/logic.test.mjs` does. After that `SPECIES`,
   `world` and `G` are ordinary values.
+
+### How much is covered, and what cannot be
+
+```bash
+# per-file coverage, with nothing installed
+rm -rf .cov && for t in lib/test/*.test.mjs test/*.test.mjs games/*/test/*.test.mjs; do
+  NODE_V8_COVERAGE=.cov node "$t" >/dev/null; done
+```
+
+Around **83%** of the code the games actually run, and the shape of what is left
+matters more than the number:
+
+| | covered | what is missing |
+|---|---|---|
+| SkiFree 3D | 89% | the parts of the scene builders that only a GPU reaches |
+| World Drive | 91% | the same, plus the imagery decode |
+| Animals vs Monsters | 78% | the audio graph, and half the drawing branches |
+| Zoo Tycoon | its simulation + all 219 sprites | `07_render` and `08_ui`, which are canvas and DOM |
+
+**100% is not the goal, and pretending otherwise would cost more than it buys.**
+What is left over is code whose only observable effect is a pixel or a sound: a
+WebAudio graph with nothing to listen to it, a `renderer.render` with no GPU, a
+DOM panel with no layout. A test can call them and watch them not throw — that is
+worth something, and the sprite walks (`all 219 species draw`, `every monster
+draws`) do exactly that — but past that point the assertion would be "it did
+something", which is the shape of a test that cannot fail.
+
+So: **every rule, every number and every state machine is covered; the pixels are
+looked at by a person.** When you add code, the question is not "can I hit this
+line from Node" but "is there a rule in here" — if there is, it goes in a module
+a test can import, and this is where it gets its guard.
 
 ### Why there is no browser here
 

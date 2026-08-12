@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/economy.test.mjs && node test/battle.test.mjs"
+    "test": "node test/economy.test.mjs && node test/battle.test.mjs && node test/draw.test.mjs"
   },
   "license": "MIT",
   "devDependencies": {

@@ -12,14 +12,16 @@
 // drawing; the catalog floor opens the real file and checks the canvas, and the
 // rest is a run down the mountain by hand before a deploy.
 
-import { scenario, check, run } from 'slopkit/testing';
+import { installHeadlessDom, scenario, check, run } from 'slopkit/testing';
 import * as THREE from 'three';
+
+installHeadlessDom();
 
 import { PLAYER, YETI, MODES, SLOPE, groundHeight } from '../src/config.js';
 import { createPlayer } from '../src/entities/player.js';
 import { createYeti } from '../src/entities/yeti.js';
 import { createProps, BAND } from '../src/world/props.js';
-import { input, releaseAll } from '../src/input.js';
+import { input, releaseAll, initInput, onCommand, consumeJump } from '../src/input.js';
 
 const STEP = 1 / 60;
 
@@ -246,6 +248,66 @@ scenario('the world follows the skier and lets go of what is behind', () => {
   check(far.length > 0, 'the mountain ran out of bands');
   check(far.length <= atStart.length + 2, `${far.length} bands alive against ${atStart.length} at the start`);
   check(Math.min(...far) * BAND > 3000, 'the bands from the top of the mountain were never released');
+});
+
+// ----------------------------------------------------------------- controls
+
+/** A target that keeps the listeners, the way a window would. */
+function keyboard() {
+  const handlers = new Map();
+  const target = {
+    addEventListener: (type, fn) => handlers.set(type, fn),
+    removeEventListener: () => {},
+  };
+  initInput(target);
+  return {
+    press: (code) => handlers.get('keydown')({ code, preventDefault() {} }),
+    lift: (code) => handlers.get('keyup')({ code, preventDefault() {} }),
+    blur: () => handlers.get('blur')(),
+  };
+}
+
+scenario('the keys move the skier, and both layouts do the same thing', () => {
+  const k = keyboard();
+  releaseAll();
+  for (const [code, flag] of [['ArrowLeft', 'left'], ['KeyA', 'left'], ['ArrowRight', 'right'],
+    ['KeyD', 'right'], ['ArrowUp', 'up'], ['KeyW', 'up'], ['ArrowDown', 'down'], ['KeyS', 'down']]) {
+    k.press(code);
+    check(input[flag], `${code} did not set "${flag}"`);
+    k.lift(code);
+    check(!input[flag], `${code} stayed pressed after the key came up`);
+  }
+});
+
+scenario('a jump is an edge, consumed once', () => {
+  const k = keyboard();
+  releaseAll();
+  k.press('Space');
+  check(input.jump, 'space did not arm the jump');
+  check(consumeJump(), 'the jump was never offered to the player');
+  check(!consumeJump(), 'one press jumped twice');
+  k.lift('Space');
+  check(!input.jump, 'space stayed down');
+});
+
+scenario('losing focus lets go of every key', () => {
+  const k = keyboard();
+  k.press('ArrowLeft');
+  k.press('ArrowUp');
+  k.blur();
+  check(!input.left && !input.up, 'the skier keeps turning after the window loses focus');
+});
+
+scenario('a command key runs its command and nothing else', () => {
+  const k = keyboard();
+  let pauses = 0;
+  onCommand('KeyP', () => { pauses++; });
+  k.press('KeyP');
+  check(pauses === 1, `the pause key fired ${pauses} times`);
+  check(!input.left && !input.right, 'a command key also moved the skier');
+  k.press('KeyZ');   // nothing is bound to it
+  check(pauses === 1, 'an unbound key ran the last command again');
+  releaseAll();
 });
 
 await run('skifree 3d — logic');

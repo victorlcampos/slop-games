@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/logic.test.mjs"
+    "test": "node test/logic.test.mjs && node test/osm.test.mjs"
   },
   "keywords": [],
   "author": "",
