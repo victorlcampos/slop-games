@@ -54,7 +54,7 @@ function updateHUD() {
   const hp = G.visitors.length ? G.visitors.reduce((s, v) => s + v.mood, 0) / G.visitors.length : G.stats.happiness;
   G.stats.happiness = hp;
   $('#vHappy').textContent = Math.round(hp * 100) + '%';
-  $('#vRep').textContent = G.rep.toFixed(1) + '★';
+  $('#vRep').textContent = dec(G.rep, 1) + '★';
   $('#clockBadge').textContent = relTime(G.hour) + (G.hour >= OPEN_H && G.hour < CLOSE_H ? '' : ' 🌙');
 
   // A short warning in the HUD. Don't gate it on "zero visitors in the park":
@@ -509,7 +509,7 @@ function inspEnclosure(e) {
     <h4 class="sec">${BI`Animais (${alive.length})|Animals (${alive.length})`}</h4>
     <div id="ilist">${alive.length ? alive.map(a => `
       <div class="kv" data-a="${a.id}" style="cursor:pointer">
-        <span>${a.sick ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sex === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${a.age.toFixed(1)}${LN('a|y')}</small></span>
+        <span>${a.sick ? '🤒 ' : ''}${esc(a.name)} <small style="opacity:.6">${a.sex === 'M' ? '♂' : '♀'} ${esc(LN(a.sp.name))}, ${dec(a.age, 1)}${LN('a|y')}</small></span>
         <b style="color:${colourFor(a.happy)}">${Math.round(a.happy * 100)}%</b>
       </div>`).join('') : `<div style="font-size:12px;opacity:.6">${LN('Recinto vazio.|Empty enclosure.')}</div>`}</div>
     <h4 class="sec">${BI`Objetos (${e.objs.length})|Objects (${e.objs.length})`}</h4>
@@ -607,7 +607,7 @@ function inspectAnimal(a) {
     ${bar(LN('Saúde|Health'), a.health, colourFor(a.health), undefined, 'health')}
     ${bar(LN('Fome|Hunger'), 1 - a.hunger, colourFor(1 - a.hunger), undefined, 'hunger')}
     ${bar(LN('Sede|Thirst'), 1 - a.thirst, colourFor(1 - a.thirst), undefined, 'thirst')}
-    ${bar(LN('Idade|Age'), a.age / sp.lifespan, a.age / sp.lifespan > .85 ? '#e2543f' : '#9a6ad4', a.age.toFixed(1) + ' / ' + sp.lifespan + LN(' anos| years'), 'age')}
+    ${bar(LN('Idade|Age'), a.age / sp.lifespan, a.age / sp.lifespan > .85 ? '#e2543f' : '#9a6ad4', dec(a.age, 1) + ' / ' + sp.lifespan + LN(' anos| years'), 'age')}
     <h4 class="sec">${LN('De onde vem a felicidade|Where the happiness comes from')}</h4>
     <div id="iPontos">${scoreHTML(p)}</div>
     <h4 class="sec">${LN('Ficha|Record')}</h4>
@@ -694,7 +694,7 @@ function refreshInspector() {
     setBar('hunger', 1 - a.hunger, colourFor(1 - a.hunger));
     setBar('thirst', 1 - a.thirst, colourFor(1 - a.thirst));
     setBar('age', a.age / a.sp.lifespan, a.age / a.sp.lifespan > .85 ? '#e2543f' : '#9a6ad4',
-      a.age.toFixed(1) + ' / ' + a.sp.lifespan + LN(' anos| years'));
+      dec(a.age, 1) + ' / ' + a.sp.lifespan + LN(' anos| years'));
     const est = $('#iEstado'); if (est) est.textContent = animalEstado(a);
     const pa = a.thought = animalThought(a);
     const tp = $('#iPensa');
@@ -876,7 +876,7 @@ function openFinance() {
       </div>
     </div>`,
     `<b>${LN('Caixa|Cash')}: <span class="${G.money >= 0 ? 'pos' : 'negv'}">${moneyFull(G.money)}</span></b>
-     <span style="margin-left:auto;font-size:12px;opacity:.7">${BI`Reputação ${G.rep.toFixed(1)}★ · ${G.animals.filter(a => !a.dead).length} animais · ${enclosures.size} recintos|Reputation ${G.rep.toFixed(1)}★ · ${G.animals.filter(a => !a.dead).length} animals · ${enclosures.size} enclosures`}</span>`);
+     <span style="margin-left:auto;font-size:12px;opacity:.7">${BI`Reputação ${dec(G.rep, 1)}★ · ${G.animals.filter(a => !a.dead).length} animais · ${enclosures.size} recintos|Reputation ${dec(G.rep, 1)}★ · ${G.animals.filter(a => !a.dead).length} animals · ${enclosures.size} enclosures`}</span>`);
   const r = $('#fTicket'), rv = $('#fTicketV'), rh = $('#fTicketHint');
   const upd = () => {
     G.ticket = +r.value; rv.textContent = moneyFull(G.ticket);
@@ -1035,7 +1035,7 @@ function openSatisfaction() {
        ${LN('O botão 💭 no topo alterna entre <b>só quem está insatisfeito</b>, <b>todos</b> e <b>desligado</b> (atalho <kbd>B</kbd>). Toque num animal ou visitante para ver a ficha completa.|The 💭 button up top cycles between <b>only the unhappy ones</b>, <b>everyone</b> and <b>off</b> (shortcut <kbd>B</kbd>). Tap an animal or a visitor for the full record.')}
      </div>`,
     `<b>${BI`Satisfação geral: ${Math.round(moodV * 100)}%|Overall satisfaction: ${Math.round(moodV * 100)}%`}</b>
-     <span style="margin-left:auto;font-size:12px;opacity:.7">${BI`Reputação ${G.rep.toFixed(1)}★ — é ela que define quanta gente aparece|Reputation ${G.rep.toFixed(1)}★ — it is what decides how many people turn up`}</span>`);
+     <span style="margin-left:auto;font-size:12px;opacity:.7">${BI`Reputação ${dec(G.rep, 1)}★ — é ela que define quanta gente aparece|Reputation ${dec(G.rep, 1)}★ — it is what decides how many people turn up`}</span>`);
 }
 
 /* ---- the reputation panel: where the score comes from ---- */
@@ -1064,7 +1064,7 @@ function openReputation() {
       <span style="flex:1;font-size:12.5px">${name}</span>
       ${frac === null ? '' : `<div style="width:110px;height:8px;background:#e8e0cc;border-radius:4px;overflow:hidden">
         <div style="width:${Math.round(clamp(frac, 0, 1) * 100)}%;height:100%;background:${pts >= 0 ? '#4fae4a' : '#e2543f'}"></div></div>`}
-      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${pts.toFixed(2)}★</b>
+      <b style="width:56px;text-align:right;font-size:12.5px;color:${pts >= 0 ? '#2f7a2f' : '#b3402f'}">${pts >= 0 ? '+' : ''}${dec(pts, 2)}★</b>
     </div>`;
   // the statement: a summary by kind + the latest events
   const EVENT_NAMES = { '💀': 'mortes|deaths', '🚨': 'fugas|escapes', '🎉': 'nascimentos|births', '🗳️': 'avaliações do público|public ratings', '📉': 'quedas|drops', '📈': 'subidas|rises' };
@@ -1074,13 +1074,13 @@ function openReputation() {
     g.n++; g.sum += r.delta; byKind.set(r.em, g);
   }
   const chips = [...byKind.values()].sort((a, b) => Math.abs(b.sum) - Math.abs(a.sum))
-    .map(g => `<span class="tag ${g.sum >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${EVENT_NAMES[g.em] ? LN(EVENT_NAMES[g.em]) : ''} (${g.sum >= 0 ? '+' : ''}${g.sum.toFixed(2)}★)</span>`)
+    .map(g => `<span class="tag ${g.sum >= 0 ? 'ok' : 'bad'}">${g.em} ${g.n}× ${EVENT_NAMES[g.em] ? LN(EVENT_NAMES[g.em]) : ''} (${g.sum >= 0 ? '+' : ''}${dec(g.sum, 2)}★)</span>`)
     .join('');
   const lista = G.repLog.slice(-12).reverse().map(r => `
     <div style="display:flex;gap:8px;font-size:12.5px;margin:3px 0;align-items:baseline">
       <span style="opacity:.55;width:46px;flex:none">${BI`Dia ${r.day}|Day ${r.day}`}</span><span style="flex:none">${r.em}</span>
       <span style="flex:1">${esc(LN(r.reason))}</span>
-      <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${r.delta.toFixed(2)}</b>
+      <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${dec(r.delta, 2)}</b>
     </div>`).join('')
     || `<div style="font-size:12px;opacity:.6">${LN('Nada registrado ainda — mortes, fugas, nascimentos e as avaliações de quem visita entram aqui.|Nothing recorded yet — deaths, escapes, births and visitor ratings all land here.')}</div>`;
   const seta = target > G.rep + .05 ? LN('📈 subindo|📈 rising') : target < G.rep - .05 ? LN('📉 caindo|📉 falling') : LN('➡️ estável|➡️ steady');
@@ -1088,10 +1088,10 @@ function openReputation() {
     `<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
       <span style="font-size:34px">⭐</span>
       <div>
-        <div style="font-size:24px;line-height:1.1"><b>${G.rep.toFixed(1)}</b><span style="font-size:14px;opacity:.6">/5</span>
+        <div style="font-size:24px;line-height:1.1"><b>${dec(G.rep, 1)}</b><span style="font-size:14px;opacity:.6">/5</span>
           <span class="stars" style="font-size:15px">${stars(G.rep)}</span></div>
         <div style="font-size:12px;opacity:.75">${LN('A nota caminha todo dia rumo à qualidade real do parque:|The score walks a little closer every day to the park&rsquo;s real quality:')}
-          <b>${target.toFixed(1)}★</b> — ${seta}</div>
+          <b>${dec(target, 1)}★</b> — ${seta}</div>
       </div>
     </div>
     <h4 class="sec">${LN('Avaliação contínua (qualidade real)|Continuous rating (real quality)')}</h4>
@@ -1100,7 +1100,7 @@ function openReputation() {
     <h4 class="sec">${LN('Acontecimentos que mexeram na nota|Events that moved the score')}</h4>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">${chips || '<span style="font-size:12px;opacity:.6">—</span>'}</div>
     ${lista}`,
-    `<b>⭐ ${G.rep.toFixed(1)}</b>
+    `<b>⭐ ${dec(G.rep, 1)}</b>
      <span style="margin-left:auto;font-size:12px;opacity:.7">${LN('É a reputação que define quanta gente aparece no portão|Reputation is what decides how many people show up at the gate')}</span>`);
 }
 
@@ -1120,7 +1120,7 @@ function inspVisitor(v) {
     <div class="ihead">
       <div class="av" style="font-size:25px">${v.child ? '🧒' : '🧑'}</div>
       <div><h3>${v.child ? LN('Criança|Child') : LN('Visitante|Visitor')}</h3>
-        <div class="sub">${v.leaving ? LN('Indo embora|Leaving') : LN('Passeando|Strolling')} · ${BI`${v.time.toFixed(1)}h no parque|${v.time.toFixed(1)}h in the park`}</div></div>
+        <div class="sub">${v.leaving ? LN('Indo embora|Leaving') : LN('Passeando|Strolling')} · ${BI`${dec(v.time, 1)}h no parque|${dec(v.time, 1)}h in the park`}</div></div>
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="tagline"><span class="tag ${p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok'}" id="iEstado">

@@ -70,6 +70,11 @@ const moneyFull = (v) => {
   const C = currency();
   return (v < 0 ? '-' : '') + C.sign + Math.abs(Math.round(v)).toLocaleString(C.tag);
 };
+/* A fixed number of decimals with the separator the language uses. Money
+   already followed the flag; every other fraction did not, so the HUD read
+   "2.5★" beside "R$ 4,9 mi" — two conventions in one line. */
+const dec = (v, digits = 1) =>
+  Number(v).toLocaleString(currency().tag, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const pct = v => Math.round(v * 100) + '%';
 function stars(n) { // n 0..5, meio ponto
   const f = Math.floor(n), h = n - f >= .5;

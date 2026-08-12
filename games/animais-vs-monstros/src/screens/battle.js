@@ -3,7 +3,7 @@
 // A board of 5 rows by 9 columns. Monsters come in from the right and walk
 // left; if one of them crosses the fence, the stage is over.
 
-import { shape, ellipse, circle, line, stroke, box, text, wrapText, shadow, putSprite, rng } from '../scribble.js';
+import { shape, ellipse, circle, line, stroke, box, text, wrapText, shadow, putSprite, rng, measureText } from '../scribble.js';
 import { INK, INK_SOFT, COLORS, PAPER, withAlpha } from '../palette.js';
 import { animalSprite } from '../draw/animals.js';
 import { monsterSprite } from '../draw/monsters.js';
@@ -1250,12 +1250,16 @@ export function createBattle(stage, deck, onDone, levels = {}) {
 
     // wave progress, under the seed counter
     const waves = stage.waves.length;
-    text(ctx, fill(T.stage, { n: stage.n }), 20, HUD_H - 12, { size: 12, color: '#d9bd8a' });
-    const waveW = Math.min(22, (150 - 12) / waves - 4);
+    const stageLabel = fill(T.stage, { n: stage.n });
+    text(ctx, stageLabel, 20, HUD_H - 12, { size: 12, color: '#d9bd8a' });
+    // the pips start after the label, measured: "STAGE 10" is wider than
+    // "FASE 10" and ran under the first one at a fixed x
+    const pipX = Math.max(74, 20 + measureText(ctx, stageLabel, 12) + 10);
+    const waveW = Math.min(22, (150 - (pipX - 62)) / waves - 4);
     for (let i = 0; i < waves; i++) {
       const filled = i <= st.currentWave;
       const last = i === waves - 1;
-      box(ctx, 74 + i * (waveW + 4), HUD_H - 22, waveW, 12, 4, {
+      box(ctx, pipX + i * (waveW + 4), HUD_H - 22, waveW, 12, 4, {
         color: '#3f2a14', width: 1.6,
         fill: filled ? (last ? '#a8407a' : COLORS.danger) : 'rgba(63, 42, 20, 0.4)',
         seed: 200 + i,

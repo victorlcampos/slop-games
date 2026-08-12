@@ -959,7 +959,7 @@ function reportText() {
   row(LN('VISÃO GERAL|OVERVIEW'));
   reg(LN('Caixa|Cash'), moneyFull(G.money));
   reg(LN('Empréstimo em aberto|Outstanding loan'), moneyFull(G.loan));
-  reg(LN('Reputação|Reputation'), G.rep.toFixed(2) + ' / 5.00  ' + miniGauge(G.rep / 5));
+  reg(LN('Reputação|Reputation'), dec(G.rep, 2) + ' / 5.00  ' + miniGauge(G.rep / 5));
   reg(LN('Preço do ingresso|Ticket price'), moneyFull(G.ticket) + LN('  (referência: |  (reference: ') + moneyFull(fairPrice()) + ')');
   reg('Marketing', LN(['nenhum|none', 'local|local', 'regional|regional', 'nacional|national'][G.research.marketing]));
   reg(LN('Visitantes agora|Visitors right now'), G.visitors.length);
@@ -1018,7 +1018,7 @@ function reportText() {
     row(LN('    objetos: |    objects: ') + (e.objs.length ? e.objs.map(o => LN(ENCOBJ[o.kind].n)).join(', ') : LN('nenhum|none')));
     for (const a of av)
       row(`      - ${a.name} (${a.sex}) ${LN(a.sp.name)}, ` +
-        BI`${a.age.toFixed(1)}/${a.sp.lifespan} anos · felicidade ${Math.round(a.happy * 100)}% · saúde ${Math.round(a.health * 100)}%|${a.age.toFixed(1)}/${a.sp.lifespan} years · happiness ${Math.round(a.happy * 100)}% · health ${Math.round(a.health * 100)}%` +
+        BI`${dec(a.age, 1)}/${a.sp.lifespan} anos · felicidade ${Math.round(a.happy * 100)}% · saúde ${Math.round(a.health * 100)}%|${dec(a.age, 1)}/${a.sp.lifespan} years · happiness ${Math.round(a.happy * 100)}% · health ${Math.round(a.health * 100)}%` +
         `${a.sick ? LN(' · DOENTE| · SICK') : ''}${a.pregnant > 0 ? LN(' · gestante| · expecting') : ''}` +
         (a.thought ? LN(' · pensando: | · thinking: ') + LN(a.thought.txt) : ''));
     const al = encAlertsHTML(e).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

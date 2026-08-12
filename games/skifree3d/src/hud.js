@@ -77,7 +77,7 @@ export function toast(text, points = 0, color = null) {
   const div = document.createElement('div');
   div.className = 'toast';
   div.innerHTML = points
-    ? `${text} <span class="pts">+${points}</span>`
+    ? `${text} <span class="pts">+${num(points)}</span>`
     : text;
   if (color) div.style.color = color;
   el.toasts.appendChild(div);
