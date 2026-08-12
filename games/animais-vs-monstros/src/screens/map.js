@@ -400,6 +400,8 @@ export function createMap(state, actions) {
             actions
               .load()
               .then(() => say(T.loaded, COLORS.good))
+              // e.message is already localized by the kit at throw time, so it
+              // is the one case where a resolved string is what we want
               .catch((e) => say(e.message || T.loadFailed, COLORS.danger));
             return;
           case 'sound':

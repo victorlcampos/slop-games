@@ -34,9 +34,21 @@ export function freshSave() {
  * save from before the rename keeps its coins and its progress and goes back to
  * the starter deck, which is the mildest outcome available.
  */
+/* Version 4 also renamed every FIELD, and the storage key did not change — so
+   a save from before it is read, matches nothing, and falls through to the
+   defaults: coins, deck, stage and records all silently back to zero, with the
+   intro cutscene playing as if the game had never been opened. One table maps
+   the old names across. */
+const LEGACY_FIELDS = {
+  moedas: 'coins', baralho: 'deck', niveis: 'levels', faseAtual: 'currentStage',
+  vencidas: 'won', humanos: 'humans', viuAbertura: 'sawIntro', recordes: 'records',
+};
+
 function normalize(raw, base) {
   if (!raw || typeof raw !== 'object') return base;
-  const s = { ...base, ...raw };
+  const named = {};
+  for (const k in raw) named[LEGACY_FIELDS[k] || k] = raw[k];
+  const s = { ...base, ...named };
   s.coins = Number.isFinite(s.coins) ? Math.max(0, Math.floor(s.coins)) : 0;
 
   const known = Array.isArray(s.deck) ? [...new Set(s.deck)].filter((id) => BY_ID[id]) : [];

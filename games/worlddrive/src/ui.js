@@ -44,7 +44,10 @@ export class UI {
       b.textContent = pick(p.label);
       b.addEventListener('click', () => {
         picker.setCenter(p.lat, p.lon, 16);
-        onDrive(p.lat, p.lon, pick(p.label).replace(/^..\s/, ''));
+        // the field, not the resolved text: this label lives in the HUD for the
+        // whole drive. `..` is two UTF-16 units and a flag emoji is four, so the
+        // old strip left the flag in: "🇫🇷 Paris — Arc de Triomphe".
+        onDrive(p.lat, p.lon, () => pick(p.label).replace(/^\p{RI}\p{RI}\s*/u, ''));
       });
       box.appendChild(b);
     });

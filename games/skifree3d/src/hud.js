@@ -1,6 +1,6 @@
 // All DOM handling lives here: HUD, warnings, menu and the end screen.
 
-import { t, num, i18n } from './i18n.js';
+import { t, num, dec, i18n } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,12 +33,12 @@ export function showHud(on) {
 
 export function setStats({ dist, time, score, style }) {
   const d = Math.floor(dist);
-  if (d !== lastDist) { el.dist.innerHTML = `${d}<small>m</small>`; lastDist = d; }
-  el.time.innerHTML = `${time.toFixed(1)}<small>s</small>`;
+  if (d !== lastDist) { el.dist.innerHTML = `${num(d)}<small>m</small>`; lastDist = d; }
+  el.time.innerHTML = `${dec(time)}<small>s</small>`;
   const sc = Math.floor(score);
   if (sc !== lastScore) { el.score.textContent = num(sc); lastScore = sc; }
   const st = Math.round(style * 10) / 10;
-  if (st !== lastStyle) { el.style.textContent = `×${st.toFixed(1)}`; lastStyle = st; }
+  if (st !== lastStyle) { el.style.textContent = `×${dec(st)}`; lastStyle = st; }
 }
 
 export function setSpeed(kmh) {
@@ -113,6 +113,10 @@ export function showGameOver(result) {
   showOverlay('over');
 }
 
+/* The end-screen headline comes from the dictionary, and ONLY from here.
+   It used to also carry a data-pt/data-en pair in the markup, and bindText
+   registers after this module does, so the markup copy won — the day a quit
+   ending is wired up, the screen would silently say the Yeti got you. */
 function paintGameOver({ dist, score, speed, time, gates, gatesTotal, showGates, best, reason }) {
   const key = reason === 'quit' ? 'quit' : 'yeti';
   el.overTitle.textContent = t(`over.${key}.title`);
@@ -134,6 +138,7 @@ i18n.onChange(() => {
   // frame is cheaper than teaching each one to notice
   lastScore = -1;
   lastDist = -1;
+  lastStyle = -1;
 });
 
 export function bindMenu({ onStart, onAgain, onMenu, onMode }) {

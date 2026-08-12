@@ -177,6 +177,8 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     return st.planted.some((p) => p.row === row && p.col === col && p.hp > 0);
   }
 
+  // keeps the FIELD like the notice does: a bilingual value resolved here
+  // would sit on screen in the language the player just left
   function floatText(x, y, txt, color = COLORS.seed) {
     st.floaters.push({ x, y, txt, color, t: 1.1 });
   }
@@ -196,7 +198,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
 
   function plant(card, row, col) {
     if (isWater(row) && !card.aquatic) {
-      floatText(centerX(col), centerY(row), pick(T.waterOnly), COLORS.danger);
+      floatText(centerX(col), centerY(row), T.waterOnly, COLORS.danger);
       sfx.error();
       return false;
     }
@@ -846,7 +848,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       return;
     }
     if (st.seeds < card.cost) {
-      floatText(centerX(col), centerY(row), pick(T.noSeeds), COLORS.danger);
+      floatText(centerX(col), centerY(row), T.noSeeds, COLORS.danger);
       sfx.error();
       return;
     }
@@ -1112,7 +1114,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       ctx.restore();
     }
     for (const f of st.floaters) {
-      text(ctx, f.txt, f.x, f.y, {
+      text(ctx, pick(f.txt), f.x, f.y, {
         size: 21, align: 'center', color: f.color, outline: PAPER, outlineWidth: 4, alpha: Math.min(1, f.t),
       });
     }

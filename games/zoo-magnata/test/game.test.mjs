@@ -184,14 +184,16 @@ scenario('the sprite of a species does not change with the flag', async () => {
    apart — clamp passes NaN through, so within days every animal was NaN,
    reputation was NaN and nobody came through the gate again. */
 const LEGACY_SAVE = (world) => ({
-  v: 1, money: 150000, ticket: 12, day: 4, hour: 10, rep: 3.1, repLog: [],
-  lastBill: 1, loan: 0, marketing: 0,
-  stats: { visHoje: 3, visitanteTotal: 40, felicidade: .6, entrHoje: 30 },
-  ledger: { hoje: { ingresso: 30 }, semana: { ingresso: 90 }, hist: [] },
+  v: 1, money: 150000, ticket: 12, day: 4, hour: 10, rep: 3.1,
+  repLog: [{ dia: 3, delta: -.3, motivo: 'Leão fugiu|A Lion escaped', em: '🚨' }],
+  lastBill: 1, emprestimo: 75000, marketing: 0,
+  stats: { visHoje: 3, visitanteTotal: 9400, felicidade: .6, entrHoje: 30 },
+  ledger: { hoje: { ingresso: 30, loja: 12 }, semana: { ingresso: 90 },
+            hist: [{ dia: 3, vis: 120, saldo: 4200 }] },
   cam: { x: 0, y: 0, z: 1 },
   terr: world.terr, path: world.path,
   objs: [
-    { id: 900, kind: 'lanchonete', cat: 'predio', x: 22, y: 51, mult: 1, revenue: 0, sales: 0 },
+    { id: 900, kind: 'lanchonete', cat: 'predio', x: 22, y: 51, mult: 1, receita: 48000, vendas: 1900 },
     { id: 901, kind: 'comedouro', cat: 'encobj', x: 21, y: 45, encId: 800 },
   ],
   encs: [{ id: 800, fence: 'madeira', nome: 'Recinto 800', tiles: world.tiles,
@@ -209,6 +211,7 @@ scenario('a save written before the rename still opens, and stays a number', asy
   await g.exec(() => { document.querySelector('#splash .btn')?.click(); });
   await g.waitFrames(3);
 
+  await g.setLang('en');
   const loaded = await g.exec((game, save) => {
     const tiles = [];
     for (let y = 44; y < 49; y++) for (let x = 20; x < 25; x++) tiles.push(IDX(x, y));
@@ -224,6 +227,14 @@ scenario('a save written before the rename still opens, and stays a number', asy
       staffKind: G.staff[0] && G.staff[0].kind,
       finite: [a.age, a.hunger, a.thirst, a.health, a.happy].every(Number.isFinite),
       sex: a.sex,
+      loan: G.loan,
+      revenue: [...objects.values()].find((o) => o.cat === 'build').revenue,
+      sales: [...objects.values()].find((o) => o.cat === 'build').sales,
+      visitorTotal: G.stats.visitorTotal,
+      ticketToday: G.ledger.today.ticket,
+      shopToday: G.ledger.today.shop,
+      hist: G.ledger.hist.length,
+      repReason: LN(G.repLog[0] && G.repLog[0].reason),
     };
   }, LEGACY_SAVE({ terr: [], path: [], tiles: [] }));
 
@@ -234,6 +245,15 @@ scenario('a save written before the rename still opens, and stays a number', asy
   check(loaded.staffKind === 'keeper', `staff "trat" became "${loaded.staffKind}"`);
   check(loaded.finite && loaded.sex === 'F',
     'the animal lost its Portuguese-named fields — every number would go NaN');
+  check(loaded.loan === 75000, `the loan came back as ${loaded.loan} — the debt was forgiven`);
+  check(loaded.revenue === 48000 && loaded.sales === 1900,
+    `shop takings came back as ${loaded.revenue}/${loaded.sales}`);
+  check(loaded.visitorTotal === 9400, `lifetime visitors came back as ${loaded.visitorTotal}`);
+  check(loaded.ticketToday === 30 && loaded.shopToday === 12,
+    `the ledger came back as ${loaded.ticketToday}/${loaded.shopToday}`);
+  check(loaded.hist === 1, `${loaded.hist} history rows survived, expected 1`);
+  check(loaded.repReason === 'A Lion escaped',
+    `the statement row read "${loaded.repReason}"`);
 
   // the NaN only showed once the simulation touched those fields
   await g.exec(() => { setSpeed(4); window.__d = G.day; });
@@ -247,6 +267,51 @@ scenario('a save written before the rename still opens, and stays a number', asy
   check(after.animals, 'an animal went NaN after a day');
   check(after.rep && after.quality, 'reputation or park quality went NaN');
   check(after.report, 'the status report is printing NaN');
+
+  g.expectNoErrors();
+  await g.close();
+});
+
+scenario('the reputation statement translates, and it is persisted', async () => {
+  const g = await open(browser, GAME);
+  await g.waitFrames(3);
+  await g.exec(() => { document.querySelector('#splash .btn')?.click(); });
+  await g.waitFrames(3);
+
+  // one row from each writer: an event, and the daily visitor ratings
+  await g.exec(() => {
+    repEvento(-.3, BP`${SPECIES[0].name} fugiu do recinto|A ${SPECIES[0].name} escaped the enclosure`, '🚨');
+    G.stats.repVis = .5;
+  });
+  await g.waitFrames(2);
+
+  for (const lang of ['en', 'pt']) {
+    await g.setLang(lang);
+    await g.waitFrames(2);
+    const seen = await g.exec(() => {
+      openReputation();
+      const t = document.querySelector('#modalBody').textContent;
+      closeModal();
+      return { pipe: t.includes('|'), text: t };
+    });
+    check(!seen.pipe, `${lang}: the statement is showing a raw pt|en string`);
+    // the species name has to follow the flag too — the row is stored, so an
+    // interpolated value fixed to one side would read "Lion fugiu do recinto"
+    const wanted = lang === 'en' ? 'A Lion escaped the enclosure' : 'Leão fugiu do recinto';
+    check(seen.text.includes(wanted), `${lang}: expected "${wanted}" in the statement`);
+  }
+
+  // and it survives a save round-trip, which is where storing it resolved hurt
+  const afterReload = await g.exec((game) => {
+    const snap = gameSnapshot();
+    game.i18n.set('pt');
+    applySnapshot(snap, 'test');
+    openReputation();
+    const t = document.querySelector('#modalBody').textContent;
+    closeModal();
+    return t.includes('Leão fugiu do recinto') && !t.includes('|');
+  });
+  check(afterReload, 'the statement lost its language after a save round-trip');
 
   g.expectNoErrors();
   await g.close();

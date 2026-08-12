@@ -251,7 +251,8 @@ function setTool(t) {
     animal: BI`Toque num recinto para soltar <b>${t.sp ? LN(t.sp.name) : ''}</b> lá dentro.|Tap an enclosure to release <b>${t.sp ? LN(t.sp.name) : ''}</b> into it.`,
     demolish: LN('Toque no que quiser remover. Recintos devolvem metade do valor da cerca.|Tap whatever you want removed. Enclosures refund half the fence value.'),
   };
-  hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${LN(t.n || '')}</b> — ${tips[t.cat] || ''}` +
+  const label = typeof t.n === 'function' ? t.n() : LN(t.n || '');
+  hint(`<span style="font-size:17px">${t.em || '🔧'}</span> <b>${label}</b> — ${tips[t.cat] || ''}` +
     `<button class="btn r sm" id="hintX" title="${LN('Cancelar ferramenta|Cancel the tool')}">✕</button>`);
 }
 /** Rewrites the hint bar for the tool in hand — the flag change calls this. */
@@ -374,7 +375,7 @@ function renderShop() {
     card.onclick = () => {
       if (!allowed) { toast(BI`💸 Dinheiro insuficiente para ${LN(sp.name)}|💸 Not enough money for a ${LN(sp.name)}`, 'bad'); return; }
       if (shopEncId && enclosures.has(shopEncId)) { buyFor(sp, enclosures.get(shopEncId)); closeModal(); }
-      else { setTool({ cat: 'animal', key: 'sp' + sp.id, sp, em: '🐾', n: LN(sp.name), cost: sp.price }); closeModal(); }
+      else { setTool({ cat: 'animal', key: 'sp' + sp.id, sp, em: '🐾', n: sp.name, cost: sp.price }); closeModal(); }
     };
     grid.appendChild(card);
     shopObserver.observe(card);
@@ -523,7 +524,7 @@ function inspEnclosure(e) {
   $('#igrow').onclick = () => {
     // hands over the tool already carrying this enclosure's fence type
     setTool({ cat: 'enclosure', key: e.fence, em: FENCES[e.fence].em,
-              n: LN('Ampliar |Extend ') + encName(e),
+              n: () => LN('Ampliar |Extend ') + encName(e),
               cost: FENCES[e.fence].cost, extending: e.id });
     if (singlePanel()) deselect();
   };
@@ -590,7 +591,7 @@ function inspectAnimal(a) {
     </div>
     <div class="tagline">
       <span class="tag" id="iEstado">${est}</span>
-      <span class="tag ${pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok'}" id="iPensa">${pa.em} ${esc(pa.txt)}</span>
+      <span class="tag ${pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok'}" id="iPensa">${pa.em} ${esc(LN(pa.txt))}</span>
       <span class="tag">${BIOMES[sp.biome].em} ${LN(sp.biomeName)}</span>
       <span class="tag">${DIETS[sp.diet].em} ${LN(sp.dietName)}</span>
       ${a.pregnant > 0 ? `<span class="tag ok">${LN('🤰 Gestante|🤰 Expecting')}</span>` : ''}
@@ -647,7 +648,7 @@ function transferir(a) {
     if (e1) e1.animals = e1.animals.filter(z => z.id !== a.id);
     e2.animals.push(a); a.enc = e2.id;
     const t = encRandomTile(e2); if (t) { a.x = t[0] + .5; a.y = t[1] + .5; a.tx = a.x; a.ty = a.y; }
-    closeModal(); showInspector(); toast(BI`📦 ${a.name} foi para ${e2.name}|📦 ${a.name} moved to ${e2.name}`, 'good');
+    closeModal(); showInspector(); toast(BI`📦 ${a.name} foi para ${encName(e2)}|📦 ${a.name} moved to ${encName(e2)}`, 'good');
   });
 }
 /** The inspector's periodic refresh: it touches the VALUES only.
@@ -691,7 +692,7 @@ function refreshInspector() {
     const pa = a.thought = animalThought(a);
     const tp = $('#iPensa');
     if (tp) {
-      tp.textContent = pa.em + ' ' + pa.txt;
+      tp.textContent = pa.em + ' ' + LN(pa.txt);
       tp.className = 'tag ' + (pa.urg >= .8 ? 'bad' : pa.urg >= .45 ? 'warn' : 'ok');
     }
     const pts = $('#iPontos'); if (pts) pts.innerHTML = scoreHTML(animalScore(a));
@@ -706,7 +707,7 @@ function refreshInspector() {
     const p = v.thought = visitorThought(v);
     const est = $('#iEstado');
     if (est && p) {
-      est.textContent = p.em + ' ' + p.txt;
+      est.textContent = p.em + ' ' + LN(p.txt);
       est.className = 'tag ' + (p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok');
     }
     const din = $('#iDin'); if (din) din.textContent = moneyFull(v.money);
@@ -985,7 +986,7 @@ function reasonRow(r, total) {
   return `<div style="margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:7px;font-size:12.5px">
       <span style="font-size:17px;flex:none">${r.em}</span>
-      <span style="flex:1">${esc(r.txt)}</span>
+      <span style="flex:1">${esc(LN(r.txt))}</span>
       <b style="flex:none">${r.n}</b>
       <span style="flex:none;opacity:.55;font-size:11px">${p}%</span>
     </div>
@@ -1071,7 +1072,7 @@ function openReputation() {
   const lista = G.repLog.slice(-12).reverse().map(r => `
     <div style="display:flex;gap:8px;font-size:12.5px;margin:3px 0;align-items:baseline">
       <span style="opacity:.55;width:46px;flex:none">${BI`Dia ${r.day}|Day ${r.day}`}</span><span style="flex:none">${r.em}</span>
-      <span style="flex:1">${esc(r.reason)}</span>
+      <span style="flex:1">${esc(LN(r.reason))}</span>
       <b style="color:${r.delta >= 0 ? '#2f7a2f' : '#b3402f'}">${r.delta >= 0 ? '+' : ''}${r.delta.toFixed(2)}</b>
     </div>`).join('')
     || `<div style="font-size:12px;opacity:.6">${LN('Nada registrado ainda — mortes, fugas, nascimentos e as avaliações de quem visita entram aqui.|Nothing recorded yet — deaths, escapes, births and visitor ratings all land here.')}</div>`;
@@ -1116,7 +1117,7 @@ function inspVisitor(v) {
       <button class="btn r closeX" id="ix">✕</button>
     </div>
     <div class="tagline"><span class="tag ${p.urg >= .8 ? 'bad' : p.urg >= .45 ? 'warn' : 'ok'}" id="iEstado">
-      ${p.em} ${esc(p.txt)}</span></div>
+      ${p.em} ${esc(LN(p.txt))}</span></div>
     ${bar(LN('Satisfação|Satisfaction'), v.mood, colourFor(v.mood), undefined, 'mood')}
     <h4 class="sec">${LN('Necessidades (cheio = tranquilo)|Needs (full = content)')}</h4>
     ${Object.keys(NEED_INFO).map(k => bar(NEED_INFO[k][0] + ' ' + LN(NEED_INFO[k][1]),

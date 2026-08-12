@@ -78,4 +78,8 @@ export const i18n = createI18n({ dict: DICT });
 export const t = (id, values) => i18n.t(id, values);
 
 /** Numbers read differently in each language: 12.500 in pt-BR, 12,500 in en-US. */
-export const num = (n) => Math.floor(n).toLocaleString(i18n.lang === 'pt' ? 'pt-BR' : 'en-US');
+const locale = () => (i18n.lang === 'pt' ? 'pt-BR' : 'en-US');
+export const num = (n) => Math.floor(n).toLocaleString(locale());
+/** One decimal, with the separator the language uses — `74,5s` or `74.5s`. */
+export const dec = (n, digits = 1) =>
+  n.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });

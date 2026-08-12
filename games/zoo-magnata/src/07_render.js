@@ -1030,7 +1030,10 @@ function drawEncObj(c, o, z) {
 }
 /* ---- cerca ---- */
 function drawFenceTile(c, x, y, e, z, lados) {
-  const F = FENCES[e.fence], alt = F.alt * z;
+  // F.height, not F.alt: the table field was renamed and its only reader was
+  // not. `undefined * z` is NaN, Canvas 2D silently drops any path with a NaN
+  // in it, and every fence in the game stopped being drawn.
+  const F = FENCES[e.fence], alt = F.height * z;
   const P = (ax, ay) => [w2sx(ax, ay), w2sy(ax, ay)];
   const segs = [];
   for (const l of lados) {

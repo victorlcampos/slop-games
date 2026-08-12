@@ -76,6 +76,31 @@ function fillMarks(text, values) {
   return text.replace(/\u0001(\d+)\u0001/g, (_, i) => values[+i]);
 }
 
+/**
+ * BI's twin for a sentence that has to be STORED rather than shown: it returns
+ * the unresolved `pt|en` pair, with each interpolated value resolved to its own
+ * side. The reputation statement needs it — that log is persisted in the save,
+ * so storing the resolved sentence froze an event in the language it happened
+ * in, and interpolating one fixed side gave "Lion fugiu do recinto".
+ *
+ *   BP`${sp.name} fugiu|A ${sp.name} escaped`  ->  'Leao fugiu|A Lion escaped'
+ */
+function BP(parts, ...values) {
+  const joined = parts.reduce((acc, p, i) => acc + p + (i < values.length ? MARK + i + MARK : ''), '');
+  const bar = joined.indexOf('|');
+  if (bar < 0) return fillSide(joined, values, 0);
+  return fillSide(joined.slice(0, bar), values, 0) + '|' + fillSide(joined.slice(bar + 1), values, 1);
+}
+/** side 0 = before the bar (Portuguese), side 1 = after it (English) */
+function fillSide(text, values, side) {
+  return text.replace(new RegExp(MARK + '(\\d+)' + MARK, 'g'), (_, i) => {
+    const v = values[+i];
+    if (typeof v !== 'string') return v;
+    const bar = v.indexOf('|');
+    return bar < 0 ? v : side ? v.slice(bar + 1) : v.slice(0, bar);
+  });
+}
+
 function TX(id, values) {
   return I18N.t(id, values);
 }

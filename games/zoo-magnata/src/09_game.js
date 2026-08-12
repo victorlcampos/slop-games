@@ -657,7 +657,7 @@ function closeDay() {
   // the day's visitor ratings enter the statement as 1 aggregated row
   const rv = G.stats.repVis || 0;
   if (Math.abs(rv) >= .02) {
-    G.repLog.push({ day: G.day - 1, delta: rv, reason: `Avaliações de ${visitorsToday} visitantes|Ratings from ${visitorsToday} visitors`, em: rv > 0 ? '🗳️' : '📉' });
+    G.repLog.push({ day: G.day - 1, delta: rv, reason: BP`Avaliações de ${visitorsToday} visitantes|Ratings from ${visitorsToday} visitors`, em: rv > 0 ? '🗳️' : '📉' });
     if (G.repLog.length > 60) G.repLog.shift();
   }
   G.stats.repVis = 0;
@@ -668,7 +668,7 @@ function closeDay() {
   if (Math.abs(G.rep - before) >= .05) {
     G.repLog.push({
       day: G.day - 1, delta: G.rep - before,
-      reason: G.rep > before ? LN('Qualidade do parque puxando a nota para cima|Park quality pulling the score up') : LN('Qualidade do parque puxando a nota para baixo|Park quality pulling the score down'),
+      reason: G.rep > before ? 'Qualidade do parque puxando a nota para cima|Park quality pulling the score up' : 'Qualidade do parque puxando a nota para baixo|Park quality pulling the score down',
       em: G.rep > before ? '📈' : '📉',
     });
     if (G.repLog.length > 60) G.repLog.shift();
@@ -688,7 +688,10 @@ function showBankruptcy() {
     `<button class="btn g" onclick="localStorage.removeItem('zoo_save');location.reload()">${LN('Recomeçar|Start over')}</button>
      <button class="btn" onclick="G.money+=100000;G.gameOver=false;closeModal()">${BI`Aceitar resgate de ${moneyFull(100000)}|Accept a ${moneyFull(100000)} bailout`}</button>`);
 }
-/** a one-off shock to the reputation + a row in the statement (visible on ⭐) */
+/** A one-off shock to the reputation + a row in the statement (visible on ⭐).
+ *  `reason` is the raw `pt|en` pair, never a resolved string: the statement is
+ *  persisted in the save, so an event logged in one language would stay in it
+ *  for good. The ⭐ panel is what calls LN(). */
 function repEvento(delta, reason, em) {
   G.rep = clamp(G.rep + delta, 0, 5);
   G.repLog.push({ day: G.day, delta, reason, em });
@@ -744,6 +747,14 @@ const LEGACY_FIELDS = {
   fugiu: 'escaped', morto: 'dead',
   limpeza: 'cleanliness', comida: 'food', agua: 'water', integridade: 'integrity',
   tipo: 'kind', feitos: 'done',
+  // the top level, the two bookkeeping blocks and the reputation statement
+  emprestimo: 'loan', receita: 'revenue', vendas: 'sales',
+  visHoje: 'visToday', visTotal: 'visitorTotal', visitanteTotal: 'visitorTotal',
+  felicidade: 'happiness', entrHoje: 'gateToday',
+  hoje: 'today', semana: 'week',
+  ingresso: 'ticket', loja: 'shop', racao: 'feed', salario: 'wage',
+  manut: 'upkeep', compra: 'buy', venda: 'sell', obra: 'build',
+  dia: 'day', motivo: 'reason', saldo: 'balance',
 };
 /** A finite number off disk, or the fallback. One NaN spreads everywhere. */
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
@@ -761,12 +772,14 @@ function keepShape(model, saved) {
   return out;
 }
 function loadLedger(saved) {
-  saved = saved || {};
+  saved = modernRow(saved || {});
   const fresh = newLedger();
   return {
-    today: keepShape(fresh.today, saved.today),
-    week: keepShape(fresh.week, saved.week),
-    hist: Array.isArray(saved.hist) ? saved.hist.filter(h => h && Number.isFinite(h.balance)) : [],
+    today: keepShape(fresh.today, modernRow(saved.today || {})),
+    week: keepShape(fresh.week, modernRow(saved.week || {})),
+    hist: Array.isArray(saved.hist)
+      ? saved.hist.map(modernRow).filter(h => h && Number.isFinite(h.balance))
+      : [],
   };
 }
 
@@ -812,11 +825,11 @@ function applySnapshot(raw, label) {
     if (!s || typeof s.money !== 'number' || !Array.isArray(s.terr))
       throw new Error(LN('não parece um save do Zoo Magnata|that does not look like a Zoo Magnata save'));
     G.money = s.money; G.ticket = s.ticket; G.day = s.day; G.hour = s.hour; G.rep = s.rep;
-    G.repLog = Array.isArray(s.repLog) ? s.repLog : [];
+    G.repLog = Array.isArray(s.repLog) ? s.repLog.map(modernRow) : [];
     G.undo = []; undoGroup = null; refreshUndoButton();   // ids from another world mean nothing here
-    G.lastBill = s.lastBill || 1; G.loan = s.loan || 0;
+    G.lastBill = s.lastBill || 1; G.loan = num(s.loan, 0) || num(s.emprestimo, 0);
     G.research.marketing = s.marketing || 0;
-    G.stats = keepShape(newStats(), s.stats); G.ledger = loadLedger(s.ledger);
+    G.stats = keepShape(newStats(), modernRow(s.stats || {})); G.ledger = loadLedger(s.ledger);
     cam.x = s.cam.x; cam.y = s.cam.y; cam.z = s.cam.z;
     world.terr.set(s.terr); world.path.set(s.path);
     // fixes an old save where the gate's doormat was demolished (it locked the zoo)
@@ -854,7 +867,8 @@ function applySnapshot(raw, label) {
       const kind = modernKey(o.kind), cat = modernKey(o.cat);
       const def = cat === 'build' ? BUILDINGS[kind] : cat === 'deco' ? DECOS[kind] : ENCOBJ[kind];
       if (!def) { console.warn('save has an unknown object:', o.cat, o.kind); continue; }
-      const ob = { ...o, kind, cat, w: def.w || 1, h: def.h || 1, queue: [], dirty: 0, hp: 1, revenue: o.revenue || 0, sales: o.sales || 0 };
+      const ob = { ...o, kind, cat, w: def.w || 1, h: def.h || 1, queue: [], dirty: 0, hp: 1,
+                   revenue: num(o.revenue, 0), sales: num(o.sales, 0), mult: num(o.mult, 1) };
       for (let j = 0; j < ob.h; j++) for (let i = 0; i < ob.w; i++) world.occ[IDX(ob.x + i, ob.y + j)] = ob.id;
       objects.set(ob.id, ob);
       if (ob.cat === 'deco') applyBeauty(ob, +1);
@@ -1006,7 +1020,7 @@ function reportText() {
       row(`      - ${a.name} (${a.sex}) ${LN(a.sp.name)}, ` +
         BI`${a.age.toFixed(1)}/${a.sp.lifespan} anos · felicidade ${Math.round(a.happy * 100)}% · saúde ${Math.round(a.health * 100)}%|${a.age.toFixed(1)}/${a.sp.lifespan} years · happiness ${Math.round(a.happy * 100)}% · health ${Math.round(a.health * 100)}%` +
         `${a.sick ? LN(' · DOENTE| · SICK') : ''}${a.pregnant > 0 ? LN(' · gestante| · expecting') : ''}` +
-        (a.thought ? LN(' · pensando: | · thinking: ') + a.thought.txt : ''));
+        (a.thought ? LN(' · pensando: | · thinking: ') + LN(a.thought.txt) : ''));
     const al = encAlertsHTML(e).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     if (al) row(LN('    alertas: |    alerts: ') + al);
   }
@@ -1041,7 +1055,7 @@ function reportText() {
     row(''); row(tit);
     if (!rank.length) { row(LN('  (ninguém)|  (nobody)')); return; }
     for (const r of rank) {
-      row(`  ${r.em} ${r.txt} — ${r.n} (${Math.round(r.n / Math.max(1, tot) * 100)}%)`);
+      row(`  ${r.em} ${LN(r.txt)} — ${r.n} (${Math.round(r.n / Math.max(1, tot) * 100)}%)`);
       if (TIPS[r.em] && r.urg >= .45) row('      -> ' + LN(TIPS[r.em]));
     }
   };

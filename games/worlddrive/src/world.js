@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { makeProjection, bboxAround, mercX, mercY, clamp, hashStr } from './geo.js';
 import { fetchOSM } from './overpass.js';
 import { loadTerrain } from './terrain.js';
+import { i18n } from './i18n.js';
 import { loadSatellite } from './satellite.js';
 import { buildRoads } from './roads.js';
 import { buildBuildings } from './buildings.js';
@@ -174,5 +175,9 @@ export async function loadWorld(lat, lon, progress) {
   };
 }
 
-function fmtMB(b) { return (b / 1e6).toFixed(1) + ' MB'; }
+function fmtMB(b) {
+  // the decimal separator follows the flag, like every other number here
+  return (b / 1e6).toLocaleString(i18n.lang === 'pt' ? 'pt-BR' : 'en-US',
+    { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' MB';
+}
 function nextFrame() { return new Promise(r => requestAnimationFrame(() => r())); }

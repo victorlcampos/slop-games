@@ -51,65 +51,69 @@ function earn(v, k) { G.money += v; lgr(k || 'shop', v); }
    thinks of the food for its diet, and one in the wrong biome shows the biome it
    wants — so you can sweep the map and know what to build.
    ========================================================================== */
+/* `txt` is the raw `pt|en` pair, never resolved here: a thought is cached on
+   the entity and only refreshed on a simulated-time timer, so a resolved one
+   stayed in the old language — and with the game paused, forever. Whoever
+   draws it calls LN(). */
 const P_ = (urg, em, txt) => ({ urg, em, txt });
 const FOOD_EM = { herb: '🥬', carn: '🥩', omni: '🍎', pisc: '🐟', inse: '🦗', frug: '🍌' };
 
 function animalThought(a) {
   const sp = a.sp, e = enclosures.get(a.enc);
-  if (a.escaped) return P_(1, '🏃', LN('Fugiu do recinto!|Escaped the enclosure!'));
-  if (a.sick) return P_(.96, '🤒', LN('Doente — chame o veterinário|Sick — call the vet'));
-  if (!e) return P_(.9, '❓', LN('Sem recinto|No enclosure'));
-  if (a.thirst > .8) return P_(.93, '💧', LN('Sem água no bebedouro|No water in the trough'));
-  if (a.hunger > .8) return P_(.91, FOOD_EM[sp.diet], LN('Sem comida no cocho|No food in the feeder'));
+  if (a.escaped) return P_(1, '🏃', 'Fugiu do recinto!|Escaped the enclosure!');
+  if (a.sick) return P_(.96, '🤒', 'Doente — chame o veterinário|Sick — call the vet');
+  if (!e) return P_(.9, '❓', 'Sem recinto|No enclosure');
+  if (a.thirst > .8) return P_(.93, '💧', 'Sem água no bebedouro|No water in the trough');
+  if (a.hunger > .8) return P_(.91, FOOD_EM[sp.diet], 'Sem comida no cocho|No food in the feeder');
   const F = FENCES[e.fence];
   const kin = e.animals.filter(z => z.sp.id === sp.id && !z.dead).length;
   const cand = [];
-  if (encArea(e) < sp.space * Math.max(1, kin) * .85) cand.push([.86, '😖', LN('Recinto apertado|Cramped enclosure')]);
-  if (e.cleanliness < .4) cand.push([.78, '💩', LN('Recinto sujo|Dirty enclosure')]);
-  if (sp.danger > F.strength) cand.push([.74, '⚠️', LN('Consegue escapar dessa cerca|Could get past this fence')]);
-  if (a.health < .5) cand.push([.72, '🤕', LN('Saúde fraca|Poor health')]);
-  if (terrainScore(e, sp) < .5) cand.push([.7, BIOMES[sp.biome].em, LN('Quer terreno de |Wants ') + LN(sp.biomeName) + LN('| terrain')]);
-  if (kin < sp.groupMin) cand.push([.66, '👥', BI`Solitário — quer ${sp.groupMin}+ da espécie|Lonely — wants ${sp.groupMin}+ of its kind`]);
-  if (kin > sp.groupMax) cand.push([.62, '😤', LN('Grupo grande demais|Group too large')]);
-  if (sp.flies && !F.aviary) cand.push([.6, '🕸️', LN('Precisa de tela de aviário|Needs aviary mesh')]);
-  if (sp.aquatic && !F.aquarium) cand.push([.6, '🌊', LN('Precisa de vidro de aquário|Needs aquarium glass')]);
-  if (encEnrich(e) < .3) cand.push([.55, '🥱', LN('Sem nada para fazer|Nothing to do')]);
-  if (a.hunger > .5) cand.push([.5, FOOD_EM[sp.diet], LN('Com fome|Hungry')]);
+  if (encArea(e) < sp.space * Math.max(1, kin) * .85) cand.push([.86, '😖', 'Recinto apertado|Cramped enclosure']);
+  if (e.cleanliness < .4) cand.push([.78, '💩', 'Recinto sujo|Dirty enclosure']);
+  if (sp.danger > F.strength) cand.push([.74, '⚠️', 'Consegue escapar dessa cerca|Could get past this fence']);
+  if (a.health < .5) cand.push([.72, '🤕', 'Saúde fraca|Poor health']);
+  if (terrainScore(e, sp) < .5) cand.push([.7, BIOMES[sp.biome].em, BP`Quer terreno de ${sp.biomeName}|Wants ${sp.biomeName} terrain`]);
+  if (kin < sp.groupMin) cand.push([.66, '👥', BP`Solitário — quer ${sp.groupMin}+ da espécie|Lonely — wants ${sp.groupMin}+ of its kind`]);
+  if (kin > sp.groupMax) cand.push([.62, '😤', 'Grupo grande demais|Group too large']);
+  if (sp.flies && !F.aviary) cand.push([.6, '🕸️', 'Precisa de tela de aviário|Needs aviary mesh']);
+  if (sp.aquatic && !F.aquarium) cand.push([.6, '🌊', 'Precisa de vidro de aquário|Needs aquarium glass']);
+  if (encEnrich(e) < .3) cand.push([.55, '🥱', 'Sem nada para fazer|Nothing to do']);
+  if (a.hunger > .5) cand.push([.5, FOOD_EM[sp.diet], 'Com fome|Hungry']);
   if (cand.length) { cand.sort((x, y) => y[0] - x[0]); return P_(...cand[0]); }
-  if (a.pregnant > 0) return P_(.34, '🤰', LN('Gestante|Expecting'));
-  if (a.age / sp.lifespan > .9) return P_(.32, '👴', LN('Bem velhinho|Getting on in years'));
-  if (a.age < 1) return P_(.26, '🍼', LN('Filhote|A youngster'));
-  if (a.state === 'playing') return P_(.18, '⚽', LN('Brincando!|Playing!'));
-  if (a.state === 'eating') return P_(.2, '😋', LN('Comendo|Eating'));
-  if (a.happy > .82) return P_(.16, '💚', LN('Muito feliz aqui|Very happy here'));
-  if (a.state === 'idle') return P_(.12, '😴', LN('Descansando|Resting'));
-  return P_(.1, '🙂', LN('Tranquilo|All quiet'));
+  if (a.pregnant > 0) return P_(.34, '🤰', 'Gestante|Expecting');
+  if (a.age / sp.lifespan > .9) return P_(.32, '👴', 'Bem velhinho|Getting on in years');
+  if (a.age < 1) return P_(.26, '🍼', 'Filhote|A youngster');
+  if (a.state === 'playing') return P_(.18, '⚽', 'Brincando!|Playing!');
+  if (a.state === 'eating') return P_(.2, '😋', 'Comendo|Eating');
+  if (a.happy > .82) return P_(.16, '💚', 'Muito feliz aqui|Very happy here');
+  if (a.state === 'idle') return P_(.12, '😴', 'Descansando|Resting');
+  return P_(.1, '🙂', 'Tranquilo|All quiet');
 }
 
 function visitorThought(v) {
   const N = v.need, cand = [];
   const i = IDX(clamp(v.x | 0, 0, W - 1), clamp(v.y | 0, 0, H - 1));
-  if (G.escaped.length) cand.push([.99, '😱', LN('Tem animal solto no parque!|There is an animal loose in the park!')]);
-  if (N.toilet > .85) cand.push([.92, '🚻', LN('Preciso de banheiro, urgente|I need a restroom, now')]);
-  if (N.thirst > .85) cand.push([.9, '🥤', LN('Morrendo de sede|Dying of thirst')]);
-  if (N.hunger > .85) cand.push([.88, '🍔', LN('Faminto|Starving')]);
-  if (N.energy > .85) cand.push([.82, '😩', LN('Exausto, quero sentar|Exhausted, I want to sit down')]);
-  if (world.litter[i] > .5) cand.push([.8, '🤢', LN('Que sujeira nessa trilha|What a filthy path')]);
-  if (v.leaving && v.mood < .3) cand.push([.79, '😠', LN('Indo embora irritado|Leaving annoyed')]);
-  if (N.fun > .78) cand.push([.7, '🥱', LN('Tédio, quero ver mais bicho|Bored, I want to see more animals')]);
-  if (G.ticket > (G.fairCache || 0) * 1.4) cand.push([.64, '💸', LN('Ingresso caro pelo que tem|Pricey ticket for what is here')]);
-  if (N.toilet > .6) cand.push([.55, '🚻', LN('Procurando banheiro|Looking for a restroom')]);
-  if (N.thirst > .58) cand.push([.53, '🥤', LN('Com sede|Thirsty')]);
-  if (N.hunger > .58) cand.push([.52, '🍟', LN('Com fome|Hungry')]);
-  if (N.energy > .62) cand.push([.46, '🪑', LN('Cansado de andar|Tired of walking')]);
+  if (G.escaped.length) cand.push([.99, '😱', 'Tem animal solto no parque!|There is an animal loose in the park!']);
+  if (N.toilet > .85) cand.push([.92, '🚻', 'Preciso de banheiro, urgente|I need a restroom, now']);
+  if (N.thirst > .85) cand.push([.9, '🥤', 'Morrendo de sede|Dying of thirst']);
+  if (N.hunger > .85) cand.push([.88, '🍔', 'Faminto|Starving']);
+  if (N.energy > .85) cand.push([.82, '😩', 'Exausto, quero sentar|Exhausted, I want to sit down']);
+  if (world.litter[i] > .5) cand.push([.8, '🤢', 'Que sujeira nessa trilha|What a filthy path']);
+  if (v.leaving && v.mood < .3) cand.push([.79, '😠', 'Indo embora irritado|Leaving annoyed']);
+  if (N.fun > .78) cand.push([.7, '🥱', 'Tédio, quero ver mais bicho|Bored, I want to see more animals']);
+  if (G.ticket > (G.fairCache || 0) * 1.4) cand.push([.64, '💸', 'Ingresso caro pelo que tem|Pricey ticket for what is here']);
+  if (N.toilet > .6) cand.push([.55, '🚻', 'Procurando banheiro|Looking for a restroom']);
+  if (N.thirst > .58) cand.push([.53, '🥤', 'Com sede|Thirsty']);
+  if (N.hunger > .58) cand.push([.52, '🍟', 'Com fome|Hungry']);
+  if (N.energy > .62) cand.push([.46, '🪑', 'Cansado de andar|Tired of walking']);
   if (cand.length) { cand.sort((x, y) => y[0] - x[0]); return P_(...cand[0]); }
-  if (v.action > 0 && v.target && v.target.kind === 'exhibit') return P_(.36, '😍', LN('Adorando esse animal|Loving this animal'));
-  if (v.item === 'food') return P_(.24, '😋', LN('Comendo algo gostoso|Eating something tasty'));
-  if (v.item === 'balloon') return P_(.22, '🎈', LN('Levando lembrança|Taking home a souvenir'));
-  if (world.beauty[i] > 1.5) return P_(.2, '🌸', LN('Que parque bonito|What a pretty park'));
-  if (v.mood > .85) return P_(.16, '😄', LN('Passeio ótimo|A great day out'));
-  if (v.mood > .6) return P_(.12, '🙂', LN('Curtindo o dia|Enjoying the day'));
-  return P_(.1, '😐', LN('Nada de mais|Nothing special'));
+  if (v.action > 0 && v.target && v.target.kind === 'exhibit') return P_(.36, '😍', 'Adorando esse animal|Loving this animal');
+  if (v.item === 'food') return P_(.24, '😋', 'Comendo algo gostoso|Eating something tasty');
+  if (v.item === 'balloon') return P_(.22, '🎈', 'Levando lembrança|Taking home a souvenir');
+  if (world.beauty[i] > 1.5) return P_(.2, '🌸', 'Que parque bonito|What a pretty park');
+  if (v.mood > .85) return P_(.16, '😄', 'Passeio ótimo|A great day out');
+  if (v.mood > .6) return P_(.12, '🙂', 'Curtindo o dia|Enjoying the day');
+  return P_(.1, '😐', 'Nada de mais|Nothing special');
 }
 
 /** recomputes the thought every so often (doing it every frame is not worth it) */
@@ -215,8 +219,8 @@ function updAnimal(a, dt, gh) {
     a.dead = true;
     if (e) e.animals = e.animals.filter(z => z.id !== a.id);
     repEvento(-.12, old > 1
-      ? BI`${a.name} (${LN(sp.name)}) morreu de velhice|${a.name} (${LN(sp.name)}) died of old age`
-      : BI`${a.name} (${LN(sp.name)}) morreu|${a.name} (${LN(sp.name)}) died`, '💀');
+      ? BP`${a.name} (${sp.name}) morreu de velhice|${a.name} (${sp.name}) died of old age`
+      : BP`${a.name} (${sp.name}) morreu|${a.name} (${sp.name}) died`, '💀');
     SFX.play('death');
     toast(old > 1
       ? BI`💀 ${a.name} (${LN(sp.name)}) morreu de velhice|💀 ${a.name} (${LN(sp.name)}) died of old age`
@@ -233,7 +237,7 @@ function updAnimal(a, dt, gh) {
       a.escaped = true; G.escaped.push(a); SFX.play('alarm');
       e.animals = e.animals.filter(z => z.id !== a.id);
       toast(BI`🚨 ${LN(sp.name)} FUGIU do recinto!|🚨 A ${LN(sp.name)} ESCAPED the enclosure!`, 'bad');
-      repEvento(-.3, BI`${LN(sp.name)} fugiu do recinto|A ${LN(sp.name)} escaped the enclosure`, '🚨');
+      repEvento(-.3, BP`${sp.name} fugiu do recinto|A ${sp.name} escaped the enclosure`, '🚨');
     }
   }
   // breeding — needs an adult pair of the species in the enclosure. The rate
@@ -249,7 +253,7 @@ function updAnimal(a, dt, gh) {
         if (encArea(e) >= sp.space * (kin + 1) && kin < sp.groupMax + 2) {
           const f = newAnimal(sp, e.id, 0.02); e.animals.push(f); SFX.play('birth');
           toast(BI`🎉 Nasceu um filhote de ${LN(sp.name)}!|🎉 A baby ${LN(sp.name)} was born!`, 'good');
-          repEvento(+.12, BI`Nasceu um filhote de ${LN(sp.name)}|A baby ${LN(sp.name)} was born`, '🎉');
+          repEvento(+.12, BP`Nasceu um filhote de ${sp.name}|A baby ${sp.name} was born`, '🎉');
         }
       }
     } else {

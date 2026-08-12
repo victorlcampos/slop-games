@@ -91,7 +91,10 @@ const vault = createSave({
   initial: () => ({ version: 1, lat: null, lon: null, zoom: 16, label: null, muted: false }),
   normalize: (raw, base) => {
     if (!raw || typeof raw !== 'object') return base;
+    // `mudo` was this field's name before the translation, under the same
+    // storage key — without the alias a returning player's mute choice is lost
     const s = { ...base, ...raw };
+    if (raw.muted === undefined && raw.mudo !== undefined) s.muted = raw.mudo;
     const valid = Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
       Math.abs(s.lat) <= 90 && Math.abs(s.lon) <= 180;
     if (!valid) { s.lat = null; s.lon = null; }
@@ -283,4 +286,4 @@ addEventListener('resize', () => {
 ui.showMenu();
 
 // the test bridge — the kit looks for this name
-window.__game = { name: 'worlddrive', i18n, app };
+window.__game = { name: 'worlddrive', i18n, app, prefs: () => prefs };
