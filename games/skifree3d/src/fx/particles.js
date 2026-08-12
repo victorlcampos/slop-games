@@ -96,7 +96,7 @@ export function createSpray(parent, capacity = 900) {
     alive++;
   }
 
-  /** Leque de neve saindo de sob um esqui. */
+  /** A fan of snow thrown out from under a ski. */
   function emitSpray(x, y, z, dirX, dirZ, speed, amount) {
     const n = Math.min(amount, 18);
     for (let i = 0; i < n; i++) {

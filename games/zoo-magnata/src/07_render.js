@@ -18,7 +18,7 @@ function resize() {
   cv.width = Math.floor(VW * DPR); cv.height = Math.floor(VH * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.imageSmoothingEnabled = true;
-  if (typeof medirHud === 'function') medirHud();
+  if (typeof measureHud === 'function') measureHud();
 }
 const w2sx = (x, y) => (x - y) * (TW / 2) * cam.z + cam.x;
 const w2sy = (x, y) => (x + y) * (TH / 2) * cam.z + cam.y;
@@ -31,10 +31,10 @@ function centerOn(x, y) { cam.x = VW / 2 - (x - y) * (TW / 2) * cam.z; cam.y = V
 /* ---- cached terrain ----
    Everything here is redrawn only when G.dirty.terr goes up; frame to frame it
    just blits the canvas. Three layers: the base (diamonds + texture), organic
-   fringes
-   entre terrenos, e a rede de trilhas com meio-fio, curvas e entradas de loja. */
-const T_GRAMA = TKEYS.indexOf('grass'), T_WATER = TKEYS.indexOf('water'), T_PISO = TKEYS.indexOf('pavement');
-const AGUA_FUNDA = shade(TERRAIN.water.c2, -.12);
+   fringes between terrains, and the path network with its kerb, its curves and
+   its shop entrances. */
+const T_GRASS = TKEYS.indexOf('grass'), T_WATER = TKEYS.indexOf('water'), T_PAVEMENT = TKEYS.indexOf('pavement');
+const DEEP_WATER = shade(TERRAIN.water.c2, -.12);
 /* a softened alternate tone: pure c2 made too strong a checkerboard on the lawn */
 const TOM2 = {}; for (const k of TKEYS) TOM2[k] = mixc(TERRAIN[k].c, TERRAIN[k].c2, .6);
 const PISO_C = TERRAIN.pavement.c, PISO_C2 = TERRAIN.pavement.c2;
@@ -54,13 +54,13 @@ const pick2 = (r, a) => a[(r() * a.length) | 0];   // a deterministic pick
 /** the terrain under a path = the commonest of the 8 neighbours (paths don't count) */
 function underlayOf(x, y) {
   const cont = {};
-  let best = T_GRAMA, bn = 0;
+  let best = T_GRASS, bn = 0;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
     const nx = x + dx, ny = y + dy;
     if (!inB(nx, ny)) continue;
     const t = world.terr[IDX(nx, ny)];
-    if (t === T_PISO) continue;
+    if (t === T_PAVEMENT) continue;
     const v = (cont[t] || 0) + 1; cont[t] = v;
     if (v > bn) { bn = v; best = t; }
   }
@@ -93,7 +93,7 @@ function buildTerrain() {
     c.moveTo(sx, sy - TH / 2); c.lineTo(sx + TW / 2, sy); c.lineTo(sx, sy + TH / 2); c.lineTo(sx - TW / 2, sy); c.closePath();
     const alt = r() < .5;
     const deep = tk === 'water' && water(x, y - 1) && water(x + 1, y) && water(x, y + 1) && water(x - 1, y);
-    const baseColour = deep ? AGUA_FUNDA : alt ? T.c : TOM2[tk];
+    const baseColour = deep ? DEEP_WATER : alt ? T.c : TOM2[tk];
     c.fillStyle = baseColour;
     c.fill();
     // textura
@@ -269,14 +269,14 @@ function mapEmbankment(c) {
 function terrainFringes(c) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = IDX(x, y), a = _eff[i], ka = TKEYS[a];
-    if (a === T_PISO) continue;
+    if (a === T_PAVEMENT) continue;
     const pa = FRANJA_PRIO[ka];
     for (let s = 0; s < 4; s++) {
       const [dx, dy] = SIDES[s];
       const nx = x + dx, ny = y + dy;
       if (!inB(nx, ny)) continue;
       const j = IDX(nx, ny), b = _eff[j], kb = TKEYS[b];
-      if (b === a || b === T_PISO || FRANJA_PRIO[kb] <= pa) continue;
+      if (b === a || b === T_PAVEMENT || FRANJA_PRIO[kb] <= pa) continue;
       // a shared edge; the neighbour "invades" this tile with blobs
       const hor = dy !== 0;                        // N/S: aresta corre no eixo x
       const ex = dx === 1 ? x + 1 : x, ey = dy === 1 ? y + 1 : y;
@@ -1029,14 +1029,14 @@ function drawEncObj(c, o, z) {
   }
 }
 /* ---- cerca ---- */
-function drawFenceTile(c, x, y, e, z, lados) {
+function drawFenceTile(c, x, y, e, z, sides) {
   // F.height, not F.alt: the table field was renamed and its only reader was
   // not. `undefined * z` is NaN, Canvas 2D silently drops any path with a NaN
   // in it, and every fence in the game stopped being drawn.
   const F = FENCES[e.fence], alt = F.height * z;
   const P = (ax, ay) => [w2sx(ax, ay), w2sy(ax, ay)];
   const segs = [];
-  for (const l of lados) {
+  for (const l of sides) {
     if (l === 'N') segs.push([P(x, y), P(x + 1, y)]);
     else if (l === 'S') segs.push([P(x, y + 1), P(x + 1, y + 1)]);
     else if (l === 'W') segs.push([P(x, y), P(x, y + 1)]);
@@ -1228,13 +1228,13 @@ function drawBubbles(c, agora) {
   c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
   for (const b of aceitos) {
     const z = b.z, u = b.p.urg;
-    const fundo = u >= .8 ? '#ffd2c8' : u >= .45 ? '#ffeec2' : '#e8f6dd';
+    const back = u >= .8 ? '#ffd2c8' : u >= .45 ? '#ffeec2' : '#e8f6dd';
     const edge = u >= .8 ? '#bd3f2d' : u >= .45 ? '#c98a1c' : '#3b8c38';
     const w = 25 * z, h = 22 * z;
     const bob = Math.sin(agora / 520 + b.sx * .05) * 1.6 * z;
     const x = b.sx, y = b.sy + bob;
     c.lineWidth = Math.max(1, 2.2 * z);
-    c.strokeStyle = edge; c.fillStyle = fundo;
+    c.strokeStyle = edge; c.fillStyle = back;
     roundRectP(c, x - w / 2, y - h, w, h, 7 * z); c.fill(); c.stroke();
     // the thought trail (two small dots descending to the head)
     c.beginPath(); c.arc(x - 1.5 * z, y + 3.2 * z, 2.5 * z, 0, TAU); c.fill(); c.stroke();
@@ -1258,7 +1258,7 @@ function drawPersonEnt(c, p, z) {
     if (p.item === 'balloon') {
       c.strokeStyle = '#8a7a5e'; c.lineWidth = 1.4;
       c.beginPath(); c.moveTo(hx, hy + 8 * k); c.lineTo(hx + p.dir * 7 * k, hy - 30 * k); c.stroke();
-      ellipse(c, hx + p.dir * 8 * k, hy - 39 * k, 9 * k, 10 * k); ink(c, p.balao, 3 * k);
+      ellipse(c, hx + p.dir * 8 * k, hy - 39 * k, 9 * k, 10 * k); ink(c, p.balloon, 3 * k);
     } else {
       roundRectP(c, hx - 5 * k, hy + 4 * k, 10 * k, 9 * k, 3 * k); ink(c, '#e8b45c', 2.6 * k);
     }
@@ -1294,7 +1294,7 @@ function render(now) {
     }
     ctx.globalAlpha = 1;
   }
-  for (let i = 0; i < 4; i++) {                  // nuvens do fundo
+  for (let i = 0; i < 4; i++) {                  // clouds in the background
     const cw = VW * (.16 + (i % 3) * .07);
     const px = ((i * .29 + .07) * VW + now * (.004 + i * .0012)) % (VW + cw * 2) - cw;
     const py = VH * (.1 + ((i * 37) % 50) / 100 * .5);
@@ -1387,15 +1387,15 @@ function render(now) {
   let n = 0;
   const push = (d, t, r) => { drawList[n] = drawList[n] || {}; const o = drawList[n]; o.d = d; o.t = t; o.r = r; n++; };
   for (const e of enclosures.values()) {
-    for (const [k, lados] of encSegPorTile(e)) {
+    for (const [k, sides] of encSegsPerTile(e)) {
       const x = k % W, y = (k / W) | 0;
       if (x < x0 - 2 || x > x1 + 2 || y < y0 - 2 || y > y1 + 2) continue;
       // N/W go BEHIND the animal standing on the tile; S/E go in front. With the
       // old fence ring this didn't matter (nobody stood on it).
-      const fundo = lados.filter(l => l === 'N' || l === 'W');
-      const front = lados.filter(l => l === 'S' || l === 'E');
-      if (fundo.length) push(x + y - .45, 'fence', { x, y, e, lados: fundo });
-      if (front.length) push(x + y + .45, 'fence', { x, y, e, lados: front });
+      const back = sides.filter(l => l === 'N' || l === 'W');
+      const front = sides.filter(l => l === 'S' || l === 'E');
+      if (back.length) push(x + y - .45, 'fence', { x, y, e, sides: back });
+      if (front.length) push(x + y + .45, 'fence', { x, y, e, sides: front });
     }
   }
   for (const o of objects.values()) {
@@ -1419,7 +1419,7 @@ function render(now) {
   list.sort((a, b) => a.d - b.d);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const it of list) {
-    if (it.t === 'fence') drawFenceTile(ctx, it.r.x, it.r.y, it.r.e, z, it.r.lados);
+    if (it.t === 'fence') drawFenceTile(ctx, it.r.x, it.r.y, it.r.e, z, it.r.sides);
     else if (it.t === 'build') drawBuilding(ctx, it.r, z);
     else if (it.t === 'deco') drawDeco(ctx, it.r, z);
     else if (it.t === 'encobj') drawEncObj(ctx, it.r, z);
@@ -1427,7 +1427,7 @@ function render(now) {
     else if (it.t === 'person') drawPersonEnt(ctx, it.r, z);
   }
   drawEntrance(ctx, z, now);
-  passaros(ctx, now, night);
+  birds(ctx, now, night);
   drawBubbles(ctx, now);       // over the entities, or it disappears behind them
   drawAvisos(ctx, z);
   drawSelection(ctx, z);
@@ -1466,7 +1466,7 @@ function luzesNoturnas(c, z, k, x0, x1, y0, y1) {
   }
 }
 /** a flock of birds crossing the sky every so often */
-function passaros(c, now, night) {
+function birds(c, now, night) {
   if (night) return;
   const ciclo = Math.floor(now / 26000);
   const t = (now % 26000) / 1000;
@@ -1562,9 +1562,9 @@ function drawSelection(c, z) {
   if (s.kind === 'enc') {
     const e = s.ref;
     c.beginPath();
-    for (const [k, lados] of encSegPorTile(e)) {
+    for (const [k, sides] of encSegsPerTile(e)) {
       const x = k % W, y = (k / W) | 0;
-      for (const l of lados) {
+      for (const l of sides) {
         const a = l === 'S' ? [x, y + 1] : l === 'E' ? [x + 1, y] : [x, y];
         const b = l === 'N' ? [x + 1, y] : l === 'S' ? [x + 1, y + 1] : l === 'E' ? [x + 1, y + 1] : [x, y + 1];
         c.moveTo(w2sx(a[0], a[1]), w2sy(a[0], a[1]));

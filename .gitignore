@@ -1,11 +1,16 @@
 node_modules/
 
-# gerado por `npm run build` (e pelo CI, que publica no Pages)
+# produced by `npm run build` (and by the CI job that publishes to Pages)
 dist/
 
 .DS_Store
 
-# rascunhos de automação (script agendado, mensagem de commit em preparo)
+# screenshots the tests take when something fails — the CI keeps them as an
+# artifact, they have no business in the history
+test/*.png
+games/*/test/*.png
+
+# automation scratch (a scheduled script, a commit message being drafted)
 .agendado.sh
 .commit-msg.tmp
 *.tmp.mjs

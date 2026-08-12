@@ -6,8 +6,8 @@
    PAD is headroom ABOVE the frame: without it only 12 units were left over the
    body, and a giraffe's neck (-28) or the horns of a kudu/moose/oryx (-24 to -9)
    came out clipped. Every drawing is relative to GND, so it is enough to
-   translate at raster time —
-   nenhum desenhista precisa saber que a folga existe. */
+   translate at raster time — no draughtsman here needs to know the headroom
+   exists. */
 const SPR = 128, GND = 116, PAD = 48, BOT = 18, SPRH = GND + PAD + BOT, FRAMES = 6;
 const spriteCache = new Map();
 

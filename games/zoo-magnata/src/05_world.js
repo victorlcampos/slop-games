@@ -204,7 +204,7 @@ function countSegments(set) {
   return n;
 }
 /** outward edges grouped by tile: Map(idx -> ['N','E',...]) */
-function encSegPorTile(e) {
+function encSegsPerTile(e) {
   if (e._segTile) return e._segTile;
   const m = new Map();
   for (const k of e.tiles) {
@@ -219,7 +219,7 @@ function encSegPorTile(e) {
   e._seg = [...m.values()].reduce((s, l) => s + l.length, 0);
   return e._segTile = m;
 }
-const encSegCount = e => (encSegPorTile(e), e._seg);
+const encSegCount = e => (encSegsPerTile(e), e._seg);
 /** any tile of the enclosure, as [x, y] */
 function encRandomTile(e) {
   const a = encTilesArr(e);
@@ -335,7 +335,7 @@ function rebuildNet() {
 }
 const pathConnected = (x, y) => inB(x, y) && netDist[IDX(x, y)] >= 0;
 
-/** BFS de caminho entre dois tiles de trilha (retorna array de [x,y]) */
+/** BFS for a route between two path tiles (returns an array of [x,y]) */
 const _prev = new Int32Array(W * H);
 function findPath(sx, sy, tx, ty) {
   if (!inB(sx, sy) || !inB(tx, ty)) return null;

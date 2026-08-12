@@ -334,7 +334,7 @@ function undoLast() {
       if (e.objs.some(o => set.has(IDX(o.x, o.y)))) { msg = '!' + LN('há objetos na área ampliada — remova antes|there are objects in the extended area — remove them first'); break; }
       for (const k of set) { e.tiles.delete(k); world.enc[k] = 0; }
       encInvalidate(e);
-      for (const a of e.animals) {   // bicho que ficou de fora volta para dentro
+      for (const a of e.animals) {   // an animal left outside comes back in
         if (a.dead) continue;
         if (!e.tiles.has(IDX(clamp(a.x | 0, 0, W - 1), clamp(a.y | 0, 0, H - 1)))) {
           const tl = encRandomTile(e);
@@ -918,14 +918,14 @@ function downloadFile(name, conteudo, mime) {
     return true;
   } catch (err) { toast(BI`⚠️ Download falhou: ${err.message}|⚠️ Download failed: ${err.message}`, 'bad'); return false; }
 }
-const selo = () => 'day' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour).replace(':', 'h');
+const stamp = () => 'day' + String(G.day).padStart(3, '0') + '-' + relTime(G.hour).replace(':', 'h');
 
 function exportSave() {
-  if (downloadFile(`zoo-magnata-${selo()}.json`, JSON.stringify(gameSnapshot()), 'application/json'))
+  if (downloadFile(`zoo-magnata-${stamp()}.json`, JSON.stringify(gameSnapshot()), 'application/json'))
     toast(LN('📥 Save baixado — guarde o arquivo para retomar depois|📥 Save downloaded — keep the file to pick up later'), 'good');
 }
 function exportReport() {
-  if (downloadFile(`zoo-magnata-status-${selo()}.txt`, reportText(), 'text/plain'))
+  if (downloadFile(`zoo-magnata-status-${stamp()}.txt`, reportText(), 'text/plain'))
     toast(LN('📄 Relatório de status baixado|📄 Status report downloaded'), 'good');
 }
 function importSave(file, onDone) {
@@ -1086,7 +1086,7 @@ function fitToScreen() {
   // hides behind the 🗺️ button; button zoom only shows where there is no wheel
   $('#zoomBtns').classList.toggle('show', IS_TOUCH);
   refreshMinimap();
-  medirHud();
+  measureHud();
 }
 function init() {
   resize();
@@ -1106,7 +1106,7 @@ function init() {
   refreshSoundButton();
   fitToScreen();
   // the HUD changes height when the labels break onto another line
-  if (window.ResizeObserver) new ResizeObserver(medirHud).observe($('#hud'));
+  if (window.ResizeObserver) new ResizeObserver(measureHud).observe($('#hud'));
   setSpeed(0);          // the clock only starts when the player leaves the splash
   loop(performance.now());
 }

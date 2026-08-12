@@ -28,7 +28,7 @@ function singlePanel() { const m = layoutModo(); return m === 'drawer' || m === 
 
 /** publishes the HUD's real height to the CSS — it varies when the labels break
  *  onto two lines on a phone, and inspector/hint/toasts hang off it */
-function medirHud() {
+function measureHud() {
   const h = Math.round($('#hud').getBoundingClientRect().height);
   document.documentElement.style.setProperty('--hudH', h + 'px');
 }

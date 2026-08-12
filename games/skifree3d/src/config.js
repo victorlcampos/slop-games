@@ -9,7 +9,7 @@ export const SLOPE = 0.20;            // tangent of the average slope (~11°)
 export const VIEW_FAR = 2400;         // has to fit the sky dome
 export const FOG_DENSITY = 0.0028;
 
-export const CHUNK_SIZE = 80;         // lado de um bloco de terreno (m)
+export const CHUNK_SIZE = 80;         // side of one terrain block (m)
 export const CHUNK_SEG = 32;          // subdivisions per chunk
 export const GRID_X = 7;              // chunks across
 export const GRID_Z = 10;             // chunks in depth

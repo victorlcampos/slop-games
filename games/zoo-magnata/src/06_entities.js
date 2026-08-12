@@ -280,7 +280,7 @@ function moveAnimal(a, dt, gh) {
       a.wait = rnd(2, 5);
     }
   } else if (e && a.wait <= 0) {
-    a.indoBrincar = 0;
+    a.headingToToy = 0;
     const t0 = encRandomTile(e);
     if (!t0) return;
     let bx = t0[0] + .5, by = t0[1] + .5;
@@ -295,7 +295,7 @@ function moveAnimal(a, dt, gh) {
       if (brs.length) {
         const o = pick(brs);
         bx = o.x + .5 + rnd(-.3, .3); by = o.y + .5 + rnd(-.3, .3);
-        a.indoBrincar = o.id;
+        a.headingToToy = o.id;
       }
     }
     a.tx = bx; a.ty = by;
@@ -317,12 +317,12 @@ function moveAnimal(a, dt, gh) {
     a.state = a.sick ? 'sick' : 'walking';
   } else if (a.state === 'walking') {
     // arrived: if the target was a toy that is still there, it stays and plays
-    const target = a.indoBrincar && e && e.objs.find(o => o.id === a.indoBrincar);
+    const target = a.headingToToy && e && e.objs.find(o => o.id === a.headingToToy);
     if (target && dist(a.x, a.y, target.x + .5, target.y + .5) < 1.3) {
       a.state = 'playing';
       a.dir = Math.sign(target.x - target.y - (a.x - a.y)) || a.dir;   // de frente para ele
     } else a.state = 'idle';
-    a.indoBrincar = 0;
+    a.headingToToy = 0;
   }
   a.frame = Math.floor(a.anim) % FRAMES;
 }
@@ -347,7 +347,7 @@ function newVisitor() {
     // and the crowd becomes a single file along the path
     jx: rnd(-.32, .32), jy: rnd(-.32, .32),
     ...pick(VISITOR_LOOKS),
-    balao: pick(SHIRTS),
+    balloon: pick(SHIRTS),
     zoomScale: child ? .72 : 1,
   };
   G.visitors.push(v); G.stats.visToday++; G.stats.visitorTotal++;
