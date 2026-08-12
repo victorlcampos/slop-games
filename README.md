@@ -70,3 +70,9 @@ npm test               # the kit's unit tests + the floor every game has to clea
 npm run test:games     # each game's own test
 CI=1 npm test          # reproduces the runner's environment
 ```
+
+The 3D games are not played by CI: the runner has no graphics card, and with
+software WebGL SkiFree draws about one frame every three seconds — a scenario
+that holds the throttle ends up measuring the machine. They clear the floor
+(they open, they draw, they speak both languages) and get a lap by hand before a
+deploy.

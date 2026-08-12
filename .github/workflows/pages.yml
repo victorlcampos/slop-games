@@ -55,9 +55,11 @@ jobs:
       - name: Unit and catalog tests
         run: npm test
 
-      # All four games have one now. World Drive's serves the streets from a
-      # canned response so the SUCCESS path is a gate too — the floor never
-      # starts a load, and that is how it shipped twice unable to load a world.
+      # The 2D games are played here from end to end. The 3D ones are not: this
+      # runner has no GPU, SwiftShader draws SkiFree at about one frame every
+      # three seconds, and a scenario that holds the throttle measures the
+      # graphics card instead of the game. They get the floor above, and a lap
+      # by hand before a deploy.
       - name: Each game's own tests
         run: npm run test --workspaces --if-present
 

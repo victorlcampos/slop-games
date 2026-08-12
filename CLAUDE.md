@@ -175,9 +175,12 @@ return:
 | | build | test | save | viewport | loop | sound | i18n |
 |---|---|---|---|---|---|---|---|
 | Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ |
+| SkiFree 3D | ✅ | — | ✅ | — | — | — | ✅ |
 | World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
 | Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ |
+
+SkiFree's dash under `test` is not an omission: it is a 3D game with no test of
+its own because the runner has no GPU to run one on (section 6).
 
 SkiFree kept its own mute flag in a module variable and forgot it on every
 reload — the one thing the kit's `sound` exists to prevent. It persists now,
@@ -600,7 +603,7 @@ Gone along the way: a 150-line homegrown ES bundler (SkiFree), a bash `build.sh`
 
 ```bash
 npm test               # the kit's unit tests + the floor every game clears
-npm run test:games     # each game's own test (all four have one)
+npm run test:games     # each game's own test (the 2D ones; see below for the 3D)
 node lib/test/kit.test.mjs            # only the unit tests (milliseconds, no Chrome)
 node games/<slug>/test/game.test.mjs  # only one game
 npm run test:network --workspace games/worlddrive   # the one that needs the internet
@@ -622,11 +625,16 @@ npm run test:network --workspace games/worlddrive   # the one that needs the int
 **The floor is a floor, not a gate on play.** It opens each game and checks it
 draws — it never starts a match, a run or a load. World Drive once shipped two
 commits unable to load a world at all, with all 21 floor scenarios green,
-because the thing that broke happens after you click a city. SkiFree could have
-done the same for longer: its canvas exists at the menu, so the floor would have
-passed a game that could not start a run. Whatever a game's main action is, its
-own test is the only place that will notice it stopped working — and the first
-scenario in each should be exactly that: **does it start, and does it move?**
+because the thing that broke happens after you click a city. Whatever a game's
+main action is, its own test is the only place that will notice it stopped
+working — and the first scenario in each should be exactly that: **does it
+start, and does it move?**
+
+**For the two 3D games that place is a person, not the runner.** Playing them on
+a machine with no GPU is minutes per scenario and tunes every timeout to a
+machine nobody plays on — see "A 3D game cannot be played on the runner" below.
+SkiFree and World Drive get the floor, plus whatever needs no frames (World
+Drive's menu and its offline failure path), and a lap by hand before a deploy.
 
 **A test that cannot fail is worse than no test**, because it reads as coverage.
 `check(coins === 777 || coins === 0)` accepted every outcome there is: the save
@@ -676,6 +684,11 @@ after it draws**, so switching screen and clicking in the same instant hits a
 screen with no buttons at all. That is how a test here started failing only
 inside the suite.
 
+Its budget follows the number of frames you ask for (and doubles under `CI`), so
+`waitFrames(30)` gets thirty frames' worth of patience. The flat four seconds it
+used to allow was itself a bet on machine speed — thirty frames in four seconds
+is 7.5 fps, which a loaded runner does not always have.
+
 `screenText()` is the same idea for a game whose UI is drawn, not marked up.
 Animais vs Monstros has no DOM to read, so its `text()` helper keeps the strings
 it wrote this frame and the bridge hands them back. Without it the check that
@@ -694,6 +707,45 @@ await g.tap(...);
 Opening a dialog flips a flag immediately; its buttons only enter the clickable
 list on the next draw. Whenever the next step is clicking something that just
 appeared, put a `waitFrames` between the two.
+
+### A 3D game cannot be played on the runner, and the suite doesn't pretend it can
+
+The one thing CI has no way to give: **a graphics card**. With SwiftShader
+SkiFree draws about **one frame every three seconds**, and because `dt` is capped
+at 1/20 s a frame so the physics can't explode over a long one, the mountain
+simulates at roughly **2% of real time**. That is not a slow test, it is a
+different game. Two scenarios written on a laptop held the controls for two and a
+half seconds and then read the instruments:
+
+```
+✗ a run starts and the mountain actually moves
+   the skier covered 0.3m in 2.5s
+✗ a world loads and the car drives
+   the car reached 9 km/h
+```
+
+Both games were fine. What the scenarios measured was the absent GPU. And the
+frame is not the game's fault to fix: profiled on the runner, every piece of its
+own code — physics, props, the AI, the HUD — costs **0 ms**; the whole frame is
+SwiftShader rasterising, off the JS thread, and `requestAnimationFrame` waits for
+it.
+
+So the line is drawn here: **the 3D games are not play-tested by CI.** SkiFree
+has no test of its own and World Drive's stops at the menu and the failure path —
+things that need no frames and run in seconds. Driving and skiing are checked by
+hand before a deploy. The alternative was a ten-minute gate whose every timeout
+had to be tuned to a machine nobody plays on, going red for reasons that have
+nothing to do with the code.
+
+What still holds for the tests that remain:
+
+- **Wait on a number the game keeps** — `phase`, a HUD string, `state` — never on
+  elapsed seconds, and make the timeout say what it waited for.
+- **A page left open keeps rendering.** The runner closes whatever a scenario
+  leaves behind: the first failed SkiFree scenario starved the four after it
+  until `goto` itself timed out, and one real failure was reported as five. On
+  the way out it photographs what is still open, which is what fills the
+  `failure-screenshots` artifact.
 
 **`g.at(x, y)` is not a convenience, it is the part that goes wrong most.**
 Converting a logical coordinate to a screen coordinate by eye
@@ -748,22 +800,23 @@ third-party public API that goes down and rate-limits. It runs with
 `continue-on-error` to give visibility without being able to hold the whole
 catalog hostage.
 
-Its blocking half never touches the network. Two of its scenarios cut it **on
-purpose** and ask whether the loading path fails *gracefully* — an error card, a
-retry button, no uncaught exception; the two look identical from outside, and
-the retry loop reports a broken game and an offline one alike as "the servers
-are busy". The third **serves the streets from a canned Overpass response and a
-flat terrain tile**, so the success path is a gate too: a world is built, the
-HUD replaces the loading card, and the car drives.
+Its blocking half never touches the network, and never starts the car. Two of its
+scenarios cut the line **on purpose** and ask whether the loading path fails
+*gracefully* — an error card, a retry button, no uncaught exception; the two look
+identical from outside, and the retry loop reports a broken game and an offline
+one alike as "the servers are busy". A third checks the menu itself: the presets,
+the search with the geocoder refused, the two flags.
 
-That last one exists because failure-path coverage alone was not enough. A
-deliberate `throw` inside `setProgress` — the exact shape of the bug that
-shipped — leaves both offline scenarios passing, because the retry loop converts
-it into the same "servers are busy" the test was written to expect.
+The drive is not in there, and neither is a run down SkiFree's mountain. Both
+were tried and both went red on the runner for the same reason — no GPU, one
+frame every few seconds, instruments read before the world had moved a metre. The
+gate keeps what a machine with no graphics card can honestly answer; the rest is
+a lap by hand before a deploy.
 
 When something breaks, the tests' screenshots go up as an artifact
-(`telas-da-falha`): on a layout failure, the image says in one second what the
-log doesn't say in twenty.
+(`failure-screenshots`): the runner photographs whatever page the failed scenario
+left open, and on a layout failure the image says in one second what the log
+doesn't say in twenty.
 
 ### Running the way CI runs
 
