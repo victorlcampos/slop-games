@@ -11,7 +11,7 @@ import { drawCargo } from './draw/cargo.js';
 import { ball, block, groundShadow, outline, polygon, roundRect, shade, text } from './draw/paint.js';
 import { pick, t } from './i18n.js';
 import { WEAPON_BY_ID } from './weapons.js';
-import { STICK, stickInput } from './controls.js';
+import { AIM, STICK, stickInput } from './controls.js';
 
 const STEP = 14;   // how finely the road is sampled, in px
 
@@ -544,10 +544,17 @@ export function createRenderer() {
       text(ctx, String(ammo), 26 + bar + 12, H - 16, { size: 18, colour: COLOURS.hud });
     }
 
-    // where the finger is pointing: the crosshair IS the aim now
-    if (game.aimPoint) {
-      const cx = game.aimPoint.x - game.camX;
-      const cy = game.aimPoint.y;
+    // where the gun is pointing — from a mouse that is a place, from a thumb
+    // that is a direction, and either way the crosshair is drawn on the line
+    const man = game.soldier;
+    const point = game.aimPoint
+      ? { x: game.aimPoint.x, y: game.aimPoint.y }
+      : (game.aiming
+        ? { x: man.x + Math.cos(man.aim) * 300, y: man.y - 70 + Math.sin(man.aim) * 300 }
+        : null);
+    if (point) {
+      const cx = point.x - game.camX;
+      const cy = point.y;
       ctx.save();
       ctx.globalAlpha = 0.85;
       ctx.strokeStyle = '#ffd88a';
@@ -636,11 +643,35 @@ export function createRenderer() {
       ball(ctx, ox + dx * k, oy + dy * k, 30, '#e8d7b4', { line: 3 });
     }
     if (touch.trigger.on) {
-      ctx.globalAlpha = 0.5 + Math.sin(time * 22) * 0.12;
-      ball(ctx, touch.trigger.x, touch.trigger.y, 44, '#d9a253', { line: 3 });
-      ctx.globalAlpha = 0.9;
-      text(ctx, '✦', touch.trigger.x, touch.trigger.y + 1,
-        { size: 34, align: 'center', baseline: 'middle', colour: '#1b160f', stroke: 0 });
+      const { ox, oy } = touch.trigger;
+      const dx = touch.trigger.x - ox;
+      const dy = touch.trigger.y - oy;
+      const len = Math.hypot(dx, dy);
+      const k = len > AIM.max ? AIM.max / len : 1;
+
+      ctx.globalAlpha = 0.26;
+      ctx.beginPath();
+      ctx.arc(ox, oy, AIM.max, 0, Math.PI * 2);
+      ctx.fillStyle = '#0d0b09';
+      ctx.fill();
+      ctx.strokeStyle = '#ffd88a';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // the barrel line: where the thumb is pushing is where the gun looks
+      if (touch.trigger.angle !== null) {
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(ox + Math.cos(touch.trigger.angle) * AIM.max, oy + Math.sin(touch.trigger.angle) * AIM.max);
+        ctx.lineWidth = 5;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.75 + Math.sin(time * 22) * 0.1;
+      ball(ctx, ox + dx * k, oy + dy * k, 34, '#d9a253', { line: 3 });
+      ctx.globalAlpha = 0.95;
+      text(ctx, '✦', ox + dx * k, oy + dy * k + 1,
+        { size: 26, align: 'center', baseline: 'middle', colour: '#1b160f', stroke: 0 });
     }
     ctx.restore();
   }

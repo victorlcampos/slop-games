@@ -371,6 +371,7 @@ export function createGame(options = {}) {
     stepSoldier(soldier, dt, input, world);
     state.target = aimAt(soldier, objects, input);
     game.aimPoint = input.aim || null;
+    game.aiming = !!input.aiming || input.aimAngle !== null && input.aimAngle !== undefined;
     pullTrigger(dt, input.fire);
 
     state.dropIn -= dt;
@@ -437,6 +438,7 @@ export function createGame(options = {}) {
     weapon: () => WEAPON_BY_ID[state.weapon.id],
     ammo: () => state.weapon.ammo,
     aimPoint: null,
+    aiming: false,
   };
   return game;
 }

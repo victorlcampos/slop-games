@@ -13,7 +13,7 @@ import { OBJECTS, OBJECT_BY_ID, DROPPED, rollObject, spawnObject } from '../src/
 import { createWorld } from '../src/world.js';
 import { dict } from '../src/i18n.js';
 import { makeRng, GROUND, PLAYER } from '../src/config.js';
-import { STICK, stickInput, createTouchControls } from '../src/controls.js';
+import { AIM, STICK, stickInput, createTouchControls } from '../src/controls.js';
 
 const KINDS = ['bullet', 'pellet', 'beam', 'rocket', 'lobbed', 'flame', 'orb', 'homing'];
 const LANDINGS = ['break', 'settle', 'bounce', 'roll', 'explode', 'stick'];
@@ -208,8 +208,8 @@ scenario('the stick is born under the thumb and answers in four directions', () 
   // left half: the stick appears exactly where the finger landed
   c.start(1, 300, 500);
   check(c.stick.on && c.stick.ox === 300 && c.stick.oy === 500, 'the stick did not appear under the thumb');
-  checkEqual(c.read(), { left: false, right: false, down: false, jump: false, up: false, fire: false },
-    'a thumb resting still asked for something');
+  checkEqual(c.read(), { left: false, right: false, down: false, jump: false, up: false,
+    fire: false, aimAngle: null, aiming: false }, 'a thumb resting still asked for something');
 
   c.move(1, 300 + STICK.turn + 4, 500);
   check(c.read().right && !c.read().left, 'pushing right did not run right');
@@ -245,6 +245,30 @@ scenario('the right half is the trigger, and the two thumbs are independent', ()
   check(!c.read().fire && c.read().left, 'letting go of the trigger let go of the stick too');
   c.clear();
   check(!c.stick.on && !c.trigger.on, 'clearing left a finger behind');
+});
+
+scenario('the right thumb is a stick too: the gun points where it is pushed', () => {
+  const c = createTouchControls(() => 1200);
+  c.start(3, 900, 500);
+  check(c.read().fire, 'a thumb on the right half did not pull the trigger');
+  check(c.read().aimAngle === null, 'a thumb that has not moved yet swung the barrel');
+
+  // straight up: the soldier shoots at the sky, which is where the cargo is
+  c.move(3, 900, 500 - AIM.dead - 20);
+  check(Math.abs(c.read().aimAngle + Math.PI / 2) < 0.01,
+    `pushing up aimed at ${c.read().aimAngle.toFixed(2)} rad instead of straight up`);
+
+  // and behind: pushing left points the gun backwards
+  c.move(3, 900 - AIM.dead - 30, 500);
+  check(Math.abs(Math.abs(c.read().aimAngle) - Math.PI) < 0.01, 'pushing left did not aim backwards');
+
+  // a shaky thumb inside the deadzone keeps the angle it had
+  const held = c.read().aimAngle;
+  c.move(3, 900 + 4, 500 + 3);
+  checkEqual(c.read().aimAngle, held, 'a thumb wobbling in the middle swung the barrel around');
+
+  c.end(3);
+  check(c.read().aimAngle === null && !c.read().fire, 'the aim survived the finger leaving');
 });
 
 scenario('a thumb that barely moves is a thumb standing still', () => {

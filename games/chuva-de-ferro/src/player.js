@@ -148,9 +148,17 @@ export function muzzleOf(s) {
 export function aimAt(s, objects, input) {
   const shoulder = s.y - heightOf(s) * 0.72;
 
-  // The finger — or the mouse — is the aim. Pointing at what you want dead is
-  // the whole verb of a run-and-gun, and an auto-aim that picks for you takes
-  // the decision away. It stays as a fallback for a keyboard with no pointer.
+  // A thumb pushing the right stick is an angle, not a place: the gun points
+  // where the thumb is pushed. (On a desktop the mouse is a place — there the
+  // cursor is not sitting on top of what you are shooting at.)
+  if (input.aimAngle !== null && input.aimAngle !== undefined) {
+    s.aim = input.aimAngle;
+    s.facing = Math.cos(s.aim) >= 0 ? 1 : -1;
+    return null;
+  }
+  // holding the trigger without pushing: the gun keeps the angle it had
+  if (input.aiming) return null;
+
   if (input.aim) {
     const dx = input.aim.x - s.x;
     const dy = input.aim.y - shoulder;

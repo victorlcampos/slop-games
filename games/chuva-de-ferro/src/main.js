@@ -49,7 +49,7 @@ let phase = 'menu';
 // ------------------------------------------------------------------ input
 
 const keys = new Set();
-const input = { left: false, right: false, jump: false, down: false, up: false, fire: false, aim: null };
+const input = { left: false, right: false, jump: false, down: false, up: false, fire: false, aim: null, aimAngle: null, aiming: false };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -111,10 +111,10 @@ for (const [type, handler] of [
 
 function applyTouch() {
   const asked = touch.read();
-  // the trigger thumb also points: where it is, is what he shoots at
-  if (touch.trigger.on) input.aim = toWorld({ x: touch.trigger.x, y: touch.trigger.y });
-  else if (mouse) input.aim = toWorld(mouse);
-  else input.aim = null;
+  // the trigger thumb is a stick: it gives an angle, not a place
+  input.aimAngle = asked.aimAngle;
+  input.aiming = asked.aiming;
+  if (asked.aiming) input.aim = null;
   input.left = input.left || asked.left;
   input.right = input.right || asked.right;
   input.down = input.down || asked.down;
