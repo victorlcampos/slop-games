@@ -31,7 +31,7 @@ import { initAudio, resumeAudio, updateAudio, sfx, toggleMute, silence } from '.
 import { GodRaysShader, LensShader, updateSunScreenPosition } from './render/postfx.js';
 import { installAerialPerspective } from './render/atmosphere.js';
 import * as hud from './hud.js';
-import { t } from './i18n.js';
+import { t, num } from './i18n.js';
 
 // A low sun (12°) and ahead of whoever is descending: it is the only position
 // fits in the frame — the camera looks downhill, so any high sun ends up off
@@ -424,7 +424,7 @@ export function createGame(container) {
   /** Turns the landing's numbers into the words on screen. */
   function trickNames({ spins, flips, longAir } = {}) {
     const names = [];
-    if (spins > 0) names.push(t('trick.spin', { degrees: spins * 360 }));
+    if (spins > 0) names.push(t('trick.spin', { degrees: num(spins * 360) }));
     if (flips > 0) names.push(flips > 1 ? t('trick.flips', { n: flips }) : t('trick.flip'));
     if (longAir) names.push(t('trick.longAir'));
     return names;

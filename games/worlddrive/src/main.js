@@ -142,9 +142,15 @@ async function startDrive(lat, lon, label) {
   } catch (err) {
     console.error(err);
     app.state = 'loading';
-    // the translated sentence first: err.message is an engine string, in English
-    // only, and it is what the player was seeing on every failure
-    ui.showLoadError(() => t('load.error') + (err && err.message ? ` (${err.message})` : ''), () => {
+    // An error the game raised for the player carries its dictionary key, so it
+    // is shown on its own AND follows the flag. Anything else is an engine
+    // string in English only: it goes in parentheses behind the translated
+    // sentence rather than instead of it.
+    ui.showLoadError(
+      err && err.i18nKey
+        ? () => t(err.i18nKey, err.i18nValues)
+        : () => t('load.error') + (err && err.message ? ` (${err.message})` : ''),
+      () => {
       app.state = 'menu';
       startDrive(lat, lon, label);
     });

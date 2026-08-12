@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { makeProjection, bboxAround, mercX, mercY, clamp, hashStr } from './geo.js';
 import { fetchOSM } from './overpass.js';
 import { loadTerrain } from './terrain.js';
+import { localized } from './net.js';
 import { i18n } from './i18n.js';
 import { loadSatellite } from './satellite.js';
 import { buildRoads } from './roads.js';
@@ -101,7 +102,7 @@ export async function loadWorld(lat, lon, progress) {
   progress('build', 0.05);
 
   if (!osm.roads.some(r => r.kind === 'car')) {
-    throw new Error(t('load.noRoads'));
+    throw localized('load.noRoads');
   }
 
   const proj = makeProjection(lat, lon);

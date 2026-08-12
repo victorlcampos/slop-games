@@ -1,6 +1,6 @@
 // Elevation: AWS Terrain Tiles (terrarium format), z=15 (~4.8 m/px)
 import { lon2tx, lat2ty, tx2lon, ty2lat, mercX, mercY, clamp } from './geo.js';
-import { loadImage, pool } from './net.js';
+import { loadImage, pool, localized } from './net.js';
 import { t } from './i18n.js';
 
 const URL_T = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
@@ -31,7 +31,7 @@ export async function loadTerrain(bbox, onProgress) {
   }
   const results = await pool(tasks, 6, onProgress);
   const failures = results.filter(r => r && r.__err).length;
-  if (failures === results.length) throw new Error(t('load.noElevation'));
+  if (failures === results.length) throw localized('load.noElevation');
 
   const px = ctx.getImageData(0, 0, W, H).data;
   let data = new Float32Array(W * H);

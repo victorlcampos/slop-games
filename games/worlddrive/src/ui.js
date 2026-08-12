@@ -66,14 +66,14 @@ export class UI {
     inp.addEventListener('input', () => {
       clearTimeout(deb);
       const q = inp.value.trim();
-      if (q.length < 3) { res.classList.remove('show'); return; }
+      if (q.length < 3) { res.classList.remove('show'); this._searchState = null; return; }
       deb = setTimeout(() => this._search(q), 450);
     });
     inp.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { clearTimeout(deb); this._search(inp.value.trim()); }
     });
     document.addEventListener('click', (e) => {
-      if (!res.contains(e.target) && e.target !== inp) res.classList.remove('show');
+      if (!res.contains(e.target) && e.target !== inp) { res.classList.remove('show'); this._searchState = null; }
     });
 
     $('btn-retry').addEventListener('click', () => { if (this._retry) this._retry(); });
@@ -95,11 +95,25 @@ export class UI {
         typeof this._errMsg === 'function' ? this._errMsg() : this._errMsg;
     }
     if (this._loadLabel !== undefined) this._paintLoadTitle();
+    // the search panel is built from t() too, and it stays on screen until the
+    // player types again or clicks away
+    if (this._searchState) this._paintSearch();
+  }
+
+  /** The one-line states of the search panel. The result rows are place names
+   *  the geocoder answered in one language, so they are left as they came. */
+  _paintSearch() {
+    if (this._searchState === 'searching') {
+      $('results').innerHTML = `<div class="ritem dim">${t('search.searching')}</div>`;
+    } else if (this._searchState === 'empty') {
+      $('results').innerHTML = `<div class="ritem dim">${t('search.empty')}</div>`;
+    }
   }
 
   async _search(q) {
     const res = $('results');
-    res.innerHTML = `<div class="ritem dim">${t('search.searching')}</div>`;
+    this._searchState = 'searching';
+    this._paintSearch();
     res.classList.add('show');
     let items = [];
     try {
@@ -120,9 +134,11 @@ export class UI {
       } catch (e) { /* nothing */ }
     }
     if (!items.length) {
-      res.innerHTML = `<div class="ritem dim">${t('search.empty')}</div>`;
+      this._searchState = 'empty';
+      this._paintSearch();
       return;
     }
+    this._searchState = null;
     res.innerHTML = '';
     for (const it of items) {
       const d = document.createElement('div');

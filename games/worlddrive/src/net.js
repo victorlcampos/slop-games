@@ -34,3 +34,16 @@ export async function pool(tasks, n, onDone) {
   await Promise.all(Array.from({ length: Math.min(n, Math.max(1, tasks.length)) }, worker));
   return results;
 }
+
+/**
+ * An error whose text is a sentence for the PLAYER. It carries the dictionary
+ * key rather than the resolved string, so the loading card can show it on its
+ * own — and say it again in the other language if the flag changes while the
+ * card is up.
+ */
+export function localized(key, values) {
+  const e = new Error(key);
+  e.i18nKey = key;
+  e.i18nValues = values;
+  return e;
+}

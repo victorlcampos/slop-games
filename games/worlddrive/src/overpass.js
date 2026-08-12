@@ -1,5 +1,5 @@
 // Fetching and parsing OpenStreetMap data through the Overpass API
-import { fetchWithTimeout } from './net.js';
+import { fetchWithTimeout, localized } from './net.js';
 import { clamp, hashStr } from './geo.js';
 import { t } from './i18n.js';
 
@@ -67,7 +67,7 @@ export async function fetchOSM(bbox, onProgress) {
       }
     }
   }
-  throw new Error(t('load.overpassBusy', { detail: (lastErr && lastErr.message) || '?' }));
+  throw localized('load.overpassBusy', { detail: (lastErr && lastErr.message) || '?' });
 }
 
 const CAR_KINDS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'service', 'road', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link']);

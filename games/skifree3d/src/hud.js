@@ -31,7 +31,9 @@ export function showHud(on) {
   el.hud.classList.toggle('on', on);
 }
 
+let lastStats = null;
 export function setStats({ dist, time, score, style }) {
+  lastStats = { dist, time, score, style };
   const d = Math.floor(dist);
   if (d !== lastDist) { el.dist.innerHTML = `${num(d)}<small>m</small>`; lastDist = d; }
   el.time.innerHTML = `${dec(time)}<small>s</small>`;
@@ -123,8 +125,8 @@ function paintGameOver({ dist, score, speed, time, gates, gatesTotal, showGates,
   el.overSub.textContent = t(`over.${key}.sub`);
   el.oDist.textContent = num(dist);
   el.oScore.textContent = num(score);
-  el.oSpeed.textContent = Math.round(speed);
-  el.oTime.textContent = Math.round(time);
+  el.oSpeed.textContent = num(speed);
+  el.oTime.textContent = num(time);
   el.oGateCell.style.display = showGates ? '' : 'none';
   el.oGates.textContent = showGates ? `${gates}/${gatesTotal}` : '—';
   el.oBest.textContent = best.isNew
@@ -134,11 +136,15 @@ function paintGameOver({ dist, score, speed, time, gates, gatesTotal, showGates,
 
 i18n.onChange(() => {
   if (lastGameOver) paintGameOver(lastGameOver);
-  // the live counters carry a formatted number too; forcing a repaint next
-  // frame is cheaper than teaching each one to notice
+  // The live counters carry a formatted number too. Invalidating the memo and
+  // leaving it to the next frame is not enough: setStats is only called from
+  // step(), and step() is skipped while the game is paused — so a flag change
+  // on a paused run left the distance, the score and the multiplier in the old
+  // language until the player unpaused. Repaint from the last values instead.
   lastScore = -1;
   lastDist = -1;
   lastStyle = -1;
+  if (lastStats) setStats(lastStats);
 });
 
 export function bindMenu({ onStart, onAgain, onMenu, onMode }) {
