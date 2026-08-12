@@ -89,6 +89,7 @@ export class UI {
     for (const key of STAGES) {
       const li = $('st-' + key);
       if (li) li.querySelector('span:last-of-type').textContent = t('load.' + key);
+      this._paintNote(key);
     }
     if (this._errMsg && !$('load-err').classList.contains('hide')) {
       $('load-err-msg').textContent =
@@ -98,6 +99,14 @@ export class UI {
     // the search panel is built from t() too, and it stays on screen until the
     // player types again or clicks away
     if (this._searchState) this._paintSearch();
+  }
+
+  /** The note beside a loading step ("mirror 2/4"), re-resolved on demand. */
+  _paintNote(stage) {
+    const li = $('st-' + stage);
+    if (!li) return;
+    const n = this._notes && this._notes[stage];
+    li.querySelector('em').textContent = typeof n === 'function' ? n() : (n || '');
   }
 
   /** The one-line states of the search panel. The result rows are place names
@@ -195,8 +204,11 @@ export class UI {
     if (li) {
       li.classList.toggle('done', this.progress[stage] >= 1);
       li.classList.add('active');
-      if (note) li.querySelector('em').textContent = note;
-      if (this.progress[stage] >= 1) li.querySelector('em').textContent = '';
+      // the note is dictionary text and can sit there for a whole mirror
+      // attempt, so it is kept and re-resolved on a flag change
+      if (note) this._notes[stage] = note;
+      if (this.progress[stage] >= 1) this._notes[stage] = null;
+      this._paintNote(stage);
     }
     let total = 0;
     for (const k in WEIGHTS) total += (this.progress[k] || 0) * WEIGHTS[k];

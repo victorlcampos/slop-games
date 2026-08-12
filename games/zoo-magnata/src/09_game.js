@@ -1098,6 +1098,10 @@ function init() {
   buildDock();
   hire('keeper'); hire('cleaner');
   updateHUD();
+  // the markup ships the English tooltip and this is its only writer, so it
+  // has to run once at boot or a Portuguese player gets English until the
+  // first undoable purchase
+  refreshUndoButton();
   G.wantsMinimap = !isSmall();      // on a phone the minimap starts off
   try {
     const pref = JSON.parse(localStorage.getItem('zoo_som') || 'null');
@@ -1205,7 +1209,11 @@ I18N.onChange(() => {
   // the palette, the inspector and the open modal are all built as HTML
   // strings, so a language change has to rebuild whatever is on screen
   buildDock();
-  if (G.tool && G.tool.cat) buildPalette(G.tool.cat);
+  // UI.cat, not G.tool.cat: the OPEN palette is the one to rebuild. Keyed off
+  // the selected tool it left the panel untranslated with nothing picked,
+  // popped an EMPTY panel for a tool whose category has no palette, and swapped
+  // in another category's list when the two disagreed.
+  if (UI.cat && UI.pal.classList.contains('show')) buildPalette(UI.cat);
   showInspector();
   renderAlerts();
   refreshHint();

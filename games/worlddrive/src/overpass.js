@@ -33,7 +33,8 @@ export async function fetchOSM(bbox, onProgress) {
     for (let i = 0; i < ENDPOINTS.length; i++) {
       const url = ENDPOINTS[i];
       // the note reaches the loading screen, so it goes through the dictionary
-      const tag = t('load.mirror', { i: i + 1, n: ENDPOINTS.length }) + (round > 1 ? t('load.retry') : '');
+      // a thunk: this note stays on the loading card for the whole attempt
+      const tag = () => t('load.mirror', { i: i + 1, n: ENDPOINTS.length }) + (round > 1 ? t('load.retry') : '');
       try {
         if (onProgress) onProgress(0, tag);
         const res = await fetchWithTimeout(url, {

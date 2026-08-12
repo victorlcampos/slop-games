@@ -89,7 +89,7 @@ export async function loadWorld(lat, lon, progress) {
   const bbox = bboxAround(lat, lon, HALF * 1.07);
   const bboxT = bboxAround(lat, lon, HALF * 1.35); // extra margin for elevation
 
-  const pOSM = fetchOSM(bbox, (bytes, note) => progress('osm', Math.min(0.95, bytes / 4e6), note || fmtMB(bytes)));
+  const pOSM = fetchOSM(bbox, (bytes, note) => progress('osm', Math.min(0.95, bytes / 4e6), note || (() => fmtMB(bytes))));
   const pDem = loadTerrain(bboxT, (d, t) => progress('dem', d / t));
   const pSat = loadSatellite(bbox, (d, t) => progress('sat', d / t));
 

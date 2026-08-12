@@ -155,6 +155,10 @@ function buildDock() {
   for (const c of CATS) {
     const b = el('button', 'btn', `<i>${c.em}</i>${LN(c.n)}`);
     b.dataset.cat = c.k;
+    // rebuilding the dock throws the buttons away, so the open category's
+    // highlight has to be put back — a language change was clearing it, and the
+    // next tap on that button then CLOSED the palette instead of switching
+    b.classList.toggle('on', UI.cat === c.k);
     b.onclick = () => openCategory(c.k);
     UI.dock.appendChild(b);
   }
@@ -531,8 +535,11 @@ function inspEnclosure(e) {
   $('#iobj').onclick = () => { openCategory('encobj'); };
   $('#ipaint').onclick = () => { openCategory('terrain'); };
   $('#iren').onclick = () => {
-    const n = prompt(LN('Nome do recinto:|Enclosure name:'), encName(e));
-    if (n) { e.name = n.slice(0, 28); showInspector(); }
+    // the prefill is the resolved default, so accepting it unchanged would
+    // freeze that language into the save — only a real edit counts as a name
+    const shown = encName(e);
+    const n = prompt(LN('Nome do recinto:|Enclosure name:'), shown);
+    if (n !== null) { e.name = n.trim() && n.trim() !== shown ? n.trim().slice(0, 28) : null; showInspector(); }
   };
   $('#ifence').onclick = () => swapFence(e);
   $('#idel').onclick = () => {
@@ -754,7 +761,7 @@ function inspStaff(s) {
     </div>
     <div class="kv"><span>${LN('Salário|Wage')}</span><b>${BI`${moneyFull(T.wage)}/semana|${moneyFull(T.wage)}/week`}</b></div>
     <div class="kv"><span>${LN('Tarefas concluídas|Tasks done')}</span><b>${s.done}</b></div>
-    <div class="kv"><span>${LN('Fazendo agora|Doing right now')}</span><b>${s.task ? ({ enc: LN('Cuidando de recinto|Tending an enclosure'), animal: LN('Tratando animal|Treating an animal'), litter: LN('Recolhendo lixo|Picking up litter'), fuga: LN('Recapturando fuga|Chasing an escapee') })[s.task.kind] : LN('Patrulhando|Patrolling')}</b></div>
+    <div class="kv"><span>${LN('Fazendo agora|Doing right now')}</span><b>${s.task ? ({ enc: LN('Cuidando de recinto|Tending an enclosure'), animal: LN('Tratando animal|Treating an animal'), litter: LN('Recolhendo lixo|Picking up litter'), escape: LN('Recapturando fuga|Chasing an escapee') })[s.task.kind] : LN('Patrulhando|Patrolling')}</b></div>
     <div class="rowbtns">
       <button class="btn sm" id="ivoz">${LN('🔊 Ouvir|🔊 Listen')}</button>
       <button class="btn sm" id="igo">${LN('🎯 Centralizar|🎯 Centre')}</button>
