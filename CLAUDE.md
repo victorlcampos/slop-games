@@ -60,7 +60,7 @@ games/<slug>/
   package.json     # needs a "build" script (and a "test", if it has one)
   build.mjs        # produces dist/index.html
   src/             # the real code, in modules
-  test/            # the game's own test, on slopkit/testing
+  test/            # the game's own test, in Node — no browser (section 6)
   dist/index.html  # generated, not in git
   README.md        # how to play, controls, what is interesting about it
 ```
@@ -73,16 +73,12 @@ Only two things are mandatory, and the root build enforces both:
   orchestrator checks for any leftover external reference and fails the build if
   it finds one.
 
-Two more are strongly recommended, and the catalog test uses them when present:
+One more is strongly recommended:
 
-- **`window.__game`** with at least `{ name, viewport, i18n }`, where `viewport`
-  exposes `W` and `H` (the logical measurements). That is how the test turns a
-  touch into a coordinate without guessing — see section 6 — and it is through
-  `i18n` that it checks the flag really switches.
-- **`screenText()`** on that same bridge, for a game that draws its interface
-  instead of marking it up. It returns the strings the last frame wrote, which is
-  the only way a test can see what a canvas is saying — including whether the
-  words followed the flag.
+- **`window.__game`** with at least `{ name, viewport, i18n }`. Nothing in the
+  suite needs it any more — the tests reach the modules directly — but it is
+  what lets you drive the game from the browser console while playing, which is
+  where the last two rounds of bugs were actually found.
 
 The **slug stays as it is**, even in Portuguese: it is the published URL
 (`/animais-vs-monstros/`), and the game already carries both names through
@@ -175,12 +171,9 @@ return:
 | | build | test | save | viewport | loop | sound | i18n |
 |---|---|---|---|---|---|---|---|
 | Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SkiFree 3D | ✅ | — | ✅ | — | — | — | ✅ |
+| SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ |
 | World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
 | Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ |
-
-SkiFree's dash under `test` is not an omission: it is a 3D game with no test of
-its own because the runner has no GPU to run one on (section 6).
 
 SkiFree kept its own mute flag in a module variable and forgot it on every
 reload — the one thing the kit's `sound` exists to prevent. It persists now,
@@ -400,7 +393,7 @@ createLoop({
   draw: () => { vp.begin(); paint(vp.ctx); },
 }).start();
 
-window.__game = { name: 'my-game', viewport: vp, i18n };   // test bridge (section 6)
+window.__game = { name: 'my-game', viewport: vp, i18n };   // a handle for the console
 ```
 
 **6. Register and check** — at the repository root:
@@ -408,7 +401,7 @@ window.__game = { name: 'my-game', viewport: vp, i18n };   // test bridge (secti
 ```bash
 npm install          # the games/* workspace picks the new game up on its own
 npm run build        # builds everything and regenerates the index
-npm test             # checks that it opens over file:// and clears the floor
+npm test             # the built file clears the catalog floor (section 6)
 ```
 
 The index **does not need editing**: it is generated from the `game.json` files.
@@ -602,120 +595,53 @@ Gone along the way: a 150-line homegrown ES bundler (SkiFree), a bash `build.sh`
 ## 6. Tests
 
 ```bash
-npm test               # the kit's unit tests + the floor every game clears
-npm run test:games     # each game's own test (the 2D ones; see below for the 3D)
-node lib/test/kit.test.mjs            # only the unit tests (milliseconds, no Chrome)
-node games/<slug>/test/game.test.mjs  # only one game
-npm run test:network --workspace games/worlddrive   # the one that needs the internet
+npm test               # the kit's unit tests + the catalog floor
+npm run test:games     # each game's own test
+node games/<slug>/test/logic.test.mjs   # only one game
 ```
 
-### Three layers, and what goes in each
+**The whole suite runs in about three seconds and never opens a browser.** That
+is not an accident of scale, it is the design — see "why there is no browser
+here" below.
 
-1. **Unit, no browser** (`lib/test/`) — the pure arithmetic: how many steps the
-   loop takes, what width the viewport picks, what normalisation does to an old
-   save. Runs in milliseconds. If it can be tested here, **don't** test it in a
-   browser.
-2. **The catalog floor** (`test/games.test.mjs`) — applies to every game whatever
-   the technology: opens over `file://`, draws, has a title, fetches nothing from
-   outside, fills the screen, offers the exit to the catalog and **switches
-   language**. It is the test that enforces the rules in section 1.
-3. **The game itself** (`games/<slug>/test/`) — playability and whatever only
-   breaks in a browser: touch, drag, a save that persists, a screen that adapts.
+### Two layers, and what goes in each
 
-**The floor is a floor, not a gate on play.** It opens each game and checks it
-draws — it never starts a match, a run or a load. World Drive once shipped two
-commits unable to load a world at all, with all 21 floor scenarios green,
-because the thing that broke happens after you click a city. Whatever a game's
-main action is, its own test is the only place that will notice it stopped
-working — and the first scenario in each should be exactly that: **does it
-start, and does it move?**
+1. **The catalog floor** (`test/catalog.test.mjs`) — the rules of section 1, read
+   off the built file: one `index.html` per game with nothing loaded from
+   outside, a `<title>`, a weight that has not swallowed an asset, both
+   languages in `game.json`, the exit to the catalog switched on inside the
+   catalog and off in the loose copy, an installable manifest. It is a text
+   search over `dist/`, and it answers in milliseconds what took Chrome five
+   minutes.
+2. **The game itself** (`games/<slug>/test/`) — the simulation, played in Node:
+   the skier accelerates and the Yeti eats him, the car reaches a top speed and
+   the street index knows which road it is on, an animal is planted and a monster
+   dies, 219 species are all well formed and the park's books balance.
 
-**For the two 3D games that place is a person, not the runner.** Playing them on
-a machine with no GPU is minutes per scenario and tunes every timeout to a
-machine nobody plays on — see "A 3D game cannot be played on the runner" below.
-SkiFree and World Drive get the floor, plus whatever needs no frames (World
-Drive's menu and its offline failure path), and a lap by hand before a deploy.
+Everything a game keeps in `src/` is reachable from Node — that is worth
+protecting when adding code. Three shapes come up:
 
-**A test that cannot fail is worse than no test**, because it reads as coverage.
-`check(coins === 777 || coins === 0)` accepted every outcome there is: the save
-it claimed to verify was never written, and the assertion said so out loud
-without anyone hearing it. When a scenario passes the first time you write it,
-break the thing on purpose and watch it go red.
+- **ES modules that only compute** (SkiFree's `config.js`, World Drive's
+  `geo.js`) — import them and call them.
+- **Modules that touch a canvas while loading** (Animals builds its sprite cache
+  when a battle is created) — call `installHeadlessDom()` from the kit *before*
+  importing them. It puts a `document` on `globalThis` whose canvases answer with
+  a 2D context that accepts every call and keeps nothing.
+- **A game in global scope** (Zoo Tycoon is `concat` mode, its files are scripts
+  that share one scope) — load them into a `node:vm` context in the build's
+  order, as `games/zoo-magnata/test/logic.test.mjs` does. After that `SPECIES`,
+  `world` and `G` are ordinary values.
 
-### How to write one
+### Why there is no browser here
 
-`slopkit/testing` provides the scaffold — puppeteer-core with the system's Chrome
-(`CHROME=/path` points at another):
+The suite used to drive real Chrome through puppeteer. It does not any more, and
+the reason is worth keeping: **CI has no graphics card.**
 
-```js
-import { launchBrowser, open, DEVICES, scenario, check, run } from 'slopkit/testing';
-
-const browser = await launchBrowser();
-
-scenario('planting by dragging works on touch', async () => {
-  const g = await open(browser, FILE, DEVICES.phone);
-  await g.exec((game) => game.goToBattle(1));
-  await g.tap(...g.at(240, 50));                     // the GAME's coordinate
-  await g.drag(g.at(300, 400), g.at(520, 500));
-  check(await g.exec((game) => game.current().st.planted.length) === 1);
-  await g.setLang('pt');                             // and in Portuguese too
-  g.expectNoErrors();
-  await g.close();
-});
-
-await run('my game');
-```
-
-### Never sleep a fixed time
-
-`await wait(300)` passes on your machine and fails on the runner, where Chrome
-renders in software. Worse: it passes on its own and fails in the middle of the
-suite, when nothing before it was buying the missing time. Two tools so you don't
-have to guess:
-
-```js
-await g.waitFrames(3);                        // let the screen draw
-await g.waitUntil((game) => game.ready());    // wait for what actually matters
-```
-
-`waitFrames` needs `frames()` on the game's bridge — a counter incremented while
-drawing. It is worth exposing: **a screen's list of clickable buttons only exists
-after it draws**, so switching screen and clicking in the same instant hits a
-screen with no buttons at all. That is how a test here started failing only
-inside the suite.
-
-Its budget follows the number of frames you ask for (and doubles under `CI`), so
-`waitFrames(30)` gets thirty frames' worth of patience. The flat four seconds it
-used to allow was itself a bet on machine speed — thirty frames in four seconds
-is 7.5 fps, which a loaded runner does not always have.
-
-`screenText()` is the same idea for a game whose UI is drawn, not marked up.
-Animais vs Monstros has no DOM to read, so its `text()` helper keeps the strings
-it wrote this frame and the bridge hands them back. Without it the check that
-the flag really changes the words on screen has nothing to look at, and skips
-the one game where the whole interface is a canvas.
-
-**Changing state is not the same as being drawn.** This is the mistake that has
-shown up twice here, the second time only on CI:
-
-```js
-await g.waitUntil((game) => game.current().confirming());  // the dialog opened…
-await g.waitFrames(2);                                     // …but has no buttons yet
-await g.tap(...);
-```
-
-Opening a dialog flips a flag immediately; its buttons only enter the clickable
-list on the next draw. Whenever the next step is clicking something that just
-appeared, put a `waitFrames` between the two.
-
-### A 3D game cannot be played on the runner, and the suite doesn't pretend it can
-
-The one thing CI has no way to give: **a graphics card**. With SwiftShader
-SkiFree draws about **one frame every three seconds**, and because `dt` is capped
-at 1/20 s a frame so the physics can't explode over a long one, the mountain
-simulates at roughly **2% of real time**. That is not a slow test, it is a
-different game. Two scenarios written on a laptop held the controls for two and a
-half seconds and then read the instruments:
+With software WebGL (SwiftShader) SkiFree draws about **one frame every three
+seconds**, and because `dt` is capped at 1/20 s a frame so the physics cannot
+explode over a long one, the mountain simulates at roughly **2% of real time**.
+Two scenarios written on a laptop held the controls for two and a half seconds
+and then read the instruments:
 
 ```
 ✗ a run starts and the mountain actually moves
@@ -724,50 +650,76 @@ half seconds and then read the instruments:
    the car reached 9 km/h
 ```
 
-Both games were fine. What the scenarios measured was the absent GPU. And the
-frame is not the game's fault to fix: profiled on the runner, every piece of its
-own code — physics, props, the AI, the HUD — costs **0 ms**; the whole frame is
-SwiftShader rasterising, off the JS thread, and `requestAnimationFrame` waits for
-it.
+Both games were fine. What the scenarios measured was the absent GPU. And it is
+not the game's to fix: profiled on the runner, every piece of its own code —
+physics, props, AI, HUD — costs **0 ms** a frame; the whole frame is
+rasterisation off the JS thread, and `requestAnimationFrame` waits for it.
 
-So the line is drawn here: **the 3D games are not play-tested by CI.** SkiFree
-has no test of its own and World Drive's stops at the menu and the failure path —
-things that need no frames and run in seconds. Driving and skiing are checked by
-hand before a deploy. The alternative was a ten-minute gate whose every timeout
-had to be tuned to a machine nobody plays on, going red for reasons that have
-nothing to do with the code.
+Those scenarios could be made to pass — wait on the game's own numbers, put the
+skier where the scenario happens, shrink the shadow cascades — and the result was
+a ten-minute gate tuned to a machine nobody plays on. What replaced it covers
+more of the game, in three seconds, on any machine.
 
-What still holds for the tests that remain:
+**What a browser was really answering, and where it went:**
 
-- **Wait on a number the game keeps** — `phase`, a HUD string, `state` — never on
-  elapsed seconds, and make the timeout say what it waited for.
-- **A page left open keeps rendering.** The runner closes whatever a scenario
-  leaves behind: the first failed SkiFree scenario starved the four after it
-  until `goto` itself timed out, and one real failure was reported as five. On
-  the way out it photographs what is still open, which is what fills the
-  `failure-screenshots` artifact.
+| The old scenario asked | Now |
+|---|---|
+| does it open over `file://` with nothing external | the floor, by reading the file |
+| does it draw, does the canvas fill the screen | **by hand, before a deploy** |
+| does the flag change the words | each game's own test, on the dictionary |
+| does the save survive a reload | the kit's `save` unit tests + the game's |
+| does the game *play* | each game's own test, in Node |
 
-**`g.at(x, y)` is not a convenience, it is the part that goes wrong most.**
-Converting a logical coordinate to a screen coordinate by eye
-(`x / 1280 * width`) failed twice during development — once because the canvas
-was centred with bars, once because the logical width became elastic. Both times
-the test reported a game bug that was a test bug. `at()` reads the measurement
-from the game itself, through `window.__game.viewport`. For content inside a
-frame, use `atFrame()`, which discounts the scale too.
+The one row that lost its machine is the drawing. That is the honest cost, and
+it is cheap: a game that draws nothing is visible in one second to a person, and
+invisible to the fastest test suite in the world if that suite has no eyes.
 
-**Don't look for a button by pixel.** With the text changing language, a bar that
-sizes itself to its content moves. Animals exposes `buttons()` on the map screen
-and the test finds the button by the action it performs — resistant to
-translation and to layout changes.
+### How to write one
 
-**Don't assume which language a test starts in.** English is the default, but a
-browser asking for Portuguese gets Portuguese — and the machine running the suite
-may well be one. Read the current language off the bridge and switch to the
-*other* one; that is the contract either way.
+```js
+import { scenario, check, run } from 'slopkit/testing';
+import { createPlayer } from '../src/entities/player.js';
 
-Run it before publishing.
+scenario('the skier goes downhill', () => {
+  const p = createPlayer(new THREE.Group());
+  p.reset(0);
+  for (let t = 0; t < 2; t += 1 / 60) p.update(1 / 60, { ramps: [], colliders: [] });
+  check(p.state.travel > 10, `two seconds covered ${p.state.travel.toFixed(1)} m`);
+});
 
----
+await run('my game');
+```
+
+**Drive the loop yourself, at a fixed step.** In Node there is no
+`requestAnimationFrame` worth having, and there is no reason to want one: a `for`
+loop over `update(1/60)` is the same simulation, as fast as the CPU can go, and
+deterministic.
+
+**Put the actor where the scenario happens.** The Yeti wakes at 2,000 m; a test
+does not ski there, it sets `travel` and moves on. What is under test is the
+catch, not the metres in between.
+
+**The failure message is the test's real output.** `check(top > 100, \`flat out
+it only does ${top.toFixed(0)} km/h\`)` tells you what broke; `check(top > 100)`
+tells you a line number. Every check here carries the number it saw.
+
+**A test that cannot fail is worse than no test**, because it reads as coverage.
+`check(coins === 777 || coins === 0)` accepted every outcome there is. When a
+scenario passes the first time you write it, break the thing on purpose and watch
+it go red — and if it goes red for a reason you did not expect, read it before
+"fixing" the test. Two of these caught the game being right and the test being
+naive: holding "up" for thirty seconds is not a tuck, it is a backflip into the
+snow, and a car braking past a stop is a car in reverse.
+
+**Assert against the game's own constants**, not against numbers you measured
+once. `PLAYER.maxSpeed`, `YETI.catchRadius`, `HALF` and `MODES` are exported;
+a test that reads them keeps working when they are tuned, and still fails when
+the behaviour breaks.
+
+**Don't reproduce the game's geometry in the test.** Where a cell or a lane is on
+screen is the game's business: spawn something and read *its* position back. A
+lane's y computed as `720 / 5` was wrong by the height of the HUD, and it failed
+only sometimes — the worst kind of green.
 
 ## 7. Publishing
 
@@ -781,7 +733,7 @@ deploy and `dist/` is not committed.
 
 ### The gate
 
-The workflow has two jobs: `testar` builds and tests, `publicar` only publishes.
+The workflow has two jobs: `test` builds and tests, `publish` only publishes.
 **The artifact that goes live is exactly the one that passed the tests** — the
 publishing job rebuilds nothing. Without that there would be a chance of shipping
 a build different from the one that was verified.
@@ -790,56 +742,20 @@ What blocks the deploy:
 
 1. `npm run build` — which already fails on its own if any game produces HTML
    with an external reference (rule nº 2) or a `game.json` missing a language.
-2. `npm test` — the kit's unit tests + the floor for every game, including the
-   flag switch in each one.
+2. `npm test` — the kit's unit tests and the catalog floor.
 3. Every game's own test (`npm run test --workspaces --if-present`).
 
-What does **not** block it: World Drive's `test:network`, which drives on a real
-OpenStreetMap map. It is a good test and a terrible gate — it depends on a
-third-party public API that goes down and rate-limits. It runs with
-`continue-on-error` to give visibility without being able to hold the whole
-catalog hostage.
+All three together take a few seconds, install eight packages and need nothing
+from the runner but Node. There is no Chrome step, no browser download, no
+network test and no screenshot artifact: **nothing in the gate opens a window**
+(section 6 says why). World Drive's smoke test against the real Overpass API went
+with them — a third-party server that queues and rate-limits was never a gate,
+and what is left of that path is covered in Node.
 
-Its blocking half never touches the network, and never starts the car. Two of its
-scenarios cut the line **on purpose** and ask whether the loading path fails
-*gracefully* — an error card, a retry button, no uncaught exception; the two look
-identical from outside, and the retry loop reports a broken game and an offline
-one alike as "the servers are busy". A third checks the menu itself: the presets,
-the search with the geocoder refused, the two flags.
-
-The drive is not in there, and neither is a run down SkiFree's mountain. Both
-were tried and both went red on the runner for the same reason — no GPU, one
-frame every few seconds, instruments read before the world had moved a metre. The
-gate keeps what a machine with no graphics card can honestly answer; the rest is
-a lap by hand before a deploy.
-
-When something breaks, the tests' screenshots go up as an artifact
-(`failure-screenshots`): the runner photographs whatever page the failed scenario
-left open, and on a layout failure the image says in one second what the log
-doesn't say in twenty.
-
-### Running the way CI runs
-
-Two things change when `CI` is set, both for concrete reasons:
-
-```bash
-CI=1 npm test        # reproduces the runner's environment on your machine
-```
-
-- **`--no-sandbox`** — the runner runs as root in a container and Chrome refuses
-  to start with the sandbox.
-- **Software WebGL** (`--use-angle=swiftshader`). The reflex here would be
-  `--disable-gpu`, and it **breaks the 3D games**: with no WebGL context, SkiFree
-  and World Drive create no canvas at all and the test reports "no canvas" as if
-  the game were broken. SwiftShader renders on the CPU — slower, but real.
-
-Chrome comes from the runner (`puppeteer-core` doesn't download a browser, and
-that is what keeps the repository light). slopkit's `findChrome()` finds it on
-macOS, Linux and Windows; `CHROME=/path` forces another.
-
-Because SwiftShader is slow, a test that sleeps a fixed time passes on your
-laptop and fails on the runner. Use `waitFrames()` and `waitUntil()` — see
-section 6.
+What the gate cannot answer is whether the games still *look* right. That is a
+lap by hand before a deploy: open the four, start a run, drive a street, plant an
+animal, flip the flag. It takes two minutes and it is the only thing a machine
+with no graphics card was never honest about.
 
 ## 8. Code conventions
 

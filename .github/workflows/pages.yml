@@ -36,52 +36,19 @@ jobs:
 
       - run: npm ci
 
-      # `puppeteer-core` does not download a browser (that is what keeps this
-      # repository light), so Chrome comes from the runner. slopkit's
-      # `findChrome` locates it on its own; this step exists to fail with a
-      # clear message the day it goes missing.
-      - name: Check the runner's Chrome
-        run: |
-          CHROME_PATH="$(command -v google-chrome || command -v chromium || true)"
-          if [ -z "$CHROME_PATH" ]; then
-            echo "::error::no Chrome on the runner — the browser tests cannot run"
-            exit 1
-          fi
-          echo "Chrome at $CHROME_PATH — $("$CHROME_PATH" --version)"
-
       - name: Build the games and the index
         run: npm run build
 
       - name: Unit and catalog tests
         run: npm test
 
-      # The 2D games are played here from end to end. The 3D ones are not: this
-      # runner has no GPU, SwiftShader draws SkiFree at about one frame every
-      # three seconds, and a scenario that holds the throttle measures the
-      # graphics card instead of the game. They get the floor above, and a lap
-      # by hand before a deploy.
+      # Every game's own test, and none of them opens a browser: the runner has
+      # no graphics card, and a scenario that played a 3D game there measured
+      # SwiftShader instead of the code. What plays the games now is Node —
+      # the physics, the catalogue, the battle and the street index are all
+      # plain functions (CLAUDE.md, section 6).
       - name: Each game's own tests
         run: npm run test --workspaces --if-present
-
-      # This one really drives on a real OpenStreetMap map. It is a good test
-      # and a terrible gate: it depends on a third-party public API that goes
-      # down and rate-limits. It runs for visibility, without being able to
-      # block the deploy.
-      - name: Network integration test (non-blocking)
-        continue-on-error: true
-        run: npm run test:network --workspace games/worlddrive
-
-      # when something breaks, the screenshot is worth more than the log
-      - name: Keep the screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: failure-screenshots
-          path: |
-            games/*/test/*.png
-            test/*.png
-          if-no-files-found: ignore
-          retention-days: 7
 
       - name: Package the tested dist
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

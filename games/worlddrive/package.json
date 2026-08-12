@@ -7,8 +7,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/game.test.mjs",
-    "test:network": "node test/smoke.mjs"
+    "test": "node test/logic.test.mjs"
   },
   "keywords": [],
   "author": "",
@@ -18,8 +17,8 @@
     "three": "^0.185.1",
     "slopkit": "*"
   },
+  "type": "module",
   "devDependencies": {
-    "esbuild": "^0.28.1",
-    "puppeteer-core": "^24.43.1"
+    "esbuild": "^0.28.1"
   }
 }

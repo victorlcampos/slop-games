@@ -37,7 +37,7 @@ The build produces `dist/index.html` (the index) and `dist/<slug>/index.html`
 ```bash
 npm run build              # build everything
 npm run build zoo-magnata  # build one game
-npm test                   # opens everything over file:// and checks for JS errors
+npm test                   # the whole suite, in about three seconds
 ```
 
 ## Adding a game
@@ -66,13 +66,18 @@ A pull request runs the same tests without publishing. `dist/` is not committed.
 ## Tests
 
 ```bash
-npm test               # the kit's unit tests + the floor every game has to clear
+npm test               # the kit's unit tests + the catalog floor
 npm run test:games     # each game's own test
-CI=1 npm test          # reproduces the runner's environment
 ```
 
-The 3D games are not played by CI: the runner has no graphics card, and with
-software WebGL SkiFree draws about one frame every three seconds — a scenario
-that holds the throttle ends up measuring the machine. They clear the floor
-(they open, they draw, they speak both languages) and get a lap by hand before a
-deploy.
+**Nothing here opens a browser, and the whole thing takes about three seconds.**
+The floor reads the built files (one self-contained `index.html`, both
+languages, the exit to the catalog, an installable manifest); each game's own
+test plays it in Node — the skier accelerates and the Yeti eats him, the car
+reaches a top speed, an animal is planted and a monster dies, 219 species are
+all well formed.
+
+The one thing a test cannot say any more is "and it draws": CI has no graphics
+card, and a scenario that played a 3D game there measured the software renderer
+instead of the code. That is a two-minute lap by hand before a deploy — see
+[CLAUDE.md, section 6](CLAUDE.md) for the whole story.

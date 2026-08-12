@@ -26,16 +26,18 @@ npm install
 node build.mjs        # produces dist/index.html (three.js bundled inline into the template)
 ```
 
-## Smoke test
+## Tests
 
 ```sh
-node test/smoke.mjs               # headless Chrome: opens over file://, loads San Francisco and drives
-PRESET=2 node test/smoke.mjs      # 0=San Francisco 1=Monaco 2=Rio 3=Paris 4=Tokyo 5=NY
-URL=https://victorlcampos.github.io/slop-games/worlddrive/ node test/smoke.mjs   # test the published deploy
+npm test --workspace games/worlddrive    # the projection, the street index, the car — in Node
 ```
 
-Note: the main Overpass mirror rejects the "HeadlessChrome" fingerprint (406),
-so the test disguises the UA and the client hints. Real browsers are unaffected.
+There is no browser test any more, and no smoke test against the real Overpass
+API. The first went with the rest of the suite (CLAUDE.md, section 6 — CI has no
+graphics card, so a scenario that held the throttle measured the renderer); the
+second was always a bad gate, since a public server that queues and rate-limits
+cannot decide whether the catalog ships. Driving a real city is checked by hand
+before a deploy.
 
 ## Controls
 

@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/game.test.mjs"
+    "test": "node test/logic.test.mjs"
   },
   "license": "MIT",
   "dependencies": {
