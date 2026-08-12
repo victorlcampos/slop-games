@@ -10,6 +10,7 @@ import { i18n, t } from './i18n.js';
 import { createGame } from './game.js';
 import { createFx } from './fx.js';
 import { createRenderer, clock } from './render.js';
+import { createTouchControls } from './controls.js';
 import { sound, sfx } from './audio.js';
 
 const canvas = document.getElementById('canvas');
@@ -49,7 +50,6 @@ let phase = 'menu';
 
 const keys = new Set();
 const input = { left: false, right: false, jump: false, down: false, up: false, fire: false };
-const pads = [];
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -75,56 +75,37 @@ let mouseDown = false;
 canvas.addEventListener('mousedown', () => { mouseDown = true; sound.resume(); });
 addEventListener('mouseup', () => { mouseDown = false; });
 
-/** The thumbs: five pads drawn on the canvas, in logical coordinates. */
-function layoutPads() {
-  pads.length = 0;
-  const y = H - 96;
-  pads.push({ id: 'left', icon: '◀', x: 100, y, r: 52, held: false });
-  pads.push({ id: 'right', icon: '▶', x: 216, y, r: 52, held: false });
-  pads.push({ id: 'down', icon: '▼', x: 158, y: y - 106, r: 44, held: false });
-  pads.push({ id: 'jump', icon: '⤒', x: vp.W - 220, y, r: 56, held: false });
-  pads.push({ id: 'fire', icon: '✦', x: vp.W - 96, y: y - 26, r: 66, held: false });
-}
-
-const touches = new Map();
-function padAt(x, y) {
-  for (const p of pads) if (Math.hypot(p.x - x, p.y - y) < p.r * 1.15) return p;
-  return null;
-}
-function applyPads() {
-  for (const p of pads) p.held = false;
-  for (const id of touches.keys()) {
-    const p = touches.get(id);
-    if (p) p.held = true;
-  }
-  if (!vp.touch) return;
-  const held = (id) => pads.some((p) => p.id === id && p.held);
-  input.left = input.left || held('left');
-  input.right = input.right || held('right');
-  input.down = input.down || held('down');
-  input.jump = input.jump || held('jump');
-  input.up = input.up || held('down') === false && false;   // ↑ stays a keyboard-only override
-  input.fire = input.fire || held('fire');
-}
+// The touch controls appear where the thumb lands: left half is the stick,
+// right half is the trigger (see src/controls.js).
+const touch = createTouchControls(() => vp.W);
 
 for (const [type, handler] of [
   ['touchstart', (e) => {
     sound.resume();
-    for (const touch of e.changedTouches) {
-      const p = vp.point(touch.clientX, touch.clientY);
-      touches.set(touch.identifier, padAt(p.x, p.y));
+    for (const t of e.changedTouches) {
+      const p = vp.point(t.clientX, t.clientY);
+      touch.start(t.identifier, p.x, p.y);
     }
   }],
   ['touchmove', (e) => {
-    for (const touch of e.changedTouches) {
-      const p = vp.point(touch.clientX, touch.clientY);
-      touches.set(touch.identifier, padAt(p.x, p.y));
+    for (const t of e.changedTouches) {
+      const p = vp.point(t.clientX, t.clientY);
+      touch.move(t.identifier, p.x, p.y);
     }
   }],
-  ['touchend', (e) => { for (const touch of e.changedTouches) touches.delete(touch.identifier); }],
-  ['touchcancel', (e) => { for (const touch of e.changedTouches) touches.delete(touch.identifier); }],
+  ['touchend', (e) => { for (const t of e.changedTouches) touch.end(t.identifier); }],
+  ['touchcancel', (e) => { for (const t of e.changedTouches) touch.end(t.identifier); }],
 ]) {
   canvas.addEventListener(type, (e) => { e.preventDefault(); handler(e); }, { passive: false });
+}
+
+function applyTouch() {
+  const asked = touch.read();
+  input.left = input.left || asked.left;
+  input.right = input.right || asked.right;
+  input.down = input.down || asked.down;
+  input.jump = input.jump || asked.jump;
+  input.fire = input.fire || asked.fire;
 }
 
 // ------------------------------------------------------------------ screens
@@ -140,7 +121,7 @@ function start() {
   show(menu, false);
   show(over, false);
   canvas.hidden = false;
-  layoutPads();
+  touch.clear();
 }
 
 function finish(result) {
@@ -178,7 +159,7 @@ createLoop({
   update: (h) => {
     if (phase !== 'playing' || !game) return;
     readKeys();
-    applyPads();
+    applyTouch();
     const before = game.shots.length;
     game.update(h, input);
     if (game.shots.length > before) sfx.shot(game.weapon().kind);
@@ -191,8 +172,7 @@ createLoop({
     vp.begin();
     const ctx = vp.ctx;
     if (phase === 'playing' && game) {
-      if (pads.length && pads[3].x !== vp.W - 220) layoutPads();
-      renderer.draw(ctx, game, vp.W, { best, pads: vp.touch ? pads : null });
+      renderer.draw(ctx, game, vp.W, { best, touch: vp.touch ? touch : null });
     } else {
       // the menu paints the same sky behind the card, so the game is never a blank
       renderer.draw(ctx, idleGame(), vp.W, { best, pads: null, chrome: false });
@@ -211,8 +191,6 @@ function idleGame() {
   return idle;
 }
 
-vp.watch(() => layoutPads());
-layoutPads();
 document.getElementById('boot').hidden = true;
 document.getElementById('btn-sound').textContent = sound.on ? '🔊' : '🔇';
 

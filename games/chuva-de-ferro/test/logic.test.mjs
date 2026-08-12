@@ -13,6 +13,7 @@ import { OBJECTS, OBJECT_BY_ID, DROPPED, rollObject, spawnObject } from '../src/
 import { createWorld } from '../src/world.js';
 import { dict } from '../src/i18n.js';
 import { makeRng, GROUND, PLAYER } from '../src/config.js';
+import { STICK, stickInput, createTouchControls } from '../src/controls.js';
 
 const KINDS = ['bullet', 'pellet', 'beam', 'rocket', 'lobbed', 'flame', 'orb', 'homing'];
 const LANDINGS = ['break', 'settle', 'bounce', 'roll', 'explode', 'stick'];
@@ -197,6 +198,61 @@ scenario('everything the player reads exists in both languages', () => {
     check(o.name.pt && o.name.en, `${o.id}: named in one language only`);
   }
   check(dict['intro.1'].pt !== dict['intro.1'].en, 'the intro is the same sentence twice');
+});
+
+// -------------------------------------------------------------- the thumbs
+
+scenario('the stick is born under the thumb and answers in four directions', () => {
+  const c = createTouchControls(() => 1200);
+
+  // left half: the stick appears exactly where the finger landed
+  c.start(1, 300, 500);
+  check(c.stick.on && c.stick.ox === 300 && c.stick.oy === 500, 'the stick did not appear under the thumb');
+  checkEqual(c.read(), { left: false, right: false, down: false, jump: false, up: false, fire: false },
+    'a thumb resting still asked for something');
+
+  c.move(1, 300 + STICK.turn + 4, 500);
+  check(c.read().right && !c.read().left, 'pushing right did not run right');
+  c.move(1, 300 - STICK.turn - 4, 500);
+  check(c.read().left, 'pushing left did not run left');
+
+  c.move(1, 300, 500 - STICK.up - 4);
+  check(c.read().jump && !c.read().down, 'pushing up did not jump');
+  c.move(1, 300, 500 + STICK.down + 4);
+  check(c.read().down && !c.read().jump, 'pushing down did not crouch');
+
+  // and the diagonal, which is how you walk crouched under a cave
+  c.move(1, 300 + STICK.turn + 10, 500 + STICK.down + 10);
+  const diagonal = c.read();
+  check(diagonal.right && diagonal.down, 'down and forward at once did not crouch-walk');
+
+  c.end(1);
+  check(!c.stick.on && !c.read().right, 'the stick stayed on after the finger left');
+});
+
+scenario('the right half is the trigger, and the two thumbs are independent', () => {
+  const c = createTouchControls(() => 1200);
+  c.start(7, 900, 400);
+  check(c.trigger.on && c.read().fire, 'a thumb on the right half did not fire');
+  check(!c.stick.on, 'the trigger also grabbed the stick');
+
+  c.start(8, 200, 600);
+  c.move(8, 200 - STICK.turn - 5, 600);
+  const both = c.read();
+  check(both.fire && both.left, 'firing while running backwards asked for one or the other');
+
+  c.end(7);
+  check(!c.read().fire && c.read().left, 'letting go of the trigger let go of the stick too');
+  c.clear();
+  check(!c.stick.on && !c.trigger.on, 'clearing left a finger behind');
+});
+
+scenario('a thumb that barely moves is a thumb standing still', () => {
+  const asked = stickInput(STICK.dead - 2, 0);
+  check(!asked.left && !asked.right && !asked.down && !asked.jump,
+    'the deadzone is not dead — the soldier would drift under a resting thumb');
+  check(stickInput(0, -STICK.up - 1).jump, 'straight up did not jump');
+  check(stickInput(0, STICK.down + 1).down, 'straight down did not crouch');
 });
 
 await run('iron rain — the tables');

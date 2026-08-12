@@ -11,6 +11,7 @@ import { drawCargo } from './draw/cargo.js';
 import { ball, block, groundShadow, outline, polygon, roundRect, shade, text } from './draw/paint.js';
 import { pick, t } from './i18n.js';
 import { WEAPON_BY_ID } from './weapons.js';
+import { STICK, stickInput } from './controls.js';
 
 const STEP = 14;   // how finely the road is sampled, in px
 
@@ -453,25 +454,66 @@ export function createRenderer() {
     ctx.restore();
   }
 
-  function touchPads(ctx, pads) {
-    if (!pads) return;
+  /**
+   * The stick, drawn where the thumb put it, and the trigger where the other
+   * one is. Nothing is drawn until a finger is down: an empty screen is the
+   * point — the controls are wherever you decide to hold the phone.
+   */
+  function thumbs(ctx, touch, W, time) {
+    if (!touch) return;
     ctx.save();
-    for (const p of pads) {
-      ctx.globalAlpha = p.held ? 0.5 : 0.24;
+    if (touch.stick.on) {
+      const { ox, oy } = touch.stick;
+      const dx = touch.stick.x - ox;
+      const dy = touch.stick.y - oy;
+      const len = Math.hypot(dx, dy);
+      const k = len > STICK.max ? STICK.max / len : 1;
+
+      ctx.globalAlpha = 0.28;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.arc(ox, oy, STICK.max, 0, Math.PI * 2);
       ctx.fillStyle = '#0d0b09';
       ctx.fill();
       ctx.strokeStyle = '#f0e4c8';
       ctx.lineWidth = 3;
       ctx.stroke();
-      ctx.globalAlpha = p.held ? 1 : 0.7;
-      text(ctx, p.icon, p.x, p.y + 1, { size: p.r * 0.9, align: 'center', baseline: 'middle', colour: '#f0e4c8' });
+
+      // the four directions, lit as they are asked for
+      const asked = stickInput(dx, dy);
+      const marks = [
+        ['◀', -1, 0, asked.left], ['▶', 1, 0, asked.right],
+        ['▲', 0, -1, asked.jump], ['▼', 0, 1, asked.down],
+      ];
+      for (const [icon, mx, my, on] of marks) {
+        ctx.globalAlpha = on ? 0.95 : 0.3;
+        text(ctx, icon, ox + mx * STICK.max * 0.72, oy + my * STICK.max * 0.72,
+          { size: 24, align: 'center', baseline: 'middle', colour: on ? '#ffd88a' : '#f0e4c8', stroke: 3 });
+      }
+
+      ctx.globalAlpha = 0.65;
+      ball(ctx, ox + dx * k, oy + dy * k, 30, '#e8d7b4', { line: 3 });
+    }
+    if (touch.trigger.on) {
+      ctx.globalAlpha = 0.5 + Math.sin(time * 22) * 0.12;
+      ball(ctx, touch.trigger.x, touch.trigger.y, 44, '#d9a253', { line: 3 });
+      ctx.globalAlpha = 0.9;
+      text(ctx, '✦', touch.trigger.x, touch.trigger.y + 1,
+        { size: 34, align: 'center', baseline: 'middle', colour: '#1b160f', stroke: 0 });
     }
     ctx.restore();
   }
 
-  function draw(ctx, game, W, { best, pads, chrome = true } = {}) {
+  /** The first seconds of a run say where the controls are, then get out. */
+  function thumbHint(ctx, game, W, touch) {
+    if (!touch || game.state.time > 7 || touch.stick.on || touch.trigger.on) return;
+    ctx.save();
+    ctx.globalAlpha = clamp((7 - game.state.time) / 3, 0, 0.5);
+    text(ctx, t('hud.moveHere'), W * 0.25, H - 120, { size: 22, align: 'center', colour: '#f0e4c8' });
+    text(ctx, t('hud.fireHere'), W * 0.75, H - 120, { size: 22, align: 'center', colour: '#f0e4c8' });
+    ctx.restore();
+  }
+
+  function draw(ctx, game, W, { best, touch, chrome = true } = {}) {
     const cam = camera(game, W);
     game.camX = cam;
     const shakeX = game.state.shake ? (Math.random() - 0.5) * 18 * game.state.shake : 0;
@@ -519,7 +561,8 @@ export function createRenderer() {
     if (chrome) {
       hud(ctx, game, W, best);
       toast(ctx, game, W);
-      touchPads(ctx, pads);
+      thumbHint(ctx, game, W, touch);
+      thumbs(ctx, touch, W, game.state.time);
     }
   }
 

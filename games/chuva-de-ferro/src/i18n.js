@@ -34,8 +34,8 @@ export const dict = {
     en: 'Arrows or A/D to move · W, ↑ or space to jump · S or ↓ to crouch · hold J, Z or the mouse to fire',
   },
   'menu.touch': {
-    pt: 'No celular: os comandos aparecem na tela e o tiro é o botão da direita.',
-    en: 'On a phone: the controls are drawn on screen and the trigger is the right-hand button.',
+    pt: 'No celular o controle nasce onde o dedo toca: metade esquerda é o direcional (cima pula, baixo agacha), metade direita é o gatilho.',
+    en: 'On a phone the control appears where your thumb lands: the left half is the stick (up jumps, down crouches), the right half is the trigger.',
   },
   'menu.aim': {
     pt: 'A mira é automática — ela escolhe o que está prestes a cair na sua cabeça. Segure ↑ para atirar reto para cima.',
@@ -49,6 +49,8 @@ export const dict = {
   'hud.ammo': { pt: 'munição', en: 'ammo' },
   'hud.dry': { pt: 'sem munição — de volta ao fuzil', en: 'out of ammo — back to the rifle' },
   'hud.medkit': { pt: 'kit médico', en: 'medkit' },
+  'hud.moveHere': { pt: 'toque aqui para andar · cima pula · baixo agacha', en: 'touch here to move · up jumps · down crouches' },
+  'hud.fireHere': { pt: 'toque aqui para atirar', en: 'touch here to fire' },
 
   'over.title': { pt: 'A estrada ficou com você', en: 'The road kept you' },
   'over.score': { pt: 'Pontos', en: 'Score' },
