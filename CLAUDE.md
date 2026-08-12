@@ -141,6 +141,7 @@ implementations that already existed.
 |---|---|---|
 | `viewport` — elastic width | Animals vs Monsters | fixed logical height, width following the aspect ratio: fills any monitor with no bars and no distortion |
 | `viewport` — DPR ceiling | Zoo Tycoon | an **adaptive** ceiling (1.6 on a small phone, 2 elsewhere); DPR 3 triples the fill area for no visible gain on a cartoon outline |
+| `viewport` — turning the canvas | Animals vs Monsters | a board that only fits lying down lies down by itself, instead of asking the player to unlock rotation |
 | `loop` — fixed step | Zoo Tycoon | it was the only one with an accumulator and a guard; the other three used raw dt, and with raw dt a game behaves differently at 60 and at 144 Hz |
 | `save` — one format | Zoo Tycoon | the same snapshot serves the autosave and the file. Two formats become two saves drifting apart |
 | `save` — normalise | Animals vs Monsters | every save read goes through a function that fills in what's missing; an old save loses a field, never the run |
@@ -161,6 +162,65 @@ implementations that already existed.
    16:10 monitor gives 1152 of logical width, not 1280).
 4. **A DPR ceiling.** Rendering a cartoon outline at 3x is spending three times
    as much for nobody to see a difference.
+5. **A game that needs landscape turns itself.** Never ask the player to turn
+   their phone — see below.
+
+### Turning the canvas instead of asking for a turn
+
+Some boards genuinely do not fit upright: Animals vs Monsters is nine columns
+wide, and squeezing them into a portrait phone leaves a lane you cannot read.
+The reflex is a card that says "turn your device". It is a wall:
+
+> **most phones have rotation locked**, so the card cannot be obeyed. The player
+> has to leave the game, find the setting, unlock it, come back — for something
+> the game can do itself in four lines. Locking `orientation` in the manifest is
+> the same mistake with a smaller audience.
+
+So the game says it needs landscape, and the kit lays the canvas on its side:
+
+```js
+createViewport(canvas, { height: 720, frame: 1280, landscape: true });
+```
+
+With the window upright, `resize` swaps the two measurements — the game sees the
+wide viewport it was designed for — and turns the canvas a quarter turn onto the
+window it is really in:
+
+```js
+canvas.style.width  = winHeight + 'px';       // the canvas is the window, sideways
+canvas.style.height = winWidth + 'px';
+canvas.style.transformOrigin = '0 0';
+canvas.style.transform = `translate(${winWidth}px, 0) rotate(90deg)`;
+```
+
+`rotate(90deg)` around the top-left corner puts the canvas to the *left* of the
+window; the `translate` slides it back in. Order matters — the translate is
+written first and applied first.
+
+**The finger has to turn with it**, and this is the half that is easy to forget:
+a game whose pointer mapping stayed upright is not visibly broken, it is *deaf*
+— every tap lands somewhere else and nothing responds. Turned, the screen's y is
+the game's x, and the screen's x measured **from the right edge** is the game's
+y:
+
+```js
+export function turnedPoint(clientX, clientY, winWidth, scale) {
+  return { x: clientY / scale, y: (winWidth - clientX) / scale };
+}
+```
+
+Two traps found while wiring it up:
+
+- **`getBoundingClientRect` is no help on a rotated element** — it returns the
+  bounding box, which is the whole window, so the offsets it gives are not the
+  canvas's. The turned path measures against the window instead.
+- **The DPR ceiling has to follow the long side**, which is the game's width
+  whichever way the phone is held. Reading it off the window's width made an
+  upright phone look like a tablet, and it drew at twice the fill rate it needs.
+
+Both halves are pure functions with unit tests (`measure(..., { landscape: true })`
+and `turnedPoint`), because "the game went deaf after a rotation" is not
+something you want to debug on a phone.
 
 ### Who uses what
 
@@ -482,16 +542,10 @@ single HTML file with nothing to fetch. (Chrome's automatic install prompt
 requires a SW; "Add to Home Screen" from the menu works without one, and on iOS
 that is the only way anyway.)
 
-`orientation` in `game.json` is optional and should stay that way. **A board that
-only works lying down is the game's problem, not the player's**: pass
-`landscape: true` to `createViewport` and the kit lays the canvas on its side
-inside the upright window — the game gets the wide viewport it needs, the finger
-is turned with it, and the player holds their phone however they like.
-
-That replaced the "turn your device" card Animals vs Monsters used to show. The
-card looked polite and was a wall: a phone with rotation locked — which is most
-phones — cannot obey it, so the game simply did not open. Locking `orientation`
-in the manifest has the same flaw, and only for whoever installed the game.
+`orientation` in `game.json` is optional and should stay that way: a board that
+only works lying down turns itself (section 2b, "turning the canvas instead of
+asking for a turn"). Locking the manifest to `landscape` fixes nothing the kit
+does not already fix, and only for whoever installed the game.
 
 The installed manifest speaks **one language only** — an app's name doesn't
 change with the flag. It uses the English side; the `<title>`, which JavaScript
