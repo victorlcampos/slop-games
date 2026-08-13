@@ -629,9 +629,20 @@ export function createGame(opts) {
     }
     for (const b of bodies) b.seen = Math.max(0, b.seen - dt * 0.5);
 
-    // what the player can see, and what is looking back
-    game.sight = createSight(grid, player.x, player.y, player.facing, PLAYER);
-    stats.explored += rememberSeen(grid, seen, game.sight);
+    // What the player can see, and what is looking back. Only recomputed when
+    // he has actually moved or turned: the fan is ~180 fresh objects a step, at
+    // 120 steps a second, and on a phone that alloc churn is a garbage-collector
+    // hitch every few seconds — felt as stutter while standing perfectly still.
+    // A step's worth of drift (under 2px, under half a degree) changes nothing
+    // the eye could catch.
+    const drift2 = (player.x - sightPose.x) ** 2 + (player.y - sightPose.y) ** 2;
+    if (!(drift2 < 4) || Math.abs(angleDelta(sightPose.f, player.facing)) > 0.008) {
+      game.sight = createSight(grid, player.x, player.y, player.facing, PLAYER);
+      stats.explored += rememberSeen(grid, seen, game.sight);
+      sightPose.x = player.x;
+      sightPose.y = player.y;
+      sightPose.f = player.facing;
+    }
 
     let worst = 0;
     let who = null;
@@ -669,6 +680,7 @@ export function createGame(opts) {
 
   game.sight = createSight(grid, player.x, player.y, player.facing, PLAYER);
   rememberSeen(grid, seen, game.sight);
+  const sightPose = { x: player.x, y: player.y, f: player.facing };
 
   return game;
 }
