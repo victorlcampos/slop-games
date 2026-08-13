@@ -12,7 +12,8 @@
 // only way a fog can be fair.
 
 import {
-  COLOURS, KIT, TILE, WALL_H, HEAD_LIFT, ROLL, PLAYER, CAMERA, VAULT, clamp,
+  COLOURS, KIT, TILE, WALL_H, HEAD_LIFT, ROLL, PLAYER, CAMERA, VAULT, ASSIST, RAD,
+  clamp, angleDelta,
 } from './config.js';
 import { WALL, VAULT_FLOOR, HALL, lineOfSight } from './grid.js';
 import { visibilityFan } from './vision.js';
@@ -20,13 +21,69 @@ import { WEAPONS } from './weapons.js';
 import { STICK, useButton, rollButton, fireButton } from './controls.js';
 import { t, i18n } from './i18n.js';
 
+// ------------------------------------------------- the sprites, baked once
+//
+// Radial gradients are the most expensive thing a weak GPU is asked to do
+// here, and the old renderer rebuilt and refilled up to four of them across
+// the whole screen every frame — the falloff, the vignette, the alarm wash,
+// every muzzle flash. Each is now painted once into a small offscreen canvas
+// and blitted, which is the cheapest operation a canvas has.
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return c;
+}
+
+function radialSprite(size, rgb, stops) {
+  const c = makeCanvas(size, size);
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [at, a] of stops) grd.addColorStop(at, `rgba(${rgb},${a})`);
+  g.fillStyle = grd;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+
+// one light profile shared by every cone: bright at the lamp, gone at the edge
+const CONE_STOPS = [[0, 1], [0.55, 0.62], [1, 0]];
+
+let RADIALS = null;
+function radials() {
+  if (!RADIALS) {
+    RADIALS = {
+      // the torch falloff: same stops the old per-frame gradient carried
+      falloff: radialSprite(512, '7,8,12', [[0, 0], [0.22, 0], [0.735, 0.18], [1, 0.56]]),
+      // a breath of warm light at his feet — a torch, not a fluorescent tube
+      glow: radialSprite(256, '255,205,150', [[0, 0.1], [0.55, 0.04], [1, 0]]),
+      muzzle: radialSprite(128, '255,195,120', [[0, 0.85], [1, 0]]),
+      coneCalm: radialSprite(256, '255,225,170', CONE_STOPS),
+      coneWary: radialSprite(256, '255,200,110', CONE_STOPS),
+      coneHot: radialSprite(256, '255,90,77', CONE_STOPS),
+      coneCam: radialSprite(256, '143,169,214', CONE_STOPS),
+    };
+  }
+  return RADIALS;
+}
+
+// Wall blocks depend only on which neighbours are open and the tile's parity —
+// thirty-two variants for the whole game, shared across floors and runs.
+const WALL_SPRITES = new Map();
+
 export function createRenderer() {
   const r = {
     camX: 0,
     camY: 0,
+    level: null,                 // the floor the bake below belongs to
+    floorImg: null,
+    floorScale: 1,
+    shade: { W: 0, H: 0, vignette: null, wash: null },
     reset() {
       r.camX = 0;
       r.camY = 0;
+      r.level = null;
+      r.floorImg = null;
     },
   };
 
@@ -45,6 +102,15 @@ export function createRenderer() {
     ctx.fillStyle = COLOURS.void;
     ctx.fillRect(0, 0, W, H);
 
+    // The whole static floor — tiles, patterns, furniture — is painted once per
+    // level into an offscreen and blitted from then on. What used to be some
+    // fifteen hundred little fills a frame is one drawImage.
+    if (r.level !== game.level) {
+      r.level = game.level;
+      r.floorScale = bakeScale(vp, game.grid);
+      r.floorImg = bakeFloor(game, r.floorScale);
+    }
+
     ctx.save();
     // not rounded: the camera has to be *exactly* the one `screenToWorld` uses,
     // or the cursor and the man it is pointing at drift apart by the rounding
@@ -55,15 +121,22 @@ export function createRenderer() {
 
     ctx.save();
     clipToSight(ctx, game.sight);
-    paintFloor(ctx, game, view);
-    paintProps(ctx, game, view);
+    const bx = view.x0 * TILE;
+    const by = view.y0 * TILE;
+    const bw = (view.x1 - view.x0 + 1) * TILE;
+    const bh = (view.y1 - view.y0 + 1) * TILE;
+    const S = r.floorScale;
+    ctx.drawImage(r.floorImg, bx * S, by * S, bw * S, bh * S, bx, by, bw, bh);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(radials().glow, p.x - 230, p.y - 230, 460, 460);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 
     // Walls and everybody standing between them, in one pass down the screen.
     // A wall is where a ray *stops*, so it falls outside the clip and would
     // never be drawn — it is asked one at a time instead whether the face you
     // would be looking at is visible (see `wallLit`).
-    paintStanding(ctx, game, view, opts);
+    paintStanding(ctx, game, view, opts, r.floorScale);
 
     // The cones are clipped to your own sight too: you see the light where it
     // falls in front of you, not the cone of a man two rooms away.
@@ -81,10 +154,10 @@ export function createRenderer() {
     paintMuzzles(ctx, game);
     paintBullets(ctx, game);
     paintFx(ctx, opts.fx);
-    if (game.aimTarget) paintReticle(ctx, game.aimTarget);
+    if (game.aimTarget) paintReticle(ctx, game.aimTarget, p);
 
     ctx.restore();
-    paintHud(ctx, game, vp, opts);
+    paintHud(ctx, game, vp, opts, r);
   };
 
   return r;
@@ -187,6 +260,29 @@ function paintRemembered(ctx, game, view) {
   }
 }
 
+/**
+ * How big the floor bake is drawn. Matches the density of the screen it will
+ * be blitted onto — crisp on a hi-dpi desktop — but capped by area, because a
+ * deep floor at 2x is a hundred megabytes of canvas nobody will zoom into.
+ */
+function bakeScale(vp, grid) {
+  const dev = (vp.scale || 1) * (vp.dpr || 1);
+  let s = dev > 1.25 ? 2 : 1;
+  if (grid.cols * grid.rows * TILE * TILE * s * s > 22e6) s = 1;
+  return s;
+}
+
+function bakeFloor(game, scale) {
+  const grid = game.grid;
+  const img = makeCanvas(grid.cols * TILE * scale, grid.rows * TILE * scale);
+  const g = img.getContext('2d');
+  g.scale(scale, scale);
+  const all = { x0: 0, y0: 0, x1: grid.cols - 1, y1: grid.rows - 1 };
+  paintFloor(g, game, all);
+  paintProps(g, game, all);
+  return img;
+}
+
 function paintFloor(ctx, game, view) {
   const grid = game.grid;
   const material = game.level.material;
@@ -200,15 +296,47 @@ function paintFloor(ctx, game, view) {
       ctx.fillStyle = (cx + cy) % 2 ? m.a : m.b;
       ctx.fillRect(x, y, TILE, TILE);
 
+      // Wear and tone, seeded by the cell so every visit paints the same floor.
+      // This runs once per level into the bake, so it can afford to be generous
+      // — it is what stops sixty identical tiles reading as wallpaper.
+      const h = ((cx * 73856093) ^ (cy * 19349663)) >>> 0;
+      const j = (h % 9) - 4;
+      if (j > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${j * 0.012})`;
+        ctx.fillRect(x, y, TILE, TILE);
+      } else if (j < 0) {
+        ctx.fillStyle = `rgba(0,0,0,${-j * 0.015})`;
+        ctx.fillRect(x, y, TILE, TILE);
+      }
+
       if (m.pattern === 'plank') {
         ctx.fillStyle = 'rgba(0,0,0,0.16)';
         for (let i = 1; i < 4; i++) ctx.fillRect(x, y + i * 16, TILE, 1);
         ctx.fillRect(x + ((cx * 29 + cy * 13) % 3) * 21, y, 1, TILE);
+        // every few boards, one lies a shade darker — sawn from another tree
+        if (h % 5 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.07)';
+          ctx.fillRect(x, y + ((h >> 3) % 4) * 16, TILE, 16);
+        }
       } else if (m.pattern === 'chequer') {
         ctx.fillStyle = 'rgba(255,255,255,0.035)';
         ctx.fillRect(x + 2, y + 2, 28, 28);
         ctx.fillRect(x + 34, y + 34, 28, 28);
+        // a faint vein wandering across the odd slab of marble
+        if (h % 7 === 0) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x + ((h >> 4) % 48), y);
+          ctx.quadraticCurveTo(x + ((h >> 6) % 64), y + 32, x + ((h >> 8) % 48) + 8, y + TILE);
+          ctx.stroke();
+        }
+      } else if (h % 11 === 0) {
+        // the corridors are the used floors: a scuff where the trolleys turn
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(x + ((h >> 5) % 38), y + ((h >> 9) % 52) + 6, 22, 3);
       }
+
       // the grout line: what makes a floor read as tiles rather than as paint
       ctx.fillStyle = COLOURS.grout;
       ctx.fillRect(x, y, TILE, 1);
@@ -352,7 +480,7 @@ function wallLit(sight, cx, cy) {
  * the depth in an oblique view, and doing it in two separate passes instead is
  * how you get a guard walking through the front of a counter.
  */
-function paintStanding(ctx, game, view, opts) {
+function paintStanding(ctx, game, view, opts, wallScale = 1) {
   const grid = game.grid;
   const sight = game.sight;
   const standing = [];
@@ -393,12 +521,40 @@ function paintStanding(ctx, game, view, opts) {
     for (let cx = view.x0; cx <= view.x1; cx++) {
       if (grid.at(cx, cy) !== WALL) continue;
       if (sight && !wallLit(sight, cx, cy)) continue;
-      drawWallBlock(ctx, grid, cx, cy);
+      const img = wallSprite(grid, cx, cy, wallScale);
+      ctx.drawImage(img, cx * TILE, cy * TILE - WALL_H, TILE, TILE + WALL_H);
     }
     const limit = (cy + 1) * TILE;
     while (i < standing.length && standing[i].y < limit) standing[i++].draw();
   }
   while (i < standing.length) standing[i++].draw();
+}
+
+/**
+ * A wall block's picture depends only on which neighbours are open and on the
+ * tile's parity — thirty-two variants for the whole game. Each is painted once
+ * into a sprite; twelve fills per wall per frame become one blit.
+ */
+function wallSprite(grid, cx, cy, scale) {
+  const key =
+    (grid.solid(cx, cy + 1) ? 1 : 0) |
+    (grid.solid(cx, cy - 1) ? 2 : 0) |
+    (grid.solid(cx + 1, cy) ? 4 : 0) |
+    (grid.solid(cx - 1, cy) ? 8 : 0) |
+    (cx % 2 ? 16 : 0) |
+    (scale === 2 ? 32 : 0);
+  let img = WALL_SPRITES.get(key);
+  if (!img) {
+    img = makeCanvas(TILE * scale, (TILE + WALL_H) * scale);
+    const g = img.getContext('2d');
+    g.scale(scale, scale);
+    g.translate(0, WALL_H);       // the sprite's origin is the tile's top-left
+    drawWallBlock(g, {
+      south: !!(key & 1), north: !!(key & 2), east: !!(key & 4), west: !!(key & 8), odd: !!(key & 16),
+    });
+    WALL_SPRITES.set(key, img);
+  }
+  return img;
 }
 
 /**
@@ -409,42 +565,40 @@ function paintStanding(ctx, game, view, opts) {
  * corridor made of two of them has no scale at all. Two courses of masonry and
  * a seam per tile give the eye something to count.
  */
-function drawWallBlock(ctx, grid, cx, cy) {
-  const x = cx * TILE;
-  const y = cy * TILE;
-  const faceTop = y + TILE - WALL_H;
+function drawWallBlock(ctx, n) {
+  const faceTop = TILE - WALL_H;
 
-  if (!grid.solid(cx, cy + 1)) {
+  if (!n.south) {
     ctx.fillStyle = COLOURS.wallFace;
-    ctx.fillRect(x, faceTop, TILE, WALL_H);
+    ctx.fillRect(0, faceTop, TILE, WALL_H);
     // two courses, offset on alternate tiles so the joints do not line up
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fillRect(x, faceTop + WALL_H / 2 - 1, TILE, 1);
-    const off = cx % 2 ? TILE / 2 : 0;
-    ctx.fillRect(x + off, faceTop, 1, WALL_H / 2);
-    ctx.fillRect(x + (off + TILE / 2) % TILE, faceTop + WALL_H / 2, 1, WALL_H / 2);
+    ctx.fillRect(0, faceTop + WALL_H / 2 - 1, TILE, 1);
+    const off = n.odd ? TILE / 2 : 0;
+    ctx.fillRect(off, faceTop, 1, WALL_H / 2);
+    ctx.fillRect((off + TILE / 2) % TILE, faceTop + WALL_H / 2, 1, WALL_H / 2);
     // the skirting where the wall meets the floor
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(x, y + TILE - 3, TILE, 3);
+    ctx.fillRect(0, TILE - 3, TILE, 3);
   }
 
   ctx.fillStyle = COLOURS.wallTop;
-  ctx.fillRect(x, y - WALL_H, TILE, TILE);
+  ctx.fillRect(0, -WALL_H, TILE, TILE);
   // a light catching the near edge of the top, so it does not read as a hole
   ctx.fillStyle = 'rgba(255,255,255,0.05)';
-  ctx.fillRect(x, y + TILE - WALL_H - 8, TILE, 6);
+  ctx.fillRect(0, TILE - WALL_H - 8, TILE, 6);
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
-  ctx.fillRect(x, y - WALL_H, TILE, 5);
+  ctx.fillRect(0, -WALL_H, TILE, 5);
 
   ctx.fillStyle = COLOURS.wallEdge;
-  ctx.fillRect(x, faceTop - 2, TILE, 2);                       // the lip, top meets face
-  if (!grid.solid(cx, cy - 1)) ctx.fillRect(x, y - WALL_H, TILE, 2);
-  if (!grid.solid(cx + 1, cy)) ctx.fillRect(x + TILE - 2, y - WALL_H, 2, TILE);
-  if (!grid.solid(cx - 1, cy)) ctx.fillRect(x, y - WALL_H, 2, TILE);
+  ctx.fillRect(0, faceTop - 2, TILE, 2);                       // the lip, top meets face
+  if (!n.north) ctx.fillRect(0, -WALL_H, TILE, 2);
+  if (!n.east) ctx.fillRect(TILE - 2, -WALL_H, 2, TILE);
+  if (!n.west) ctx.fillRect(0, -WALL_H, 2, TILE);
   // the seam between two tiles of the same run, faint enough not to be a crack
-  if (grid.solid(cx + 1, cy)) {
+  if (n.east) {
     ctx.fillStyle = 'rgba(0,0,0,0.16)';
-    ctx.fillRect(x + TILE - 1, y - WALL_H, 1, TILE);
+    ctx.fillRect(TILE - 1, -WALL_H, 1, TILE);
   }
 }
 
@@ -867,21 +1021,35 @@ function drawVault(ctx, v) {
 function paintFalloff(ctx, game, view) {
   const p = game.player;
   const r = PLAYER.sight;
-  const grd = ctx.createRadialGradient(p.x, p.y, r * 0.22, p.x, p.y, r);
-  grd.addColorStop(0, 'rgba(7,8,12,0)');
-  grd.addColorStop(0.66, 'rgba(7,8,12,0.18)');
-  grd.addColorStop(1, 'rgba(7,8,12,0.56)');
-  ctx.fillStyle = grd;
-  ctx.fillRect(view.x0 * TILE - TILE, view.y0 * TILE - TILE, (view.x1 - view.x0 + 3) * TILE, (view.y1 - view.y0 + 3) * TILE);
+  const x0 = view.x0 * TILE - TILE;
+  const y0 = view.y0 * TILE - TILE;
+  const x1 = x0 + (view.x1 - view.x0 + 3) * TILE;
+  const y1 = y0 + (view.y1 - view.y0 + 3) * TILE;
+  // the sprite carries the gradient; beyond its square the falloff has already
+  // bottomed out, so the rest of the view is four flat bands at the final stop
+  ctx.drawImage(radials().falloff, p.x - r, p.y - r, r * 2, r * 2);
+  ctx.fillStyle = 'rgba(7,8,12,0.56)';
+  const lx = Math.max(x0, p.x - r);
+  const rx = Math.min(x1, p.x + r);
+  if (p.x - r > x0) ctx.fillRect(x0, y0, p.x - r - x0, y1 - y0);
+  if (p.x + r < x1) ctx.fillRect(p.x + r, y0, x1 - (p.x + r), y1 - y0);
+  if (p.y - r > y0) ctx.fillRect(lx, y0, rx - lx, p.y - r - y0);
+  if (p.y + r < y1) ctx.fillRect(lx, p.y + r, rx - lx, y1 - (p.y + r));
 }
 
 /**
  * The man the gun has found. Without this the assist is invisible and reads as
  * the game shooting where it likes — with it, it reads as the gun helping.
+ *
+ * The brackets sit wide while the body is still turning and close as it lines
+ * up — which is also the answer to "why has my shot not left yet": the gun
+ * holds its fire until the brackets shut (see `ASSIST.settle`).
  */
-function paintReticle(ctx, g) {
-  const t = 19;
-  ctx.strokeStyle = 'rgba(255,238,160,0.8)';
+function paintReticle(ctx, g, p) {
+  const off = Math.abs(angleDelta(p.facing, Math.atan2(g.y - p.y, g.x - p.x)));
+  const open = clamp(off / (45 * RAD), 0, 1);
+  const t = 19 + open * 14;
+  ctx.strokeStyle = `rgba(255,238,160,${0.85 - open * 0.35})`;
   ctx.lineWidth = 2.5;
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     ctx.beginPath();
@@ -917,28 +1085,38 @@ function paintCones(ctx, game) {
   // to draw nothing is most of a frame on a phone.
   const reaches = (x, y, range) => (x - p.x) ** 2 + (y - p.y) ** 2 < (range + PLAYER.sight) ** 2;
 
+  const s = radials();
   const range = plan.guardSight * (game.alarm.on ? 1.2 : 1);
   for (const g of game.guards) {
     if (g.dead || !reaches(g.x, g.y, range)) continue;
     const hot = g.state === 'call' || g.state === 'hunt';
     cone(ctx, grid, g.x, g.y, g.facing, plan.guardFov, range,
-      hot ? 'rgba(255,90,77,0.20)' : g.alert > 0.2 ? 'rgba(255,200,110,0.17)' : 'rgba(255,225,170,0.11)');
+      hot ? s.coneHot : g.alert > 0.2 ? s.coneWary : s.coneCalm,
+      hot ? 0.3 : g.alert > 0.2 ? 0.25 : 0.17);
   }
   for (const c of game.cameras) {
     if (c.dead || !reaches(c.x, c.y, c.range)) continue;
     cone(ctx, grid, c.x, c.y, c.facing, CAMERA.fov, c.range,
-      c.lock > 0 ? 'rgba(255,90,77,0.2)' : 'rgba(143,169,214,0.14)');
+      c.lock > 0 ? s.coneHot : s.coneCam, c.lock > 0 ? 0.3 : 0.2);
   }
 }
 
-function cone(ctx, grid, x, y, facing, fov, range, fill) {
+/**
+ * The lamp's light, not a stencil of it: the fan clips a radial sprite, so the
+ * cone is bright at the eye and gone at the edge — a torch beam, where the old
+ * flat fill read as a painted slice of floor.
+ */
+function cone(ctx, grid, x, y, facing, fov, range, sprite, alpha) {
   const fan = visibilityFan(grid, x, y, facing, fov, range, 30);
-  ctx.fillStyle = fill;
+  ctx.save();
   ctx.beginPath();
   ctx.moveTo(x, y);
   for (const q of fan) ctx.lineTo(q.x, q.y);
   ctx.closePath();
-  ctx.fill();
+  ctx.clip();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(sprite, x - range, y - range, range * 2, range * 2);
+  ctx.restore();
 }
 
 /**
@@ -954,13 +1132,7 @@ function paintMuzzles(ctx, game) {
     const a = g.facing;
     const fx = g.x + Math.cos(a) * 16;
     const fy = g.y + Math.sin(a) * 16;
-    const grd = ctx.createRadialGradient(fx, fy, 0, fx, fy, 58);
-    grd.addColorStop(0, 'rgba(255,214,140,0.85)');
-    grd.addColorStop(1, 'rgba(255,160,80,0)');
-    ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.arc(fx, fy, 58, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(radials().muzzle, fx - 58, fy - 58, 116, 116);
   }
 }
 
@@ -1018,18 +1190,45 @@ function panel(ctx, x, y, w, h, alpha = 0.55) {
   ctx.strokeRect(x, y, w, h);
 }
 
-function paintHud(ctx, game, vp, opts) {
+/**
+ * The two screen-sized gradients the HUD wears — the corner vignette and the
+ * red "being looked at" wash — baked at quarter resolution when the viewport
+ * changes size, and stretched over the frame from then on. The blit's own
+ * smoothing hides the low resolution completely; a gradient has no detail.
+ */
+function shadeFor(r, W, H) {
+  if (r.shade.W === W && r.shade.H === H && r.shade.vignette) return r.shade;
+  const q = 4;
+  const bake = (rgb, from, to, edge) => {
+    const c = makeCanvas(W / q, H / q);
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(W / 2 / q, H / 2 / q, from / q, W / 2 / q, H / 2 / q, to / q);
+    grd.addColorStop(0, `rgba(${rgb},0)`);
+    grd.addColorStop(1, `rgba(${rgb},${edge})`);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, W / q, H / q);
+    return c;
+  };
+  const d = Math.hypot(W, H);
+  r.shade = {
+    W,
+    H,
+    vignette: bake('0,0,0', d * 0.34, d * 0.56, 0.32),
+    // baked at full strength; `globalAlpha` turns the detection level into it
+    wash: bake('255,50,40', (d / 2) * 0.42, d / 2, 1),
+  };
+  return r.shade;
+}
+
+function paintHud(ctx, game, vp, opts, r) {
   const { W, H } = vp;
   const p = game.player;
   const stats = game.stats;
+  const shade = shadeFor(r, W, H);
 
   // A corner vignette, first: over the world and under every panel. Drawn after
   // the HUD instead, it dims the very things that have to stay readable.
-  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.hypot(W, H) * 0.34, W / 2, H / 2, Math.hypot(W, H) * 0.56);
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, 'rgba(0,0,0,0.32)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(shade.vignette, 0, 0, W, H);
 
   ctx.textBaseline = 'middle';
 
@@ -1094,16 +1293,9 @@ function paintHud(ctx, game, vp, opts) {
   // ---- being looked at
   if (game.detection > 0.02) {
     const k = clamp(game.detection, 0, 1);
-    // The outer stop has to reach the *corner*, not the bottom edge: stopping
-    // at 0.72·H leaves every pixel past it painted at the final alpha, and a
-    // 1280×720 corner is a long way past it. The first version of this washed
-    // the whole screen red and buried the floor under it.
-    const corner = Math.hypot(W, H) / 2;
-    const grd = ctx.createRadialGradient(W / 2, H / 2, corner * 0.42, W / 2, H / 2, corner);
-    grd.addColorStop(0, 'rgba(255,60,50,0)');
-    grd.addColorStop(1, `rgba(255,50,40,${0.05 + k * 0.24})`);
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 0.05 + k * 0.24;
+    ctx.drawImage(shade.wash, 0, 0, W, H);
+    ctx.globalAlpha = 1;
 
     if (game.detector) {
       const a = Math.atan2(game.detector.y - p.y, game.detector.x - p.x);

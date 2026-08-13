@@ -18,15 +18,22 @@ Open `dist/index.html` on a double click. No server, no install, no account.
 | Drag a body | `E` (or `F`) |
 | Mute | `M` |
 
-**The gun aims itself, inside reason.** You point roughly and it finds the man:
-a lateral margin *and* an angular one, because either alone is wrong at one end
-of the range — sixty pixels off the line of fire is generous at arm's length and
-invisible across a hall, seventeen degrees is the reverse. Whichever forgives
-more wins, and the closest to where you actually pointed wins among those. It
-never reaches further than you can see and never through a wall, because a gun
-that swings onto somebody invisible in the dark hands away the dark. Yellow
-brackets show who it has. On a phone, where a thumb is never going to be
-precise, it is the difference between a game and a demonstration.
+**The gun aims itself, inside reason.** You point roughly and it finds the man
+— or the camera, or the alarm panel, though a man near the same line always
+outranks a box, because the man shoots back. The margin is lateral *and*
+angular, because either alone is wrong at one end of the range — sixty pixels
+off the line of fire is generous at arm's length and invisible across a hall,
+seventeen degrees is the reverse. Whichever forgives more wins, and the closest
+to where you actually pointed wins among those. It never reaches further than
+you can see and never through a wall, because a gun that swings onto somebody
+invisible in the dark hands away the dark.
+
+**And it holds its fire until the round would land.** The body turns at a
+finite speed; a burst that starts mid-turn sprays the wall behind the man. So
+when the gun has a target, the trigger waits out the last few degrees — the
+yellow brackets close as he comes round, and the shot leaves when they shut.
+The wait is real but tiny; what it buys is that the first round of a burst
+means something, which on a phone is usually the only round that matters.
 
 **Nothing is picked up with a key.** Stop on a gun, a bag of cash, a medkit or
 an alarm panel and a ring fills — the vault's own mechanism, only quick. It is
@@ -43,18 +50,24 @@ On a phone the **left half walks**, and it is born where the thumb lands: how fa
 you push it is how loud you are — a short push is a creep, pushing it out is a
 run.
 
-The **right half is the trigger**, and **touching it is already a shot** — the
-gun is a reticle in the corner, and pressing it fires the way clicking a mouse
-does. **Drag off it to swing the barrel**: the arrow on the rim shows where the
-gun ended up, and the assisted aim does the last few degrees. Any spare patch of
-the right half does the same thing, anchored where your thumb landed, so you
-never have to find the icon in a hurry.
+The **right half is the trigger**, and **a bare touch is an order, not an
+angle**: it turns him onto the nearest threat he can see — all the way round,
+even the man directly behind — and fires once he is round. That one rule is
+what makes the game's defining move possible on a phone: **flee with the left
+thumb, tap with the right**, and he backpedals shooting his pursuer, which no
+amount of dragging two thumbs in opposite directions under fire was ever going
+to deliver. The lock is sticky while the target stays visible, so a held
+trigger keeps firing at the same man; **dragging** still swings the barrel by
+hand, measured from the reticle in the corner or from wherever the thumb
+landed. And for a second after the last shot the body **keeps facing the
+fight** instead of snapping round to where his feet point — so burst, fall
+back, burst again works without re-aiming, at the honest price that while it
+holds you are walking backwards into rooms your torch is not lit for.
 
-It fired only past half a push before, so that a floor could not be woken by a
-thumb brushing the glass. What that produced in practice was a player pushing the
-stick and wondering why nothing had happened. 🌀 rolls; the hand button only
-appears when there is a body at your feet — and both are tested before the
-trigger, so a roll is never a shot.
+Two things a bare tap will never do: fire through a wall, or reach beyond the
+torch. With nothing visible it fires straight ahead — the gun helps, it does
+not refuse. 🌀 rolls; the hand button only appears when there is a body at your
+feet — and both are tested before the trigger, so a roll is never a shot.
 
 The screen turns itself: held upright, the canvas is laid on its side rather
 than asking you to unlock rotation.

@@ -52,7 +52,7 @@ let phase = 'menu';                 // menu | playing | cleared | over
 // ------------------------------------------------------------------- input
 
 const keys = new Set();
-const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, use: false, sneak: false, roll: false };
+const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, use: false, sneak: false, roll: false, autoAim: false };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -240,18 +240,18 @@ createLoop({
         input.my = asked.my;
         input.sneak = asked.sneak;
       }
-      if (asked.fire || asked.aimAngle !== null) {
-        // A tap with no drag is still pointing: he holds the way he is already
-        // looking, which is what puts the assisted aim to work on the man in
-        // front of him. Left to fall through, "he is not aiming" means "he is
-        // looking where he walks", and the tap fires at the corridor.
-        input.aimAngle = asked.aimAngle !== null ? asked.aimAngle : run.game.player.facing;
+      if (asked.aimAngle !== null) {
+        input.aimAngle = asked.aimAngle;
         input.aim = null;
       }
       input.fire = input.fire || asked.fire;
       input.use = input.use || asked.use;
       input.roll = input.roll || asked.roll;
     }
+    // A trigger with no direction on it — a tap on a phone, or the fire key
+    // with the mouse off the canvas — asks the game for a target instead of
+    // firing wherever the body happens to face (see `nearestThreat`).
+    input.autoAim = input.fire && !input.aim && typeof input.aimAngle !== 'number';
     run.update(h, input);
     fx.update(h);
   },

@@ -35,16 +35,16 @@ export const dict = {
     en: 'WASD or arrows to move · the mouse aims · click to fire · space rolls · Shift to walk silently · E drags a body',
   },
   'menu.aim': {
-    pt: 'A arma mira sozinha: você aponta para o lado, e dentro de um limite razoável ela acha o homem — um colchete amarelo mostra em quem travou. É o mesmo no celular, onde o polegar nunca vai ser preciso.',
-    en: 'The gun aims itself: you point roughly, and inside a fair margin it finds the man — yellow brackets show who it has. Same on a phone, where a thumb is never going to be precise.',
+    pt: 'A arma mira sozinha: você aponta para o lado, e dentro de um limite razoável ela acha o homem — ou a câmera, ou o painel de alarme. O colchete amarelo mostra em quem travou e fecha quando o corpo termina o giro; o tiro sai quando ele fecha.',
+    en: 'The gun aims itself: you point roughly, and inside a fair margin it finds the man — or the camera, or the alarm panel. The yellow brackets show what it has and close as the body finishes its turn; the shot leaves when they shut.',
   },
   'menu.pickup': {
     pt: 'Nada aqui tem botão de pegar: pare em cima da arma, do dinheiro ou do alarme e o anel enche sozinho — o mesmo do cofre, só que rápido. Passar correndo não conta.',
     en: 'Nothing here has a pick-up key: stop on the gun, the cash or the alarm and the ring fills by itself — the vault\'s own mechanism, only quick. Sprinting over it does not count.',
   },
   'menu.touch': {
-    pt: 'No celular a metade esquerda anda, e nasce onde o dedo toca. À direita fica a mira: encostar nela já é um tiro, e puxar o dedo para fora vira a arma — vale para o ícone e para qualquer ponto da metade direita. O botão 🌀 rola; a mão só aparece quando há corpo por perto.',
-    en: 'On a phone the left half walks, and appears where your thumb lands. The right half is the trigger: touching it is already a shot, and dragging off it swings the gun — the reticle in the corner and any spare patch of the right half do the same thing. The 🌀 button rolls; the hand only shows up when there is a body at your feet.',
+    pt: 'No celular a metade esquerda anda, e nasce onde o dedo toca. À direita fica o gatilho: um toque gira ele para a ameaça mais próxima que dá para ver — mesmo atrás — e atira; dá para fugir com um polegar e atirar em quem persegue com o outro. Arrastar o dedo escolhe a direção na mão. O botão 🌀 rola; a mão só aparece quando há corpo por perto.',
+    en: 'On a phone the left half walks, and appears where your thumb lands. The right half is the trigger: a tap turns him onto the nearest threat he can see — even behind him — and fires; you can flee with one thumb and shoot your pursuer with the other. Dragging picks the direction by hand. The 🌀 button rolls; the hand only shows up when there is a body at your feet.',
   },
   'menu.tip': {
     pt: 'Você também pode puxar um alarme. Todo mundo corre para o painel — e o painel não é onde você está.',

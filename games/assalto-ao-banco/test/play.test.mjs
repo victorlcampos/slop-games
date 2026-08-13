@@ -10,9 +10,9 @@ import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/te
 installHeadlessDom();     // render.js reaches i18n, which reads localStorage on load
 
 const game_config = await import('../src/config.js');
-const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist } = game_config;
+const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist, angleDelta } = game_config;
 const { generateFloor } = await import('../src/levelgen.js');
-const { createGame } = await import('../src/game.js');
+const { createGame, assistedAim } = await import('../src/game.js');
 const { createRun, silentBonus } = await import("../src/run.js");
 const { WEAPONS, dps } = await import('../src/weapons.js');
 const { lineOfSight } = await import('../src/grid.js');
@@ -631,6 +631,89 @@ scenario('the gun finds the man inside where you pointed it', () => {
   const hp = g.hp;
   tick(game, 0.6, { fire: true, aim: wide });
   check(g.hp < hp || g.dead, `pointed ten degrees wide, every round missed (${g.hp}/${hp})`);
+});
+
+scenario('a bare trigger turns him onto the man behind and holds fire until he is round', () => {
+  const game = open(4, 7);
+  const g = faceOffClear(game, 240);
+  check(g, 'no clear line to set the scenario up on');
+  const at = Math.atan2(g.y - game.player.y, g.x - game.player.x);
+  // running the other way, which is exactly the kiting case on a phone
+  game.player.facing = at + Math.PI;
+
+  game.update(STEP, { autoAim: true, fire: true });
+  check(game.aimTarget === g, 'the trigger did not find the man behind him');
+  check(game.stats.shots === 0, 'it fired while still facing away — that round hits the wall ahead');
+
+  const hp = g.hp;
+  tick(game, 1.4, { autoAim: true, fire: true });
+  check(game.stats.shots > 0, 'he came round and the gun never fired');
+  check(g.hp < hp || g.dead, `he is round and firing and the man is untouched (${g.hp}/${hp})`);
+});
+
+scenario('a bare trigger with nobody visible fires straight ahead', () => {
+  const game = open(4, 7);              // every guard dead…
+  for (const c of game.cameras) c.dead = true;
+  for (const a of game.alarms) a.dead = true;            // …and every device scrap
+  const before = game.stats.shots;
+  game.update(STEP, { autoAim: true, fire: true });
+  check(game.aimTarget === null, 'it locked something on a floor with nothing left to shoot');
+  check(game.stats.shots > before, 'the gun refused to fire with nothing on the lock');
+});
+
+scenario('the fight is remembered while he backs away', () => {
+  const game = open(4, 7);
+  const g = faceOffClear(game, 240);
+  check(g, 'no clear line to set the scenario up on');
+  const at = Math.atan2(g.y - game.player.y, g.x - game.player.x);
+  game.player.facing = at;
+  game.update(STEP, { autoAim: true, fire: true });     // one shot, fight begun
+
+  // now flee the other way with no aim at all: for a moment the body keeps
+  // facing the fight, so the next tap does not fire up the corridor
+  const off = () => Math.abs(angleDelta(at, game.player.facing));
+  const flee = { mx: -Math.cos(at), my: -Math.sin(at) };
+  tick(game, 0.5, flee);
+  check(off() < 0.4, `half a second of fleeing swung him ${off().toFixed(2)} rad off the fight`);
+
+  // and once the fight has gone cold, his feet own his eyes again — wherever
+  // the walls let them take him, which is why this measures the release and
+  // not the exact angle of the corridor he ends up sliding along
+  tick(game, 1.6, flee);
+  check(off() > 0.6, `two seconds on he still faces the fight (${off().toFixed(2)} rad off)`);
+});
+
+scenario('the assist finds a camera, and a man near the same line outranks it', () => {
+  const game = open(4, 7);
+  const p = game.player;
+  const cam = game.cameras[0];
+  check(cam, 'floor 4 came up with no cameras');
+  // stand the camera in the open, dead ahead
+  cam.dead = false;
+  cam.x = p.x + 200;
+  cam.y = p.y;
+  const at = 0;
+  const found = assistedAim(game, at);
+  check(found.target === cam, 'pointed straight at a camera and the gun ignored it');
+
+  // wake a guard a few degrees off the same line: he shoots back, he wins
+  const g = game.guards[0];
+  Object.assign(g, { dead: false, x: p.x + 195, y: p.y + 14, state: 'patrol', alert: 0 });
+  const both = assistedAim(game, at);
+  check(both.target === g, 'a camera outranked the man who shoots back');
+});
+
+scenario('a bare trigger reaches the camera when no guard is left', () => {
+  const game = open(4, 7);
+  const p = game.player;
+  const cam = game.cameras[0];
+  check(cam, 'floor 4 came up with no cameras');
+  cam.dead = false;
+  cam.x = p.x + 180;
+  cam.y = p.y;
+  game.player.facing = Math.PI;                          // looking away from it
+  tick(game, 0.8, { autoAim: true, fire: true });
+  check(cam.dead, 'held the trigger for most of a second and the camera still watches');
 });
 
 scenario('the assist does not aim at what you cannot see', () => {

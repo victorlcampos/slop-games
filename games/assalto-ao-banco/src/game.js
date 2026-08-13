@@ -6,7 +6,7 @@
 
 import {
   PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, ASSIST, HIT_R, TILE,
-  clamp, dist, makeRng, turnTowards, angleDelta, RAD,
+  clamp, dist, dist2, makeRng, turnTowards, angleDelta, RAD,
 } from './config.js';
 import { moveCircle, flowField, castRay, lineOfSight } from './grid.js';
 import { canSee, createSight, rememberSeen } from './vision.js';
@@ -47,6 +47,7 @@ export function createGame(opts) {
     rollA: 0,
     rollCool: 0,
     speed: 0,                     // how fast he actually moved last step
+    combat: 0,                    // seconds the body keeps facing the fight
   };
 
   const seen = new Uint8Array(grid.cols * grid.rows);
@@ -81,6 +82,7 @@ export function createGame(opts) {
     detection: 0,                 // 0..1, "somebody is looking at you"
     detector: null,               // and this is where they are standing
     aimTarget: null,              // the man the gun has found inside where you pointed
+    autoTarget: null,             // the threat a bare trigger has locked onto
     focus: null,                  // what he is standing on, and how far the ring has filled
     prompt: null,                 // the body under his feet, if there is one
     useWas: false,
@@ -413,27 +415,49 @@ export function createGame(opts) {
       }
     }
 
-    // where he is looking: the aim if there is one, the direction of travel if not
+    // Where he is looking: the aim if there is one, the trigger if it is asking
+    // for a target, the direction of travel if neither. A bare trigger — a tap
+    // with no drag, the normal shot on a phone — does not fire "wherever he
+    // happens to be facing": it turns him onto the nearest threat he can see,
+    // all the way round. That is the whole of walking backwards and shooting:
+    // flee with one thumb, tap with the other, and the gun does the geometry.
     let want2 = null;
     let pointed = false;
     if (input.aim) {
       want2 = Math.atan2(input.aim.y - player.y, input.aim.x - player.x);
       pointed = true;
+      game.autoTarget = null;
     } else if (typeof input.aimAngle === 'number') {
       want2 = input.aimAngle;
       pointed = true;
-    } else if (travelled > 0.2) {
-      want2 = Math.atan2(realDy, realDx);
+      game.autoTarget = null;
+    } else if (input.autoAim) {
+      // sticky: the lock holds while the target stays alive and in sight, so a
+      // burst does not hop between men mid-stream
+      if (!threatVisible(game, game.autoTarget)) game.autoTarget = nearestThreat(game);
+      const lock = game.autoTarget;
+      want2 = lock ? Math.atan2(lock.y - player.y, lock.x - player.x) : player.facing;
+      pointed = true;
+    } else {
+      game.autoTarget = null;
+      // while the fight is fresh the body keeps facing it — backing away does
+      // not swing the torch (and the gun) round to where his feet point
+      if (travelled > 0.2 && player.combat <= 0) want2 = Math.atan2(realDy, realDx);
     }
+    player.combat = pointed ? PLAYER.combatHold : Math.max(0, player.combat - dt);
 
     // the gun finds the man inside where you pointed it
     game.aimTarget = null;
     if (pointed && player.roll <= 0) {
-      const found = assistedAim(game, want2);
-      want2 = found.angle;
-      game.aimTarget = found.target;
+      if (game.autoTarget) {
+        game.aimTarget = game.autoTarget;
+      } else {
+        const found = assistedAim(game, want2);
+        want2 = found.angle;
+        game.aimTarget = found.target;
+      }
     }
-    if (want2 !== null) player.facing = turnTowards(player.facing, want2, 14 * dt);
+    if (want2 !== null) player.facing = turnTowards(player.facing, want2, PLAYER.turn * dt);
 
     if (player.dragging) dragBody(dt);
   }
@@ -576,7 +600,21 @@ export function createGame(opts) {
     if (pressed) doUse();
     updateFocus(dt);
 
-    if (input.fire) playerFires();
+    // With a target on the gun, the trigger waits for the body to finish the
+    // turn: a burst that starts before he is round sprays the wall behind the
+    // man. The test is lateral error, not degrees — thirteen degrees is nothing
+    // at arm's length and half a corridor at range — so the gate is "would this
+    // round actually land". Without a target it fires where he faces, as before.
+    if (input.fire) {
+      const t = game.aimTarget;
+      let lined = true;
+      if (t) {
+        const off = Math.abs(angleDelta(player.facing, Math.atan2(t.y - player.y, t.x - player.x)));
+        lined = off <= ASSIST.settle * RAD
+          && Math.sin(off) * dist(player.x, player.y, t.x, t.y) <= HIT_R * 0.85;
+      }
+      if (lined) playerFires();
+    }
 
     for (const g of game.guards) updateGuard(g, dt, game);
     separate(game.guards, grid);
@@ -643,6 +681,36 @@ function normalise(x, y) {
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
 }
 
+/** Alive, inside the torch, and with a clear line — the bar every lock obeys. */
+function threatVisible(game, t) {
+  if (!t || t.dead) return false;
+  const p = game.player;
+  const reach = Math.min(WEAPONS[p.weapon.id].range, PLAYER.sight);
+  if (dist(p.x, p.y, t.x, t.y) > reach) return false;
+  return lineOfSight(game.grid, p.x, p.y, t.x, t.y);
+}
+
+/**
+ * The threat a bare trigger should mean, searched all the way round.
+ *
+ * Guards first, by distance — a man shooting at you outranks any camera — and
+ * only then the devices. It obeys the same two laws as the assist: never
+ * beyond what the torch reaches, never through a wall. A tap in an empty room
+ * still fires straight ahead; the gun helps, it does not refuse.
+ */
+export function nearestThreat(game) {
+  const p = game.player;
+  const reach = Math.min(WEAPONS[p.weapon.id].range, PLAYER.sight);
+  const nearest = (list) => {
+    const close = list
+      .filter((t) => !t.dead && dist(p.x, p.y, t.x, t.y) <= reach)
+      .sort((a, b) => dist2(p.x, p.y, a.x, a.y) - dist2(p.x, p.y, b.x, b.y));
+    // sorted first, line-of-sight after: the ray is the expensive half
+    return close.find((t) => lineOfSight(game.grid, p.x, p.y, t.x, t.y)) || null;
+  };
+  return nearest(game.guards) || nearest([...game.cameras, ...game.alarms]);
+}
+
 /**
  * The man you are pointing at, if you are pointing near one.
  *
@@ -661,19 +729,29 @@ export function assistedAim(game, raw) {
   const reach = Math.min(w.range, PLAYER.sight);
   const limit = ASSIST.limit * RAD;
   let best = null;
-  let bestOff = Infinity;
+  let bestScore = Infinity;
 
-  for (const g of game.guards) {
-    if (g.dead) continue;
-    const d = dist(p.x, p.y, g.x, g.y);
-    if (d > reach || d < 1) continue;
-    const off = Math.abs(angleDelta(raw, Math.atan2(g.y - p.y, g.x - p.x)));
-    if (off > limit || off >= bestOff) continue;
-    if (off > ASSIST.cone * RAD && d * Math.sin(off) > ASSIST.radius) continue;
-    if (!lineOfSight(game.grid, p.x, p.y, g.x, g.y)) continue;
-    bestOff = off;
-    best = g;
-  }
+  // Cameras and panels are on the list too — a thumb cannot hit a box the size
+  // of a hand any better than it can hit a man — but they carry a handicap, so
+  // a guard near the same line always wins the gun.
+  const consider = (t, bias) => {
+    if (t.dead) return;
+    const d = dist(p.x, p.y, t.x, t.y);
+    if (d > reach || d < 1) return;
+    const off = Math.abs(angleDelta(raw, Math.atan2(t.y - p.y, t.x - p.x)));
+    const score = off + bias;
+    if (off > limit || score >= bestScore) return;
+    if (off > ASSIST.cone * RAD && d * Math.sin(off) > ASSIST.radius) return;
+    if (!lineOfSight(game.grid, p.x, p.y, t.x, t.y)) return;
+    bestScore = score;
+    best = t;
+  };
+
+  for (const g of game.guards) consider(g, 0);
+  const bias = ASSIST.deviceBias * RAD;
+  for (const c of game.cameras) consider(c, bias);
+  for (const a of game.alarms) consider(a, bias);
+
   return best
     ? { angle: Math.atan2(best.y - p.y, best.x - p.x), target: best }
     : { angle: raw, target: null };

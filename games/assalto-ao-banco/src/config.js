@@ -39,6 +39,17 @@ export const ASSIST = {
   radius: 62,
   cone: 17,
   limit: 55,
+  // Once the gun has a man, it holds its fire until the body has turned far
+  // enough that the round would actually land (a lateral test, in game.js) —
+  // this is the outer cap on that wait, and how far open the brackets draw.
+  // Without the gate the first round of every burst leaves mid-turn and
+  // misses — which on a phone, where the trigger is a tap, means the tap that
+  // should have saved you did nothing.
+  settle: 13,
+  // Cameras and panels are targets too, with this many degrees of handicap
+  // against a guard near the same line: point straight at a camera and you get
+  // the camera; point roughly at both and you get the man who shoots back.
+  deviceBias: 6,
 };
 
 /**
@@ -65,6 +76,13 @@ export const PLAYER = {
   reach: 74,                          // how close you have to be to pick something up
   noiseWalk: 190,                     // footsteps carry this far; sneaking makes none
   hitFlash: 0.35,
+  turn: 18,                           // rad/s — a 180° whip takes 0.17s, felt but never fought
+  // How long the body keeps facing the fight after the last shot or aim.
+  // Without it, releasing the trigger while backing away snaps him round to
+  // face where he is running — and the next tap fires into the corridor ahead
+  // instead of at the man behind. The price is honest: while it holds, you are
+  // walking backwards into rooms your torch is not pointing at.
+  combatHold: 1.0,
 };
 
 /**
