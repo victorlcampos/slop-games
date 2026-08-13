@@ -21,6 +21,27 @@ export const WALL_H = 13;             // the lip on a wall
 export const HEAD_LIFT = 7;           // how far a head floats over its shoulders
 
 /**
+ * The gun helps. You point it at a man, not at a pixel.
+ *
+ * A twin-stick game asks for a precision nobody has on a phone and few people
+ * want on a mouse: the cursor says roughly where, and inside that "roughly" the
+ * gun finds the man itself. `radius` is how far off the line of fire a man can
+ * be and still be picked up — a lateral distance, not an angle, because an
+ * angle is unforgivably tight up close and absurdly wide at range. `cone` is
+ * the same idea from the other end, so a man far away is not out of reach of a
+ * shaky thumb; `limit` is the sanity cap that stops it ever spinning him round.
+ *
+ * It only ever finds what you could see: never further than your own sight, and
+ * never through a wall. A gun that swings onto somebody invisible in the dark
+ * reads as a bug, and quietly hands away the whole point of the dark.
+ */
+export const ASSIST = {
+  radius: 62,
+  cone: 17,
+  limit: 55,
+};
+
+/**
  * How wide a person is to a bullet.
  *
  * A shade wider than the body that is drawn, and deliberately so: a shot that

@@ -69,11 +69,14 @@ export function generateFloor(floor, seed) {
   const alarms = placeAlarms(p, mounts, cameras, entrance, rng);
   const items = placeItems(p, free, rooms, entrance, vaultRoom, rng, pick, isFree, claim);
 
+  const props = decorate(rooms, rng);
+
   return {
     floor: p.floor,
     seed,
     plan: p,
     grid,
+    material: materialGrid(grid, rooms),
     rooms,
     entrance,
     vaultRoom,
@@ -83,10 +86,24 @@ export function generateFloor(floor, seed) {
     cameras,
     alarms,
     items,
-    props: decorate(rooms, rng),
+    props,
     width: grid.width,
     height: grid.height,
   };
+}
+
+/** What each cell is floored with. Corridors are whatever is cheapest. */
+export const MATERIALS = { stone: 0, marble: 1, wood: 2, lino: 3, gold: 4 };
+
+function materialGrid(grid, rooms) {
+  const out = new Uint8Array(grid.cols * grid.rows);
+  for (const r of rooms) {
+    const m = MATERIALS[r.floor] ?? MATERIALS.lino;
+    for (let cy = r.y; cy < r.y + r.h; cy++) {
+      for (let cx = r.x; cx < r.x + r.w; cx++) out[cy * grid.cols + cx] = m;
+    }
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------- rooms
@@ -363,24 +380,45 @@ function placeItems(p, free, rooms, entrance, vaultRoom, rng, pick, isFree, clai
   return items;
 }
 
+/** What each kind of room is furnished with, and what its floor is made of. */
+const FURNISHING = {
+  lobby: { floor: 'marble', props: ['counter', 'plant', 'bench', 'rug'] },
+  office: { floor: 'wood', props: ['desk', 'chair', 'cabinet', 'plant'] },
+  hall: { floor: 'marble', props: ['bench', 'plant', 'rug'] },
+  records: { floor: 'lino', props: ['cabinet', 'cabinet', 'desk', 'crate'] },
+  security: { floor: 'lino', props: ['desk', 'monitor', 'cabinet', 'chair'] },
+  vault: { floor: 'gold', props: ['crate', 'crate', 'plate'] },
+};
+
 /**
- * Flat marks on the floor — rugs, tile borders, the painted line to the
- * counter. Nothing here blocks anything: a bank that is furniture-and-physics
- * is a different game, and a bank that is one grey rectangle is nowhere.
+ * The furniture. None of it blocks anything — a bank that is
+ * furniture-and-physics is a different game, and a guard who has to path round
+ * a chair is a bug factory. What it has to do is say what the room *is*: a
+ * counter and a plant read as a lobby, four cabinets read as records, and a
+ * room with neither reads as a grey rectangle.
  */
 function decorate(rooms, rng) {
   const props = [];
   for (const r of rooms) {
-    const n = 1 + Math.floor(rng() * 3);
+    const kit = FURNISHING[r.kind] || FURNISHING.office;
+    r.floor = kit.floor;
+    const n = 2 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {
+      const kind = kit.props[Math.floor(rng() * kit.props.length) % kit.props.length];
+      // pushed towards the walls, which is where furniture lives and where it
+      // does not sit in the middle of the only route through the room
+      const edge = rng() < 0.7;
+      const along = rng();
+      const side = Math.floor(rng() * 4);
+      const cx = edge && side < 2 ? (side === 0 ? 0.7 : r.w - 0.7) : 0.7 + along * Math.max(0.1, r.w - 1.4);
+      const cy = edge && side >= 2 ? (side === 2 ? 0.7 : r.h - 0.7) : 0.7 + rng() * Math.max(0.1, r.h - 1.4);
       props.push({
-        kind: r.kind === 'vault' ? 'plate' : rng() < 0.45 ? 'rug' : 'desk',
-        x: (r.x + 0.6 + rng() * Math.max(0.1, r.w - 1.2)) * TILE,
-        y: (r.y + 0.6 + rng() * Math.max(0.1, r.h - 1.2)) * TILE,
-        w: TILE * (0.9 + rng() * 1.6),
-        h: TILE * (0.6 + rng() * 1.1),
-        a: rng() < 0.5 ? 0 : Math.PI / 2,
+        kind,
+        x: (r.x + cx) * TILE,
+        y: (r.y + cy) * TILE,
+        a: side < 2 ? Math.PI / 2 : 0,
         tone: rng(),
+        size: 0.85 + rng() * 0.4,
       });
     }
   }

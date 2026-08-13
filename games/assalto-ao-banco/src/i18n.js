@@ -34,6 +34,10 @@ export const dict = {
     pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço rola · Shift anda em silêncio · E arrasta corpo',
     en: 'WASD or arrows to move · the mouse aims · click to fire · space rolls · Shift to walk silently · E drags a body',
   },
+  'menu.aim': {
+    pt: 'A arma mira sozinha: você aponta para o lado, e dentro de um limite razoável ela acha o homem — um colchete amarelo mostra em quem travou. É o mesmo no celular, onde o polegar nunca vai ser preciso.',
+    en: 'The gun aims itself: you point roughly, and inside a fair margin it finds the man — yellow brackets show who it has. Same on a phone, where a thumb is never going to be precise.',
+  },
   'menu.pickup': {
     pt: 'Nada aqui tem botão de pegar: pare em cima da arma, do dinheiro ou do alarme e o anel enche sozinho — o mesmo do cofre, só que rápido. Passar correndo não conta.',
     en: 'Nothing here has a pick-up key: stop on the gun, the cash or the alarm and the ring fills by itself — the vault\'s own mechanism, only quick. Sprinting over it does not count.',

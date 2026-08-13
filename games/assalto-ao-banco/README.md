@@ -18,6 +18,16 @@ Open `dist/index.html` on a double click. No server, no install, no account.
 | Drag a body | `E` (or `F`) |
 | Mute | `M` |
 
+**The gun aims itself, inside reason.** You point roughly and it finds the man:
+a lateral margin *and* an angular one, because either alone is wrong at one end
+of the range — sixty pixels off the line of fire is generous at arm's length and
+invisible across a hall, seventeen degrees is the reverse. Whichever forgives
+more wins, and the closest to where you actually pointed wins among those. It
+never reaches further than you can see and never through a wall, because a gun
+that swings onto somebody invisible in the dark hands away the dark. Yellow
+brackets show who it has. On a phone, where a thumb is never going to be
+precise, it is the difference between a game and a demonstration.
+
 **Nothing is picked up with a key.** Stop on a gun, a bag of cash, a medkit or
 an alarm panel and a ring fills — the vault's own mechanism, only quick. It is
 the stopping that matters: sprinting over a panel does not pull the alarm, and
@@ -67,15 +77,29 @@ has to come and find you himself.
 where you are. It is the only tool in the game that moves people rather than
 removing them.
 
-**Noise is the real currency.** Nine guns, and what tells them apart is how far
-the shot travels through the building, not what it does at the end of it. Two
-are quiet — the silenced pistol you start with, which never runs out and needs
-two hits, and the **dart gun**, which is quieter still and does no damage at
-all: it drops whoever it touches, whatever is left in him. Six darts, one every
-one and a third seconds, and only across a room. The other seven are in another
-league: a pistol, a revolver, an SMG, a shotgun, a rifle, a machine gun and a
-sniper rifle, each louder roughly in proportion to how much you wanted it. Your
-own footsteps carry too, unless you are sneaking — and so does a roll.
+**Noise is the real currency.** Nine guns on two axes. **Noise** decides whether
+the building finds out, and it is what you are choosing between while the alarm
+is off. **Weight of fire** decides whether you survive the next thirty seconds,
+and it is the only thing that matters once the alarm is on.
+
+Two guns are quiet: the silenced pistol you start with, which never runs out,
+and the **dart gun**, which is quieter still and does no damage at all — it
+drops whoever it touches, whatever is left in him. Six darts, one every one and
+a third seconds, only across a room.
+
+The other seven are three to seven times the starting pistol, because the first
+draft was not and nobody picked them up: a gun that brings four men running has
+to be worth considerably more than double what you already have. The starting
+pistol is a *takedown tool* now, not a combat weapon, and each of the others
+does something no other one does — the shotgun knocks a man off his aim and is
+useless past arm's length, the revolver hits once and hard, the rifle goes
+through the first man to reach the second, the sniper goes through three and
+half the floor, and the machine gun costs you your feet while it fires.
+
+Your own footsteps carry too, unless you are sneaking — and so does a roll. And
+the bonus for clearing a floor unheard grows with the floor, because a flat one
+is most of the takings on floor 1 and a rounding error on floor 20, which is
+backwards.
 
 You can tell them apart on the floor by outline alone: a silencer's can, a
 revolver's cylinder, a scope on its rail, a drum magazine. In a corridor lit by
@@ -110,9 +134,13 @@ every wall, and a head drawn a few pixels above its own shoulders with its own
 shadow. The shoulders are wider across than deep, which is the one proportion
 that makes a figure seen from above read as facing somewhere.
 
-**Nothing here is an image.** The whole bank — the tiled floors, the masonry
-courses on every wall face, the men, the nine guns in silhouette, the money, the
-vault door — is drawn by code, 77 KB with no libraries at all.
+**Nothing here is an image.** The whole bank is drawn by code, 83 KB with no
+libraries at all: four floor materials with their own patterns, so you can tell
+a lobby from a records room by the boards under your feet; furniture that says
+what a room is (a counter and a plant read as a lobby, four filing cabinets read
+as records); masonry courses on every wall face so a long wall has a length you
+can count; the men; the nine guns in silhouette; and a torch that falls off with
+distance, which is what makes the dark read as dark rather than as a stencil.
 
 ## The trap that cost the most
 

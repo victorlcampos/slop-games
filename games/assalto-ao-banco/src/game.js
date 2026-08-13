@@ -5,9 +5,10 @@
 // module directly, at a fixed step, with no browser anywhere.
 
 import {
-  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, HIT_R, TILE, clamp, dist, makeRng, turnTowards,
+  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, ASSIST, HIT_R, TILE,
+  clamp, dist, makeRng, turnTowards, angleDelta, RAD,
 } from './config.js';
-import { moveCircle, flowField, castRay } from './grid.js';
+import { moveCircle, flowField, castRay, lineOfSight } from './grid.js';
 import { canSee, createSight, rememberSeen } from './vision.js';
 import { updateGuard, separate } from './guards.js';
 import { WEAPONS, createLoadout, droppedAmmo } from './weapons.js';
@@ -79,6 +80,7 @@ export function createGame(opts) {
     sight: null,
     detection: 0,                 // 0..1, "somebody is looking at you"
     detector: null,               // and this is where they are standing
+    aimTarget: null,              // the man the gun has found inside where you pointed
     focus: null,                  // what he is standing on, and how far the ring has filled
     prompt: null,                 // the body under his feet, if there is one
     useWas: false,
@@ -160,6 +162,9 @@ export function createGame(opts) {
         vy: Math.sin(a) * w.speed,
         dmg: damageOverride ?? w.damage,
         tranq: !!w.tranq,
+        stagger: w.stagger || 0,
+        pierce: side === 'player' ? (w.pierce || 0) : 0,
+        hit: null,                     // who it has already gone through
         left: w.range,
         side,
       });
@@ -201,6 +206,7 @@ export function createGame(opts) {
         ? [...game.guards.filter((g) => !g.dead), ...game.cameras.filter((c) => !c.dead), ...game.alarms.filter((a) => !a.dead)]
         : [player];
       for (const t of targets) {
+        if (b.hit && b.hit.includes(t)) continue;    // already gone through him
         const r = t === player || t.hp !== undefined ? HIT_R : 16;
         const at = segHit(b.x, b.y, x2, y2, t.x, t.y, r);
         if (at !== null && at < hitT) {
@@ -219,8 +225,16 @@ export function createGame(opts) {
 
       if (hit) {
         applyHit(hit, b);
-        bullets.splice(i, 1);
-        continue;
+        // a rifle round goes through the first man to reach the second; a
+        // pistol round stops in him
+        if (b.pierce > 0 && hit.route) {
+          b.pierce--;
+          b.hit = [...(b.hit || []), hit];
+          b.dmg *= 0.8;                              // and arrives a little tired
+        } else {
+          bullets.splice(i, 1);
+          continue;
+        }
       }
 
       b.x = x2;
@@ -253,6 +267,12 @@ export function createGame(opts) {
       target.hp -= b.dmg;
       target.alert = 1;
       fx.blood(b.x, b.y);
+      // a hit that lands hard enough knocks him off his aim: he has to start
+      // lining you up again, which is what a shotgun is *for*
+      if (b.stagger) {
+        target.aim = -b.stagger;
+        target.cool = Math.max(target.cool, b.stagger * 0.5);
+      }
       if (target.hp <= 0) killGuard(target);
       else {
         // being shot at from somewhere is as good as seeing you
@@ -353,7 +373,13 @@ export function createGame(opts) {
     }
 
     player.sneaking = !!input.sneak && player.roll <= 0;
-    const top = (player.sneaking ? PLAYER.sneak : PLAYER.speed) * (player.dragging ? PLAYER.dragging : 1);
+    // A heavy gun costs you your feet while it is firing. It is the price the
+    // machine gun and the sniper rifle pay for what they do, and it is what
+    // stops "the best gun" from also being the most mobile one.
+    const heavy = WEAPONS[player.weapon.id].heavy;
+    const braced = heavy && player.weapon.cool > 0 ? heavy : 1;
+    const top = (player.sneaking ? PLAYER.sneak : PLAYER.speed)
+      * (player.dragging ? PLAYER.dragging : 1) * braced;
 
     if (player.roll > 0) {
       player.roll -= dt;
@@ -389,9 +415,24 @@ export function createGame(opts) {
 
     // where he is looking: the aim if there is one, the direction of travel if not
     let want2 = null;
-    if (input.aim) want2 = Math.atan2(input.aim.y - player.y, input.aim.x - player.x);
-    else if (typeof input.aimAngle === 'number') want2 = input.aimAngle;
-    else if (travelled > 0.2) want2 = Math.atan2(realDy, realDx);
+    let pointed = false;
+    if (input.aim) {
+      want2 = Math.atan2(input.aim.y - player.y, input.aim.x - player.x);
+      pointed = true;
+    } else if (typeof input.aimAngle === 'number') {
+      want2 = input.aimAngle;
+      pointed = true;
+    } else if (travelled > 0.2) {
+      want2 = Math.atan2(realDy, realDx);
+    }
+
+    // the gun finds the man inside where you pointed it
+    game.aimTarget = null;
+    if (pointed && player.roll <= 0) {
+      const found = assistedAim(game, want2);
+      want2 = found.angle;
+      game.aimTarget = found.target;
+    }
     if (want2 !== null) player.facing = turnTowards(player.facing, want2, 14 * dt);
 
     if (player.dragging) dragBody(dt);
@@ -600,6 +641,42 @@ function normalise(x, y) {
   const len = Math.hypot(x, y);
   if (len <= 1e-4) return { x: 0, y: 0 };
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+
+/**
+ * The man you are pointing at, if you are pointing near one.
+ *
+ * A lateral tolerance *and* an angular one, because either alone is wrong at
+ * one end of the range: sixty pixels off the line of fire is generous at arm's
+ * length and invisible across a hall, and seventeen degrees is the reverse.
+ * Whichever forgives more, wins — and then the closest to where you actually
+ * pointed wins among those.
+ *
+ * Never further than you can see and never through a wall: a gun that swings
+ * onto somebody invisible would hand away the dark, which is the whole game.
+ */
+export function assistedAim(game, raw) {
+  const p = game.player;
+  const w = WEAPONS[p.weapon.id];
+  const reach = Math.min(w.range, PLAYER.sight);
+  const limit = ASSIST.limit * RAD;
+  let best = null;
+  let bestOff = Infinity;
+
+  for (const g of game.guards) {
+    if (g.dead) continue;
+    const d = dist(p.x, p.y, g.x, g.y);
+    if (d > reach || d < 1) continue;
+    const off = Math.abs(angleDelta(raw, Math.atan2(g.y - p.y, g.x - p.x)));
+    if (off > limit || off >= bestOff) continue;
+    if (off > ASSIST.cone * RAD && d * Math.sin(off) > ASSIST.radius) continue;
+    if (!lineOfSight(game.grid, p.x, p.y, g.x, g.y)) continue;
+    bestOff = off;
+    best = g;
+  }
+  return best
+    ? { angle: Math.atan2(best.y - p.y, best.x - p.x), target: best }
+    : { angle: raw, target: null };
 }
 
 /**

@@ -72,9 +72,16 @@ export function createRenderer() {
     paintCones(ctx, game);
     ctx.restore();
 
+    // The torch falls off. Without this the lit area is a flat slab of colour
+    // with a polygon edge round it — with it, the far end of a corridor is a
+    // suggestion and the tile under your feet is bright, which is what makes
+    // the dark feel like dark rather than like a stencil.
+    paintFalloff(ctx, game, view);
+
     paintMuzzles(ctx, game);
     paintBullets(ctx, game);
     paintFx(ctx, opts.fx);
+    if (game.aimTarget) paintReticle(ctx, game.aimTarget);
 
     ctx.restore();
     paintHud(ctx, game, vp, opts);
@@ -139,11 +146,19 @@ function clipToSight(ctx, sight) {
   ctx.clip();
 }
 
-const floorTone = (kind, cx, cy) => {
-  if (kind === VAULT_FLOOR) return (cx + cy) % 2 ? COLOURS.vault : '#5d4e24';
-  if (kind === HALL) return (cx + cy) % 2 ? COLOURS.floorAlt : COLOURS.floor;
-  return (cx + cy) % 2 ? COLOURS.floor : COLOURS.floorAlt;
-};
+/**
+ * What a tile is made of. Four materials and a corridor, each with its own
+ * pattern — a chequer for marble, planks for wood, a plain slab for lino — so
+ * you can tell a lobby from a records room from the floor alone, which is most
+ * of what tells you where you are when you can only see one room at a time.
+ */
+const MATERIAL = [
+  { a: '#3f4657', b: '#3a4152', pattern: 'plain' },     // stone: the corridors
+  { a: '#525c72', b: '#485166', pattern: 'chequer' },   // marble
+  { a: '#4e4131', b: '#463a2c', pattern: 'plank' },     // wood
+  { a: '#454c5c', b: '#414755', pattern: 'plain' },     // lino
+  { a: '#6b5a2a', b: '#5d4e24', pattern: 'chequer' },   // the vault
+];
 
 function paintRemembered(ctx, game, view) {
   const grid = game.grid;
@@ -174,25 +189,42 @@ function paintRemembered(ctx, game, view) {
 
 function paintFloor(ctx, game, view) {
   const grid = game.grid;
+  const material = game.level.material;
   for (let cy = view.y0; cy <= view.y1; cy++) {
     for (let cx = view.x0; cx <= view.x1; cx++) {
       const kind = grid.at(cx, cy);
       if (kind === WALL) continue;
       const x = cx * TILE;
       const y = cy * TILE;
-      ctx.fillStyle = floorTone(kind, cx, cy);
+      const m = MATERIAL[kind === VAULT_FLOOR ? 4 : (material ? material[cy * grid.cols + cx] : 0)];
+      ctx.fillStyle = (cx + cy) % 2 ? m.a : m.b;
       ctx.fillRect(x, y, TILE, TILE);
+
+      if (m.pattern === 'plank') {
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        for (let i = 1; i < 4; i++) ctx.fillRect(x, y + i * 16, TILE, 1);
+        ctx.fillRect(x + ((cx * 29 + cy * 13) % 3) * 21, y, 1, TILE);
+      } else if (m.pattern === 'chequer') {
+        ctx.fillStyle = 'rgba(255,255,255,0.035)';
+        ctx.fillRect(x + 2, y + 2, 28, 28);
+        ctx.fillRect(x + 34, y + 34, 28, 28);
+      }
       // the grout line: what makes a floor read as tiles rather than as paint
       ctx.fillStyle = COLOURS.grout;
       ctx.fillRect(x, y, TILE, 1);
       ctx.fillRect(x, y, 1, TILE);
     }
   }
-  const e = game.level.entrance;
-  ctx.fillStyle = COLOURS.carpet;
-  ctx.globalAlpha = 0.3;
-  ctx.fillRect(e.x * TILE + 8, e.y * TILE + 8, e.w * TILE - 16, e.h * TILE - 16);
-  ctx.globalAlpha = 1;
+}
+
+/** A slab of furniture with a lit top and a shadow: the whole vocabulary. */
+function slab(ctx, w, h, top, side, lift = 5) {
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(-w / 2 + 3, -h / 2 + 4, w, h);
+  ctx.fillStyle = side;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = top;
+  ctx.fillRect(-w / 2, -h / 2 - lift, w, h);
 }
 
 function paintProps(ctx, game, view) {
@@ -202,19 +234,89 @@ function paintProps(ctx, game, view) {
     ctx.save();
     ctx.translate(pr.x, pr.y);
     ctx.rotate(pr.a);
-    if (pr.kind === 'rug') {
-      ctx.fillStyle = `rgba(90,45,55,${0.3 + pr.tone * 0.25})`;
-      ctx.fillRect(-pr.w / 2, -pr.h / 2, pr.w, pr.h);
-      ctx.strokeStyle = 'rgba(200,150,110,0.18)';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(-pr.w / 2 + 5, -pr.h / 2 + 5, pr.w - 10, pr.h - 10);
-    } else if (pr.kind === 'plate') {
-      ctx.strokeStyle = `rgba(240,198,90,${0.2 + pr.tone * 0.2})`;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-pr.w / 2, -pr.h / 2, pr.w, pr.h);
-    } else {
-      ctx.fillStyle = 'rgba(20,24,33,0.5)';
-      ctx.fillRect(-pr.w / 2, -pr.h / 2, pr.w, pr.h);
+    ctx.scale(pr.size, pr.size);
+    switch (pr.kind) {
+      case 'desk':
+        slab(ctx, 52, 30, '#5a4227', '#3a2b1a');
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(-24, -13, 16, 20);            // the drawers
+        ctx.fillStyle = '#8b6b3e';
+        ctx.fillRect(-22, -6, 12, 2);
+        break;
+      case 'counter':
+        slab(ctx, 76, 24, '#5b4a2e', '#3a2f1d', 7);
+        ctx.fillStyle = '#8f7440';
+        ctx.fillRect(-38, -19, 76, 3);             // the brass rail
+        break;
+      case 'cabinet':
+        slab(ctx, 32, 26, '#4a5162', '#2b303c');
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(-14, -12, 28, 1);
+        ctx.fillRect(-14, -4, 28, 1);
+        ctx.fillStyle = '#98a3b8';
+        ctx.fillRect(-3, -9, 6, 2);
+        break;
+      case 'chair':
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(2, 3, 12, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#3d3346';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 11, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#584a63';
+        ctx.fillRect(-11, -12, 22, 6);             // the back
+        break;
+      case 'plant':
+        ctx.fillStyle = 'rgba(0,0,0,0.32)';
+        ctx.beginPath();
+        ctx.ellipse(2, 4, 14, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#6a4a32';
+        ctx.beginPath();
+        ctx.arc(0, 0, 11, 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 6; i++) {
+          const a = i * 1.05 + pr.tone * 3;
+          ctx.fillStyle = i % 2 ? '#3f7a48' : '#2f5f38';
+          ctx.beginPath();
+          ctx.ellipse(Math.cos(a) * 7, Math.sin(a) * 7 - 5, 8, 5, a, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case 'bench':
+        slab(ctx, 60, 18, '#4d3a24', '#2f2416', 4);
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillRect(-30, -6, 60, 1);
+        break;
+      case 'crate':
+        slab(ctx, 34, 30, '#6b5836', '#3f3320');
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-17, -20);
+        ctx.lineTo(17, 5);
+        ctx.moveTo(17, -20);
+        ctx.lineTo(-17, 5);
+        ctx.stroke();
+        break;
+      case 'monitor':
+        slab(ctx, 30, 20, '#232833', '#171b24', 6);
+        ctx.fillStyle = pr.tone > 0.5 ? '#3f6ea0' : '#2f5580';
+        ctx.fillRect(-12, -24, 24, 12);            // the screen, faintly on
+        break;
+      case 'rug':
+        ctx.fillStyle = `rgba(104,46,56,${0.4 + pr.tone * 0.25})`;
+        ctx.fillRect(-46, -32, 92, 64);
+        ctx.strokeStyle = 'rgba(210,160,110,0.2)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-40, -26, 80, 52);
+        break;
+      default:                                     // 'plate', the vault's inlay
+        ctx.strokeStyle = `rgba(240,198,90,${0.25 + pr.tone * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-30, -22, 60, 44);
     }
     ctx.restore();
   }
@@ -761,6 +863,35 @@ function drawVault(ctx, v) {
   if (v.cracked > 0 && v.cracked < 1) ring(ctx, v.x, v.y - 14, VAULT.r + 10, v.cracked, COLOURS.good);
 }
 
+/** Distance falloff on everything already drawn, centred on the torch. */
+function paintFalloff(ctx, game, view) {
+  const p = game.player;
+  const r = PLAYER.sight;
+  const grd = ctx.createRadialGradient(p.x, p.y, r * 0.22, p.x, p.y, r);
+  grd.addColorStop(0, 'rgba(7,8,12,0)');
+  grd.addColorStop(0.66, 'rgba(7,8,12,0.18)');
+  grd.addColorStop(1, 'rgba(7,8,12,0.56)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(view.x0 * TILE - TILE, view.y0 * TILE - TILE, (view.x1 - view.x0 + 3) * TILE, (view.y1 - view.y0 + 3) * TILE);
+}
+
+/**
+ * The man the gun has found. Without this the assist is invisible and reads as
+ * the game shooting where it likes — with it, it reads as the gun helping.
+ */
+function paintReticle(ctx, g) {
+  const t = 19;
+  ctx.strokeStyle = 'rgba(255,238,160,0.8)';
+  ctx.lineWidth = 2.5;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    ctx.beginPath();
+    ctx.moveTo(g.x + sx * t, g.y + sy * t - 6 * sy);
+    ctx.lineTo(g.x + sx * t, g.y + sy * t);
+    ctx.lineTo(g.x + sx * t - 6 * sx, g.y + sy * t);
+    ctx.stroke();
+  }
+}
+
 /** The one shape every timer in this game uses: the vault's, at every size. */
 function ring(ctx, x, y, r, k, colour) {
   ctx.strokeStyle = 'rgba(0,0,0,0.45)';
@@ -891,6 +1022,14 @@ function paintHud(ctx, game, vp, opts) {
   const { W, H } = vp;
   const p = game.player;
   const stats = game.stats;
+
+  // A corner vignette, first: over the world and under every panel. Drawn after
+  // the HUD instead, it dims the very things that have to stay readable.
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.hypot(W, H) * 0.34, W / 2, H / 2, Math.hypot(W, H) * 0.56);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.32)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
 
   ctx.textBaseline = 'middle';
 

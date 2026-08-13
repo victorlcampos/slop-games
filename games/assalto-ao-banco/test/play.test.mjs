@@ -9,11 +9,12 @@ import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/te
 
 installHeadlessDom();     // render.js reaches i18n, which reads localStorage on load
 
-const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist } = await import('../src/config.js');
+const game_config = await import('../src/config.js');
+const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist } = game_config;
 const { generateFloor } = await import('../src/levelgen.js');
 const { createGame } = await import('../src/game.js');
-const { createRun, SILENT_BONUS } = await import('../src/run.js');
-const { WEAPONS } = await import('../src/weapons.js');
+const { createRun, silentBonus } = await import("../src/run.js");
+const { WEAPONS, dps } = await import('../src/weapons.js');
 const { lineOfSight } = await import('../src/grid.js');
 const { canSee } = await import('../src/vision.js');
 const { createRenderer, cameraFor, screenToWorld } = await import('../src/render.js');
@@ -149,11 +150,12 @@ scenario('a guard who sees you runs for a panel and rings it', () => {
 scenario('shoot him first and nobody is told', () => {
   const game = open(4, 7);
   const g = faceOff(game);
-  // aim at him and hold the trigger: the silenced pistol has to do it before
-  // he crosses the floor
-  const aim = { x: g.x, y: g.y };
+  // Track him and hold the trigger, the way a player does: the silenced pistol
+  // has to finish him before he crosses the floor. Aiming at the spot he was
+  // standing on when the scenario started is not a test of the gun, it is a
+  // test of whether he stayed still — and he does not, he runs for the alarm.
   game.player.facing = 0;
-  const dead = tick(game, 12, () => ({ fire: true, aim }), (gm) => gm.guards[0].dead);
+  const dead = tick(game, 12, () => ({ fire: true, aim: { x: g.x, y: g.y } }), (gm) => gm.guards[0].dead);
   check(dead !== null, `he survived twelve seconds of fire (${g.hp.toFixed(0)} hp left)`);
   check(!game.alarm.on, `he reached a panel anyway after ${dead.toFixed(1)}s`);
   check(game.stats.kills === 1, `the kill was not counted (${game.stats.kills})`);
@@ -522,7 +524,7 @@ scenario('the lift carries your health, your gun and the bag', () => {
   check(second.level.floor === 2, `the lift arrived on floor ${second.level.floor}`);
   check(second.player.weapon.id === 'rifle', `he arrived holding a ${second.player.weapon.id}`);
   check(second.player.weapon.ammo === 30, `with ${second.player.weapon.ammo} rounds`);
-  check(second.stats.money === 4000 + SILENT_BONUS, `the bag holds ${second.stats.money} — the silent bonus is missing`);
+  check(second.stats.money === 4000 + silentBonus(1), `the bag holds ${second.stats.money} — the silent bonus is missing`);
   check(second.player.hp > 55, `he arrived with ${second.player.hp} hp, no better than he left`);
   check(second.player.hp <= PLAYER.hp, `he arrived with ${second.player.hp} hp, over the maximum`);
   check(run.totals.floors === 1, `${run.totals.floors} floors counted`);
@@ -605,6 +607,133 @@ scenario('when he runs out of blood the run is over', () => {
   check(ended, 'nothing was told that the run had ended');
   run.update(STEP, IDLE);
   check(game.state === 'dead', 'the game kept simulating after he died');
+});
+
+// ------------------------------------------------------------------ the aim
+
+scenario('the gun finds the man inside where you pointed it', () => {
+  const game = open(4, 7);
+  const g = faceOffClear(game, 260);
+  check(g, 'no clear line to set the scenario up on');
+  const straight = Math.atan2(g.y - game.player.y, g.x - game.player.x);
+
+  // pointed a good ten degrees wide of him, which is a normal thumb
+  const wide = { x: game.player.x + Math.cos(straight + 0.18) * 400, y: game.player.y + Math.sin(straight + 0.18) * 400 };
+  game.update(STEP, { aim: wide });
+  check(game.aimTarget === g, 'the gun did not find him at ten degrees off');
+  check(
+    Math.abs(game.player.facing - straight) < Math.abs(straight + 0.18 - straight),
+    'it found him and then aimed somewhere else'
+  );
+
+  // and a shot fired from there lands
+  const hp = g.hp;
+  tick(game, 0.6, { fire: true, aim: wide });
+  check(g.hp < hp || g.dead, `pointed ten degrees wide, every round missed (${g.hp}/${hp})`);
+});
+
+scenario('the assist does not aim at what you cannot see', () => {
+  const game = open(4, 7);
+  const g = faceOffClear(game, 200);
+  check(g, 'no clear line to set the scenario up on');
+  const at = { x: g.x, y: g.y };
+
+  game.update(STEP, { aim: at });
+  check(game.aimTarget === g, 'it did not find him in the open');
+
+  // the same man, now beyond the torch
+  const far = open(4, 7);
+  const g2 = far.guards[0];
+  g2.dead = false;
+  g2.x = far.player.x + PLAYER.sight + 200;
+  g2.y = far.player.y;
+  far.update(STEP, { aim: { x: g2.x, y: g2.y } });
+  check(!far.aimTarget, 'it locked onto a man further away than the player can see');
+
+  // and a man behind him
+  const behind = open(4, 7);
+  const g3 = faceOffClear(behind, 200);
+  const away = Math.atan2(g3.y - behind.player.y, g3.x - behind.player.x) + Math.PI;
+  behind.update(STEP, { aim: { x: behind.player.x + Math.cos(away) * 300, y: behind.player.y + Math.sin(away) * 300 } });
+  check(!behind.aimTarget, 'it spun the gun round to a man behind him');
+});
+
+// ---------------------------------------------------------------- the guns
+
+scenario('the gun you start with is the worst gun in a fight, by a distance', () => {
+  const quiet = dps(WEAPONS.silenced);
+  for (const w of Object.values(WEAPONS)) {
+    if (w.id === 'silenced' || w.id === 'dart') continue;
+    const ratio = dps(w) / quiet;
+    check(ratio >= 3, `the ${w.id} is only ${ratio.toFixed(1)}x the starting pistol — nobody would carry it`);
+    check(w.mag >= 20, `the ${w.id} carries ${w.mag} rounds, too few to be worth the noise`);
+  }
+  check(dps(WEAPONS.lmg) > dps(WEAPONS.pistol), 'a machine gun should out-shoot a pistol');
+});
+
+scenario('every gun does something no other gun does', () => {
+  const has = (k) => Object.values(WEAPONS).filter((w) => w[k]).map((w) => w.id);
+  check(has('tranq').length === 1, `${has('tranq').length} guns tranquillise`);
+  check(has('pierce').length >= 2, 'nothing goes through a man');
+  check(has('heavy').length >= 2, 'no gun costs you your feet');
+  check(has('stagger').length >= 2, 'no gun knocks a man off his aim');
+  check(WEAPONS.sniper.pierce > WEAPONS.rifle.pierce, 'the sniper should out-punch the rifle');
+  check(WEAPONS.shotgun.range < WEAPONS.rifle.range * 0.6, 'the shotgun is meant to be a close-quarters gun');
+  check(WEAPONS.lmg.heavy < WEAPONS.shotgun.heavy, 'the machine gun should be the heaviest thing to carry');
+});
+
+scenario('a rifle round goes through the first man to reach the second', () => {
+  const game = open(6, 5);
+  const a = faceOffClear(game, 150);
+  check(a, 'no clear line to line two men up on');
+  const dir = Math.atan2(a.y - game.player.y, a.x - game.player.x);
+  const b = game.guards[1];
+  check(b, 'this floor has only one guard');
+
+  // second in the queue at whatever distance down the same line is actually
+  // open — picking one and hoping puts him in a wall about half the time
+  let placed = null;
+  for (const d of [260, 230, 300, 200, 340]) {
+    const x = game.player.x + Math.cos(dir) * d;
+    const y = game.player.y + Math.sin(dir) * d;
+    if (game.grid.solidAt(x, y)) continue;
+    if (!lineOfSight(game.grid, game.player.x, game.player.y, x, y)) continue;
+    placed = { x, y };
+    break;
+  }
+  check(placed, 'nowhere behind the first man to put the second');
+  b.dead = false;
+  b.x = placed.x;
+  b.y = placed.y;
+
+  game.player.weapon = { id: 'sniper', ammo: 9, cool: 0 };
+  const hpB = b.hp;
+  tick(game, 0.3, { fire: true, aim: { x: a.x, y: a.y } });
+  check(a.hp < a.maxHp || a.dead, 'the first man was not hit at all');
+  check(b.hp < hpB || b.dead, `the round stopped in the first man (${b.hp}/${hpB} on the second)`);
+});
+
+scenario('a heavy gun costs you your feet while it fires', () => {
+  const light = open();
+  light.player.weapon = { id: 'pistol', ammo: 60, cool: 0 };
+  tick(light, 1.2, { mx: 1, my: 0, fire: true });
+  const a = dist(light.level.spawn.x, light.level.spawn.y, light.player.x, light.player.y);
+
+  const heavy = open();
+  heavy.player.weapon = { id: 'lmg', ammo: 200, cool: 0 };
+  tick(heavy, 1.2, { mx: 1, my: 0, fire: true });
+  const b = dist(heavy.level.spawn.x, heavy.level.spawn.y, heavy.player.x, heavy.player.y);
+  check(b < a * 0.8, `firing the machine gun on the move covered ${b.toFixed(0)}px against ${a.toFixed(0)}px with a pistol`);
+});
+
+scenario('staying quiet is worth more the deeper you go, not less', () => {
+  const { plan } = game_config;
+  for (const floor of [1, 5, 20]) {
+    const bonus = silentBonus(floor);
+    const payday = plan(floor).payday;
+    check(bonus > payday * 0.25, `on floor ${floor} the silent bonus is ${bonus} against a ${payday} payday — not worth the trouble`);
+  }
+  check(silentBonus(20) > silentBonus(1) * 5, 'the bonus has to grow with the floors');
 });
 
 // ---------------------------------------------------------------- the camera

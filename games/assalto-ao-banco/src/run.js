@@ -13,8 +13,15 @@ import { generateFloor } from './levelgen.js';
 import { createGame } from './game.js';
 import { createLoadout } from './weapons.js';
 
-/** Cleared without the building ever hearing you: worth money and a bandage. */
-export const SILENT_BONUS = 1800;
+/**
+ * Cleared without the building ever hearing you: worth money and a bandage.
+ *
+ * It scales with the floor, and it has to. A flat bonus is most of the takings
+ * on floor 1 and a rounding error on floor 20, so the deeper you get the less
+ * reason there is to bother being quiet — exactly backwards from how the floors
+ * are built.
+ */
+export const silentBonus = (floor) => Math.round(1200 + 700 * Math.max(0, floor - 1));
 export const CLEAR_HEAL = 22;
 export const SILENT_HEAL = 16;
 
@@ -79,7 +86,7 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
     const g = run.game;
     if (!g || g.state !== 'cleared') return run.game;
     const silent = g.stats.alarms === 0;
-    run.money = g.stats.money + (silent ? SILENT_BONUS : 0);
+    run.money = g.stats.money + (silent ? silentBonus(g.level.floor) : 0);
     run.hp = Math.min(PLAYER.hp, g.player.hp + CLEAR_HEAL + (silent ? SILENT_HEAL : 0));
     run.loadout = { ...g.player.weapon, cool: 0 };
     run.totals.kills += g.stats.kills;
