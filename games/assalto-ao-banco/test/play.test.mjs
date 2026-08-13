@@ -16,7 +16,7 @@ const { createRun, SILENT_BONUS } = await import('../src/run.js');
 const { WEAPONS } = await import('../src/weapons.js');
 const { lineOfSight } = await import('../src/grid.js');
 const { canSee } = await import('../src/vision.js');
-const { createRenderer } = await import('../src/render.js');
+const { createRenderer, cameraFor, screenToWorld } = await import('../src/render.js');
 const { headlessContext } = await import('slopkit/testing');
 
 const STEP = 1 / 60;
@@ -605,6 +605,47 @@ scenario('when he runs out of blood the run is over', () => {
   check(ended, 'nothing was told that the run had ended');
   run.update(STEP, IDLE);
   check(game.state === 'dead', 'the game kept simulating after he died');
+});
+
+// ---------------------------------------------------------------- the camera
+
+scenario('he is in the middle of the screen wherever he is standing', () => {
+  const W = 1280;
+  const H = 720;
+  // including the corners of the floor, where a clamped camera used to shove
+  // him off centre without ever saying so
+  for (const [px, py] of [[0, 0], [640, 360], [2400, 1700], [-200, 90], [50, 2000]]) {
+    const cam = cameraFor(px, py, W, H);
+    const onScreen = { x: px - cam.x, y: py - cam.y };
+    check(
+      Math.abs(onScreen.x - W / 2) < 1e-9 && Math.abs(onScreen.y - H / 2) < 1e-9,
+      `standing at ${px},${py} he is drawn at ${onScreen.x.toFixed(1)},${onScreen.y.toFixed(1)} and not at ${W / 2},${H / 2}`
+    );
+  }
+});
+
+scenario('the aim is the vector from the middle of the screen to the cursor', () => {
+  // The complaint this exists for: a camera that leads or eases leaves him off
+  // centre, so where he aims stops being where the cursor is — and as he runs
+  // the pointer slides behind him.
+  const W = 1280;
+  const H = 720;
+  const cursor = { x: 900, y: 200 };
+  const wanted = Math.atan2(cursor.y - H / 2, cursor.x - W / 2);
+
+  let previous = null;
+  for (let step = 0; step < 40; step++) {
+    const px = 300 + step * 37.5;          // running right, fast
+    const py = 900 - step * 11;
+    const w = screenToWorld(cursor.x, cursor.y, px, py, W, H);
+    const got = Math.atan2(w.y - py, w.x - px);
+    check(
+      Math.abs(got - wanted) < 1e-9,
+      `after ${step} steps of running the same cursor aims at ${(got * 180 / Math.PI).toFixed(1)}° instead of ${(wanted * 180 / Math.PI).toFixed(1)}°`
+    );
+    if (previous !== null) check(Math.abs(got - previous) < 1e-9, 'the aim moved while only he did');
+    previous = got;
+  }
 });
 
 // --------------------------------------------------------------- the picture

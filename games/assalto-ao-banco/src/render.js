@@ -34,14 +34,9 @@ export function createRenderer() {
     const { W, H } = vp;
     const p = game.player;
 
-    // the camera leads towards where he is looking: on a corridor that is the
-    // difference between seeing the corner and arriving at it
-    const wantX = p.x + Math.cos(p.facing) * 90 - W / 2;
-    const wantY = p.y + Math.sin(p.facing) * 90 - H / 2;
-    r.camX += (wantX - r.camX) * Math.min(1, (opts.dt || 1 / 60) * 7);
-    r.camY += (wantY - r.camY) * Math.min(1, (opts.dt || 1 / 60) * 7);
-    r.camX = clamp(r.camX, -40, Math.max(-40, game.level.width - W + 40));
-    r.camY = clamp(r.camY, -40, Math.max(-40, game.level.height - H + 40));
+    const cam = cameraFor(p.x, p.y, W, H);
+    r.camX = cam.x;
+    r.camY = cam.y;
 
     const shake = opts.fx ? opts.fx.state.shake : 0;
     const sx = shake ? (Math.random() - 0.5) * shake : 0;
@@ -51,7 +46,9 @@ export function createRenderer() {
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
-    ctx.translate(-Math.round(r.camX) + sx, -Math.round(r.camY) + sy);
+    // not rounded: the camera has to be *exactly* the one `screenToWorld` uses,
+    // or the cursor and the man it is pointing at drift apart by the rounding
+    ctx.translate(-r.camX + sx, -r.camY + sy);
 
     const view = bounds(game.level, r.camX, r.camY, W, H);
     paintRemembered(ctx, game, view);
@@ -84,6 +81,35 @@ export function createRenderer() {
   };
 
   return r;
+}
+
+// ---------------------------------------------------------------- the camera
+
+/**
+ * Where the world is, given where he is: he is in the middle of the screen and
+ * he stays there.
+ *
+ * It used to lead ninety pixels towards where he was looking, and ease into
+ * that over a few frames. Both looked good and both were wrong, because the
+ * mouse is a *fixed point on the screen*: the direction he aims is the vector
+ * from wherever he is drawn to wherever the cursor is. Let him drift off centre
+ * and that vector changes as he walks — start running and the cursor slides
+ * behind him, so aiming forward means chasing the pointer up the screen. There
+ * is nothing to tune here. He is at the centre, and the aim is the vector from
+ * the centre to the cursor, always.
+ *
+ * There is deliberately no clamp at the edges of the floor either: a clamp is
+ * exactly the same bug in the two places it bites. Nothing is lost by letting
+ * the view run off the edge, because everything out there is unlit anyway.
+ */
+export function cameraFor(px, py, W, H) {
+  return { x: px - W / 2, y: py - H / 2 };
+}
+
+/** A point on the screen, in the world — the exact inverse of the above. */
+export function screenToWorld(sx, sy, px, py, W, H) {
+  const cam = cameraFor(px, py, W, H);
+  return { x: sx + cam.x, y: sy + cam.y };
 }
 
 // ---------------------------------------------------------------- the floor

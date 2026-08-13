@@ -9,7 +9,7 @@ import { H } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createRun } from './run.js';
 import { createFx } from './fx.js';
-import { createRenderer, clock } from './render.js';
+import { createRenderer, clock, screenToWorld } from './render.js';
 import { createTouchControls } from './controls.js';
 import { sound, sfx } from './audio.js';
 
@@ -110,8 +110,19 @@ for (const [type, handler] of [
   canvas.addEventListener(type, (e) => { e.preventDefault(); handler(e); }, { passive: false });
 }
 
-/** A point on the screen, in the world the renderer is drawing. */
-const toWorld = (p) => (p ? { x: p.x + renderer.camX, y: p.y + renderer.camY } : null);
+/**
+ * A point on the screen, in the world the renderer is drawing.
+ *
+ * Computed from where he is *now*, not from the camera the last frame was drawn
+ * with. Reading the renderer's copy costs one frame of lag, which is small — and
+ * is the same lag, in the same direction, that made aiming while running feel
+ * like dragging the cursor along behind him.
+ */
+const toWorld = (p) => {
+  if (!p || !run || !run.game) return null;
+  const pl = run.game.player;
+  return screenToWorld(p.x, p.y, pl.x, pl.y, vp.W, vp.H);
+};
 
 // ------------------------------------------------------------------ screens
 
