@@ -18,6 +18,7 @@ const { WEAPONS, dps } = await import('../src/weapons.js');
 const { lineOfSight } = await import('../src/grid.js');
 const { canSee } = await import('../src/vision.js');
 const { createRenderer, cameraFor, screenToWorld } = await import('../src/render.js');
+const { createTouchControls, fireButton, rollButton, useButton, AIM } = await import('../src/controls.js');
 const { headlessContext } = await import('slopkit/testing');
 
 const STEP = 1 / 60;
@@ -789,6 +790,98 @@ scenario('the fog only lifts where he has been', () => {
   check(later > seenAtStart, `he walked for four seconds and learnt nothing new (${later} cells)`);
 });
 
+// ---------------------------------------------------------------- the thumbs
+
+const pad = () => createTouchControls(() => 1280, () => 720);
+
+scenario('a touch on the right half is already a shot', () => {
+  const t = pad();
+  t.start(1, 900, 400);
+  const r = t.read();
+  check(r.fire === true, 'the thumb is on the right half and the gun has not gone off');
+  check(r.aimAngle === null, `a touch that has not moved was read as an aim (${r.aimAngle})`);
+  t.end(1);
+  check(t.read().fire === false, 'it kept firing after the thumb left the glass');
+});
+
+scenario('the gun icon is a stick: pulling on it turns the barrel', () => {
+  const t = pad();
+  const gun = fireButton(1280, 720);
+  // the thumb lands off the middle of the icon, which is what a thumb does
+  t.start(1, gun.x + 20, gun.y + 14);
+  check(t.read().fire === true, 'pressing the icon did not fire');
+
+  // and then pulls straight up from the icon's middle. Measured from where the
+  // finger landed instead, this same drag reads about 0.2 rad off.
+  t.move(1, gun.x, gun.y - 80);
+  const r = t.read();
+  check(Math.abs(r.aimAngle + Math.PI / 2) < 0.01, `pulled straight up off the icon and the barrel went to ${r.aimAngle.toFixed(2)}`);
+  check(r.fire === true, 'the shot stopped the moment it was being aimed');
+});
+
+scenario('a thumb that shakes mid-burst does not swing the barrel round the room', () => {
+  const t = pad();
+  t.start(1, 900, 400);
+  t.move(1, 900, 300);                        // aimed straight up
+  const aimed = t.read().aimAngle;
+  check(Math.abs(aimed + Math.PI / 2) < 0.01, `pulled up and got ${aimed}`);
+  t.move(1, 900 + AIM.dead - 2, 400);         // and back inside the deadzone
+  const r = t.read();
+  check(r.aimAngle === aimed, `the barrel swung from ${aimed.toFixed(2)} to ${String(r.aimAngle)} on a thumb that came home`);
+  check(r.fire === true, 'and it stopped firing on the way');
+});
+
+scenario('the roll and the hand are pressed, not fired', () => {
+  const t = pad();
+  const roll = rollButton(1280, 720);
+  t.start(1, roll.x, roll.y);
+  let r = t.read();
+  check(r.roll === true && r.fire === false, `the roll button fired the gun (roll=${r.roll}, fire=${r.fire})`);
+
+  const hand = useButton(1280, 720);
+  t.offerUse(true);
+  t.start(2, hand.x, hand.y);
+  r = t.read();
+  check(r.use === true && r.fire === false, `the hand button fired the gun (use=${r.use}, fire=${r.fire})`);
+
+  // with no body at his feet the hand is not on screen, and that patch of glass
+  // is the trigger like the rest of the right half
+  t.offerUse(false);
+  t.start(3, hand.x, hand.y);
+  check(t.read().fire === true, 'the hidden hand button went on swallowing the shot');
+});
+
+scenario('the three buttons keep off each other, on every width the frame gives', () => {
+  for (const W of [1152, 1280, 1600]) {
+    const H = 720;
+    const all = [['gun', fireButton(W, H)], ['roll', rollButton(W, H)], ['hand', useButton(W, H)]];
+    for (const [name, b] of all) {
+      check(b.x + b.r <= W && b.y + b.r <= H, `the ${name} button hangs off the screen at ${W}x${H}`);
+      check(b.x - b.r > W / 2, `the ${name} button reaches into the walking half at ${W}x${H}`);
+    }
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const [an, a] = all[i];
+        const [bn, b] = all[j];
+        const gap = dist(a.x, a.y, b.x, b.y) - a.r - b.r;
+        check(gap > 0, `${an} and ${bn} overlap by ${(-gap).toFixed(0)}px at ${W}x${H}`);
+      }
+    }
+  }
+});
+
+scenario('a tap with no drag still points, and the gun finds the man', () => {
+  const game = open(4, 7);
+  const g = faceOffClear(game, 220);
+  check(g, 'no clear line to set the scenario up on');
+  const hp = g.hp;
+  // what main.js hands the game for a thumb that has touched and not dragged:
+  // the trigger down, and the angle he is already facing
+  tick(game, 0.8, () => ({ fire: true, aimAngle: game.player.facing }));
+  check(game.aimTarget === g, 'the tap pointed at nothing, so the assist had nothing to find');
+  check(g.hp < hp || g.dead, `the tap fired and he is untouched (${g.hp}/${hp})`);
+});
+
 scenario('the whole screen draws, on every phase, in both languages', () => {
   const ctx = headlessContext(1280, 720);
   const vp = { W: 1280, H: 720 };
@@ -807,6 +900,16 @@ scenario('the whole screen draws, on every phase, in both languages', () => {
     game.raiseAlarm(game.alarms[0], 'guard');
     game.update(STEP, IDLE);
     renderer.draw(ctx, game, vp, { fx, touch: { stick: { on: true, ox: 100, oy: 500, x: 140, y: 520 }, trigger: { on: false } } });
+    // and the trigger held, dragged off the icon: the reticle lights up and grows
+    // a barrel, which is a branch of its own
+    const gun = fireButton(vp.W, vp.H);
+    renderer.draw(ctx, game, vp, {
+      fx,
+      touch: {
+        stick: { on: false },
+        trigger: { on: true, onIcon: true, ox: gun.x, oy: gun.y, x: gun.x - 40, y: gun.y - 30, angle: -2.5 },
+      },
+    });
   }
   check(true, 'a full frame was painted without throwing');
 });

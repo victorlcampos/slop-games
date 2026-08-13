@@ -17,7 +17,7 @@ import {
 import { WALL, VAULT_FLOOR, HALL, lineOfSight } from './grid.js';
 import { visibilityFan } from './vision.js';
 import { WEAPONS } from './weapons.js';
-import { STICK, useButton, rollButton } from './controls.js';
+import { STICK, useButton, rollButton, fireButton } from './controls.js';
 import { t, i18n } from './i18n.js';
 
 export function createRenderer() {
@@ -1204,7 +1204,7 @@ function paintCompass(ctx, game, vp) {
   ctx.restore();
 }
 
-/** The two sticks where the thumbs left them, and the two round buttons. */
+/** The two sticks where the thumbs left them, and the three round buttons. */
 function paintTouch(ctx, touch, vp, game) {
   const ring2 = (x, y, r, alpha) => {
     ctx.strokeStyle = `rgba(232,238,248,${alpha})`;
@@ -1213,8 +1213,15 @@ function paintTouch(ctx, touch, vp, game) {
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.stroke();
   };
+  const gun = fireButton(vp.W, vp.H);
+  const firing = touch.trigger.on;
+
   for (const s of [touch.stick, touch.trigger]) {
     if (!s.on) continue;
+    // A drag that started on the icon already has a face — the reticle lights up
+    // and grows a barrel. Painting the stick's ring and knob on top of it only
+    // puts three circles and an arrow in the same corner.
+    if (s.onIcon) continue;
     ring2(s.ox, s.oy, STICK.max * 0.62, 0.2);
     const dx = s.x - s.ox;
     const dy = s.y - s.oy;
@@ -1239,8 +1246,63 @@ function paintTouch(ctx, touch, vp, game) {
     ctx.fillText(glyph, b.x, b.y + 2);
     ctx.globalAlpha = 1;
   };
+  paintFireIcon(ctx, gun, firing, touch.trigger.angle);
   button(rollButton(vp.W, vp.H), '🌀', game.player.rollCool <= 0);
   if (game.prompt) button(useButton(vp.W, vp.H), '✋', true);
+}
+
+/**
+ * The trigger, drawn rather than typed: 🔫 is a water pistol on half the phones
+ * in the world and a gun on the other half, and a reticle says "this is where
+ * you shoot from" in every language the catalog speaks.
+ *
+ * It lights up while it is held, and grows a barrel pointing the way the thumb
+ * has dragged — so the icon is also the readout that tells you the drag took.
+ */
+function paintFireIcon(ctx, b, firing, angle) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.fillStyle = firing ? 'rgba(255,70,58,0.3)' : 'rgba(10,12,18,0.55)';
+  ctx.beginPath();
+  ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tint = firing ? 'rgba(255,148,138,0.95)' : 'rgba(232,238,248,0.6)';
+  ctx.strokeStyle = tint;
+  ctx.fillStyle = tint;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // the reticle: a ring with four ticks through it and a dot in the middle
+  const r = b.r * 0.46;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * (r - 6), Math.sin(a) * (r - 6));
+    ctx.lineTo(Math.cos(a) * (r + 12), Math.sin(a) * (r + 12));
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (typeof angle === 'number') {
+    ctx.rotate(angle);
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(b.r + 4, 0);
+    ctx.lineTo(b.r - 8, -8);
+    ctx.lineTo(b.r - 8, 8);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** mm:ss, for the cards at the end of a run. */

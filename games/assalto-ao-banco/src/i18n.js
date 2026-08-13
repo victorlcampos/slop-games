@@ -43,8 +43,8 @@ export const dict = {
     en: 'Nothing here has a pick-up key: stop on the gun, the cash or the alarm and the ring fills by itself — the vault\'s own mechanism, only quick. Sprinting over it does not count.',
   },
   'menu.touch': {
-    pt: 'No celular os dois controles nascem onde o dedo toca: metade esquerda anda, metade direita mira e atira. O botão 🌀 rola; a mão só aparece quando há corpo por perto.',
-    en: 'On a phone both sticks appear where your thumb lands: the left half walks, the right half aims and fires. The 🌀 button rolls; the hand only shows up when there is a body at your feet.',
+    pt: 'No celular a metade esquerda anda, e nasce onde o dedo toca. À direita fica a mira: encostar nela já é um tiro, e puxar o dedo para fora vira a arma — vale para o ícone e para qualquer ponto da metade direita. O botão 🌀 rola; a mão só aparece quando há corpo por perto.',
+    en: 'On a phone the left half walks, and appears where your thumb lands. The right half is the trigger: touching it is already a shot, and dragging off it swings the gun — the reticle in the corner and any spare patch of the right half do the same thing. The 🌀 button rolls; the hand only shows up when there is a body at your feet.',
   },
   'menu.tip': {
     pt: 'Você também pode puxar um alarme. Todo mundo corre para o painel — e o painel não é onde você está.',

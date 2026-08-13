@@ -240,8 +240,12 @@ createLoop({
         input.my = asked.my;
         input.sneak = asked.sneak;
       }
-      if (asked.aimAngle !== null) {
-        input.aimAngle = asked.aimAngle;
+      if (asked.fire || asked.aimAngle !== null) {
+        // A tap with no drag is still pointing: he holds the way he is already
+        // looking, which is what puts the assisted aim to work on the man in
+        // front of him. Left to fall through, "he is not aiming" means "he is
+        // looking where he walks", and the tap fires at the corridor.
+        input.aimAngle = asked.aimAngle !== null ? asked.aimAngle : run.game.player.facing;
         input.aim = null;
       }
       input.fire = input.fire || asked.fire;

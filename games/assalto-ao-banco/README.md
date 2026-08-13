@@ -39,13 +39,22 @@ round. It is faster than he can ever walk, it cannot be steered once it starts,
 it drops whatever you are carrying — and it is *loud*, which is the trade: the
 one move that beats a pair of eyes is heard by every ear on the floor.
 
-On a phone both sticks are born where the thumb lands: the **left half walks**,
-the **right half aims and fires**. How far you push the left stick is how loud
-you are — a short push is a creep, pushing it out is a run. The right stick
-turns him as soon as it is touched and only fires once it is pushed out, because
-on a floor where one loud shot brings four men, a stick that fires the moment it
-is touched is a trap. 🌀 rolls; the hand button only appears when there is a body
-at your feet.
+On a phone the **left half walks**, and it is born where the thumb lands: how far
+you push it is how loud you are — a short push is a creep, pushing it out is a
+run.
+
+The **right half is the trigger**, and **touching it is already a shot** — the
+gun is a reticle in the corner, and pressing it fires the way clicking a mouse
+does. **Drag off it to swing the barrel**: the arrow on the rim shows where the
+gun ended up, and the assisted aim does the last few degrees. Any spare patch of
+the right half does the same thing, anchored where your thumb landed, so you
+never have to find the icon in a hurry.
+
+It fired only past half a push before, so that a floor could not be woken by a
+thumb brushing the glass. What that produced in practice was a player pushing the
+stick and wondering why nothing had happened. 🌀 rolls; the hand button only
+appears when there is a body at your feet — and both are tested before the
+trigger, so a roll is never a shot.
 
 The screen turns itself: held upright, the canvas is laid on its side rather
 than asking you to unlock rotation.
