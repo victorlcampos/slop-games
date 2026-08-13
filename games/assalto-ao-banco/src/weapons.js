@@ -30,12 +30,19 @@ export const WEAPONS = {
     id: 'rifle', damage: 44, rate: 0.4, spread: 0.022, range: 920,
     speed: 1700, pellets: 1, noise: 720, mag: 72, tier: 3, kick: 5,
   },
-  // The other quiet gun, and the only one that is quieter than yours: one dart
-  // ends a guard, but you get one every second and a half and only across a
-  // room. It is the weapon for a floor you intend nobody to remember.
+  /**
+   * The tranquilliser, and the only gun here that does no damage at all.
+   *
+   * It drops whoever it touches, whatever is left in him — which is the entire
+   * point, and the reason it was rewritten. As a damage weapon it was 120 a
+   * dart, which one-shot a guard on floor 1 and stopped one-shotting anybody
+   * around floor 17, where guard health passes it: a "silent takedown" that
+   * quietly turns into the worst gun in the game exactly when you need it.
+   * A takedown does not care how big the man is, so now it does not.
+   */
   dart: {
-    id: 'dart', damage: 120, rate: 1.45, spread: 0.02, range: 330,
-    speed: 780, pellets: 1, noise: 70, mag: 8, tier: 1, kick: 1,
+    id: 'dart', damage: 0, tranq: true, rate: 1.3, spread: 0.015, range: 380,
+    speed: 820, pellets: 1, noise: 60, mag: 6, tier: 1, kick: 1,
   },
   lmg: {
     id: 'lmg', damage: 19, rate: 0.075, spread: 0.16, range: 640,

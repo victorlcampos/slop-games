@@ -41,9 +41,27 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
       loadout: run.loadout,
     });
     Object.assign(game, hooks);
+    // The run closes its books *before* the caller's hook, because that hook is
+    // what puts the end-of-run card on screen — and left the other way round it
+    // reads the totals from before the floor he just died on.
+    game.onDead = () => {
+      close(game);
+      hooks.onDead?.();
+    };
     run.game = game;
     run.floor = floor;
     return game;
+  }
+
+  /** Bank the floor he died on. Idempotent: death arrives from two directions. */
+  function close(g) {
+    if (run.over) return;
+    run.over = true;
+    run.money = g.stats.money;
+    run.totals.kills += g.stats.kills;
+    run.totals.alarms += g.stats.alarms;
+    run.totals.loot += g.stats.loot;
+    run.totals.time += g.stats.time;
   }
 
   run.start = () => {
@@ -78,14 +96,7 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
     const g = run.game;
     if (!g) return;
     g.update(dt, input);
-    if (g.state === 'dead' && !run.over) {
-      run.over = true;
-      run.money = g.stats.money;
-      run.totals.kills += g.stats.kills;
-      run.totals.alarms += g.stats.alarms;
-      run.totals.loot += g.stats.loot;
-      run.totals.time += g.stats.time;
-    }
+    if (g.state === 'dead') close(g);
   };
 
   /** What the run is worth: the bag, plus the floors it took to fill it. */

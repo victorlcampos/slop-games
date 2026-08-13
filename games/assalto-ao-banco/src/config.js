@@ -6,19 +6,29 @@ export const H = 720;                 // logical height (slopkit fixes this)
 export const TILE = 64;               // a corridor is exactly one tile wide
 
 /**
- * How tall everything stands up off the floor.
+ * How much of the height you actually see. The view is **almost** straight
+ * down, tipped just enough to be looking at something rather than at a plan.
  *
- * The view is oblique, not straight down: the floor is drawn as plain squares
- * and anything with height is drawn *up the screen* from where it stands, so a
- * wall shows its top and the face turned towards you, and a person is a figure
- * standing on their tile rather than a disc seen from a helicopter.
- *
- * WALL is nearly half a tile on purpose. Less and the building reads flat;
- * much more and a wall hides the corridor behind it, which in a game about
- * seeing down corridors is worse than flat.
+ * A full standing figure was tried and thrown out: a person drawn at their own
+ * height spills two tiles up the screen, so what you aim at and what the
+ * simulation shoots at stop being the same place — you put the crosshair on a
+ * man's chest and the bullet goes over the head of the tile he is standing on.
+ * Everybody fits inside their own square now, and the tilt is carried by two
+ * small things instead: a lip on every wall, and a head that sits a few pixels
+ * above the shoulders with its own shadow.
  */
-export const WALL_H = 26;
-export const BODY_H = 46;             // how tall a person is drawn
+export const WALL_H = 13;             // the lip on a wall
+export const HEAD_LIFT = 7;           // how far a head floats over its shoulders
+
+/**
+ * How wide a person is to a bullet.
+ *
+ * A shade wider than the body that is drawn, and deliberately so: a shot that
+ * visually clips a shoulder should count. The alternative — a circle narrower
+ * than the sprite — is the thing that reads as "the bullet went through him",
+ * and no amount of explaining the geometry makes that feel fair.
+ */
+export const HIT_R = 17;
 
 export const PLAYER = {
   r: 15,
@@ -186,7 +196,9 @@ export const COLOURS = {
 
 /** Who wears what. A figure is read by its colours before its shape. */
 export const KIT = {
-  player: { coat: '#2f9e8c', coatDark: '#1f6f63', legs: '#232a38', head: '#1b2130', skin: COLOURS.skin, trim: '#7fd7c4' },
+  // the thief: a balaclava, and a duffel that only shows up once there is
+  // something in it
+  player: { coat: '#2f9e8c', coatDark: '#1f6f63', legs: '#232a38', head: '#1b2130', skin: COLOURS.skin, trim: '#7fd7c4', bag: '#3d3428' },
   guard: { coat: '#b8455e', coatDark: '#7d2c40', legs: '#2a2230', head: '#3a2b33', skin: COLOURS.skin, trim: '#e0c98a' },
   guardCalm: { coat: '#c9a05e', coatDark: '#8a6a35', legs: '#2a2635', head: '#3a3128', skin: COLOURS.skin, trim: '#f0d9a8' },
   body: { coat: '#6b5462', coatDark: '#4a3a45', legs: '#2a2430', head: '#3a2f36', skin: '#a98a6a', trim: '#6b5462' },

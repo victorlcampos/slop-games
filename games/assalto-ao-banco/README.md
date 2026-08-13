@@ -70,11 +70,12 @@ removing them.
 **Noise is the real currency.** Nine guns, and what tells them apart is how far
 the shot travels through the building, not what it does at the end of it. Two
 are quiet — the silenced pistol you start with, which never runs out and needs
-two hits, and the **dart gun**, which is quieter still and ends a guard in one,
-but fires every second and a half and only across a room. The other seven are in
-another league: a pistol, a revolver, an SMG, a shotgun, a rifle, a machine gun
-and a sniper rifle, each louder roughly in proportion to how much you wanted it.
-Your own footsteps carry too, unless you are sneaking — and so does a roll.
+two hits, and the **dart gun**, which is quieter still and does no damage at
+all: it drops whoever it touches, whatever is left in him. Six darts, one every
+one and a third seconds, and only across a room. The other seven are in another
+league: a pistol, a revolver, an SMG, a shotgun, a rifle, a machine gun and a
+sniper rifle, each louder roughly in proportion to how much you wanted it. Your
+own footsteps carry too, unless you are sneaking — and so does a roll.
 
 You can tell them apart on the floor by outline alone: a silencer's can, a
 revolver's cylinder, a scope on its rail, a drum magazine. In a corridor lit by
@@ -99,14 +100,15 @@ building runs out of room to hire.
 to is built by the same ray casts that answer "can he see you". There is no
 second system deciding what is dark, which is the only way a fog can be fair.
 
-**It is not seen from a helicopter.** The projection is oblique: the floor stays
-a grid of plain squares and everything with height is drawn *up the screen* from
-the tile it stands on, so a wall shows its top and the face turned towards you,
-and a person is a figure standing on their tile rather than a disc. It costs one
-rule everywhere — draw in rows, top of the screen first — and it buys a building
-you can read the shape of. The people are dolls whose bodies never rotate; what
-turns is the arm and the gun in it, with its y squashed towards the horizontal,
-because pointing away should look short.
+**Almost overhead, and tipped just a little.** Everybody fits inside their own
+square, which is the rule that matters: what you put the crosshair on and what
+the simulation shoots at have to be the same place. A full standing figure was
+tried and thrown out — drawn at their own height, a man stands two tiles up the
+screen from the tile he is on, so rounds sail over the heads of people you are
+plainly aiming at. The tilt is carried by two small things instead: a lip on
+every wall, and a head drawn a few pixels above its own shoulders with its own
+shadow. The shoulders are wider across than deep, which is the one proportion
+that makes a figure seen from above read as facing somewhere.
 
 **Nothing here is an image.** The whole bank — the tiled floors, the masonry
 courses on every wall face, the men, the nine guns in silhouette, the money, the
@@ -134,8 +136,19 @@ languages) and `play.test.mjs` for the heist (being seen, the run to the alarm,
 bodies, cameras, noise, the roll, the rings, the vault, the lift between
 floors).
 
-One of them earned its own note. "Sprinting over a gun does not take it" first
-passed because the test walked him into the far wall, where he stood at 0 px/s
-and did not pick it up for entirely the wrong reason. It paces him back and
-forth over the gun now and asserts the speed it reached, so the scenario has to
-sprint before it is allowed to claim that sprinting changes nothing.
+Two of them earned their own note.
+
+"Sprinting over a gun does not take it" first passed because the test walked him
+into the far wall, where he stood at 0 px/s and did not pick it up for entirely
+the wrong reason. It paces him back and forth over the gun now and asserts the
+speed it reached, so the scenario has to sprint before it is allowed to claim
+that sprinting changes nothing.
+
+"The end-of-run card has real numbers to read" exists because of the only bug
+here that ever reached a player. `createSave`'s `save()` reports whether it
+managed to write; it does not hand the state back. Assigning its answer to
+`best` made `best` the boolean `true`, and the first `best.money.toLocaleString()`
+threw — with the phase already switched to 'over', so the loop had stopped
+simulating and the card was never shown. The game froze on the frame he died in,
+in silence. The scenario reads exactly what the card reads, at exactly the moment
+the card reads it, and checks every one of them is a number.

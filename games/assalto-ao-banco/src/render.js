@@ -1,10 +1,10 @@
-// The bank, seen from over your shoulder rather than from a helicopter.
+// The bank, seen from almost directly above and tipped just a little.
 //
-// The projection is **oblique**: the floor stays a grid of plain squares, and
-// anything with height is drawn *up the screen* from the tile it stands on. A
-// wall shows its top and the face turned towards you; a person is a figure
-// standing on their tile. It costs one rule everywhere — draw in rows, top of
-// the screen first — and buys a building you can read the shape of.
+// Everybody fits inside their own square, which is the rule that matters: what
+// you aim at and what the simulation shoots at have to be the same place. The
+// tilt is carried by two small things — a lip on every wall, and a head drawn
+// a few pixels above its own shoulders with its own shadow. Walls and people
+// are still painted in rows down the screen, so the lip covers what is behind.
 //
 // The darkness is one shape: the polygon `vision.js` builds from the player's
 // cone is the clip path, and it is the same maths that answers "can that guard
@@ -12,7 +12,7 @@
 // only way a fog can be fair.
 
 import {
-  COLOURS, KIT, TILE, WALL_H, BODY_H, PLAYER, CAMERA, VAULT, clamp,
+  COLOURS, KIT, TILE, WALL_H, HEAD_LIFT, ROLL, PLAYER, CAMERA, VAULT, clamp,
 } from './config.js';
 import { WALL, VAULT_FLOOR, HALL, lineOfSight } from './grid.js';
 import { visibilityFan } from './vision.js';
@@ -91,7 +91,7 @@ export function createRenderer() {
 function bounds(level, camX, camY, W, H) {
   return {
     x0: Math.max(0, Math.floor(camX / TILE) - 1),
-    y0: Math.max(0, Math.floor((camY - WALL_H - BODY_H) / TILE) - 1),
+    y0: Math.max(0, Math.floor((camY - WALL_H - 40) / TILE) - 1),
     x1: Math.min(level.grid.cols - 1, Math.floor((camX + W) / TILE) + 1),
     y1: Math.min(level.grid.rows - 1, Math.floor((camY + H) / TILE) + 2),
   };
@@ -326,91 +326,137 @@ function drawWallBlock(ctx, grid, cx, cy) {
 function shadow(ctx, x, y, r) {
   ctx.fillStyle = 'rgba(0,0,0,0.38)';
   ctx.beginPath();
-  ctx.ellipse(x, y + 2, r, r * 0.45, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y + 3, r, r * 0.62, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
 /**
- * A figure standing on its tile: feet at (x, y), head at (x, y - BODY_H).
+ * A person, seen from almost directly above and fitting inside their own tile.
  *
- * The body itself never rotates — a doll seen from the front spun on the spot
- * reads as a spinning doll, not as a man turning. What turns is the arm and the
- * gun in it, and the y of that arm is squashed towards the horizontal, which is
- * what sells an oblique view: pointing "north" is pointing away, and away is
- * short.
+ * The shoulders, the arms and the gun are drawn in the man's own frame, so they
+ * turn with him — which from up here is what a man turning looks like. The one
+ * thing that does *not* turn is the head: it is lifted a few pixels up the
+ * screen and given its own shadow, and that little parallax is the whole of the
+ * third dimension. It is enough to stop him being a disc, and small enough that
+ * where he is drawn and where he is standing are the same place — which is what
+ * makes aiming at him and hitting him the same act.
  */
-function drawDoll(ctx, x, y, facing, kit, o = {}) {
-  const lean = o.lean || 0;
-  const h = (o.height || BODY_H) * (o.squash || 1);
-  const top = y - h;
-  const back = Math.sin(facing) < -0.35;          // turned away from you
-  const side = Math.abs(Math.cos(facing)) > 0.5;
-  const dirX = Math.cos(facing) >= 0 ? 1 : -1;
+function drawPerson(ctx, x, y, facing, kit, o = {}) {
+  const k = o.scale || 1;
+  const cos = Math.cos(facing);
+  const sin = Math.sin(facing);
 
-  shadow(ctx, x, y, 13);
+  shadow(ctx, x, y, 15 * k);
 
   ctx.save();
   ctx.translate(x, y);
-  if (lean) ctx.rotate(lean);
+  ctx.rotate(facing);
+  ctx.scale(k, k);
 
-  // legs
-  ctx.fillStyle = kit.legs;
+  // boots, poking out behind the shoulders as he walks
   const stride = o.stride || 0;
-  ctx.fillRect(-8, -h * 0.42, 6, h * 0.42 + Math.min(0, stride));
-  ctx.fillRect(2, -h * 0.42, 6, h * 0.42 - Math.min(0, stride));
+  ctx.fillStyle = kit.legs;
+  ctx.fillRect(-13, -11 + stride, 9, 7);
+  ctx.fillRect(-13, 4 - stride, 9, 7);
 
-  // coat
-  ctx.fillStyle = kit.coat;
-  ctx.fillRect(-11, -h * 0.86, 22, h * 0.46);
-  ctx.fillStyle = kit.coatDark;
-  ctx.fillRect(-11, -h * 0.86, 22, 5);
-  if (side) {
-    // a sliver of shading on the side he is turned away from
-    ctx.fillRect(dirX > 0 ? -11 : 5, -h * 0.86, 6, h * 0.46);
+  // the pack on his back, if he is carrying one
+  if (o.bag) {
+    ctx.fillStyle = kit.bag || '#3a3f52';
+    ctx.beginPath();
+    ctx.roundRect(-19, -10, 11, 20, 4);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(-19, -2, 11, 3);
   }
 
-  // the arm that holds the gun, swung to the facing and flattened in y
-  const ax = Math.cos(facing) * 13;
-  const ay = Math.sin(facing) * 6;
-  ctx.strokeStyle = kit.skin;
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
+  // Shoulders: wider across than deep. That one proportion is what makes a
+  // figure seen from above read as facing somewhere — a circle with a gun
+  // sticking out of it reads as a circle with a gun sticking out of it.
+  ctx.fillStyle = kit.coat;
   ctx.beginPath();
-  ctx.moveTo(0, -h * 0.7);
-  ctx.lineTo(ax, -h * 0.7 + ay);
-  ctx.stroke();
-
-  // head
-  ctx.fillStyle = kit.skin;
-  ctx.beginPath();
-  ctx.arc(0, -h - 1, 9, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 12, 16, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = kit.head;
+  ctx.fillStyle = kit.coatDark;
   ctx.beginPath();
-  ctx.arc(0, -h - 3, 9, Math.PI, 0);
+  ctx.ellipse(-5, 0, 8, 15, 0, 0, Math.PI * 2);   // the back, in its own shade
   ctx.fill();
-  if (back) {
-    // the back of his head: no face, all hair
+  if (kit.vest) {
+    ctx.fillStyle = kit.vest;
     ctx.beginPath();
-    ctx.arc(0, -h - 1, 9, 0, Math.PI * 2);
+    ctx.roundRect(-6, -11, 13, 22, 4);
     ctx.fill();
-  } else {
-    ctx.fillStyle = COLOURS.ink;
-    ctx.fillRect(side ? dirX * 2 - 1 : -4, -h - 2, 2, 2);
-    if (!side) ctx.fillRect(2, -h - 2, 2, 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(-6, -2, 13, 3);
+  }
+  ctx.fillStyle = kit.trim;
+  ctx.fillRect(5, -3, 4, 6);                       // the collar, catching the light
+
+  // arms out in front, holding whatever he is holding
+  ctx.strokeStyle = kit.skin;
+  ctx.lineWidth = 5.5;
+  ctx.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(3, side * 11);
+    ctx.lineTo(15, side * 5);
+    ctx.stroke();
+  }
+  if (o.gun) {
+    ctx.save();
+    ctx.translate(13, 0);
+    ctx.scale(0.92, 0.92);
+    drawGunShape(ctx, o.gun);
+    ctx.restore();
   }
   ctx.restore();
 
-  return { hand: { x: x + ax, y: top + (h - h * 0.7) - h + ay + h } };
-}
+  // The head, in screen space and a few pixels up. Drawn after the body and
+  // never rotated with it, so it reads as being above the shoulders rather
+  // than beside them.
+  const hx = x + cos * 3;
+  const hy = y + sin * 3 - HEAD_LIFT * k;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(x + cos * 3, y + sin * 3 + 1, 8 * k, 6 * k, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-/** The gun in his hands, in silhouette, pointing where he is pointing. */
-function drawHeldGun(ctx, x, y, facing, id, scale = 1) {
   ctx.save();
-  ctx.translate(x + Math.cos(facing) * 15, y + Math.sin(facing) * 7);
-  ctx.rotate(Math.atan2(Math.sin(facing) * 0.55, Math.cos(facing)));
-  ctx.scale(scale, scale);
-  drawGunShape(ctx, id);
+  ctx.translate(hx, hy);
+  ctx.rotate(facing);
+  ctx.scale(k, k);
+  ctx.fillStyle = kit.skin;
+  ctx.beginPath();
+  ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  // the top of the head: whatever he has on it, seen from above
+  ctx.fillStyle = kit.head;
+  if (kit.hat === 'cap') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 7.5, Math.PI * 0.5, Math.PI * 1.5);   // the crown
+    ctx.fill();
+    ctx.fillRect(0, -6, 5, 12);                         // the peak, pointing forward
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(1.5, -2, 3, 4);                        // the badge on it
+  } else if (kit.hat === 'helmet') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(-7, -1.5, 14, 3);                      // the ridge over the top
+    ctx.fillStyle = COLOURS.ink;
+    ctx.fillRect(4, -4, 3, 8);                          // the visor
+  } else {
+    // a balaclava with a strip of face showing, which is what a bank robber
+    // looks like from directly overhead
+    ctx.beginPath();
+    ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = kit.skin;
+    ctx.fillRect(2.5, -4.5, 4.5, 9);
+    ctx.fillStyle = COLOURS.ink;
+    ctx.fillRect(3.5, -3.5, 2, 2.5);
+    ctx.fillRect(3.5, 1, 2, 2.5);
+  }
   ctx.restore();
 }
 
@@ -422,71 +468,69 @@ function drawHeldGun(ctx, x, y, facing, id, scale = 1) {
  */
 export function drawGunShape(ctx, id) {
   const steel = COLOURS.steel;
-  const dark = '#3c4456';
-  ctx.fillStyle = steel;
+  const black = '#2f3542';
+  const wood = '#7a5230';
+  const wear = '#5f6b82';
+  const set = (c) => { ctx.fillStyle = c; };
+
   switch (id) {
     case 'silenced':
-      ctx.fillRect(-2, -2, 14, 4);
-      ctx.fillStyle = dark;
-      ctx.fillRect(12, -3, 12, 6);          // the can on the end
-      ctx.fillRect(-2, 1, 4, 7);
+      set(black); ctx.fillRect(-3, 1, 5, 8);              // the grip
+      set(steel); ctx.fillRect(-2, -2, 14, 4);
+      set(wear); ctx.fillRect(12, -3.5, 13, 7);           // the can, fatter than the barrel
+      set(black); ctx.fillRect(22, -3.5, 3, 7);
       break;
     case 'pistol':
-      ctx.fillRect(-2, -2, 17, 4);
-      ctx.fillStyle = dark;
-      ctx.fillRect(-2, 1, 5, 8);
+      set(black); ctx.fillRect(-3, 1, 6, 9);
+      set(steel); ctx.fillRect(-2, -2.5, 18, 5);
+      set(black); ctx.fillRect(-1, -2.5, 4, 5);           // the ejection port
       break;
     case 'revolver':
-      ctx.fillRect(-2, -2, 18, 4);
-      ctx.fillStyle = dark;
-      ctx.beginPath();
-      ctx.arc(4, 0, 4.5, 0, Math.PI * 2);   // the cylinder
-      ctx.fill();
-      ctx.fillRect(-3, 1, 5, 8);
+      set(wood); ctx.fillRect(-4, 1, 6, 9);               // wooden grips
+      set(steel); ctx.fillRect(-2, -2, 19, 4);
+      set(wear); ctx.beginPath(); ctx.arc(4, 0, 5, 0, Math.PI * 2); ctx.fill();
+      set(black); ctx.beginPath(); ctx.arc(4, 0, 1.6, 0, Math.PI * 2); ctx.fill();
       break;
     case 'smg':
-      ctx.fillRect(-4, -3, 22, 5);
-      ctx.fillStyle = dark;
-      ctx.fillRect(2, 2, 5, 11);            // the long magazine
-      ctx.fillRect(-8, -2, 5, 4);
+      set(black); ctx.fillRect(-9, -2, 6, 4);             // the folded stock
+      ctx.fillRect(-4, -3.5, 22, 6);
+      ctx.fillRect(2, 2, 5, 12);                          // the long magazine
+      set(wear); ctx.fillRect(10, -1.5, 10, 3);
       break;
     case 'shotgun':
-      ctx.fillRect(-8, -3, 34, 5);
-      ctx.fillStyle = dark;
-      ctx.fillRect(8, 2, 12, 4);            // the pump
-      ctx.fillRect(-10, -3, 6, 7);
+      set(wood); ctx.fillRect(-12, -3.5, 9, 7);           // the butt
+      set(black); ctx.fillRect(-4, -3, 30, 5);
+      set(wood); ctx.fillRect(8, 2, 13, 4);               // the pump
+      set(wear); ctx.fillRect(20, -3, 8, 5);
       break;
     case 'rifle':
-      ctx.fillRect(-9, -2.5, 38, 4);
-      ctx.fillStyle = dark;
-      ctx.fillRect(0, 1, 5, 10);
-      ctx.fillRect(-12, -3, 6, 6);
+      set(wood); ctx.fillRect(-13, -3, 10, 6);
+      set(black); ctx.fillRect(-5, -2.5, 34, 4.5);
+      ctx.fillRect(0, 1, 5, 11);
+      set(wear); ctx.fillRect(20, -1.5, 10, 3);
       break;
     case 'sniper':
-      ctx.fillRect(-11, -2, 46, 3.5);
-      ctx.fillStyle = dark;
-      ctx.fillRect(2, -8, 14, 4);           // the scope, up on its rail
-      ctx.fillRect(4, -5, 2, 3);
-      ctx.fillRect(-14, -3, 7, 6);
+      set(wood); ctx.fillRect(-16, -3, 12, 6);
+      set(black); ctx.fillRect(-6, -2, 44, 3.5);
+      ctx.fillRect(0, 1, 4, 9);
+      set(wear); ctx.fillRect(1, -9, 16, 4.5);            // the scope on its rail
+      set(black); ctx.fillRect(3, -5.5, 2, 3); ctx.fillRect(13, -5.5, 2, 3);
       break;
     case 'lmg':
-      ctx.fillRect(-8, -3.5, 36, 6);
-      ctx.fillStyle = dark;
-      ctx.beginPath();
-      ctx.arc(4, 6, 7, 0, Math.PI * 2);     // the drum
-      ctx.fill();
-      ctx.fillRect(-12, -4, 6, 8);
+      set(black); ctx.fillRect(-13, -4, 7, 8);
+      ctx.fillRect(-8, -4, 34, 7);
+      set(wear); ctx.beginPath(); ctx.arc(4, 7, 8, 0, Math.PI * 2); ctx.fill();  // the drum
+      set(black); ctx.beginPath(); ctx.arc(4, 7, 3, 0, Math.PI * 2); ctx.fill();
+      set(wear); ctx.fillRect(20, -2, 10, 3);
       break;
     case 'dart':
-      ctx.fillRect(-2, -1.5, 20, 3);
-      ctx.fillStyle = dark;
-      ctx.beginPath();
-      ctx.arc(6, -4, 3.5, 0, Math.PI * 2);  // the gas bottle
-      ctx.fill();
-      ctx.fillRect(-3, 0, 4, 7);
+      set('#3f4a3a'); ctx.fillRect(-4, 0, 5, 8);
+      set('#6d7a5e'); ctx.fillRect(-2, -1.5, 21, 3);      // olive, not gunmetal
+      set(wear); ctx.beginPath(); ctx.arc(6, -4.5, 4, 0, Math.PI * 2); ctx.fill();  // gas bottle
+      set('#e08a3a'); ctx.fillRect(17, -2, 4, 4);         // the orange tip
       break;
     default:
-      ctx.fillRect(-2, -2, 16, 4);
+      set(steel); ctx.fillRect(-2, -2, 16, 4);
   }
 }
 
@@ -496,68 +540,96 @@ function drawPlayer(ctx, game, opts = {}) {
     ctx.strokeStyle = 'rgba(126,215,196,0.4)';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y - 12);
-    ctx.lineTo(p.dragging.x, p.dragging.y - 4);
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.dragging.x, p.dragging.y);
     ctx.stroke();
   }
 
   const kit = p.hurt > 0 ? { ...KIT.player, coat: '#e88f86', coatDark: '#b05a52' } : KIT.player;
   if (p.roll > 0) {
-    // Curled up and spinning. The lean is what reads as a roll from up here —
-    // a figure that keeps standing while it slides reads as ice.
-    const k = 1 - p.roll / 0.3;
-    drawDoll(ctx, p.x, p.y, p.facing, kit, {
-      squash: 0.62,
-      lean: Math.sin(k * Math.PI) * (Math.cos(p.rollA) >= 0 ? 0.9 : -0.9),
-    });
+    // tucked in and spinning: smaller, faster, and no gun in his hands
+    const spin = (1 - p.roll / ROLL.time) * Math.PI * 2;
+    drawPerson(ctx, p.x, p.y, p.rollA + spin, kit, { scale: 0.78, bag: game.stats.loot > 0 });
     return;
   }
 
-  drawDoll(ctx, p.x, p.y, p.facing, kit, { stride: Math.sin(p.step * 0.09) * 4 });
-  drawHeldGun(ctx, p.x, p.y - BODY_H * 0.7, p.facing, p.weapon.id);
+  drawPerson(ctx, p.x, p.y, p.facing, kit, {
+    stride: Math.sin(p.step * 0.09) * 3,
+    gun: p.weapon.id,
+    bag: game.stats.loot > 0,
+  });
   if (p.sneaking) {
     ctx.strokeStyle = 'rgba(126,215,196,0.3)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 2, 17, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(p.x, p.y + 2, 19, 12, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (game.focus) ring(ctx, p.x, p.y - BODY_H - 22, 13, game.focus.t / game.focus.need, COLOURS.gold);
+  if (game.focus) ring(ctx, p.x, p.y - 30, 13, game.focus.t / game.focus.need, COLOURS.gold);
   void opts;
 }
 
+/** The uniform he is in, which is also how far down the building he works. */
+function guardKit(g) {
+  const base = g.state === 'patrol' ? KIT.guardCalm : KIT.guard;
+  const tier = WEAPONS[g.gun] ? WEAPONS[g.gun].tier : 0;
+  if (tier >= 3) return { ...base, hat: 'helmet', vest: '#2b3140' };
+  if (tier === 2) return { ...base, hat: 'cap', vest: '#39303c' };
+  return { ...base, hat: 'cap' };
+}
+
 function drawGuard(ctx, g) {
-  const kit = g.state === 'patrol' ? KIT.guardCalm : KIT.guard;
-  drawDoll(ctx, g.x, g.y, g.facing, kit, { stride: Math.sin((g.x + g.y) * 0.05) * 3 });
-  drawHeldGun(ctx, g.x, g.y - BODY_H * 0.7, g.facing, g.gun);
+  drawPerson(ctx, g.x, g.y, g.facing, guardKit(g), {
+    stride: Math.sin((g.x + g.y) * 0.05) * 3,
+    gun: g.gun,
+  });
 
   if (g.state !== 'patrol') {
     ctx.fillStyle = g.state === 'call' ? COLOURS.alarm : '#ffd88a';
-    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(g.state === 'call' ? '!' : '?', g.x, g.y - BODY_H - 16);
+    ctx.fillText(g.state === 'call' ? '!' : '?', g.x, g.y - 28);
   }
   if (g.hp < g.maxHp) {
-    const w = 30;
+    const w = 28;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(g.x - w / 2, g.y - BODY_H - 12, w, 4);
+    ctx.fillRect(g.x - w / 2, g.y - 22, w, 4);
     ctx.fillStyle = COLOURS.alarm;
-    ctx.fillRect(g.x - w / 2, g.y - BODY_H - 12, w * Math.max(0, g.hp / g.maxHp), 4);
+    ctx.fillRect(g.x - w / 2, g.y - 22, w * Math.max(0, g.hp / g.maxHp), 4);
   }
 }
 
-/** A man on the floor is a man lying down: same doll, on its side. */
+/** A man on the floor: face down, arms out, and no head lifted off it. */
 function drawBody(ctx, b) {
-  ctx.fillStyle = 'rgba(142,47,63,0.38)';
-  ctx.beginPath();
-  ctx.ellipse(b.x, b.y + 2, 24, 12, b.a, 0, Math.PI * 2);
-  ctx.fill();
+  if (!b.tranq) {
+    ctx.fillStyle = 'rgba(142,47,63,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 2, 25, 17, b.a, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.save();
   ctx.translate(b.x, b.y);
   ctx.rotate(b.a);
-  ctx.translate(0, -6);
-  ctx.rotate(-Math.PI / 2);
-  drawDoll(ctx, 0, 0, Math.PI / 2, KIT.body, { squash: 0.78 });
+  ctx.fillStyle = KIT.body.legs;
+  ctx.fillRect(-16, -8, 10, 6);
+  ctx.fillRect(-16, 2, 10, 6);
+  ctx.fillStyle = KIT.body.coat;
+  ctx.beginPath();
+  ctx.ellipse(-2, 0, 13, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = KIT.body.skin;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(0, side * 8);
+    ctx.lineTo(9, side * 12);          // arms flung out
+    ctx.stroke();
+  }
+  ctx.fillStyle = KIT.body.head;
+  ctx.beginPath();
+  ctx.arc(11, 0, 8, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -723,8 +795,8 @@ function paintMuzzles(ctx, game) {
     if (g.dead || g.cool < WEAPONS[g.gun].rate * 0.55) continue;
     if (!lineOfSight(game.grid, p.x, p.y, g.x, g.y)) continue;
     const a = g.facing;
-    const fx = g.x + Math.cos(a) * 22;
-    const fy = g.y - BODY_H * 0.7 + Math.sin(a) * 10;
+    const fx = g.x + Math.cos(a) * 16;
+    const fy = g.y + Math.sin(a) * 16;
     const grd = ctx.createRadialGradient(fx, fy, 0, fx, fy, 58);
     grd.addColorStop(0, 'rgba(255,214,140,0.85)');
     grd.addColorStop(1, 'rgba(255,160,80,0)');
@@ -741,11 +813,13 @@ function paintBullets(ctx, game) {
   for (const b of game.bullets) {
     ctx.strokeStyle = b.side === 'player' ? 'rgba(180,240,225,0.9)' : 'rgba(255,150,110,0.95)';
     ctx.beginPath();
-    // drawn at chest height, which is where it left the barrel
-    ctx.moveTo(b.x, b.y - 22);
+    // Drawn on the floor plane, which is exactly where it travels. Lifting the
+    // tracer to chest height looks better and lies: the round is then somewhere
+    // other than where it is tested, and shots that visibly cross a man miss.
+    ctx.moveTo(b.x, b.y);
     // the tail is the last twenty milliseconds of flight — a dot at 1700 px/s
     // reads as nothing at all
-    ctx.lineTo(b.x - b.vx * 0.02, b.y - 22 - b.vy * 0.02);
+    ctx.lineTo(b.x - b.vx * 0.02, b.y - b.vy * 0.02);
     ctx.stroke();
   }
   ctx.lineCap = 'butt';

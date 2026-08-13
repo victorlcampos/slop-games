@@ -170,15 +170,22 @@ function finishFloor() {
 }
 
 function finishRun() {
-  phase = 'over';
   const floors = run.totals.floors;
   const record = run.money > best.money || floors > best.floor;
-  best = vault.save({
+  // `save` reports whether it managed to write, it does not hand the state
+  // back. Assigning its answer to `best` made `best` the boolean `true`, and
+  // the first `best.money.toLocaleString()` below threw — with `phase` already
+  // set to 'over', so the loop had stopped simulating and the card was never
+  // shown. The whole screen froze on the frame he died in.
+  const next = {
     money: Math.max(best.money, Math.round(run.money)),
     floor: Math.max(best.floor, floors),
     silent: Math.max(best.silent, run.totals.silent),
     runs: best.runs + 1,
-  });
+  };
+  vault.save(next);
+  best = next;
+  phase = 'over';
   document.getElementById('o-title').textContent = t('over.title', { n: run.game.level.floor });
   document.getElementById('o-money').textContent = `$ ${money(Math.round(run.money))}`;
   document.getElementById('o-floors').textContent = String(floors);

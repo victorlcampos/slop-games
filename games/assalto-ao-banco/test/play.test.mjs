@@ -63,6 +63,26 @@ function faceOff(game, gap = 150) {
   return g;
 }
 
+/**
+ * The same, but at whatever bearing actually has a clear line at that range —
+ * "straight to the right" is a wall about half the time, and a scenario about
+ * shooting that quietly set its target behind one proves nothing.
+ */
+function faceOffClear(game, gap) {
+  for (let i = 0; i < 32; i++) {
+    const a = (i / 32) * Math.PI * 2;
+    const x = game.player.x + Math.cos(a) * gap;
+    const y = game.player.y + Math.sin(a) * gap;
+    if (game.grid.solidAt(x, y)) continue;
+    if (!lineOfSight(game.grid, game.player.x, game.player.y, x, y)) continue;
+    const g = game.guards[0];
+    Object.assign(g, { dead: false, x, y, facing: a + Math.PI, state: 'patrol', alert: 0 });
+    game.player.facing = a;
+    return g;
+  }
+  return null;
+}
+
 // ------------------------------------------------------------------ walking
 
 scenario('he walks, and the walls stop him', () => {
@@ -353,6 +373,40 @@ scenario('sprinting over a gun does not take it; stopping on it does', () => {
   check(stopped.player.weapon.id === 'shotgun', `stopping on it left him holding a ${stopped.player.weapon.id}`);
 });
 
+scenario('a shot that crosses a man hits him, at any range', () => {
+  // What the projection cost: a figure drawn at its own height stands two tiles
+  // up the screen from the tile it is standing on, so the crosshair and the
+  // simulation stopped agreeing and rounds went over people's heads. Everybody
+  // is inside their own square now — this is that promise, at the two distances
+  // where it used to break.
+  for (const gap of [22, 60, 300]) {
+    const game = open(4, 7);
+    const g = faceOffClear(game, gap);
+    check(g, `no clear line at ${gap}px anywhere around him — the test could not aim`);
+    const hp = g.hp;
+    game.player.weapon = { id: 'rifle', ammo: 30, cool: 0 };
+    tick(game, 0.5, { fire: true, aim: { x: g.x, y: g.y } });
+    check(g.hp < hp || g.dead, `at ${gap}px the rounds went straight past him (${g.hp}/${hp} hp)`);
+  }
+});
+
+scenario('a dart drops a guard however big he is', () => {
+  // As a damage weapon this stopped working around floor 17, where guard health
+  // passes what a dart used to do — a silent takedown that quietly becomes the
+  // worst gun in the game exactly where you need it.
+  for (const floor of [1, 20, 60]) {
+    const game = open(floor, 99);
+    const g = faceOff(game, 120);
+    game.player.facing = 0;
+    game.player.weapon = { id: 'dart', ammo: 6, cool: 0 };
+    tick(game, 1, { fire: true, aim: { x: g.x, y: g.y } }, (gm) => gm.guards[0].dead);
+    check(g.dead, `on floor ${floor} (${g.maxHp.toFixed(0)} hp) a dart left him standing`);
+    check(game.bodies.length === 1, `no body on floor ${floor}`);
+    check(game.bodies[0].tranq, 'a tranquillised guard should not be bleeding on the carpet');
+  }
+  check(WEAPONS.dart.noise < WEAPONS.silenced.noise, 'the dart has to be the quietest thing on the floor');
+});
+
 scenario('the same gun again is ammunition, not a swap', () => {
   const game = open();
   game.player.weapon = { id: 'smg', ammo: 20, cool: 0 };
@@ -485,6 +539,53 @@ scenario('a floor the whole building heard pays less than a quiet one', () => {
   const next = noisy.advance();
   check(next.stats.money === 4000, `a floor with the alarm ringing still paid the bonus (${next.stats.money})`);
   check(noisy.totals.silent === 0, 'it was counted as a silent floor');
+});
+
+scenario('the end-of-run card has real numbers to read, and it reads them once', () => {
+  // The freeze: `vault.save()` reports whether it wrote, it does not hand the
+  // state back — so `best = vault.save(...)` made `best` the boolean `true`,
+  // and the first `best.money.toLocaleString()` threw. `phase` was already
+  // 'over' by then, so the loop had stopped simulating and the card was never
+  // shown: the whole screen froze on the frame he died in. This is the shape of
+  // that bug — everything the card touches has to be a number when it is asked.
+  const seen = [];
+  // through `hooks`, which is the run's actual API: assigning `game.onDead`
+  // afterwards replaces the wrapper the run puts there to close its own books
+  const run = createRun({
+    seed: 31,
+    hooks: {
+      onDead: () => {
+        // exactly what the card reads, at exactly the moment it reads it
+        seen.push({
+          money: run.money,
+          floors: run.totals.floors,
+          kills: run.totals.kills,
+          silent: run.totals.silent,
+          time: run.totals.time,
+          score: run.score(),
+          over: run.over,
+        });
+      },
+    },
+  });
+  const game = run.start();
+
+  game.stats.money = 7200;
+  game.stats.kills = 4;
+  game.player.hp = 4;
+  game.bullets.push({ x: game.player.x - 40, y: game.player.y, vx: 900, vy: 0, dmg: 99, left: 200, side: 'guard' });
+  for (let i = 0; i < 60 * 3 && !run.over; i++) run.update(STEP, IDLE);
+
+  check(seen.length === 1, `the card was told ${seen.length} times`);
+  const card = seen[0];
+  for (const [name, v] of Object.entries(card)) {
+    if (name === 'over') continue;
+    check(Number.isFinite(v), `the card would print "${v}" for ${name}`);
+  }
+  check(card.over, 'the run had not been closed by the time the card read it');
+  check(card.money === 7200, `the card read ${card.money} instead of the 7200 in the bag`);
+  check(card.kills === 4, `the card read ${card.kills} kills instead of 4`);
+  check(card.time > 0, 'the card read no time at all');
 });
 
 scenario('when he runs out of blood the run is over', () => {

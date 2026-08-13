@@ -5,7 +5,7 @@
 // module directly, at a fixed step, with no browser anywhere.
 
 import {
-  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, TILE, clamp, dist, makeRng, turnTowards,
+  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, HIT_R, TILE, clamp, dist, makeRng, turnTowards,
 } from './config.js';
 import { moveCircle, flowField, castRay } from './grid.js';
 import { canSee, createSight, rememberSeen } from './vision.js';
@@ -150,11 +150,16 @@ export function createGame(opts) {
     for (let i = 0; i < w.pellets; i++) {
       const a = angle + (rng() - 0.5) * w.spread * spread * 2;
       bullets.push({
-        x: from.x + Math.cos(a) * (PLAYER.r + 4),
-        y: from.y + Math.sin(a) * (PLAYER.r + 4),
+        // Started inside the body, not clear of it. A round that appears a full
+        // radius ahead of the muzzle is already past anybody standing closer
+        // than that, so every point-blank shot missed — and nothing can hit the
+        // shooter, because a bullet's targets never include its own side.
+        x: from.x + Math.cos(a) * 8,
+        y: from.y + Math.sin(a) * 8,
         vx: Math.cos(a) * w.speed,
         vy: Math.sin(a) * w.speed,
         dmg: damageOverride ?? w.damage,
+        tranq: !!w.tranq,
         left: w.range,
         side,
       });
@@ -196,7 +201,7 @@ export function createGame(opts) {
         ? [...game.guards.filter((g) => !g.dead), ...game.cameras.filter((c) => !c.dead), ...game.alarms.filter((a) => !a.dead)]
         : [player];
       for (const t of targets) {
-        const r = t === player ? PLAYER.r : t.hp !== undefined ? GUARD.r : 16;
+        const r = t === player || t.hp !== undefined ? HIT_R : 16;
         const at = segHit(b.x, b.y, x2, y2, t.x, t.y, r);
         if (at !== null && at < hitT) {
           hitT = at;
@@ -239,6 +244,12 @@ export function createGame(opts) {
       return;
     }
     if (target.hp !== undefined && target.route) {
+      // a dart does not argue with how much is left in him
+      if (b.tranq) {
+        fx.spark(b.x, b.y, '#8fd07a', 6, 160);
+        killGuard(target, 'tranq');
+        return;
+      }
       target.hp -= b.dmg;
       target.alert = 1;
       fx.blood(b.x, b.y);
@@ -273,11 +284,11 @@ export function createGame(opts) {
     }
   }
 
-  function killGuard(g) {
+  function killGuard(g, how = 'shot') {
     g.dead = true;
     stats.kills++;
-    fx.blood(g.x, g.y, 14);
-    const body = { x: g.x, y: g.y, a: g.facing, seen: 0, gun: g.gun, id: g.id };
+    if (how !== 'tranq') fx.blood(g.x, g.y, 14);
+    const body = { x: g.x, y: g.y, a: g.facing, seen: 0, gun: g.gun, id: g.id, tranq: how === 'tranq' };
     bodies.push(body);
     if (rng() < 0.75) {
       level.items.push({
