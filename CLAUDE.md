@@ -36,8 +36,10 @@ changes — not the rule.
    draws 219 species from 28 parameterised body plans, SkiFree 3D generates
    terrain and snow from noise, World Drive assembles its scenery from vector
    data, Animals vs Monsters draws 33 creatures with a 200-line crooked-line
-   engine, and Iron Rain paints twenty-one pieces of alien cargo out of four
-   shapes. Even the language picker's flags are drawn on a canvas — the 🇧🇷 emoji
+   engine, Iron Rain paints twenty-one pieces of alien cargo out of four
+   shapes, and Bank Job has no map at all — a floor is a seed, and the rooms,
+   corridors, guards and vault are laid out on the way in. Even the language
+   picker's flags are drawn on a canvas — the 🇧🇷 emoji
    has no glyph on Windows, and there the picker would become the letters "BR" in
    a box.
 6. **Every game speaks English and Portuguese.** Two flags, one choice, and it
@@ -241,6 +243,7 @@ return:
 | | build | test | save | viewport | loop | sound | i18n |
 |---|---|---|---|---|---|---|---|
 | Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Bank Job | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ |
 | World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
@@ -384,9 +387,10 @@ animals.
 
 ### File weight
 
-Current reference: Iron Rain 71 KB, Animals vs Monsters 139 KB and Zoo Tycoon
-309 KB (all three with no libraries), World Drive 598 KB and SkiFree 3D 703 KB
-(three.js minified in). The last two carry all of three — that is the price of 3D.
+Current reference: Bank Job 70 KB, Iron Rain 91 KB, Animals vs Monsters 138 KB
+and Zoo Tycoon 309 KB (all four with no libraries), World Drive 598 KB and
+SkiFree 3D 703 KB (three.js minified in). The last two carry all of three — that
+is the price of 3D.
 
 Past ~2 MB, investigate before accepting it: it is almost always an asset
 embedded as base64 or a bundle that wasn't minified.

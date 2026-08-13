@@ -1,0 +1,15 @@
+{
+  "name": "assalto-ao-banco",
+  "version": "1.0.0",
+  "description": "A top-down heist through a bank that is generated, floor by floor, and never gets easier.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/logic.test.mjs && node test/play.test.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "slopkit": "*"
+  }
+}

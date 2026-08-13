@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07080c">
+<title>Bank Job</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #07080c;
+    color: #e8eef8;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* Every card sits over the canvas, which keeps painting the floor behind it. */
+  .card {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4vh 6vw;
+    background: radial-gradient(ellipse 80% 70% at 50% 45%, rgba(8,10,16,0.82) 0%, rgba(5,6,10,0.96) 78%);
+    text-align: center;
+    z-index: 3;
+    overflow-y: auto;
+  }
+  .card[hidden] { display: none; }
+
+  .inner { max-width: 46rem; }
+
+  h1 {
+    font-size: clamp(1.8rem, 5.5vw, 3.2rem);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #f0c65a;
+    text-shadow: 0 3px 0 #4a3a12, 0 0 34px rgba(240,198,90,0.22);
+  }
+
+  .tagline { color: #a9b4c8; margin: 0.5rem 0 1.3rem; font-size: clamp(0.95rem, 2.2vw, 1.12rem); }
+
+  .story {
+    text-align: left;
+    display: grid;
+    gap: 0.45rem;
+    margin: 0 auto 1.3rem;
+    max-width: 40rem;
+    color: #9aa6bd;
+    font-size: clamp(0.82rem, 1.9vw, 0.98rem);
+    line-height: 1.5;
+  }
+  .story p::before { content: "▸ "; color: #6b7488; }
+
+  .btnrow { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+
+  .btn {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #14110a;
+    background: linear-gradient(#f0c65a, #c99a2f);
+    border: 3px solid #0a0b10;
+    border-radius: 10px;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #0a0b10;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: none; }
+
+  .btn.ghost {
+    background: transparent;
+    color: #cdd7e8;
+    border-color: #47506a;
+    box-shadow: none;
+  }
+
+  /* The exit only exists inside the catalog — the build switches it on. It
+     inherits .btn.ghost's colour on purpose: an <a> with no colour of its own
+     falls back to the browser's link blue, unreadable on this background. */
+  .back-to-games {
+    display: none;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+  }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .foot { color: #7f8a9f; font-size: clamp(0.74rem, 1.7vw, 0.86rem); line-height: 1.6; }
+
+  .stats { display: flex; gap: 1.4rem; justify-content: center; margin: 0 0 1.1rem; flex-wrap: wrap; }
+  .stat { min-width: 5.6rem; }
+  .stat b { display: block; font-size: clamp(1.2rem, 3.4vw, 1.8rem); color: #f0c65a; }
+  .stat span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; color: #7f8a9f; }
+
+  .record { color: #8fd07a; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.7rem; }
+  .silent { color: #7fd7c4; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 0.7rem; }
+
+  .corner {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
+    z-index: 4;
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    align-items: center;
+  }
+  .icon {
+    font-size: 1.2rem;
+    background: rgba(10,12,18,0.6);
+    border: 2px solid #47506a;
+    border-radius: 8px;
+    color: #e8eef8;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #7f8a9f; z-index: 5; }
+  /* `hidden` loses to `display: grid` — without this the line stays on screen
+     for the whole run, in the middle of the floor */
+  #boot[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="boot" data-pt="abrindo a porta dos fundos…" data-en="opening the back door…">opening the back door…</div>
+
+  <div class="corner">
+    <span data-lang-picker></span>
+    <button class="icon" id="btn-sound" title="M">🔊</button>
+  </div>
+
+  <div class="card" id="menu">
+    <div class="inner">
+      <h1 data-pt="Assalto ao Banco" data-en="Bank Job">Bank Job</h1>
+      <p class="tagline"
+         data-pt="O cofre é no fim do corredor. O corredor é escuro."
+         data-en="The vault is at the end of the corridor. The corridor is dark.">The vault is at the end of the corridor. The corridor is dark.</p>
+
+      <div class="story">
+        <p data-pt="A porta dos fundos abre a cada andar, e a cada andar o banco é outro: outras salas, outros corredores, outros homens andando neles."
+           data-en="The back door opens on every floor, and every floor is a different bank: other rooms, other corridors, other men walking them.">The back door opens on every floor, and every floor is a different bank.</p>
+        <p data-pt="Você enxerga só o que está na sua frente. Eles também — e o que está na frente deles está marcado no chão."
+           data-en="You only see what is in front of you. So do they — and what is in front of them is painted on the floor.">You only see what is in front of you.</p>
+        <p data-pt="Um guarda que te vê não atira e pronto: ele corre até o painel vermelho mais próximo. Se chegar, o andar inteiro sabe onde você está."
+           data-en="A guard who sees you does not just shoot: he runs for the nearest red panel. If he reaches it, the whole floor knows where you are.">A guard who sees you runs for the nearest red panel.</p>
+        <p data-pt="Um corpo no chão conta a mesma história. Arraste-o para onde ninguém passa."
+           data-en="A body on the carpet tells the same story. Drag it somewhere nobody walks.">A body on the carpet tells the same story.</p>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn" id="btn-start" data-pt="Entrar pelos fundos" data-en="In through the back">In through the back</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+
+      <p class="foot">
+        <span data-pt="WASD ou setas andam · o mouse mira · clique atira · E pega, arrasta e puxa alarme · Shift anda em silêncio"
+              data-en="WASD or arrows to move · the mouse aims · click to fire · E takes, drags and pulls alarms · Shift to walk silently">WASD or arrows to move · the mouse aims · click to fire · E takes, drags and pulls alarms · Shift to walk silently</span><br>
+        <span data-pt="No celular os dois controles nascem onde o dedo toca: metade esquerda anda, metade direita mira e atira. O botão da mão aparece quando há o que pegar."
+              data-en="On a phone both sticks appear where your thumb lands: the left half walks, the right half aims and fires. The hand button shows up when there is something to take.">On a phone both sticks appear where your thumb lands.</span><br>
+        <span data-pt="Você também pode puxar um alarme. Todo mundo corre para o painel — e o painel não é onde você está."
+              data-en="You can pull an alarm yourself. Everybody runs to the panel — and the panel is not where you are.">You can pull an alarm yourself.</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" id="cleared" hidden>
+    <div class="inner">
+      <h1 data-pt="Cofre aberto" data-en="Vault open">Vault open</h1>
+      <p class="silent" id="c-silent" hidden data-pt="Ninguém ouviu nada" data-en="Nobody heard a thing">Nobody heard a thing</p>
+      <div class="stats">
+        <div class="stat"><b id="c-floor">1</b><span data-pt="andar" data-en="floor">floor</span></div>
+        <div class="stat"><b id="c-money">$ 0</b><span data-pt="na mochila" data-en="in the bag">in the bag</span></div>
+        <div class="stat"><b id="c-kills">0</b><span data-pt="guardas no chão" data-en="guards down">guards down</span></div>
+      </div>
+      <p class="foot" style="margin-bottom:1rem"
+         data-pt="O próximo andar é maior. E eles já foram avisados."
+         data-en="The next floor is bigger. And they have been warned.">The next floor is bigger. And they have been warned.</p>
+      <div class="btnrow">
+        <button class="btn" id="btn-next" data-pt="Descer mais um andar" data-en="One floor down">One floor down</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="over" hidden>
+    <div class="inner">
+      <h1 id="o-title">You stayed on the floor</h1>
+      <p class="record" id="o-record" hidden data-pt="Novo recorde!" data-en="New record!">New record!</p>
+      <div class="stats">
+        <div class="stat"><b id="o-money">$ 0</b><span data-pt="dinheiro" data-en="money">money</span></div>
+        <div class="stat"><b id="o-floors">0</b><span data-pt="andares limpos" data-en="floors cleared">floors cleared</span></div>
+        <div class="stat"><b id="o-kills">0</b><span data-pt="guardas no chão" data-en="guards down">guards down</span></div>
+        <div class="stat"><b id="o-silent">0</b><span data-pt="andares em silêncio" data-en="silent floors">silent floors</span></div>
+        <div class="stat"><b id="o-time">00:00</b><span data-pt="tempo" data-en="time">time</span></div>
+      </div>
+      <p class="foot" style="margin-bottom:1rem">
+        <span data-pt="recorde" data-en="best">best</span>: <span id="o-best">$ 0 · 0</span>
+      </p>
+      <div class="btnrow">
+        <button class="btn" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>
