@@ -69,6 +69,11 @@ export const sfx = {
   pick() {
     tone('sine', 700, 0.09, 0.14, 1050);
   },
+  roll() {
+    // a body hitting the floor and coming back up: the sound the guards hear
+    noise(0.22, 0.24, 420);
+    tone('sine', 150, 0.16, 0.09, 90);
+  },
   cash() {
     tone('sine', 880, 0.09, 0.13, 1320);
     tone('sine', 1320, 0.13, 0.1, 1760);

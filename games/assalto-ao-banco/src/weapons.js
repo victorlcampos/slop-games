@@ -30,16 +30,35 @@ export const WEAPONS = {
     id: 'rifle', damage: 44, rate: 0.4, spread: 0.022, range: 920,
     speed: 1700, pellets: 1, noise: 720, mag: 72, tier: 3, kick: 5,
   },
+  // The other quiet gun, and the only one that is quieter than yours: one dart
+  // ends a guard, but you get one every second and a half and only across a
+  // room. It is the weapon for a floor you intend nobody to remember.
+  dart: {
+    id: 'dart', damage: 120, rate: 1.45, spread: 0.02, range: 330,
+    speed: 780, pellets: 1, noise: 70, mag: 8, tier: 1, kick: 1,
+  },
+  lmg: {
+    id: 'lmg', damage: 19, rate: 0.075, spread: 0.16, range: 640,
+    speed: 1400, pellets: 1, noise: 880, mag: 260, tier: 3, kick: 4,
+  },
+  sniper: {
+    id: 'sniper', damage: 130, rate: 1.15, spread: 0.004, range: 1500,
+    speed: 2400, pellets: 1, noise: 900, mag: 14, tier: 3, kick: 12,
+  },
 };
 
 export const START_WEAPON = 'silenced';
 
 /** Everything a guard is issued, in the order the floors hand them out. */
-const GUARD_GUNS = ['pistol', 'pistol', 'smg', 'shotgun', 'rifle'];
+const GUARD_GUNS = ['pistol', 'pistol', 'smg', 'shotgun', 'rifle', 'lmg'];
+
+/** Guards are never issued the two guns that make *you* dangerous quietly. */
+const NEVER_ISSUED = new Set(['silenced', 'dart', 'sniper']);
 
 /** What the guards on this floor are carrying — `i` spreads it inside a shift. */
 export function guardGun(tier, i = 0) {
-  return GUARD_GUNS[Math.min(GUARD_GUNS.length - 1, tier + (i % 2 === 0 ? 0 : 1))];
+  const id = GUARD_GUNS[Math.min(GUARD_GUNS.length - 1, tier + (i % 2 === 0 ? 0 : 1))];
+  return NEVER_ISSUED.has(id) ? 'pistol' : id;
 }
 
 /**

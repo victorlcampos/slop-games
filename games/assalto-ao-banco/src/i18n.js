@@ -31,12 +31,16 @@ export const dict = {
   'menu.again': { pt: 'De novo', en: 'Again' },
   'menu.next': { pt: 'Descer mais um andar', en: 'One floor down' },
   'menu.controls': {
-    pt: 'WASD ou setas andam · o mouse mira · clique atira · E pega, arrasta e puxa alarme · Shift anda em silêncio',
-    en: 'WASD or arrows to move · the mouse aims · click to fire · E takes, drags and pulls alarms · Shift to walk silently',
+    pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço rola · Shift anda em silêncio · E arrasta corpo',
+    en: 'WASD or arrows to move · the mouse aims · click to fire · space rolls · Shift to walk silently · E drags a body',
+  },
+  'menu.pickup': {
+    pt: 'Nada aqui tem botão de pegar: pare em cima da arma, do dinheiro ou do alarme e o anel enche sozinho — o mesmo do cofre, só que rápido. Passar correndo não conta.',
+    en: 'Nothing here has a pick-up key: stop on the gun, the cash or the alarm and the ring fills by itself — the vault\'s own mechanism, only quick. Sprinting over it does not count.',
   },
   'menu.touch': {
-    pt: 'No celular os dois controles nascem onde o dedo toca: metade esquerda anda, metade direita mira e atira. O botão da mão aparece quando há o que pegar.',
-    en: 'On a phone both sticks appear where your thumb lands: the left half walks, the right half aims and fires. The hand button shows up when there is something to take.',
+    pt: 'No celular os dois controles nascem onde o dedo toca: metade esquerda anda, metade direita mira e atira. O botão 🌀 rola; a mão só aparece quando há corpo por perto.',
+    en: 'On a phone both sticks appear where your thumb lands: the left half walks, the right half aims and fires. The 🌀 button rolls; the hand only shows up when there is a body at your feet.',
   },
   'menu.tip': {
     pt: 'Você também pode puxar um alarme. Todo mundo corre para o painel — e o painel não é onde você está.',
@@ -62,6 +66,9 @@ export const dict = {
   'gun.smg': { pt: 'submetralhadora', en: 'SMG' },
   'gun.shotgun': { pt: 'espingarda', en: 'shotgun' },
   'gun.rifle': { pt: 'fuzil', en: 'rifle' },
+  'gun.dart': { pt: 'pistola de dardos', en: 'dart gun' },
+  'gun.lmg': { pt: 'metralhadora', en: 'machine gun' },
+  'gun.sniper': { pt: 'rifle de precisão', en: 'sniper rifle' },
 
   'clear.title': { pt: 'Cofre aberto', en: 'Vault open' },
   'clear.silent': { pt: 'Ninguém ouviu nada', en: 'Nobody heard a thing' },

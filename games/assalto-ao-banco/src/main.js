@@ -52,7 +52,7 @@ let phase = 'menu';                 // menu | playing | cleared | over
 // ------------------------------------------------------------------- input
 
 const keys = new Set();
-const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, use: false, sneak: false };
+const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, use: false, sneak: false, roll: false };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -74,8 +74,9 @@ function readKeys() {
   input.mx = (right ? 1 : 0) - (left ? 1 : 0);
   input.my = (down ? 1 : 0) - (up ? 1 : 0);
   input.sneak = keys.has('ShiftLeft') || keys.has('ShiftRight');
-  input.fire = mouseDown || keys.has('Space');
+  input.fire = mouseDown || keys.has('KeyJ');
   input.use = keys.has('KeyE') || keys.has('KeyF');
+  input.roll = keys.has('Space');
   // cleared every frame: a stale angle from a thumb that has already left the
   // screen would keep him facing a wall for the rest of the floor
   input.aimAngle = null;
@@ -124,6 +125,7 @@ const hooks = {
   onBreak: () => sfx.break(),
   onAlarm: () => sfx.alarm(),
   onDry: () => sfx.pick(),
+  onRoll: () => sfx.roll(),
   onPick: (it) => {
     if (it.kind === 'loot') {
       sfx.cash();
@@ -226,6 +228,7 @@ createLoop({
       }
       input.fire = input.fire || asked.fire;
       input.use = input.use || asked.use;
+      input.roll = input.roll || asked.roll;
     }
     run.update(h, input);
     fx.update(h);

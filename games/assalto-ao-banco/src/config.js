@@ -4,7 +4,21 @@
 
 export const H = 720;                 // logical height (slopkit fixes this)
 export const TILE = 64;               // a corridor is exactly one tile wide
-export const LIFT = 15;               // how tall a wall looks from three-quarters up
+
+/**
+ * How tall everything stands up off the floor.
+ *
+ * The view is oblique, not straight down: the floor is drawn as plain squares
+ * and anything with height is drawn *up the screen* from where it stands, so a
+ * wall shows its top and the face turned towards you, and a person is a figure
+ * standing on their tile rather than a disc seen from a helicopter.
+ *
+ * WALL is nearly half a tile on purpose. Less and the building reads flat;
+ * much more and a wall hides the corridor behind it, which in a game about
+ * seeing down corridors is worse than flat.
+ */
+export const WALL_H = 26;
+export const BODY_H = 46;             // how tall a person is drawn
 
 export const PLAYER = {
   r: 15,
@@ -20,6 +34,36 @@ export const PLAYER = {
   reach: 74,                          // how close you have to be to pick something up
   noiseWalk: 190,                     // footsteps carry this far; sneaking makes none
   hitFlash: 0.35,
+};
+
+/**
+ * The roll: a shove in one direction, faster than he can ever walk, and loud.
+ *
+ * It is the only way to cross a lit corridor before the cone comes back round,
+ * and it costs you the one thing sneaking buys — a man who rolls is heard.
+ */
+export const ROLL = {
+  speed: 2.2,                         // multiple of the walk
+  time: 0.3,
+  cool: 0.62,
+  noise: 250,
+};
+
+/**
+ * Picking things up is the vault's mechanism, scaled down: stand on it and a
+ * ring fills. Nothing here has a key of its own.
+ *
+ * `stillSpeed` is what keeps it from being a trap. Below it — stopped, or
+ * creeping — the ring fills; sprinting over a panel does not pull the alarm and
+ * running past a rifle does not make you drop the gun you are holding.
+ */
+export const PICKUP = {
+  loot: 0.3,
+  medkit: 0.45,
+  gun: 0.65,
+  alarm: 1.15,
+  stillSpeed: 130,                    // slower than a walk (208), faster than a creep (116)
+  armAfter: 1.6,                      // a gun you just dropped cannot be picked straight back up
 };
 
 export const GUARD = {
@@ -114,29 +158,38 @@ export const COLOURS = {
   void: '#07080c',
   fog: '#0d1018',
   remembered: '#171c27',
-  floor: '#3b4152',
-  floorAlt: '#343a49',
-  carpet: '#5b2a33',
-  wall: '#20242f',
-  wallTop: '#4a5164',
-  wallEdge: '#151821',
+  // The lighting is from above, so the order is: floor lit, wall top a shade
+  // lighter still, wall face in shadow. Getting that backwards — which the
+  // first pass did, with near-black floors under pale walls — reads as a
+  // building made of light standing on a hole.
+  floor: '#4c5568',
+  floorAlt: '#434b5e',
+  grout: '#343b4c',
+  carpet: '#6b3038',
+  wallFace: '#272c3a',                // the side turned towards you: in shade
+  wallTop: '#5f6982',                 // the side turned towards the ceiling: lit
+  wallEdge: '#161a24',
   vault: '#6b5a2a',
   vaultLit: '#c9a03f',
   gold: '#f0c65a',
   ink: '#0a0b10',
-  player: '#7fd7c4',
-  playerDark: '#3e8d80',
-  guard: '#d1607a',
-  guardDark: '#8a3a4d',
-  guardCalm: '#e0c98a',
-  body: '#6e5560',
-  blood: '#8e2f3f',
-  alarm: '#ff5a4d',
-  camera: '#8fa9d6',
+  skin: '#d9a878',
   hud: '#e8eef8',
   dim: '#8a93a8',
   good: '#8fd07a',
+  alarm: '#ff5a4d',
+  camera: '#8fa9d6',
+  blood: '#8e2f3f',
   loot: '#f0c65a',
+  steel: '#aab4c8',
+};
+
+/** Who wears what. A figure is read by its colours before its shape. */
+export const KIT = {
+  player: { coat: '#2f9e8c', coatDark: '#1f6f63', legs: '#232a38', head: '#1b2130', skin: COLOURS.skin, trim: '#7fd7c4' },
+  guard: { coat: '#b8455e', coatDark: '#7d2c40', legs: '#2a2230', head: '#3a2b33', skin: COLOURS.skin, trim: '#e0c98a' },
+  guardCalm: { coat: '#c9a05e', coatDark: '#8a6a35', legs: '#2a2635', head: '#3a3128', skin: COLOURS.skin, trim: '#f0d9a8' },
+  body: { coat: '#6b5462', coatDark: '#4a3a45', legs: '#2a2430', head: '#3a2f36', skin: '#a98a6a', trim: '#6b5462' },
 };
 
 /** A seeded stream: the same seed builds the same floor, on any machine. */

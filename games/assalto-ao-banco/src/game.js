@@ -5,7 +5,7 @@
 // module directly, at a fixed step, with no browser anywhere.
 
 import {
-  PLAYER, GUARD, CAMERA, VAULT, TILE, clamp, dist, makeRng, turnTowards,
+  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, TILE, clamp, dist, makeRng, turnTowards,
 } from './config.js';
 import { moveCircle, flowField, castRay } from './grid.js';
 import { canSee, createSight, rememberSeen } from './vision.js';
@@ -42,6 +42,10 @@ export function createGame(opts) {
     dragging: null,
     step: 0,
     sneaking: false,
+    roll: 0,                      // seconds left in the roll
+    rollA: 0,
+    rollCool: 0,
+    speed: 0,                     // how fast he actually moved last step
   };
 
   const seen = new Uint8Array(grid.cols * grid.rows);
@@ -75,8 +79,10 @@ export function createGame(opts) {
     sight: null,
     detection: 0,                 // 0..1, "somebody is looking at you"
     detector: null,               // and this is where they are standing
-    prompt: null,                 // what `use` would do right now
+    focus: null,                  // what he is standing on, and how far the ring has filled
+    prompt: null,                 // the body under his feet, if there is one
     useWas: false,
+    rollWas: false,
 
     /** A route to a cell, computed once and shared by everybody heading there. */
     fieldFor(cx, cy) {
@@ -321,13 +327,36 @@ export function createGame(opts) {
 
   function movePlayer(dt, input) {
     const want = normalise(input.mx || 0, input.my || 0);
-    player.sneaking = !!input.sneak;
+    player.rollCool = Math.max(0, player.rollCool - dt);
+
+    // ---- the roll. Faster than he can walk, and heard across two rooms.
+    const rollPressed = !!input.roll && !game.rollWas;
+    game.rollWas = !!input.roll;
+    if (rollPressed && player.roll <= 0 && player.rollCool <= 0) {
+      player.roll = ROLL.time;
+      player.rollCool = ROLL.cool + ROLL.time;
+      player.rollA = want.x || want.y ? Math.atan2(want.y, want.x) : player.facing;
+      player.dragging = null;                 // nobody rolls holding a body
+      game.makeNoise(player.x, player.y, ROLL.noise, 'roll');
+      game.onRoll?.();
+    }
+
+    player.sneaking = !!input.sneak && player.roll <= 0;
     const top = (player.sneaking ? PLAYER.sneak : PLAYER.speed) * (player.dragging ? PLAYER.dragging : 1);
-    const ax = want.x * top;
-    const ay = want.y * top;
-    const rate = want.x || want.y ? PLAYER.accel : PLAYER.friction;
-    player.vx += clamp(ax - player.vx, -rate * dt, rate * dt);
-    player.vy += clamp(ay - player.vy, -rate * dt, rate * dt);
+
+    if (player.roll > 0) {
+      player.roll -= dt;
+      // the roll owns the movement while it lasts: steering out of it would
+      // make it a speed button rather than a commitment
+      player.vx = Math.cos(player.rollA) * PLAYER.speed * ROLL.speed;
+      player.vy = Math.sin(player.rollA) * PLAYER.speed * ROLL.speed;
+    } else {
+      const ax = want.x * top;
+      const ay = want.y * top;
+      const rate = want.x || want.y ? PLAYER.accel : PLAYER.friction;
+      player.vx += clamp(ax - player.vx, -rate * dt, rate * dt);
+      player.vy += clamp(ay - player.vy, -rate * dt, rate * dt);
+    }
 
     const moved = moveCircle(grid, player.x, player.y, PLAYER.r, player.vx * dt, player.vy * dt);
     const realDx = moved.x - player.x;
@@ -338,6 +367,7 @@ export function createGame(opts) {
     // Footsteps. Sneaking makes none, which is the whole of the stealth budget:
     // you are either fast or quiet.
     const travelled = Math.hypot(realDx, realDy);
+    player.speed = dt > 0 ? travelled / dt : 0;
     if (!player.sneaking && travelled > 0.4) {
       player.step += travelled;
       if (player.step > 150) {
@@ -369,52 +399,99 @@ export function createGame(opts) {
     if (dist(b.x, b.y, player.x, player.y) > TILE * 1.8) player.dragging = null;
   }
 
-  /** What the `use` button would do, and the label the HUD shows for it. */
-  function findPrompt() {
+  /**
+   * The nearest thing he is standing on that is worth standing on. Nothing here
+   * has a key of its own: this is the vault's mechanism, scaled down.
+   */
+  function findFocus() {
     const near = (o) => dist(o.x, o.y, player.x, player.y) <= PLAYER.reach;
-    const item = game.items.find((i) => !i.taken && near(i));
-    if (item) return { kind: item.kind === 'gun' ? 'take' : item.kind === 'medkit' ? 'heal' : 'grab', item };
+    let best = null;
+    let bestD = Infinity;
+    const offer = (target, kind, need) => {
+      const d = dist(target.x, target.y, player.x, player.y);
+      if (d < bestD) {
+        bestD = d;
+        best = { target, kind, need };
+      }
+    };
+
+    for (const it of game.items) {
+      if (it.taken || !near(it)) continue;
+      if (it.armAt && stats.time < it.armAt) continue;   // the gun he has just put down
+      offer(it, it.kind, it.kind === 'gun' ? PICKUP.gun : it.kind === 'medkit' ? PICKUP.medkit : PICKUP.loot);
+    }
+    // A panel already ringing is not worth pulling, and skipping it here is
+    // also what stops the ring refilling on the panel he is standing on.
+    if (!alarm.on) {
+      for (const a of game.alarms) {
+        if (a.dead || !near(a)) continue;
+        offer(a, 'alarm', PICKUP.alarm);
+      }
+    }
+    return best;
+  }
+
+  function updateFocus(dt) {
+    const found = findFocus();
+    if (!found) {
+      game.focus = null;
+      return;
+    }
+    // keep the ring where it was if it is the same thing, restart if it is not
+    const t = game.focus && game.focus.target === found.target ? game.focus.t : 0;
+    const still = player.speed <= PICKUP.stillSpeed;
+    game.focus = { ...found, t: clamp(still ? t + dt : t - dt * 1.6, 0, found.need) };
+    if (game.focus.t >= found.need) {
+      take(found);
+      game.focus = null;
+    }
+  }
+
+  function take({ target, kind }) {
+    if (kind === 'alarm') {
+      game.raiseAlarm(target, 'player');
+      target.pulled++;
+      return;
+    }
+    target.taken = true;
+    if (kind === 'gun') {
+      const old = player.weapon;
+      // the same gun again is ammunition, not a swap — otherwise standing over
+      // two dead men with pistols means putting a pistol down to pick a pistol up
+      if (target.gun === old.id) {
+        const mag = WEAPONS[old.id].mag;
+        old.ammo = Number.isFinite(mag) ? Math.min(mag, old.ammo + target.ammo) : old.ammo;
+        game.onPick?.(target);
+        return;
+      }
+      player.weapon = { id: target.gun, ammo: target.ammo, cool: 0 };
+      if (old.id !== 'silenced' && old.ammo > 0) {
+        level.items.push({
+          kind: 'gun', gun: old.id, ammo: old.ammo, x: player.x, y: player.y,
+          taken: false, armAt: stats.time + PICKUP.armAfter,
+        });
+      }
+    } else if (kind === 'medkit') {
+      player.hp = Math.min(player.maxHp, player.hp + target.heal);
+    } else {
+      stats.money += target.value;
+      stats.loot++;
+    }
+    game.onPick?.(target);
+  }
+
+  /** The one thing still on a key: a body will not pick itself up. */
+  function findBody() {
     if (player.dragging) return { kind: 'drop' };
-    const body = bodies.find((b) => near(b));
-    if (body) return { kind: 'carry', body };
-    const panel = game.alarms.find((a) => !a.dead && near(a));
-    if (panel) return { kind: 'pull', panel };
-    return null;
+    const body = bodies.find((b) => dist(b.x, b.y, player.x, player.y) <= PLAYER.reach);
+    return body ? { kind: 'carry', body } : null;
   }
 
   function doUse() {
     const p = game.prompt;
     if (!p) return;
-    if (p.item) {
-      const it = p.item;
-      it.taken = true;
-      if (it.kind === 'gun') {
-        const old = player.weapon;
-        player.weapon = { id: it.gun, ammo: it.ammo, cool: 0 };
-        if (old.id !== 'silenced' && old.ammo > 0) {
-          level.items.push({ kind: 'gun', gun: old.id, ammo: old.ammo, x: player.x, y: player.y, taken: false });
-        }
-      } else if (it.kind === 'medkit') {
-        player.hp = Math.min(player.maxHp, player.hp + it.heal);
-      } else {
-        stats.money += it.value;
-        stats.loot++;
-      }
-      game.onPick?.(it);
-      return;
-    }
-    if (p.kind === 'drop') {
-      player.dragging = null;
-      return;
-    }
-    if (p.kind === 'carry') {
-      player.dragging = p.body;
-      return;
-    }
-    if (p.kind === 'pull') {
-      game.raiseAlarm(p.panel, 'player');
-      p.panel.pulled++;
-    }
+    if (p.kind === 'drop') player.dragging = null;
+    else if (p.kind === 'carry') player.dragging = p.body;
   }
 
   function updateVault(dt) {
@@ -443,8 +520,9 @@ export function createGame(opts) {
 
     const pressed = !!input.use && !game.useWas;
     game.useWas = !!input.use;
-    game.prompt = findPrompt();
+    game.prompt = findBody();
     if (pressed) doUse();
+    updateFocus(dt);
 
     if (input.fire) playerFires();
 
@@ -494,6 +572,8 @@ export function createGame(opts) {
     cracked: level.vault.cracked,
     kills: stats.kills,
     alive: game.guards.filter((g) => !g.dead).length,
+    rolling: player.roll > 0,
+    focus: game.focus ? `${game.focus.kind} ${(game.focus.t / game.focus.need * 100) | 0}%` : null,
     state: game.state,
   });
 

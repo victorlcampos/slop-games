@@ -210,15 +210,30 @@ scenario('a goal behind a wall is reported as unreachable, not walked to', () =>
 // ----------------------------------------------------------------- the guns
 
 scenario('what separates the guns is noise, not damage', () => {
-  const quiet = WEAPONS.silenced;
+  // Two guns are quiet — the pistol you start with and the dart gun — and
+  // everything else is in another league entirely. A gun that sits between the
+  // two groups is a gun with no decision attached to it.
+  const QUIET = ['silenced', 'dart'];
+  const loudest = Math.max(...QUIET.map((id) => WEAPONS[id].noise));
   for (const w of Object.values(WEAPONS)) {
-    if (w === quiet) continue;
-    check(w.noise > quiet.noise * 3, `the ${w.id} is only ${w.noise} loud against the silenced pistol's ${quiet.noise}`);
+    if (QUIET.includes(w.id)) {
+      check(w.noise <= 150, `the ${w.id} is meant to be quiet and carries ${w.noise}`);
+    } else {
+      check(w.noise > loudest * 3, `the ${w.id} is only ${w.noise} loud against ${loudest} for the quiet ones`);
+    }
   }
   check(WEAPONS.shotgun.noise > WEAPONS.pistol.noise, 'a shotgun should carry further than a pistol');
-  check(!Number.isFinite(quiet.mag), 'the gun you always have should never run out');
+
+  // The dart is the quietest thing on the floor, so it has to pay somewhere or
+  // there is no reason ever to hold anything else.
+  const dart = WEAPONS.dart;
+  check(dart.rate > WEAPONS.silenced.rate * 3, `the dart fires every ${dart.rate}s — as fast as a pistol and silent`);
+  check(dart.range < WEAPONS.silenced.range * 0.75, `the dart reaches ${dart.range}px, as far as the gun you started with`);
+  check(Number.isFinite(dart.mag) && dart.mag <= 12, `the dart carries ${dart.mag} rounds`);
+
+  check(!Number.isFinite(WEAPONS.silenced.mag), 'the gun you always have should never run out');
   for (const w of Object.values(WEAPONS)) {
-    if (w !== quiet) check(Number.isFinite(w.mag), `the ${w.id} has no ammunition limit`);
+    if (w.id !== 'silenced') check(Number.isFinite(w.mag), `the ${w.id} has no ammunition limit`);
   }
 });
 

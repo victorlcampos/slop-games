@@ -46,6 +46,11 @@ export function aimInput(dx, dy) {
  * game lying on its side.
  */
 export function useButton(W, H) {
+  return { x: W - 104, y: H - 210, r: 46 };
+}
+
+/** The roll, under the thumb that is already on that side of the screen. */
+export function rollButton(W, H) {
   return { x: W - 104, y: H - 104, r: 52 };
 }
 
@@ -53,15 +58,18 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
   const stick = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
   const trigger = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0, angle: null };
   let usePressed = false;
+  let rollPressed = false;
   let useShown = false;
 
   function start(id, x, y) {
-    if (useShown) {
-      const b = useButton(width(), height());
-      if ((x - b.x) ** 2 + (y - b.y) ** 2 <= b.r * b.r) {
-        usePressed = true;
-        return;
-      }
+    const hit = (b) => (x - b.x) ** 2 + (y - b.y) ** 2 <= b.r * b.r;
+    if (useShown && hit(useButton(width(), height()))) {
+      usePressed = true;
+      return;
+    }
+    if (hit(rollButton(width(), height()))) {
+      rollPressed = true;
+      return;
     }
     if (x < width() / 2) {
       if (stick.on) return;
@@ -99,6 +107,7 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
     trigger.id = null;
     trigger.angle = null;
     usePressed = false;
+    rollPressed = false;
   }
 
   /** Tell the pad whether the hand button is on screen this frame. */
@@ -111,7 +120,10 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
     const walk = stick.on ? moveInput(stick.x - stick.ox, stick.y - stick.oy) : { x: 0, y: 0, sneak: false };
     const shoot = trigger.on ? aimInput(trigger.x - trigger.ox, trigger.y - trigger.oy) : { angle: null, fire: false };
     const used = usePressed;
-    usePressed = false;      // a press, not a hold: it is read once and gone
+    const rolled = rollPressed;
+    // presses, not holds: read once and gone
+    usePressed = false;
+    rollPressed = false;
     return {
       mx: walk.x,
       my: walk.y,
@@ -119,6 +131,7 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
       aimAngle: trigger.on ? trigger.angle : null,
       fire: shoot.fire,
       use: used,
+      roll: rolled,
     };
   }
 

@@ -9,7 +9,7 @@ import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/te
 
 installHeadlessDom();     // render.js reaches i18n, which reads localStorage on load
 
-const { floorSeed, PLAYER, TILE, dist } = await import('../src/config.js');
+const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist } = await import('../src/config.js');
 const { generateFloor } = await import('../src/levelgen.js');
 const { createGame } = await import('../src/game.js');
 const { createRun, SILENT_BONUS } = await import('../src/run.js');
@@ -238,10 +238,10 @@ scenario('pulling an alarm yourself sends them to the panel, not to you', () => 
   game.player.x = panel.x;
   game.player.y = panel.y;
   game.update(STEP, IDLE);
-  check(game.prompt && game.prompt.kind === 'pull', `standing at a panel offered "${game.prompt && game.prompt.kind}"`);
+  check(game.focus && game.focus.kind === 'alarm', `standing at a panel offered "${game.focus && game.focus.kind}"`);
 
-  game.update(STEP, { use: true });
-  check(game.alarm.on, 'the panel did nothing');
+  tick(game, PICKUP.alarm + 0.2, IDLE, (g) => g.alarm.on);
+  check(game.alarm.on, 'standing on the panel for its whole ring did nothing');
   check(game.alarm.by === 'player', `it was recorded as raised by "${game.alarm.by}"`);
   check(
     dist(game.lastKnown.x, game.lastKnown.y, panel.x, panel.y) < 1,
@@ -306,21 +306,109 @@ scenario('with every panel broken, the man who saw you comes himself', () => {
 
 // ------------------------------------------------------------------ the loot
 
-scenario('a gun is swapped, and the old one is left on the floor', () => {
+scenario('a gun is swapped by standing on it, and the old one is left on the floor', () => {
   const game = open();
   const before = game.items.length;
   game.items.push({ kind: 'gun', gun: 'shotgun', ammo: 12, x: game.player.x + 20, y: game.player.y, taken: false });
   game.player.weapon = { id: 'rifle', ammo: 9, cool: 0 };
 
   game.update(STEP, IDLE);
-  check(game.prompt && game.prompt.kind === 'take', `the prompt was "${game.prompt && game.prompt.kind}"`);
-  game.update(STEP, { use: true });
+  check(game.focus && game.focus.kind === 'gun', `the ring offered "${game.focus && game.focus.kind}"`);
+  tick(game, PICKUP.gun + 0.2, IDLE, (g) => g.player.weapon.id === 'shotgun');
   check(game.player.weapon.id === 'shotgun', `he is holding a ${game.player.weapon.id}`);
   check(game.player.weapon.ammo === 12, `it came with ${game.player.weapon.ammo} rounds instead of 12`);
   const dropped = game.items.filter((i) => !i.taken && i.gun === 'rifle');
   check(dropped.length === 1, 'the rifle he was holding vanished instead of hitting the floor');
   check(dropped[0].ammo === 9, `the dropped rifle carries ${dropped[0].ammo} rounds instead of 9`);
   check(game.items.length > before, 'nothing was added to the floor');
+
+  // and it does not immediately pick itself back up: the gun he just put down
+  // is under his feet, and without the arming delay he swaps for ever
+  tick(game, PICKUP.gun + 0.3);
+  check(game.player.weapon.id === 'shotgun', `he swapped straight back to the ${game.player.weapon.id}`);
+});
+
+scenario('sprinting over a gun does not take it; stopping on it does', () => {
+  const rig = () => {
+    const game = open();
+    game.player.weapon = { id: 'rifle', ammo: 9, cool: 0 };
+    game.items.push({ kind: 'gun', gun: 'shotgun', ammo: 12, x: game.player.x, y: game.player.y, taken: false });
+    return game;
+  };
+
+  // Pacing over the gun rather than running off across the floor: the first
+  // version of this walked him into the far wall, where he stood at 0 px/s
+  // and "did not pick it up" for entirely the wrong reason.
+  const past = rig();
+  let top = 0;
+  for (let i = 0; i < 60 * 3; i++) {
+    past.update(STEP, { mx: Math.sin(i / 16) > 0 ? 1 : -1, my: 0 });
+    top = Math.max(top, past.player.speed);
+  }
+  check(top > PICKUP.stillSpeed, `he never got past ${top.toFixed(0)} px/s — the test never sprinted`);
+  check(past.player.weapon.id === 'rifle', `running over it swapped him to a ${past.player.weapon.id}`);
+
+  const stopped = rig();
+  tick(stopped, PICKUP.gun + 0.4, IDLE);
+  check(stopped.player.weapon.id === 'shotgun', `stopping on it left him holding a ${stopped.player.weapon.id}`);
+});
+
+scenario('the same gun again is ammunition, not a swap', () => {
+  const game = open();
+  game.player.weapon = { id: 'smg', ammo: 20, cool: 0 };
+  game.items.push({ kind: 'gun', gun: 'smg', ammo: 40, x: game.player.x, y: game.player.y, taken: false });
+  tick(game, PICKUP.gun + 0.3, IDLE);
+  check(game.player.weapon.id === 'smg', `he is holding a ${game.player.weapon.id}`);
+  check(game.player.weapon.ammo === 60, `he has ${game.player.weapon.ammo} rounds instead of 60`);
+  check(!game.items.some((i) => !i.taken && i.gun === 'smg'), 'a second SMG was put on the floor for no reason');
+});
+
+scenario('the roll is faster than a walk, and everybody hears it', () => {
+  const walked = open();
+  tick(walked, ROLL.time, { mx: 1, my: 0 });
+  const a = dist(walked.level.spawn.x, walked.level.spawn.y, walked.player.x, walked.player.y);
+
+  const rolled = open();
+  rolled.update(STEP, { mx: 1, my: 0 });
+  rolled.update(STEP, { mx: 1, my: 0, roll: true });
+  check(rolled.player.roll > 0, 'the roll did not start');
+  tick(rolled, ROLL.time, { mx: 1, my: 0 });
+  const b = dist(rolled.level.spawn.x, rolled.level.spawn.y, rolled.player.x, rolled.player.y);
+  check(b > a * 1.5, `a roll covered ${b.toFixed(0)}px against ${a.toFixed(0)}px of walking`);
+
+  // heard even while sneaking, which is the trade the roll makes
+  const heard = open(4, 77);
+  heard.level.plan.guardSight = 1;
+  const g = heard.guards[0];
+  g.dead = false;
+  g.state = 'patrol';
+  g.x = heard.player.x;
+  g.y = heard.player.y - ROLL.noise * 0.5;
+  g.route = [{ cx: Math.floor(g.x / TILE), cy: Math.floor(g.y / TILE) }];
+  heard.update(STEP, { sneak: true });
+  heard.update(STEP, { sneak: true, roll: true });
+  tick(heard, 0.5, { sneak: true });
+  check(g.state === 'investigate', `a roll half a radius away left the guard on ${g.state}`);
+});
+
+scenario('a roll has to finish before the next one, and it drops what you are carrying', () => {
+  const game = open();
+  game.bodies.push({ x: game.player.x, y: game.player.y, a: 0, seen: 0, gun: 'pistol', id: 'z' });
+  game.update(STEP, IDLE);
+  game.update(STEP, { use: true });
+  check(game.player.dragging, 'the body was not picked up');
+
+  game.update(STEP, { mx: 1, roll: true });
+  check(game.player.roll > 0, 'the roll did not start');
+  check(!game.player.dragging, 'he rolled away still holding a body');
+
+  tick(game, ROLL.time + 0.05, { mx: 1 });
+  game.update(STEP, { mx: 1, roll: true });      // asked again, straight away
+  check(game.player.roll <= 0, 'a second roll started before the cooldown was up');
+  tick(game, ROLL.cool + 0.1, { mx: 1 });
+  game.update(STEP, { mx: 1 });
+  game.update(STEP, { mx: 1, roll: true });
+  check(game.player.roll > 0, 'the roll never came back after its cooldown');
 });
 
 scenario('an empty gun falls back to the one you always have', () => {
@@ -333,20 +421,17 @@ scenario('an empty gun falls back to the one you always have', () => {
 scenario('cash goes in the bag, a medkit goes in the arm', () => {
   const game = open();
   game.items.push({ kind: 'loot', value: 500, x: game.player.x, y: game.player.y, taken: false });
-  game.update(STEP, IDLE);
-  game.update(STEP, { use: true });
+  tick(game, PICKUP.loot + 0.2, IDLE);
   check(game.stats.money === 500, `the bag holds ${game.stats.money}`);
 
   game.player.hp = 40;
   game.items.push({ kind: 'medkit', heal: 34, x: game.player.x, y: game.player.y, taken: false });
-  game.update(STEP, IDLE);
-  game.update(STEP, { use: true });
+  tick(game, PICKUP.medkit + 0.2, IDLE);
   check(game.player.hp === 74, `he healed to ${game.player.hp}`);
 
   game.player.hp = PLAYER.hp - 2;
   game.items.push({ kind: 'medkit', heal: 34, x: game.player.x, y: game.player.y, taken: false });
-  game.update(STEP, IDLE);
-  game.update(STEP, { use: true });
+  tick(game, PICKUP.medkit + 0.2, IDLE);
   check(game.player.hp === PLAYER.hp, `a medkit overhealed him to ${game.player.hp}`);
 });
 
