@@ -217,7 +217,164 @@ export const MONSTERS = [
       { hp: 0.66, line: { pt: 'Durma, bichinho… durma…', en: 'Sleep, little one… sleep…' } },
       { hp: 0.33, line: { pt: 'SETE ANOS! SETE ANOS EU ESPEREI!', en: 'SEVEN YEARS! SEVEN YEARS I WAITED!' } },
     ],
+    victory: { pt: 'A Cuca caiu. O Brasil respira.', en: 'The Cuca is down. Brazil breathes.' },
     worth: 400,
+  },
+
+  // ------------------------------------------------------------------ Japan
+  //
+  // The yōkai. Same rule as Brazil: the names are proper nouns and stay as
+  // they are in both languages. Each one carries a mechanic of its own:
+  //
+  // bowl    spills at low hp: speed and bite drop for good (the anti-Werewolf —
+  //         focusing fire WEAKENS this one instead of enraging it)
+  // illusions  splits into 1-hp copies that pay no seed and die with the caster
+  // lands   a flier that crosses the front wall and touches down behind it
+  // neck    stops at the wall but bites the FURTHEST defender in reach
+  // chill   freezes nearby animals solid (planted `warm` animals are immune)
+  // blocks  piercing shots stop in it;  steady: immune to knockback
+  // smash   the club also hits the cell behind the bitten animal
+  // phase   goes intangible on a cycle and returns in another lane
+
+  {
+    id: 'karakasa',
+    name: { pt: 'Karakasa', en: 'Karakasa' },
+    lore: {
+      pt: 'Guarda-chuva que fez cem anos e ganhou olho, língua e uma perna. Ninguém o abriu de novo — agora é tarde.',
+      en: 'An umbrella that turned one hundred and grew an eye, a tongue and a leg. Nobody ever opened it again — too late now.',
+    },
+    hp: 340,
+    speed: 24,
+    damage: 20,
+    interval: 1,
+    worth: 14,
+  },
+  {
+    id: 'kappa',
+    name: { pt: 'Kappa', en: 'Kappa' },
+    lore: {
+      pt: 'Mora no fundo do arrozal e desafia quem passa. A força mora na tigela d’água da cabeça — derramou, acabou.',
+      en: 'Lives at the bottom of the rice paddy and challenges anyone who passes. His strength lives in the water bowl on his head — spill it and it is gone.',
+    },
+    hp: 420,
+    speed: 30,
+    damage: 26,
+    interval: 1.2,
+    aquatic: true,
+    bowl: { at: 0.5, factor: 0.5 },
+    worth: 26,
+  },
+  {
+    id: 'kitsune',
+    name: { pt: 'Kitsune', en: 'Kitsune' },
+    lore: {
+      pt: 'Raposa de nove caudas e mil rostos. Onde você vê três, veio uma — e a que morde é sempre a que você não olhou.',
+      en: 'A fox of nine tails and a thousand faces. Where you see three, one arrived — and the one that bites is always the one you were not watching.',
+    },
+    hp: 320,
+    speed: 40,
+    damage: 20,
+    interval: 1,
+    illusions: { count: 2, life: 12 },
+    worth: 30,
+  },
+  {
+    id: 'tengu',
+    name: { pt: 'Tengu', en: 'Tengu' },
+    lore: {
+      pt: 'Senhor da montanha, nariz comprido e asas de corvo. Não derruba a sua muralha: pousa depois dela.',
+      en: 'Lord of the mountain, long nose and crow wings. He does not break your wall: he lands past it.',
+    },
+    hp: 480,
+    speed: 34,
+    damage: 30,
+    interval: 1.1,
+    flies: true,
+    lands: true,
+    worth: 34,
+  },
+  {
+    id: 'rokurokubi',
+    name: { pt: 'Rokurokubi', en: 'Rokurokubi' },
+    lore: {
+      pt: 'De dia, uma moça como outra qualquer. De noite, o pescoço sai passeando sozinho — e volta alimentado.',
+      en: 'By day, a woman like any other. By night, her neck goes wandering on its own — and comes back fed.',
+    },
+    hp: 380,
+    speed: 22,
+    damage: 24,
+    interval: 1.4,
+    neck: 2.4,
+    worth: 30,
+  },
+  {
+    id: 'yukionna',
+    name: { pt: 'Yuki-onna', en: 'Yuki-onna' },
+    lore: {
+      pt: 'Aparece na nevasca de quimono branco. Quem cruza o olhar dela para no lugar — e esquece de tremer.',
+      en: 'She appears in the blizzard in a white kimono. Whoever meets her gaze stops where they stand — and forgets to shiver.',
+    },
+    hp: 460,
+    speed: 18,
+    damage: 24,
+    interval: 1.5,
+    chill: { radius: 2, duration: 2.6, interval: 6 },
+    worth: 36,
+  },
+  {
+    id: 'nurikabe',
+    name: { pt: 'Nurikabe', en: 'Nurikabe' },
+    lore: {
+      pt: 'A parede que aparece no caminho de quem anda de noite. Agora resolveu que o caminho é o seu quintal.',
+      en: 'The wall that blocks the road of anyone walking at night. It has decided the road is your yard now.',
+    },
+    hp: 1600,
+    speed: 9,
+    damage: 30,
+    interval: 1.6,
+    armor: 20,
+    blocks: true,
+    steady: true,
+    scale: 1.35,
+    worth: 60,
+  },
+  {
+    id: 'oni',
+    name: { pt: 'Oni', en: 'Oni' },
+    lore: {
+      pt: 'Ogro de chifre, presa e tanga de pele de tigre. A clava kanabō não escolhe alvo: acerta a vizinhança.',
+      en: 'A horned, tusked ogre in a tiger-skin loincloth. The kanabō club does not pick a target: it hits the neighbourhood.',
+    },
+    hp: 950,
+    speed: 16,
+    damage: 48,
+    interval: 1.5,
+    armor: 14,
+    smash: 0.6,
+    scale: 1.25,
+    worth: 55,
+  },
+  {
+    id: 'onryo',
+    name: { pt: 'Onryō', en: 'Onryō' },
+    lore: {
+      pt: 'Um rancor tão antigo que sobrou quando a pessoa acabou. Não corre, não desvia — atravessa.',
+      en: 'A grudge so old it outlasted the person. It does not run, does not dodge — it passes through.',
+    },
+    hp: 5600,
+    speed: 10,
+    damage: 75,
+    interval: 1.6,
+    scale: 2,
+    boss: true,
+    phase: { interval: 6.5, duration: 2.2 },
+    summons: { types: ['karakasa', 'kitsune', 'rokurokubi'], interval: 10, count: 2 },
+    phases: [
+      { hp: 0.66, line: { pt: 'Você não devia ter atracado…', en: 'You should not have docked here…' } },
+      { hp: 0.33, line: { pt: 'ESTA CASA É MINHA. SEMPRE FOI.', en: 'THIS HOUSE IS MINE. IT ALWAYS WAS.' } },
+    ],
+    victory: { pt: 'O Onryō se desfez. O Japão amanhece.', en: 'The Onryō came apart. Japan sees the morning.' },
+    worth: 450,
   },
 ];
 

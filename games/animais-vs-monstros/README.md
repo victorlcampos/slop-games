@@ -25,7 +25,10 @@ belongs to the animals.
 
 Hence a campaign country by country: the animals come from all over, the
 monsters are always the local ones. The first campaign is **Brazil**, where the
-enemy is its folklore.
+enemy is its folklore. Beat the Cuca and a radio call crosses the ocean: the
+second campaign is **Japan**, where the enemy is the yōkai — and the crossing
+gets a film of its own explaining why a squad that just freed its country
+boards the first ship out of it.
 
 ## How you play
 
@@ -110,10 +113,14 @@ big for one.
 
 ## The cast
 
-**19 animals**, from everywhere: Squirrel and Beaver produce seeds; Monkey, Bee,
+**23 animals**, from everywhere: Squirrel and Beaver produce seeds; Monkey, Bee,
 Snake, Scorpion, Owl, Bat and Eagle shoot; Turtle, Hedgehog, Elephant and Hippo
 hold the line; Jaguar, Kangaroo and Alligator hit up close; Lion stuns and Polar
-Bear freezes; Skunk blows up once.
+Bear freezes; Skunk blows up once. Reaching Japan unlocks four local recruits:
+the **Tanuki** cheats death once (the killing blow hits a statue), the
+**Red-crowned Crane** shoots three lanes at once, the **Snow Monkey** throws
+snowballs that slow (and his hot-spring blood is immune to freezing), and the
+**Koi Carp** is the first shooter that fights from inside the river.
 
 **13 monsters from Brazilian folklore**, each with a trick: the **Saci** jumps
 the first defence, the **Curupira** arrives sooner than you worked out, the
@@ -126,13 +133,28 @@ distance, the **Werewolf** speeds up as it takes hits, the **Bogeyman** walks
 invisible in the dark, and the **Cuca** — the boss — calls reinforcements as she
 comes.
 
-The folklore names stay as they are in both languages. Translating a Saci would
-be inventing a creature that doesn't exist; what is translated is the legend that
-describes him.
+**9 yōkai in Japan**, and every one bends a rule the first campaign taught you:
+the **Karakasa** is the hopping grunt; the **Kappa** spills the water bowl on
+his head at half health and turns slow and weak — the anti-Werewolf, focused
+fire *weakens* him; the **Kitsune** splits into illusions that soak your shots,
+pay no seed, and die with her; the **Tengu** flies over your wall and lands
+behind it; the **Rokurokubi** stops at the wall like anyone, but her neck
+stretches over it and eats the shooter hiding behind; the **Yuki-onna** freezes
+your animals solid; the **Nurikabe** is a living wall — piercing shots stop in
+it and no kick moves it; the **Oni**'s club smashes the cell behind whoever it
+bites; and the **Onryō** — the boss — turns intangible on a cycle and returns
+in another lane, calling yōkai as he comes.
 
-## The 10 stages
+The folklore names stay as they are in both languages. Translating a Saci — or
+a Kappa — would be inventing a creature that doesn't exist; what is translated
+is the legend that describes them.
 
-Each one changes the scenery, a board rule and the enemy cast at the same time.
+## The stages
+
+Two campaigns of ten stages. Each stage changes the scenery, a board rule and
+the enemy cast at the same time.
+
+**🇧🇷 Brazil:**
 
 | # | Stage | What changes |
 |---|---|---|
@@ -146,6 +168,21 @@ Each one changes the scenery, a board rule and the enemy cast at the same time.
 | 8 | Downtown São Paulo | big hordes |
 | 9 | Mantiqueira Range | fog · the Mother of Gold flies over the defence |
 | 10 | Christ the Redeemer | **the Cuca** |
+
+**🇯🇵 Japan** (unlocked by freeing Brazil, with an interlude film in between):
+
+| # | Stage | What changes |
+|---|---|---|
+| 1 | Cherry Blossom Village | the Karakasa, and a tougher baseline |
+| 2 | Rice Terraces | two flooded lanes · the Kappa and his bowl |
+| 3 | Bamboo Grove | the Kitsune and her illusions |
+| 4 | Tengu Mountain | the Tengu lands behind your wall |
+| 5 | Midnight Road | night · the Rokurokubi eats your back line |
+| 6 | Blizzard | cold slows your seeds · the Yuki-onna freezes animals |
+| 7 | Neon Crossing | night, big hordes · the Oni smashes in area |
+| 8 | Fog Temple | fog · the Nurikabe blocks even piercing shots |
+| 9 | Fuji Slopes | everything at once |
+| 10 | Haunted Castle | **the Onryō** |
 
 ## Saves
 
@@ -175,9 +212,9 @@ src/
   audio.js          Web Audio by hand — effects and score, no files
   save.js           localStorage + download/load .json
   i18n.js           the two languages: the instance and `pick()`
-  data/             animals (with levels), monsters, stages and the economy
-  draw/             the 33 sprites, the scenery and the world map
-  screens/          cutscene, map, battle and shop
+  data/             animals (with levels), monsters, campaigns/stages and the economy
+  draw/             the 46 sprites, the scenery and the world map
+  screens/          cutscenes (the projector is slopkit's; the reels live here), map, battle and shop
   main.js           the screen machine
 ```
 

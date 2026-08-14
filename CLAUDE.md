@@ -35,7 +35,7 @@ changes — not the rule.
    of a binaries folder. Not one game here ships **a single image**: Zoo Tycoon
    draws 219 species from 28 parameterised body plans, SkiFree 3D generates
    terrain and snow from noise, World Drive assembles its scenery from vector
-   data, Animals vs Monsters draws 33 creatures with a 200-line crooked-line
+   data, Animals vs Monsters draws 46 creatures with a 200-line crooked-line
    engine, Iron Rain paints twenty-one pieces of alien cargo out of four
    shapes, and Infinite Fortress has no map at all — a ring is a seed, and the
    rooms, corridors, sentinels and seal are laid out on the way in. Even the language
@@ -160,6 +160,7 @@ implementations that already existed.
 | `save` — download a file | Zoo Tycoon | `revokeObjectURL` with slack (revoking early cancels the download in Safari) |
 | `sound` — persisted mute | 3 of the 4 | Animals was the only one that forgot the choice on reload |
 | `i18n` — dictionary by phrase | new | with one object per language, a key exists in one and vanishes in the other with nobody noticing |
+| `cutscene` — the film projector | Animals vs Monsters + Infinite Fortress | both grew the same machine (scene clock, fades, caption, skip, markers) independently; the kit keeps the machine and each game keeps only its scenes and its skin — Fortress's plain-canvas caption IS the kit default, and Animals hands in scribble replacements |
 
 ### The rules that came out of it
 
@@ -240,14 +241,14 @@ The games share the build and the test scaffold. Beyond that, each adopted
 what brought a real gain — swapping good code for equivalent code is risk with no
 return:
 
-| | build | test | save | viewport | loop | sound | i18n |
-|---|---|---|---|---|---|---|---|
-| Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Infinite Fortress | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ |
+| | build | test | save | viewport | loop | sound | i18n | cutscene |
+|---|---|---|---|---|---|---|---|---|
+| Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Infinite Fortress | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ | — |
+| World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ | — |
+| Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ | — |
 
 SkiFree kept its own mute flag in a module variable and forgot it on every
 reload — the one thing the kit's `sound` exists to prevent. It persists now,
@@ -367,7 +368,7 @@ animals.
 | For | Use | Why |
 |---|---|---|
 | 3D | **three.js** (`npm i three`) | It is what the 3D games here use. The bundler tree-shakes it. |
-| 2D | **plain Canvas 2D** | No 2D library justifies its weight. Zoo Tycoon is 302 KB **with** 219 drawn species; Animals vs Monsters, 138 KB with 33. |
+| 2D | **plain Canvas 2D** | No 2D library justifies its weight. Zoo Tycoon is 302 KB **with** 219 drawn species; Animals vs Monsters, 191 KB with 46. |
 | Sound | **Web Audio API** by hand | Oscillators and synthesised noise. Never an audio file. |
 | UI/HUD | **plain DOM + CSS** | Overlaid on the canvas. Faster to change than UI drawn inside the canvas. |
 | Saved state | **`localStorage`** | The only storage available with no backend. |
@@ -387,7 +388,7 @@ animals.
 
 ### File weight
 
-Current reference: Infinite Fortress 104 KB, Iron Rain 91 KB, Animals vs Monsters 138 KB
+Current reference: Infinite Fortress 106 KB, Iron Rain 91 KB, Animals vs Monsters 191 KB
 and Zoo Tycoon 309 KB (all four with no libraries), World Drive 598 KB and
 SkiFree 3D 703 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.
@@ -760,7 +761,7 @@ here" below.
 2. **The game itself** (`games/<slug>/test/`) — the simulation, played in Node:
    the skier accelerates and the Yeti eats him; World Drive turns a canned
    Overpass answer into a whole world and drives it; an animal is planted, a
-   monster dies and the 33 creatures all draw; 219 species are well formed, all
+   monster dies and the 46 creatures all draw; 219 species are well formed, all
    of them draw, and the park's books balance. About 125 scenarios, three
    seconds.
 

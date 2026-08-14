@@ -4,13 +4,13 @@
 
 import { paper, text, box, wrapText, putSprite, measureText, resetScreenText, screenText } from './scribble.js';
 import { INK, INK_SOFT, COLORS, PAPER_DARK } from './palette.js';
-import { createCutscene } from './screens/cutscene.js';
+import { createCutscene, JAPAN_SCENES } from './screens/cutscene.js';
 import { createMap } from './screens/map.js';
 import { createBattle } from './screens/battle.js';
 import { createShop } from './screens/shop.js';
 import { monsterSprite } from './draw/monsters.js';
-import { STAGES } from './data/stages.js';
-import { requiredCards, rollCards } from './data/animals.js';
+import { STAGES, CAMPAIGNS, campaignById, isCampaignOpen, isCampaignDone } from './data/stages.js';
+import { requiredCards, rollCards, shopPool } from './data/animals.js';
 import { calcReward } from './data/economy.js';
 import { vp, HEIGHT, resize, begin, watch, pointIn, applyFrame, pointInFrame, menuWidth } from './viewport.js';
 import { createLoop } from 'slopkit/loop';
@@ -52,6 +52,14 @@ let current = null;
 
 function goToMap() {
   stopMusic();
+
+  // The Brazil campaign just closed and the crossing has not been shown: the
+  // film plays itself, once, before the world map hands over Japan.
+  if (!state.sawJapanIntro && isCampaignDone(CAMPAIGNS[0], state.won)) {
+    goToJapanFilm();
+    return;
+  }
+
   current = createMap(state, {
     play: goToBattle,
     download: () => Save.download(state),
@@ -64,6 +72,8 @@ function goToMap() {
     sound: () => toggleSound(),
     soundOn,
     intro: goToIntro,
+    // the country screen's "replay film": each campaign owns its reel
+    film: (campaignId) => (campaignId === 'japan' ? goToJapanFilm() : goToIntro()),
     restart: () => {
       // a genuinely new game: wipe what's stored, zero the in-memory state and
       // play the intro again, which is where the campaign starts
@@ -82,6 +92,16 @@ function goToIntro() {
     Save.save(state);
     goToMap();
   });
+}
+
+/** The Brazil → Japan crossing: why the squad sails, and what waits there. */
+function goToJapanFilm() {
+  stopMusic();
+  current = createCutscene(() => {
+    state.sawJapanIntro = true;
+    Save.save(state);
+    goToMap();
+  }, JAPAN_SCENES);
 }
 
 function goToBattle(stageNumber) {
@@ -139,15 +159,25 @@ function lostStage(stage, summary) {
 /** The screen between stages: recruit new cards or train the ones you have. */
 function goToShop(result) {
   const next = state.won.length >= STAGES.length ? null : state.currentStage;
+  const nextStage = STAGES.find((s) => s.n === next);
+  // the shop only sells what the player's campaigns have unlocked: the Japan
+  // recruits stay out of the window until the crossing happens
+  const pool = shopPool(
+    CAMPAIGNS.filter((c) => c.unlockedBy && isCampaignOpen(c, state.won)).map((c) => c.id)
+  );
   // what the next stage demands goes into the shop window by force: reaching
   // the water stage with no aquatic animal is reaching it with no defence in
   // the lane the Iara comes down
-  const required = requiredCards(STAGES.find((s) => s.n === next), state.deck);
-  const offers = rollCards(state.deck, 3, state.coins, required);
-  current = createShop({ ...result, offers, nextStage: next }, state, () => {
-    Save.save(state);
-    goToMap();
-  });
+  const required = requiredCards(nextStage, state.deck, pool);
+  const offers = rollCards(state.deck, 3, state.coins, required, pool);
+  current = createShop(
+    { ...result, offers, nextStage: next, nextLabel: nextStage ? nextStage.label : null },
+    state,
+    () => {
+      Save.save(state);
+      goToMap();
+    }
+  );
 }
 
 // ----------------------------------------------------------- defeat screen
@@ -175,6 +205,10 @@ const TIPS = {
     pt: 'A Cuca chama reforço enquanto anda. Segure as fileiras com paredes e concentre o dano nela — quem para de atirar na Cuca perde o campo.',
     en: 'The Cuca calls reinforcements as she walks. Hold the lanes with walls and focus damage on her — whoever stops shooting the Cuca loses the field.',
   },
+  onryo: {
+    pt: 'O Onryō fica intangível e volta em outra fileira. Espalhe atiradores por várias fileiras — quem empilhou tudo numa só atira no vazio metade do tempo.',
+    en: 'The Onryō turns intangible and returns in another lane. Spread shooters across several lanes — stack everything in one and you shoot at nothing half the time.',
+  },
   fog: {
     pt: 'A névoa esconde o meio do campo: uma Coruja em qualquer fileira levanta o véu do tabuleiro inteiro.',
     en: 'The fog hides the middle of the field: an Owl in any lane lifts the veil off the whole board.',
@@ -198,6 +232,7 @@ const TIPS = {
 };
 
 function tipFor(stage) {
+  if (stage.boss === 'onryo') return pick(TIPS.onryo);
   if (stage.boss) return pick(TIPS.boss);
   if (stage.fog) return pick(TIPS.fog);
   if (stage.night) return pick(TIPS.night);

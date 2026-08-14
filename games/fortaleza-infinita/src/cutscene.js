@@ -6,7 +6,13 @@
 // scene is drawn by code against the game's own palette — no image, no font
 // file, no sound file — and the module touches no DOM, so the same six scenes
 // play in a test as readily as on a phone.
+//
+// The projector itself — scene clock, fades, caption, skip, markers — is
+// slopkit's: this file owns only the six paintings. The kit's plain-canvas
+// skin IS this game's skin (it was lifted from here), so only the scene-marker
+// colour needs handing back.
 
+import { createCutscene as filmProjector } from 'slopkit/cutscene';
 import { COLOURS, KIT, H, makeRng } from './config.js';
 import { i18n } from './i18n.js';
 import { drawGunShape } from './render.js';
@@ -100,23 +106,6 @@ function stars(ctx, W, seed, n, top = 420) {
     const s = r() * 1.5 + 0.4;
     ctx.fillRect(r() * W, r() * top, s, s);
   }
-}
-
-function wrapText(ctx, text, maxWidth) {
-  const words = String(text).split(' ');
-  const lines = [];
-  let line = '';
-  for (const w of words) {
-    const probe = line ? `${line} ${w}` : w;
-    if (ctx.measureText(probe).width > maxWidth && line) {
-      lines.push(line);
-      line = w;
-    } else {
-      line = probe;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
 }
 
 // ------------------------------------------------------------------- scenes
@@ -560,101 +549,24 @@ export const SKIP_HINT = {
 /**
  * Builds the intro. `onDone()` fires at the end or when the player skips;
  * `onAdvance()` on every hand-turned page, so the caller can click a sound.
+ *
+ * The machine is slopkit's; the marker keeps this game's energy green, and
+ * everything else already draws in the kit's plain-canvas skin.
  */
 export function createCutscene(onDone, onAdvance) {
-  let scene = 0;
-  let t = 0;
-  let done = false;
-
-  const FADE = 0.7;
-
-  function advance() {
-    if (done) return;
-    if (scene >= SCENES.length - 1) {
-      finish();
-      return;
-    }
-    scene++;
-    t = 0;
-    onAdvance?.();
-  }
-
-  function finish() {
-    if (done) return;
-    done = true;
-    onDone();
-  }
-
-  function update(dt) {
-    if (done) return;
-    t += dt;
-    if (t >= SCENES[scene].duration) {
-      if (scene >= SCENES.length - 1) finish();
-      else {
-        scene++;
-        t = 0;
-      }
-    }
-  }
-
-  function draw(ctx, W) {
-    const c = SCENES[scene];
-    c.draw(ctx, W, t);
-
-    // fade in and fade out of each scene
-    const fadeIn = Math.min(1, t / FADE);
-    const fadeOut = Math.min(1, (c.duration - t) / FADE);
-    const dark = 1 - Math.min(fadeIn, fadeOut);
-    if (dark > 0.001) {
-      ctx.fillStyle = `rgba(5,7,11,${dark})`;
-      ctx.fillRect(0, 0, W, H);
-    }
-
-    // the caption
-    if (c.line) {
-      ctx.font = '24px system-ui, sans-serif';
-      const width = Math.min(940, W - 140);
-      const lines = wrapText(ctx, pick(c.line), width - 60);
-      const bh = 28 + lines.length * 32;
-      const y = H - bh - 36;
-      const alpha = Math.min(1, Math.max(0, (t - 0.35) / 0.6)) * fadeOut;
+  return filmProjector(SCENES, {
+    height: H,
+    i18n,
+    onDone,
+    onAdvance,
+    skipHint: SKIP_HINT,
+    marker(ctx, x, y, active) {
       ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(10,12,18,0.74)';
-      ctx.fillRect(W / 2 - width / 2, y, width, bh);
-      ctx.strokeStyle = 'rgba(140,155,185,0.3)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(W / 2 - width / 2, y, width, bh);
-      ctx.fillStyle = '#e8eef8';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + 26 + i * 32));
-      ctx.restore();
-    }
-
-    // skipping
-    ctx.font = '15px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(232,238,248,0.55)';
-    ctx.fillText(pick(SKIP_HINT), W - 24, 30);
-
-    // scene markers
-    for (let i = 0; i < SCENES.length; i++) {
-      ctx.fillStyle = i === scene ? COLOURS.energy : 'rgba(232,238,248,0.25)';
+      ctx.fillStyle = active ? COLOURS.energy : 'rgba(232,238,248,0.25)';
       ctx.beginPath();
-      ctx.arc(W / 2 - (SCENES.length - 1) * 9 + i * 18, H - 16, 4.5, 0, Math.PI * 2);
+      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
       ctx.fill();
-    }
-    ctx.textAlign = 'left';
-  }
-
-  return {
-    update,
-    draw,
-    click: advance,
-    skip: finish,
-    get scene() { return scene; },
-    get done() { return done; },
-  };
+      ctx.restore();
+    },
+  });
 }

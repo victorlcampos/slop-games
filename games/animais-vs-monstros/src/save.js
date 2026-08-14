@@ -4,6 +4,7 @@
 
 import { createSave } from 'slopkit/save';
 import { STARTER_DECK, BY_ID, MAX_LEVEL } from './data/animals.js';
+import { TOTAL_STAGES } from './data/stages.js';
 import { i18n } from './i18n.js';
 
 /** A brand new save. It is also the template of what has to exist. */
@@ -18,6 +19,8 @@ export function freshSave() {
     won: [],
     humans: 0,
     sawIntro: false,
+    // the Brazil → Japan film, played once when the first campaign closes
+    sawJapanIntro: false,
     records: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -55,10 +58,17 @@ function normalize(raw, base) {
   s.deck = known.length ? known : [...STARTER_DECK];
 
   s.won = Array.isArray(s.won) ? s.won.filter((n) => Number.isFinite(n)) : [];
-  s.currentStage = Number.isFinite(s.currentStage) ? Math.min(Math.max(1, s.currentStage), 10) : 1;
+  s.currentStage = Number.isFinite(s.currentStage)
+    ? Math.min(Math.max(1, Math.floor(s.currentStage)), TOTAL_STAGES)
+    : 1;
+  // A save written before a new campaign existed parks `currentStage` on a
+  // stage already won (the old final boss). Walking it forward to the first
+  // unwon stage is what hands that player the new country instead of a wall.
+  while (s.won.includes(s.currentStage) && s.currentStage < TOTAL_STAGES) s.currentStage++;
   s.humans = Number.isFinite(s.humans) ? Math.max(0, s.humans) : 0;
   s.records = s.records && typeof s.records === 'object' ? s.records : {};
   s.sawIntro = !!s.sawIntro;
+  s.sawJapanIntro = !!s.sawJapanIntro;
 
   // levels: a v2 save had no such field, and nothing stops a hand-edited file
   // from carrying level 99 on a card the player doesn't even own

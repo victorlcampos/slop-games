@@ -54,6 +54,127 @@ const drawings = {
     circle(ctx, 95, 85, 2.5, { color: null, fill: '#3d2a1a', seed: s + 15 });
   },
 
+  // ------------------------------------------------------------------ tanuki
+  tanuki(ctx, s) {
+    const coat = '#8e6e4e';
+    const belly = '#e8cba4';
+    // the striped tail resting on the ground
+    tail(ctx, [[86, 108], [108, 104], [118, 90]], 16, coat, s);
+    circle(ctx, 114, 90, 7, { color: null, fill: '#4a3b30', seed: s + 1 });
+    paw(ctx, 50, 120, 16, 10, '#4a3b30', s + 2);
+    paw(ctx, 76, 120, 16, 10, '#4a3b30', s + 3);
+    // the round body with the big pale belly — a tanuki is mostly belly
+    body(ctx, 64, 86, 30, 32, coat, s + 4);
+    shape(ctx, ellipsePoints(64, 94, 21, 23, 12), { color: null, fill: belly, seed: s + 5 });
+    stroke(ctx, [[54, 92], [64, 96], [74, 92]], { color: shade(belly, -0.25), width: 1.8, passes: 1, seed: s + 6 });
+    // little arms folded over the belly
+    stroke(ctx, [[46, 76], [40, 88]], { color: coat, width: 6, seed: s + 7 });
+    stroke(ctx, [[82, 76], [88, 88]], { color: coat, width: 6, seed: s + 8 });
+    // head with the bandit mask
+    body(ctx, 64, 52, 23, 20, coat, s + 9);
+    pointedEar(ctx, 50, 36, 13, coat, s + 10, -0.3);
+    pointedEar(ctx, 78, 36, 13, coat, s + 11, 0.25);
+    shape(ctx, ellipsePoints(54, 52, 10, 7, 10), { color: null, fill: '#4a3b30', seed: s + 12 });
+    shape(ctx, ellipsePoints(76, 52, 10, 7, 10), { color: null, fill: '#4a3b30', seed: s + 13 });
+    eye(ctx, 56, 52, 5, s + 14, { look: [0.5, 0] });
+    eye(ctx, 74, 52, 5, s + 15, { look: [0.5, 0] });
+    circle(ctx, 66, 62, 3.5, { color: null, fill: INK, seed: s + 16 });
+    stroke(ctx, [[60, 68], [66, 71], [72, 68]], { color: INK, width: 2, seed: s + 17 });
+    // the transformation leaf on his brow — the whole trick lives up there
+    shape(ctx, [[62, 34], [56, 22], [66, 14], [74, 24], [68, 34]], {
+      color: '#3f6b38', width: 2, fill: '#6f9b52', seed: s + 18,
+    });
+    line(ctx, 66, 32, 66, 18, { color: '#3f6b38', width: 1.6, passes: 1, seed: s + 19 });
+  },
+
+  // ------------------------------------------------------------------- crane
+  crane(ctx, s) {
+    const white = '#f5efe3';
+    // long black legs, one raised mid-dance
+    stroke(ctx, [[58, 88], [56, 106], [56, 122]], { color: '#2f2822', width: 3.5, seed: s + 1 });
+    stroke(ctx, [[70, 88], [76, 100], [72, 108]], { color: '#2f2822', width: 3.5, seed: s + 2 });
+    stroke(ctx, [[52, 122], [62, 122]], { color: '#2f2822', width: 2.5, seed: s + 3 });
+    // body with black trailing feathers
+    body(ctx, 64, 74, 28, 20, white, s + 4);
+    shape(ctx, [[84, 66], [112, 58], [116, 74], [90, 82]], { ...P, width: 2.4, fill: '#2f2822', seed: s + 5 });
+    // one wing open — the dance
+    shape(ctx, [[58, 62], [30, 38], [14, 44], [40, 66], [56, 72]], { ...P, width: 2.4, fill: white, seed: s + 6 });
+    shape(ctx, [[22, 42], [14, 44], [28, 56], [34, 52]], { color: null, fill: '#2f2822', seed: s + 7 });
+    // the S neck, the red crown, the long beak
+    stroke(ctx, [[62, 62], [76, 44], [72, 26], [62, 18]], { color: white, width: 8, seed: s + 8 });
+    body(ctx, 60, 16, 11, 9, white, s + 9);
+    shape(ctx, [[50, 14], [30, 18], [50, 21]], { ...P, width: 2, fill: '#e5b93c', seed: s + 10 });
+    circle(ctx, 62, 8, 5, { color: '#8a3a30', width: 1.8, fill: '#c1503f', seed: s + 11 });
+    eye(ctx, 55, 15, 3.5, s + 12, { look: [0.5, 0] });
+    stroke(ctx, [[66, 22], [74, 28]], { color: '#2f2822', width: 2, passes: 1, seed: s + 13 });
+  },
+
+  // -------------------------------------------------------------- snowmonkey
+  snowmonkey(ctx, s) {
+    const coat = '#d9cfc0';
+    // steam curling up: he brought the hot spring with him
+    for (let i = 0; i < 3; i++) {
+      stroke(ctx, [[34 + i * 30, 116], [28 + i * 30, 100], [36 + i * 30, 86], [30 + i * 30, 72]], {
+        color: 'rgba(220, 228, 232, 0.6)', width: 3, passes: 1, seed: s + 30 + i,
+      });
+    }
+    // sitting low in his thick winter coat
+    body(ctx, 64, 88, 32, 28, coat, s + 1);
+    fuzz(ctx, 64, 88, 32, 28, shade(coat, -0.18), s + 2, 16, 7);
+    paw(ctx, 48, 120, 15, 9, shade(coat, -0.2), s + 3);
+    paw(ctx, 80, 120, 15, 9, shade(coat, -0.2), s + 4);
+    // arms hugging a fresh snowball
+    stroke(ctx, [[44, 80], [40, 94], [50, 102]], { color: coat, width: 7, seed: s + 5 });
+    stroke(ctx, [[84, 80], [90, 94], [80, 102]], { color: coat, width: 7, seed: s + 6 });
+    circle(ctx, 66, 100, 12, { color: '#9fc4d4', width: 2.2, fill: '#eef6f8', seed: s + 7 });
+    circle(ctx, 62, 96, 3.5, { color: null, fill: '#ffffff', seed: s + 8 });
+    // head with snow piled on top and the famous red face
+    body(ctx, 64, 52, 24, 21, coat, s + 9);
+    fuzz(ctx, 64, 46, 24, 14, shade(coat, -0.15), s + 10, 10, 6);
+    shape(ctx, [[44, 40], [84, 38], [80, 30], [48, 32]], { color: null, fill: '#eef6f8', seed: s + 11 });
+    shape(ctx, ellipsePoints(64, 58, 15, 14, 12), { color: shade('#c1636f', -0.2), width: 2, fill: '#c1636f', seed: s + 12 });
+    eye(ctx, 58, 54, 5, s + 13, { look: [0.5, 0] });
+    eye(ctx, 72, 54, 5, s + 14, { look: [0.5, 0] });
+    circle(ctx, 65, 63, 2.5, { color: null, fill: INK, seed: s + 15 });
+    stroke(ctx, [[60, 68], [66, 70], [72, 67]], { color: INK, width: 2, seed: s + 16 });
+  },
+
+  // --------------------------------------------------------------------- koi
+  koi(ctx, s) {
+    const scale = '#e8853a';
+    const belly = '#f6ebd8';
+    // the arc of water she is leaping out of
+    shape(ctx, ellipsePoints(64, 114, 44, 10, 14), { color: null, fill: 'rgba(109, 168, 196, 0.55)', seed: s + 1 });
+    for (let i = 0; i < 4; i++) {
+      circle(ctx, 30 + i * 24, 102 - (i % 2) * 12, 3 + (i % 2), {
+        color: null, fill: 'rgba(180, 214, 228, 0.8)', seed: s + 30 + i,
+      });
+    }
+    // the tail fan, kicked up behind
+    shape(ctx, [[92, 62], [120, 44], [114, 66], [122, 86], [94, 76]], { ...P, width: 2.4, fill: '#f2b03c', seed: s + 2 });
+    stroke(ctx, [[98, 62], [112, 54]], { color: shade('#f2b03c', -0.3), width: 1.6, passes: 1, seed: s + 3 });
+    // body arched upward mid-leap
+    body(ctx, 64, 66, 32, 22, scale, s + 4);
+    shape(ctx, ellipsePoints(60, 74, 24, 11, 12), { color: null, fill: belly, seed: s + 5 });
+    // the koi patches — every champion carp wears her own map
+    circle(ctx, 52, 58, 8, { color: null, fill: belly, seed: s + 6 });
+    circle(ctx, 76, 62, 7, { color: null, fill: '#c1503f', seed: s + 7 });
+    // scales, a few strokes of them
+    for (let i = 0; i < 3; i++) {
+      stroke(ctx, [[54 + i * 12, 64], [60 + i * 12, 68], [54 + i * 12, 72]], {
+        color: shade(scale, -0.25), width: 1.6, passes: 1, seed: s + 40 + i,
+      });
+    }
+    // fins
+    shape(ctx, [[56, 84], [44, 100], [66, 90]], { ...P, width: 2, fill: '#f2b03c', seed: s + 8 });
+    shape(ctx, [[62, 48], [70, 34], [78, 48]], { ...P, width: 2, fill: '#f2b03c', seed: s + 9 });
+    // face with barbels — spitting distance of a waterfall
+    eye(ctx, 44, 58, 6, s + 10, { look: [0.5, 0] });
+    circle(ctx, 34, 66, 4, { color: INK, width: 2, fill: '#3d2a1a', seed: s + 11 });
+    stroke(ctx, [[34, 70], [28, 76]], { color: shade(scale, -0.3), width: 2, seed: s + 12 });
+    stroke(ctx, [[38, 72], [36, 80]], { color: shade(scale, -0.3), width: 2, seed: s + 13 });
+  },
+
   // ------------------------------------------------------------------- turtle
   turtle(ctx, s) {
     const shell = '#6f8f4a';

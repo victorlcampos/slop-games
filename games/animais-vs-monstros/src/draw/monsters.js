@@ -6,7 +6,7 @@
 
 import { shape, ellipse, circle, line, stroke, ellipsePoints, sprite, volume } from '../scribble.js';
 import { INK, COLORS, shade } from '../palette.js';
-import { OUTLINE, body, eye, evilEye, pointedEar, tail, fuzz, teeth } from './common.js';
+import { OUTLINE, body, eye, evilEye, pointedEar, tail, fuzz, teeth, horn } from './common.js';
 
 const P = OUTLINE;
 
@@ -405,6 +405,303 @@ const drawings = {
     }
     evilEye(ctx, 58, 34, 8, s + 9, '#e0913a');
     evilEye(ctx, 84, 30, 8, s + 10, '#e0913a');
+  },
+
+  // ======================================================== Japan: the yōkai
+
+  // ---------------------------------------------------------------- karakasa
+  karakasa(ctx, s) {
+    const cloth = '#5b4a63';
+    // the one leg, mid-hop, wearing a geta sandal
+    stroke(ctx, [[70, 96], [68, 108], [70, 116]], { color: '#c9a07a', width: 6, seed: s + 1 });
+    shape(ctx, [[58, 114], [84, 114], [84, 120], [58, 120]], { ...P, width: 2.2, fill: '#6b4a2f', seed: s + 2 });
+    line(ctx, 64, 120, 64, 126, { color: '#4a3218', width: 4, seed: s + 3 });
+    line(ctx, 78, 120, 78, 126, { color: '#4a3218', width: 4, seed: s + 4 });
+    // the umbrella cone, half open, ribs showing
+    shape(ctx, [[70, 14], [26, 78], [46, 84], [70, 88], [94, 84], [114, 78]], {
+      ...P, width: 2.8, fill: cloth, seed: s + 5,
+    });
+    for (const [tx, ty] of [[38, 74], [56, 82], [84, 82], [104, 74]]) {
+      stroke(ctx, [[70, 16], [tx, ty]], { color: shade(cloth, -0.35), width: 1.8, passes: 1, seed: s + tx });
+    }
+    // paper patch: it is an OLD umbrella
+    shape(ctx, [[84, 40], [98, 44], [94, 58], [82, 54]], { color: shade(cloth, -0.2), width: 1.6, fill: '#8a7a80', seed: s + 6 });
+    // the spike on top
+    line(ctx, 70, 14, 70, 2, { color: INK, width: 3.5, seed: s + 7 });
+    // one huge eye and the lolling tongue
+    evilEye(ctx, 64, 62, 11, s + 8, '#f2c94c');
+    shape(ctx, [[52, 78], [72, 76], [70, 84], [54, 84]], { color: INK, width: 2, fill: '#3f3128', seed: s + 9 });
+    shape(ctx, [[56, 82], [66, 82], [64, 104], [54, 102]], { color: '#8a3a4a', width: 2, fill: '#c1636f', seed: s + 10 });
+    stroke(ctx, [[59, 86], [58, 98]], { color: '#8a3a4a', width: 1.6, passes: 1, seed: s + 11 });
+    // two little arms
+    stroke(ctx, [[34, 82], [22, 92]], { color: cloth, width: 4.5, seed: s + 12 });
+    stroke(ctx, [[106, 80], [116, 90]], { color: cloth, width: 4.5, seed: s + 13 });
+  },
+
+  // ------------------------------------------------------------------- kappa
+  kappa(ctx, s) {
+    const skin = '#6f9b52';
+    // webbed feet
+    shape(ctx, [[48, 116], [64, 116], [60, 124], [44, 124]], { ...P, width: 2.2, fill: shade(skin, -0.12), seed: s + 1 });
+    shape(ctx, [[76, 114], [92, 114], [96, 122], [80, 122]], { ...P, width: 2.2, fill: shade(skin, -0.12), seed: s + 2 });
+    // the shell on his back (he faces left, shell to the right)
+    shape(ctx, ellipsePoints(88, 74, 26, 30, 14), { color: '#5c4326', width: 2.6, fill: '#8a6a3d', seed: s + 3 });
+    for (const [cx, cy, r] of [[86, 62, 9], [80, 80, 8], [96, 84, 8]]) {
+      shape(ctx, ellipsePoints(cx, cy, r, r * 0.85, 6), { color: '#5c4326', width: 1.8, fill: '#a3835a', seed: s + cx });
+    }
+    // body and arms
+    body(ctx, 62, 78, 24, 26, skin, s + 4);
+    shape(ctx, ellipsePoints(60, 86, 15, 16, 10), { color: null, fill: '#c9d9a0', seed: s + 5 });
+    stroke(ctx, [[44, 70], [30, 82], [26, 96]], { color: skin, width: 6, seed: s + 6 });
+    stroke(ctx, [[82, 66], [98, 76], [100, 90]], { color: skin, width: 6, seed: s + 7 });
+    // head with the fringe of hair around the sara
+    body(ctx, 60, 40, 21, 19, skin, s + 8);
+    fuzz(ctx, 60, 34, 21, 12, shade(skin, -0.3), s + 9, 10, 6);
+    // the water bowl — the whole legend in one dish
+    shape(ctx, ellipsePoints(60, 22, 16, 6, 12), { color: INK, width: 2.4, fill: '#8a6a3d', seed: s + 10 });
+    shape(ctx, ellipsePoints(60, 20, 12, 4, 10), { color: '#3d7791', width: 1.6, fill: '#9fd4e6', seed: s + 11 });
+    circle(ctx, 56, 19, 1.6, { color: null, fill: '#e8f4f8', seed: s + 12 });
+    // beak and round eyes
+    shape(ctx, [[40, 40], [26, 44], [40, 50]], { ...P, width: 2.2, fill: '#e5b93c', seed: s + 13 });
+    line(ctx, 28, 45, 40, 46, { color: shade('#e5b93c', -0.4), width: 1.4, passes: 1, seed: s + 14 });
+    eye(ctx, 50, 36, 6, s + 15, { look: [-0.5, 0] });
+    eye(ctx, 68, 36, 6, s + 16, { look: [-0.5, 0] });
+  },
+
+  // ----------------------------------------------------------------- kitsune
+  kitsune(ctx, s) {
+    const coat = '#e8dcc4';
+    const tip = '#e0913a';
+    // the fan of tails, behind everything
+    const tails = [
+      [[92, 78], [116, 56], [124, 30]],
+      [[94, 82], [122, 70], [126, 48]],
+      [[94, 88], [124, 86], [126, 66]],
+      [[92, 94], [120, 100], [126, 88]],
+      [[90, 98], [112, 112], [124, 106]],
+    ];
+    tails.forEach((p, i) => {
+      tail(ctx, p, 11, coat, s + i * 3);
+      circle(ctx, p[2][0] - 2, p[2][1] + 2, 5, { color: null, fill: tip, seed: s + 40 + i });
+    });
+    // slim legs mid-stride
+    stroke(ctx, [[52, 96], [46, 110], [40, 122]], { color: coat, width: 6, seed: s + 6 });
+    stroke(ctx, [[74, 98], [78, 110], [74, 122]], { color: coat, width: 6, seed: s + 7 });
+    // long low body
+    body(ctx, 66, 84, 30, 18, coat, s + 8);
+    // chest ruff
+    fuzz(ctx, 48, 88, 12, 12, shade(coat, -0.15), s + 9, 8, 5);
+    // pointed face, shrine paint on the cheek
+    body(ctx, 40, 58, 17, 14, coat, s + 10);
+    shape(ctx, [[26, 56], [10, 62], [28, 66]], { ...P, width: 2.2, fill: coat, seed: s + 11 });
+    circle(ctx, 12, 63, 2.2, { color: null, fill: INK, seed: s + 12 });
+    pointedEar(ctx, 34, 42, 16, coat, s + 13, -0.3);
+    pointedEar(ctx, 52, 42, 16, coat, s + 14, 0.2);
+    stroke(ctx, [[30, 66], [38, 70]], { color: '#c1503f', width: 2.4, passes: 1, seed: s + 15 });
+    // fox-fire eyes, and two ghost flames drifting alongside
+    evilEye(ctx, 36, 56, 5.5, s + 16, '#7fd4e6');
+    evilEye(ctx, 50, 54, 5.5, s + 17, '#7fd4e6');
+    for (let i = 0; i < 2; i++) {
+      const fx = 22 + i * 74;
+      const fy = 28 - i * 8;
+      shape(ctx, [[fx - 5, fy], [fx - 2, fy - 10], [fx, fy - 16], [fx + 3, fy - 8], [fx + 5, fy]], {
+        color: '#3d7791', width: 1.6, fill: '#9fe0e6', alpha: 0.85, seed: s + 50 + i,
+      });
+    }
+  },
+
+  // ------------------------------------------------------------------- tengu
+  tengu(ctx, s) {
+    const skin = '#c1503f';
+    // crow wings spread behind
+    for (const [wx, spin] of [[92, -0.5], [98, 0.25]]) {
+      shape(ctx, [[wx, 52], [wx + 30, 30 + spin * 40], [wx + 34, 52], [wx + 20, 62]], {
+        ...P, width: 2.4, fill: '#3d3145', seed: s + wx,
+      });
+      stroke(ctx, [[wx + 6, 50], [wx + 24, 40 + spin * 30]], { color: '#211c26', width: 2, passes: 1, seed: s + wx + 1 });
+    }
+    // loose feet: he is airborne, geta dangling
+    stroke(ctx, [[62, 96], [58, 108], [60, 116]], { color: '#4a3b30', width: 5, seed: s + 1 });
+    shape(ctx, [[52, 114], [70, 114], [70, 120], [52, 120]], { ...P, width: 2, fill: '#6b4a2f', seed: s + 2 });
+    // yamabushi robe
+    shape(ctx, [[50, 50], [86, 48], [92, 96], [46, 98]], { ...P, width: 2.6, fill: '#8a6234', seed: s + 3 });
+    for (let i = 0; i < 3; i++) {
+      circle(ctx, 58 + i * 12, 60, 4, { color: INK, width: 1.6, fill: '#f4eee2', seed: s + 20 + i });
+    }
+    // the feather fan in his hand
+    stroke(ctx, [[52, 66], [36, 78], [30, 90]], { color: skin, width: 5, seed: s + 4 });
+    for (let i = 0; i < 4; i++) {
+      const a = -0.6 - i * 0.35;
+      shape(ctx, [[30, 90], [30 + Math.cos(a) * 22, 90 + Math.sin(a) * 22], [30 + Math.cos(a + 0.18) * 24, 90 + Math.sin(a + 0.18) * 24]], {
+        color: '#5c4326', width: 1.8, fill: '#8a7a64', seed: s + 30 + i,
+      });
+    }
+    // head: the long nose is the whole legend
+    body(ctx, 66, 34, 19, 18, skin, s + 5);
+    shape(ctx, [[50, 32], [14, 36], [50, 42]], { ...P, width: 2.4, fill: shade(skin, 0.08), seed: s + 6 });
+    // tokin cap and white brows
+    shape(ctx, [[58, 18], [74, 18], [70, 6], [62, 6]], { ...P, width: 2.2, fill: '#3f3128', seed: s + 7 });
+    stroke(ctx, [[52, 24], [62, 20]], { color: '#f4eee2', width: 3, seed: s + 8 });
+    stroke(ctx, [[70, 20], [80, 24]], { color: '#f4eee2', width: 3, seed: s + 9 });
+    evilEye(ctx, 56, 30, 5.5, s + 10, '#f2c94c');
+    evilEye(ctx, 74, 30, 5.5, s + 11, '#f2c94c');
+    stroke(ctx, [[56, 46], [66, 49], [76, 45]], { color: INK, width: 2, seed: s + 12 });
+  },
+
+  // -------------------------------------------------------------- rokurokubi
+  rokurokubi(ctx, s) {
+    const skin = '#e8cba4';
+    const robe = '#4f6b8a';
+    // kneeling body in a kimono, tiny against the neck
+    shape(ctx, [[56, 78], [92, 76], [100, 122], [50, 124]], { ...P, width: 2.6, fill: robe, seed: s + 1 });
+    shape(ctx, [[70, 78], [78, 78], [76, 108], [70, 108]], { color: null, fill: shade(robe, -0.18), seed: s + 2 });
+    // obi sash
+    shape(ctx, [[54, 92], [96, 90], [96, 100], [54, 102]], { color: shade(robe, -0.35), width: 1.8, fill: '#c1636f', seed: s + 3 });
+    // sleeves resting
+    stroke(ctx, [[58, 84], [44, 96], [42, 108]], { color: robe, width: 8, seed: s + 4 });
+    stroke(ctx, [[90, 82], [104, 92], [104, 106]], { color: robe, width: 8, seed: s + 5 });
+    // THE NECK: a long pale loop leaving the collar and diving left
+    stroke(ctx, [[72, 76], [84, 48], [62, 26], [34, 30], [18, 44]], { color: skin, width: 9, seed: s + 6 });
+    stroke(ctx, [[72, 76], [84, 48], [62, 26], [34, 30], [18, 44]], { color: shade(skin, -0.3), width: 1.6, passes: 1, seed: s + 7 });
+    // the head at the far end, hair in a loose bun
+    body(ctx, 16, 52, 13, 12, skin, s + 8);
+    shape(ctx, [[4, 44], [28, 42], [26, 34], [8, 36]], { ...P, width: 2.2, fill: '#2f2822', seed: s + 9 });
+    circle(ctx, 26, 34, 6, { color: INK, width: 2, fill: '#2f2822', seed: s + 10 });
+    // a lady's calm face — the horror is the geometry, not the grimace
+    eye(ctx, 11, 50, 4, s + 11, { look: [-0.4, 0.2] });
+    eye(ctx, 22, 50, 4, s + 12, { look: [-0.4, 0.2] });
+    stroke(ctx, [[12, 60], [17, 62], [22, 60]], { color: '#8a4a4a', width: 2, seed: s + 13 });
+    circle(ctx, 8, 56, 2, { color: null, fill: '#d98a8a', seed: s + 14 });
+    circle(ctx, 25, 56, 2, { color: null, fill: '#d98a8a', seed: s + 15 });
+  },
+
+  // ---------------------------------------------------------------- yukionna
+  yukionna(ctx, s) {
+    const robe = '#f4f1e8';
+    const skin = '#cfe0e6';
+    // she has no feet: the kimono frays into mist
+    for (let i = 0; i < 3; i++) {
+      circle(ctx, 52 + i * 18, 116 - (i % 2) * 6, 9 - i * 2, {
+        color: null, fill: 'rgba(220, 235, 240, 0.55)', seed: s + 30 + i,
+      });
+    }
+    // the white kimono, drifting
+    shape(ctx, [[52, 44], [86, 42], [98, 108], [72, 118], [42, 108]], { ...P, width: 2.6, fill: robe, seed: s + 1 });
+    shape(ctx, [[66, 44], [74, 44], [72, 84], [66, 84]], { color: null, fill: shade(robe, -0.1), seed: s + 2 });
+    shape(ctx, [[50, 62], [90, 60], [90, 70], [50, 72]], { color: shade(robe, -0.25), width: 1.6, fill: '#bcd4dc', seed: s + 3 });
+    // sleeves like icicles
+    stroke(ctx, [[54, 52], [36, 64], [32, 82]], { color: robe, width: 9, seed: s + 4 });
+    stroke(ctx, [[86, 50], [102, 60], [104, 78]], { color: robe, width: 9, seed: s + 5 });
+    // long black hair framing a pale face
+    shape(ctx, [[48, 12], [40, 48], [46, 84], [56, 52], [54, 20]], { ...P, width: 2.2, fill: '#211c26', seed: s + 6 });
+    shape(ctx, [[88, 12], [96, 46], [92, 82], [82, 50], [84, 20]], { ...P, width: 2.2, fill: '#211c26', seed: s + 7 });
+    body(ctx, 68, 28, 17, 17, skin, s + 8);
+    shape(ctx, [[52, 14], [84, 12], [82, 24], [54, 26]], { color: null, fill: '#211c26', seed: s + 9 });
+    // cold eyes, blue lips, and the freezing breath
+    evilEye(ctx, 61, 28, 5, s + 10, '#9fd4e6');
+    evilEye(ctx, 76, 27, 5, s + 11, '#9fd4e6');
+    stroke(ctx, [[62, 39], [68, 41], [74, 38]], { color: '#3d7791', width: 2.2, seed: s + 12 });
+    for (let i = 0; i < 3; i++) {
+      circle(ctx, 46 - i * 10, 34 - i * 7, 2.5 + i, {
+        color: null, fill: `rgba(207, 232, 242, ${0.8 - i * 0.2})`, seed: s + 40 + i,
+      });
+    }
+    // snow crystals drifting around her
+    for (const [fx, fy] of [[30, 96], [98, 92], [24, 60], [108, 44]]) {
+      line(ctx, fx - 4, fy, fx + 4, fy, { color: '#dff0f6', width: 1.6, passes: 1, seed: s + fx });
+      line(ctx, fx, fy - 4, fx, fy + 4, { color: '#dff0f6', width: 1.6, passes: 1, seed: s + fx + 1 });
+    }
+  },
+
+  // ---------------------------------------------------------------- nurikabe
+  nurikabe(ctx, s) {
+    const plaster = '#8a8478';
+    // stubby feet under the slab
+    shape(ctx, [[34, 112], [50, 112], [48, 124], [32, 124]], { ...P, width: 2.2, fill: shade(plaster, -0.2), seed: s + 1 });
+    shape(ctx, [[86, 112], [102, 112], [104, 124], [88, 124]], { ...P, width: 2.2, fill: shade(plaster, -0.2), seed: s + 2 });
+    // the wall itself: a slab with worn corners
+    shape(ctx, [[18, 26], [116, 22], [120, 114], [14, 116]], { ...P, width: 3.2, fill: plaster, seed: s + 3 });
+    shape(ctx, [[24, 32], [110, 28], [113, 60], [22, 64]], { color: null, fill: shade(plaster, 0.1), seed: s + 4 });
+    // cracks and moss: it has stood in the road a long time
+    stroke(ctx, [[40, 114], [46, 92], [40, 74]], { color: shade(plaster, -0.4), width: 1.8, passes: 1, seed: s + 5 });
+    stroke(ctx, [[96, 24], [92, 44], [98, 58]], { color: shade(plaster, -0.4), width: 1.8, passes: 1, seed: s + 6 });
+    for (const [mx, my] of [[30, 104], [104, 100], [24, 44]]) {
+      circle(ctx, mx, my, 5, { color: null, fill: 'rgba(111, 155, 82, 0.5)', seed: s + mx });
+    }
+    // small arms out of the sides
+    stroke(ctx, [[18, 70], [6, 80]], { color: plaster, width: 7, seed: s + 7 });
+    stroke(ctx, [[116, 66], [126, 76]], { color: plaster, width: 7, seed: s + 8 });
+    // two sleepy eyes high up, and a flat unimpressed mouth
+    evilEye(ctx, 48, 52, 6, s + 9, '#e8dcc4');
+    evilEye(ctx, 78, 50, 6, s + 10, '#e8dcc4');
+    stroke(ctx, [[44, 78], [66, 80], [84, 77]], { color: INK, width: 2.6, seed: s + 11 });
+  },
+
+  // --------------------------------------------------------------------- oni
+  oni(ctx, s) {
+    const skin = '#c1503f';
+    // heavy legs
+    stroke(ctx, [[56, 96], [50, 112], [46, 124]], { color: skin, width: 11, seed: s + 1 });
+    stroke(ctx, [[84, 96], [90, 112], [88, 124]], { color: skin, width: 11, seed: s + 2 });
+    // the kanabō club, resting over the right shoulder
+    stroke(ctx, [[96, 88], [116, 40], [122, 18]], { color: '#3f3128', width: 10, seed: s + 3 });
+    for (let i = 0; i < 4; i++) {
+      circle(ctx, 108 + i * 4, 62 - i * 14, 2.6, { color: null, fill: '#8a8478', seed: s + 20 + i });
+    }
+    // barrel torso
+    body(ctx, 70, 72, 34, 30, skin, s + 4);
+    stroke(ctx, [[52, 62], [70, 58], [88, 62]], { color: shade(skin, -0.25), width: 2, passes: 1, seed: s + 5 });
+    // tiger-skin loincloth
+    shape(ctx, [[48, 92], [92, 90], [96, 112], [44, 114]], { ...P, width: 2.4, fill: '#e5b93c', seed: s + 6 });
+    for (let i = 0; i < 4; i++) {
+      shape(ctx, [[52 + i * 11, 92], [58 + i * 11, 92], [54 + i * 11, 112]], { color: null, fill: '#3f3128', seed: s + 30 + i });
+    }
+    // arms: one holds the club, the other swings
+    stroke(ctx, [[48, 60], [30, 74], [24, 92]], { color: skin, width: 9, seed: s + 7 });
+    stroke(ctx, [[92, 60], [100, 76], [96, 88]], { color: skin, width: 9, seed: s + 8 });
+    // head with horns, wild hair and tusks
+    body(ctx, 64, 36, 23, 21, skin, s + 9);
+    fuzz(ctx, 64, 26, 20, 10, '#211c26', s + 10, 12, 8);
+    horn(ctx, 50, 20, 16, '#e8dcc4', s + 11, -1.9);
+    horn(ctx, 80, 18, 16, '#e8dcc4', s + 12, -1.2);
+    evilEye(ctx, 55, 34, 6, s + 13, '#f2c94c');
+    evilEye(ctx, 74, 33, 6, s + 14, '#f2c94c');
+    shape(ctx, [[50, 46], [80, 44], [76, 54], [54, 56]], { color: INK, width: 2.2, fill: '#3f3128', seed: s + 15 });
+    teeth(ctx, 52, 53, 78, 6, s + 16, false);
+  },
+
+  // ------------------------------------------------------------------- onryō
+  onryo(ctx, s) {
+    const robe = '#f4f1e8';
+    // the burial kimono frays into drifting rags — nothing touches the ground
+    for (let i = 0; i < 4; i++) {
+      shape(ctx, [[38 + i * 18, 100], [44 + i * 18, 96], [40 + i * 18, 122], [34 + i * 18, 116]], {
+        color: null, fill: 'rgba(238, 235, 226, 0.75)', seed: s + 30 + i,
+      });
+    }
+    shape(ctx, [[46, 40], [90, 38], [100, 96], [68, 106], [36, 96]], { ...P, width: 2.6, fill: robe, seed: s + 1 });
+    // hands hanging limp in front, too pale
+    stroke(ctx, [[52, 52], [40, 70], [42, 86]], { color: robe, width: 8, seed: s + 2 });
+    stroke(ctx, [[86, 50], [96, 66], [92, 84]], { color: robe, width: 8, seed: s + 3 });
+    circle(ctx, 42, 90, 5, { color: INK, width: 1.8, fill: '#cfe0e6', seed: s + 4 });
+    circle(ctx, 92, 88, 5, { color: INK, width: 1.8, fill: '#cfe0e6', seed: s + 5 });
+    // the hair: a black curtain over the whole face
+    shape(ctx, [[44, 8], [92, 8], [98, 56], [92, 78], [82, 52], [76, 80], [66, 50], [58, 82], [48, 54], [40, 76]], {
+      ...P, width: 2.6, fill: '#211c26', seed: s + 6,
+    });
+    shape(ctx, [[52, 12], [84, 12], [88, 40], [50, 42]], { color: null, fill: '#16121c', seed: s + 7 });
+    // the white funeral triangle, crooked on the crown
+    shape(ctx, [[58, 12], [78, 10], [68, 0]], { ...P, width: 2, fill: robe, seed: s + 8 });
+    // one eye through the parting — it has been watching the whole time
+    evilEye(ctx, 66, 34, 6.5, s + 9, '#f2c94c');
+    // grave-fire drifting off her shoulders
+    for (let i = 0; i < 2; i++) {
+      const fx = 26 + i * 84;
+      const fy = 34 - i * 10;
+      shape(ctx, [[fx - 4, fy], [fx - 1, fy - 9], [fx + 1, fy - 14], [fx + 4, fy - 7], [fx + 5, fy]], {
+        color: '#3d7791', width: 1.6, fill: '#9fe0e6', alpha: 0.8, seed: s + 50 + i,
+      });
+    }
   },
 };
 

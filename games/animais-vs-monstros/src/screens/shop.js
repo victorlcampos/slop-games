@@ -195,10 +195,11 @@ export function createShop(result, state, onContinue) {
     if (tab === 'recruit') drawRecruit(ctx);
     else drawTrain(ctx);
 
-    // continue
+    // continue — the number shown is the campaign-local label, so crossing
+    // into Japan reads "on to stage 1", not "stage 11"
     const next = result.nextStage;
     box(ctx, MENU_W / 2 - 180, HEIGHT - 84, 360, 64, 12, { color: INK, width: 3.4, fill: COLORS.accent, seed: 60 });
-    text(ctx, next ? fill(T.nextStage, { n: next }) : pick(T.seeMap), MENU_W / 2, HEIGHT - 43, {
+    text(ctx, next ? fill(T.nextStage, { n: result.nextLabel || next }) : pick(T.seeMap), MENU_W / 2, HEIGHT - 43, {
       size: 22, align: 'center', color: INK,
     });
     buttons.push({ x: MENU_W / 2 - 180, y: HEIGHT - 84, w: 360, h: 64, action: 'continue' });

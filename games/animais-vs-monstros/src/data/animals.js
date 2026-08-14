@@ -345,12 +345,109 @@ export const ANIMALS = [
       en: 'The wall that pushes back. Nothing walks over an elephant.',
     },
   },
+
+  // ------------------------------------------------- the Japan recruits
+  // These four carry `unlock: 'japan'`: the shop only rolls them once the
+  // Japan campaign is open. The Brazil deck is untouched — the newcomers are
+  // what the second campaign pays for.
+  //
+  // trick      cheats death once: the shapeshifter puffs back at half health
+  // lanes: 3   shoots its own lane and both neighbours
+  // chillShot  the projectile slows what it hits
+  // warm       the Yuki-onna's freezing breath cannot touch it
+
+  {
+    id: 'tanuki',
+    name: { pt: 'Tanuki', en: 'Tanuki' },
+    origin: { pt: 'Japão', en: 'Japan' },
+    unlock: 'japan',
+    role: 'wall',
+    cost: 100,
+    price: 260,
+    cooldown: 8,
+    hp: 300,
+    trick: 0.5,
+    desc: {
+      pt: 'Mestre do disfarce com uma folha na testa. Na hora do golpe fatal — puf — era só uma estátua.',
+      en: 'A master of disguise with a leaf on his brow. At the killing blow — poof — it was only a statue.',
+    },
+  },
+  {
+    id: 'crane',
+    name: { pt: 'Grou-de-coroa', en: 'Red-crowned Crane' },
+    origin: { pt: 'Japão', en: 'Japan' },
+    unlock: 'japan',
+    role: 'shooter',
+    cost: 200,
+    price: 300,
+    cooldown: 8,
+    hp: 90,
+    interval: 1.8,
+    damage: 18,
+    lanes: 3,
+    air: true,
+    projectile: 'crest',
+    desc: {
+      pt: 'Dança de asas abertas e bica três fileiras de uma vez. Elegância também é alcance.',
+      en: 'Dances with open wings and pecks three lanes at once. Elegance is also reach.',
+    },
+  },
+  {
+    id: 'snowmonkey',
+    name: { pt: 'Macaco-da-neve', en: 'Snow Monkey' },
+    origin: { pt: 'Japão', en: 'Japan' },
+    unlock: 'japan',
+    role: 'shooter',
+    cost: 175,
+    price: 280,
+    cooldown: 6,
+    hp: 80,
+    interval: 1.4,
+    damage: 14,
+    chillShot: { duration: 2.5 },
+    warm: true,
+    projectile: 'snowball',
+    desc: {
+      pt: 'Passa o inverno de banho quente, fazendo bola de neve. Quem leva uma, anda no passo dele: devagar.',
+      en: 'Spends the winter in a hot bath, packing snowballs. Whoever takes one walks at his pace: slowly.',
+    },
+  },
+  {
+    id: 'koi',
+    name: { pt: 'Carpa Koi', en: 'Koi Carp' },
+    origin: { pt: 'Japão', en: 'Japan' },
+    unlock: 'japan',
+    role: 'shooter',
+    cost: 150,
+    price: 240,
+    cooldown: 6,
+    hp: 85,
+    interval: 1.2,
+    damage: 20,
+    aquatic: true,
+    projectile: 'waterjet',
+    desc: {
+      pt: 'Subiu tanta cachoeira que aprendeu a cuspir uma. O primeiro atirador que briga de dentro do rio.',
+      en: 'Climbed so many waterfalls she learned to spit one. The first shooter who fights from inside the river.',
+    },
+  },
 ];
 
 export const BY_ID = Object.fromEntries(ANIMALS.map((a) => [a.id, a]));
 
 /** The three cards everybody starts with. */
 export const STARTER_DECK = ANIMALS.filter((a) => a.price === 0).map((a) => a.id);
+
+/**
+ * The cards the shop is allowed to sell, given which campaigns are open.
+ *
+ * A card with `unlock` belongs to a country: it only exists for a player who
+ * has reached that campaign. With no argument this is exactly the Brazil-era
+ * catalogue, which is what every old call site (and old test) expects.
+ */
+export function shopPool(unlocked = []) {
+  return ANIMALS.filter((a) => !a.unlock || unlocked.includes(a.unlock));
+}
 
 /**
  * The cards the shop **must** offer before a level.
@@ -362,9 +459,9 @@ export const STARTER_DECK = ANIMALS.filter((a) => a.price === 0).map((a) => a.id
  *
  * Returns empty when the deck already covers the requirement.
  */
-export function requiredCards(level, deck = []) {
+export function requiredCards(level, deck = [], pool = shopPool()) {
   if (!level || !level.water || !level.water.length) return [];
-  const aquatics = ANIMALS.filter((a) => a.aquatic);
+  const aquatics = pool.filter((a) => a.aquatic);
   if (aquatics.some((a) => deck.includes(a.id))) return [];
   return aquatics.map((a) => a.id);
 }
@@ -380,8 +477,8 @@ export function requiredCards(level, deck = []) {
  * has no possible defence (today, an aquatic animal before the water level).
  * Luck can't be what decides whether the next level is playable.
  */
-export function rollCards(deck, count = 3, coins = 0, required = []) {
-  const missing = ANIMALS.filter((a) => a.price > 0 && !deck.includes(a.id));
+export function rollCards(deck, count = 3, coins = 0, required = [], pool = shopPool()) {
+  const missing = pool.filter((a) => a.price > 0 && !deck.includes(a.id));
   if (!missing.length) return [];
 
   const rolled = [];

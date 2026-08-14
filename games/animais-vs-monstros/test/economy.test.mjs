@@ -11,7 +11,7 @@ import {
   ANIMALS, BY_ID, STARTER_DECK, cardAtLevel, trainingCost, requiredCards, rollCards, MAX_LEVEL,
 } from '../src/data/animals.js';
 import { MONSTERS, MONSTER_BY_ID } from '../src/data/monsters.js';
-import { STAGES, CAMPAIGN } from '../src/data/stages.js';
+import { STAGES, CAMPAIGNS } from '../src/data/stages.js';
 import { COUNTRIES } from '../src/draw/worldmap.js';
 
 const testStage = { coins: 300, waves: [1, 2, 3, 4, 5] };
@@ -229,7 +229,16 @@ scenario('every card, monster and stage ships in both languages', () => {
     ...missingKeys(Object.fromEntries(STAGES.map((s) => [`stage.${s.n}.note`, s.whatsNew.note]))),
     ...missingKeys(Object.fromEntries(COUNTRIES.map((c) => [`country.${c.id}.name`, c.name]))),
     ...missingKeys(Object.fromEntries(COUNTRIES.map((c) => [`country.${c.id}.monsters`, c.monsters]))),
-    ...missingKeys({ 'campaign.country': CAMPAIGN.country, 'campaign.tagline': CAMPAIGN.tagline }),
+    ...missingKeys(
+      Object.fromEntries(
+        CAMPAIGNS.flatMap((c) => [
+          [`campaign.${c.id}.country`, c.country],
+          [`campaign.${c.id}.tagline`, c.tagline],
+          [`campaign.${c.id}.sub`, c.sub],
+          [`campaign.${c.id}.finished`, c.finished],
+        ])
+      )
+    ),
   ];
   checkEqual(holes, [], 'these fields exist in one language only');
 });

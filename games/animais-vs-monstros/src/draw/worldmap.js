@@ -47,7 +47,12 @@ export function project(lon, lat, x, y, w, h) {
   return [x + ((lon + 180) / 360) * w, y + ((90 - lat) / 180) * h];
 }
 
-/** Where each campaign country sits, and what state it is in. */
+/**
+ * Where each campaign country sits on the world map. Whether one is playable
+ * is not stored here: the map screen derives it from the campaigns in
+ * data/stages.js — a country with no campaign yet simply shows its padlock and
+ * the monsters that will one day come out of it.
+ */
 export const COUNTRIES = [
   {
     id: 'brazil',
@@ -55,19 +60,8 @@ export const COUNTRIES = [
     flag: '🇧🇷',
     lon: -51,
     lat: -12,
-    unlocked: true,
     stages: 10,
     monsters: { pt: 'folclore brasileiro', en: 'Brazilian folklore' },
-  },
-  {
-    id: 'mexico',
-    name: { pt: 'México', en: 'Mexico' },
-    flag: '🇲🇽',
-    lon: -102,
-    lat: 23,
-    unlocked: false,
-    stages: 10,
-    monsters: { pt: 'La Llorona, El Cucuy', en: 'La Llorona, El Cucuy' },
   },
   {
     id: 'japan',
@@ -75,9 +69,35 @@ export const COUNTRIES = [
     flag: '🇯🇵',
     lon: 138,
     lat: 36,
-    unlocked: false,
     stages: 10,
     monsters: { pt: 'yōkai', en: 'yōkai' },
+  },
+  {
+    id: 'mexico',
+    name: { pt: 'México', en: 'Mexico' },
+    flag: '🇲🇽',
+    lon: -102,
+    lat: 20,
+    stages: 10,
+    monsters: { pt: 'La Llorona, El Cucuy', en: 'La Llorona, El Cucuy' },
+  },
+  {
+    id: 'usa',
+    name: { pt: 'EUA', en: 'USA' },
+    flag: '🇺🇸',
+    lon: -100,
+    lat: 45,
+    stages: 10,
+    monsters: { pt: 'Bigfoot, Mothman', en: 'Bigfoot, Mothman' },
+  },
+  {
+    id: 'china',
+    name: { pt: 'China', en: 'China' },
+    flag: '🇨🇳',
+    lon: 104,
+    lat: 35,
+    stages: 10,
+    monsters: { pt: 'jiangshi, Nian', en: 'jiangshi, Nian' },
   },
   {
     id: 'nigeria',
@@ -85,7 +105,6 @@ export const COUNTRIES = [
     flag: '🇳🇬',
     lon: 8,
     lat: 9,
-    unlocked: false,
     stages: 10,
     monsters: { pt: 'Madame Koi Koi', en: 'Madame Koi Koi' },
   },
@@ -95,7 +114,6 @@ export const COUNTRIES = [
     flag: '🇮🇪',
     lon: -8,
     lat: 53,
-    unlocked: false,
     stages: 10,
     monsters: { pt: 'banshee, pooka', en: 'banshee, pooka' },
   },
@@ -105,7 +123,6 @@ export const COUNTRIES = [
     flag: '🇮🇳',
     lon: 79,
     lat: 22,
-    unlocked: false,
     stages: 10,
     monsters: { pt: 'rakshasa', en: 'rakshasa' },
   },

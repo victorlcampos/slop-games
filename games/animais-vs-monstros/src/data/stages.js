@@ -1,19 +1,18 @@
-// The 10 stages of the Brazil campaign.
+// The campaigns, country by country. Brazil first, Japan next — each one is 10
+// stages, and finishing a campaign is what unlocks the following country.
 //
-// Each one changes three things at once: the scenery (palette and props), a
+// Each stage changes three things at once: the scenery (palette and props), a
 // board rule (water, fog, night, drought) and the monster cast. Difficulty
 // climbs through all three, not just through enemy count.
 //
+// Stage numbers (`n`) are global and never reused — they are what the save
+// stores in `won` and `records`, so a Brazil save keeps meaning the same thing
+// after Japan exists. `label` is the number the player sees, local to the
+// campaign (Japan starts again at "stage 1").
+//
 // wave: { wait: seconds after the previous wave, monsters: [[id, howMany]] }
 
-export const CAMPAIGN = {
-  country: { pt: 'Brasil', en: 'Brazil' },
-  flag: '🇧🇷',
-  population: 215,
-  tagline: { pt: 'A resistência começa aqui.', en: 'The resistance starts here.' },
-};
-
-export const STAGES = [
+const BRAZIL_STAGES = [
   {
     n: 1,
     name: { pt: 'Sítio do Interior', en: 'Backcountry Farm' },
@@ -302,5 +301,360 @@ export const STAGES = [
   },
 ];
 
-/** Total humans the Brazil campaign gives back (in millions). */
-export const HUMANS_BRAZIL = STAGES.reduce((s, st) => s + st.humans, 0);
+// ------------------------------------------------------------------- Japan
+//
+// The player lands here with a trained deck, so stage 11 opens around the
+// weight of Brazil's stage 6 and climbs past the Cuca. The economy is bigger
+// too: the campaign has four local recruits to pay for.
+
+const JAPAN_STAGES = [
+  {
+    n: 11,
+    name: { pt: 'Vila das Cerejeiras', en: 'Cherry Blossom Village' },
+    place: { pt: 'Quioto', en: 'Kyoto' },
+    intro: {
+      pt: 'O navio atracou debaixo das cerejeiras. A vila está em silêncio — e em cada beco, um guarda-chuva velho abre o olho.',
+      en: 'The ship docked under the cherry trees. The village is silent — and in every alley, an old umbrella opens its eye.',
+    },
+    scenery: 'sakura',
+    humans: 5,
+    coins: 320,
+    startingSeeds: 150,
+    whatsNew: {
+      monster: 'karakasa',
+      note: {
+        pt: 'Bem-vindo ao Japão. O Karakasa é um guarda-chuva de cem anos: vem aos pulos, numa perna só. Os yōkai daqui são mais duros que o folclore de casa — seu baralho treinado vai trabalhar.',
+        en: 'Welcome to Japan. The Karakasa is a hundred-year-old umbrella: it comes hopping on its one leg. The yōkai here are tougher than the folklore back home — your trained deck has work to do.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['karakasa', 3]] },
+      { wait: 18, monsters: [['karakasa', 5]] },
+      { wait: 20, monsters: [['karakasa', 7]] },
+      { wait: 24, monsters: [['karakasa', 9]] },
+    ],
+  },
+  {
+    n: 12,
+    name: { pt: 'Arrozais', en: 'Rice Terraces' },
+    place: { pt: 'Terraços de Nagano', en: 'Nagano Terraces' },
+    intro: {
+      pt: 'Degraus de água até o horizonte. Cada espelho d’água reflete o céu — e esconde uma tigela.',
+      en: 'Steps of water all the way to the horizon. Every mirror of water reflects the sky — and hides a bowl.',
+    },
+    scenery: 'rice',
+    water: [1, 3],
+    humans: 8,
+    coins: 360,
+    startingSeeds: 150,
+    whatsNew: {
+      monster: 'kappa',
+      note: {
+        pt: 'O Kappa desce pelas fileiras alagadas com uma tigela d’água na cabeça: é ela que dá a força dele. Bata até derramar — na metade da vida a tigela vira, e ele fica lento e fraco. Foco de fogo resolve.',
+        en: 'The Kappa comes down the flooded lanes with a bowl of water on his head: that bowl is where his strength lives. Hit him until it spills — at half health the bowl tips over and he turns slow and weak. Focused fire wins.',
+      },
+    },
+    waves: [
+      { wait: 12, monsters: [['karakasa', 4]] },
+      { wait: 18, monsters: [['kappa', 2], ['karakasa', 3]] },
+      { wait: 20, monsters: [['kappa', 3], ['karakasa', 4]] },
+      { wait: 22, monsters: [['kappa', 4], ['karakasa', 6]] },
+      { wait: 24, monsters: [['kappa', 5], ['karakasa', 7]] },
+    ],
+  },
+  {
+    n: 13,
+    name: { pt: 'Bosque de Bambu', en: 'Bamboo Grove' },
+    place: { pt: 'Arashiyama', en: 'Arashiyama' },
+    intro: {
+      pt: 'Colmos verdes até o céu e nove caudas passando entre eles. Você contou uma raposa? Tem três.',
+      en: 'Green stalks up to the sky and nine tails weaving between them. You counted one fox? There are three.',
+    },
+    scenery: 'bamboo',
+    humans: 10,
+    coins: 400,
+    startingSeeds: 175,
+    whatsNew: {
+      monster: 'kitsune',
+      note: {
+        pt: 'A Kitsune entra em campo e se desdobra em ilusões: cópias que somem com um tiro e não pagam semente. Derrube a verdadeira e as cópias se desfazem — todo tiro na raposa errada é um tiro pago.',
+        en: 'The Kitsune steps onto the field and splits into illusions: copies that vanish at one hit and pay no seed. Drop the real one and the copies come apart — every shot at the wrong fox is a shot you paid for.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['karakasa', 4]] },
+      { wait: 18, monsters: [['kitsune', 2], ['karakasa', 4]] },
+      { wait: 20, monsters: [['kitsune', 3], ['karakasa', 5]] },
+      { wait: 22, monsters: [['kitsune', 4], ['karakasa', 7]] },
+      { wait: 24, monsters: [['kitsune', 5], ['karakasa', 8]] },
+    ],
+  },
+  {
+    n: 14,
+    name: { pt: 'Monte dos Tengu', en: 'Tengu Mountain' },
+    place: { pt: 'Monte Kurama', en: 'Mount Kurama' },
+    intro: {
+      pt: 'Os monges fugiram da montanha há semanas. Lá do alto, asas negras medem o seu quintal.',
+      en: 'The monks fled the mountain weeks ago. From up there, black wings are measuring your yard.',
+    },
+    scenery: 'mountainjp',
+    humans: 12,
+    coins: 450,
+    startingSeeds: 175,
+    whatsNew: {
+      monster: 'tengu',
+      note: {
+        pt: 'O Tengu voa por cima da sua muralha — e pousa atrás dela, onde só os geradores moram. No ar, só quem alcança o alto acerta; no chão, ele briga como qualquer um. Derrube antes que ele cruze.',
+        en: 'The Tengu flies over your wall — and lands behind it, where only your generators live. In the air, only those who reach high can touch him; on the ground he brawls like anyone. Bring him down before he crosses.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['karakasa', 5]] },
+      { wait: 16, monsters: [['tengu', 2], ['kitsune', 2]] },
+      { wait: 18, monsters: [['tengu', 3], ['karakasa', 6]] },
+      { wait: 20, monsters: [['kitsune', 4], ['tengu', 3]] },
+      { wait: 24, monsters: [['tengu', 4], ['kitsune', 4], ['karakasa', 6]] },
+    ],
+  },
+  {
+    n: 15,
+    name: { pt: 'Estrada à Meia-noite', en: 'Midnight Road' },
+    place: { pt: 'Estrada de Tōkaidō', en: 'Tōkaidō Road' },
+    intro: {
+      pt: 'A velha estrada corta o bambuzal no escuro. Uma moça de quimono sorri de longe. Longe demais para o pescoço dela.',
+      en: 'The old road cuts through the bamboo in the dark. A woman in a kimono smiles from afar. Too far — for her neck.',
+    },
+    scenery: 'bamboo',
+    night: true,
+    humans: 14,
+    coins: 500,
+    startingSeeds: 200,
+    whatsNew: {
+      monster: 'rokurokubi',
+      note: {
+        pt: 'A Rokurokubi para na sua muralha como todo mundo — mas o pescoço estica por cima e morde quem está atrás: o atirador, o gerador. Muro na frente já não protege a fileira inteira.',
+        en: 'The Rokurokubi stops at your wall like everyone else — but her neck stretches over it and bites whoever stands behind: the shooter, the generator. A wall up front no longer protects the whole lane.',
+      },
+    },
+    waves: [
+      { wait: 12, monsters: [['karakasa', 5], ['kitsune', 2]] },
+      { wait: 18, monsters: [['rokurokubi', 2], ['karakasa', 5]] },
+      { wait: 20, monsters: [['rokurokubi', 3], ['kitsune', 3]] },
+      { wait: 22, monsters: [['rokurokubi', 4], ['tengu', 2]] },
+      { wait: 26, monsters: [['rokurokubi', 5], ['kitsune', 4], ['karakasa', 7]] },
+    ],
+  },
+  {
+    n: 16,
+    name: { pt: 'Nevasca', en: 'Blizzard' },
+    place: { pt: 'Hokkaidō', en: 'Hokkaidō' },
+    intro: {
+      pt: 'A neve apaga a estrada, o telhado e a pegada. No meio do branco, um quimono mais branco ainda.',
+      en: 'The snow erases the road, the roofs and every footprint. In all that white, a kimono whiter still.',
+    },
+    scenery: 'snow',
+    // the cold slows the ground: seeds sprout a touch later, like the drought —
+    // milder, because the Yuki-onna is already freezing the defenders themselves
+    seedFactor: 0.85,
+    humans: 15,
+    coins: 560,
+    startingSeeds: 225,
+    whatsNew: {
+      monster: 'yukionna',
+      note: {
+        pt: 'A Yuki-onna congela os seus bichos: um sopro e a fileira inteira para de atirar por um tempo. O Macaco-da-neve viveu a vida em água termal — é o único que o frio dela não morde.',
+        en: 'The Yuki-onna freezes your animals: one breath and the whole lane stops shooting for a while. The Snow Monkey spent his life in hot springs — he is the only one her cold cannot bite.',
+      },
+    },
+    waves: [
+      { wait: 12, monsters: [['karakasa', 5]] },
+      { wait: 18, monsters: [['yukionna', 2], ['karakasa', 5]] },
+      { wait: 20, monsters: [['yukionna', 3], ['rokurokubi', 2]] },
+      { wait: 22, monsters: [['yukionna', 3], ['kitsune', 4], ['karakasa', 5]] },
+      { wait: 26, monsters: [['yukionna', 4], ['rokurokubi', 3], ['karakasa', 8]] },
+    ],
+  },
+  {
+    n: 17,
+    name: { pt: 'Cruzamento em Neon', en: 'Neon Crossing' },
+    place: { pt: 'Shibuya, Tóquio', en: 'Shibuya, Tokyo' },
+    intro: {
+      pt: 'Os letreiros ainda piscam para uma multidão parada. Entre as luzes, chifres — e uma clava do tamanho de um poste.',
+      en: 'The signs still blink for a crowd that stands frozen. Between the lights, horns — and a club the size of a lamppost.',
+    },
+    scenery: 'neon',
+    night: true,
+    humans: 17,
+    coins: 620,
+    startingSeeds: 225,
+    whatsNew: {
+      monster: 'oni',
+      note: {
+        pt: 'Cidade grande, horda grande — e o Oni no meio dela. A clava dele acerta quem está na frente e ainda alcança a casa de trás: bicho colado em bicho é convite. Espalhe a defesa.',
+        en: 'Big city, big horde — and the Oni in the middle of it. His club hits whoever is in front and reaches the cell behind them too: animals packed together are an invitation. Spread the defence out.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['karakasa', 8]] },
+      { wait: 16, monsters: [['oni', 2], ['kitsune', 3]] },
+      { wait: 18, monsters: [['oni', 2], ['rokurokubi', 3], ['karakasa', 6]] },
+      { wait: 20, monsters: [['kitsune', 5], ['karakasa', 9]] },
+      { wait: 24, monsters: [['oni', 3], ['yukionna', 3], ['karakasa', 8]] },
+    ],
+  },
+  {
+    n: 18,
+    name: { pt: 'Templo na Névoa', en: 'Fog Temple' },
+    place: { pt: 'Monte Kōya', en: 'Mount Kōya' },
+    intro: {
+      pt: 'O incenso apagou, a névoa ficou. Entre as lanternas de pedra, uma parede anda — e ela não veio consertar o muro.',
+      en: 'The incense went out, the fog stayed. Between the stone lanterns a wall is walking — and it did not come to fix the fence.',
+    },
+    scenery: 'temple',
+    fog: true,
+    humans: 18,
+    coins: 690,
+    startingSeeds: 250,
+    whatsNew: {
+      monster: 'nurikabe',
+      note: {
+        pt: 'O Nurikabe é uma parede viva: engole os tiros da fileira — até os que atravessam tudo param nele — e coice nenhum o empurra. A névoa esconde o resto; uma Coruja levanta o véu.',
+        en: 'The Nurikabe is a living wall: it swallows the lane’s shots — even the ones that pierce everything stop in it — and no kick pushes it back. The fog hides the rest; an Owl lifts the veil.',
+      },
+    },
+    waves: [
+      { wait: 12, monsters: [['karakasa', 6], ['kitsune', 3]] },
+      { wait: 18, monsters: [['nurikabe', 1], ['kitsune', 4]] },
+      { wait: 20, monsters: [['nurikabe', 2], ['rokurokubi', 3]] },
+      { wait: 22, monsters: [['oni', 2], ['nurikabe', 2], ['karakasa', 7]] },
+      { wait: 26, monsters: [['nurikabe', 3], ['yukionna', 3], ['kitsune', 4]] },
+    ],
+  },
+  {
+    n: 19,
+    name: { pt: 'Encosta do Fuji', en: 'Fuji Slopes' },
+    place: { pt: 'Monte Fuji', en: 'Mount Fuji' },
+    intro: {
+      pt: 'A última subida antes do castelo. Todo yōkai do país sabe que é aqui que a linha tem de quebrar.',
+      en: 'The last climb before the castle. Every yōkai in the country knows this is where the line has to break.',
+    },
+    scenery: 'snow',
+    humans: 16,
+    coins: 760,
+    startingSeeds: 250,
+    whatsNew: {
+      note: {
+        pt: 'Todos de uma vez: Tengu por cima, Nurikabe na frente, Yuki-onna congelando e Oni quebrando. O que você aprendeu em oito fases, a montanha cobra numa só.',
+        en: 'All of them at once: Tengu overhead, Nurikabe up front, Yuki-onna freezing and Oni smashing. What eight stages taught you, the mountain collects in one.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['tengu', 3], ['karakasa', 6]] },
+      { wait: 16, monsters: [['oni', 3], ['yukionna', 3]] },
+      { wait: 18, monsters: [['nurikabe', 2], ['rokurokubi', 4]] },
+      { wait: 20, monsters: [['tengu', 4], ['kitsune', 5], ['yukionna', 3]] },
+      { wait: 24, monsters: [['oni', 4], ['nurikabe', 3], ['karakasa', 9]] },
+    ],
+  },
+  {
+    n: 20,
+    name: { pt: 'Castelo Assombrado', en: 'Haunted Castle' },
+    place: { pt: 'Castelo de Himeji', en: 'Himeji Castle' },
+    intro: {
+      pt: 'No salão mais alto do castelo, um quimono branco espera de costas. Ela sabe o seu nome desde que o navio atracou.',
+      en: 'In the castle’s highest hall, a white kimono waits with its back turned. She has known your name since the ship docked.',
+    },
+    scenery: 'castle',
+    night: true,
+    humans: 10,
+    coins: 900,
+    startingSeeds: 300,
+    boss: 'onryo',
+    whatsNew: {
+      monster: 'onryo',
+      note: {
+        pt: 'O Onryō some e reaparece: enquanto está translúcido, tiro nenhum o toca — e ele volta em outra fileira, chamando yōkai pelo caminho. Defesa em uma fileira só é defesa nenhuma.',
+        en: 'The Onryō fades and returns: while he is translucent no shot can touch him — and he comes back in another lane, calling yōkai as he goes. A defence in a single lane is no defence at all.',
+      },
+    },
+    waves: [
+      { wait: 10, monsters: [['karakasa', 7], ['kitsune', 4]] },
+      { wait: 16, monsters: [['rokurokubi', 4], ['yukionna', 3], ['tengu', 2]] },
+      { wait: 18, monsters: [['oni', 3], ['nurikabe', 2]] },
+      { wait: 22, monsters: [['onryo', 1]] },
+      { wait: 30, monsters: [['oni', 3], ['yukionna', 4], ['rokurokubi', 4]] },
+    ],
+  },
+];
+
+// -------------------------------------------------------------- the campaigns
+
+export const CAMPAIGNS = [
+  {
+    id: 'brazil',
+    country: { pt: 'Brasil', en: 'Brazil' },
+    flag: '🇧🇷',
+    population: 215,
+    tagline: { pt: 'A resistência começa aqui.', en: 'The resistance starts here.' },
+    sub: {
+      pt: 'Dez fases até a Cuca. Cada uma devolve um pedaço do país.',
+      en: 'Ten stages up to the Cuca. Each one gives back a piece of the country.',
+    },
+    finished: {
+      pt: '🎉 Brasil libertado. O Japão chamou no rádio — a viagem continua.',
+      en: '🎉 Brazil is free. Japan called on the radio — the journey goes on.',
+    },
+    // where the country outline sits behind the stage trail (the world map is
+    // drawn at 1600x640 and shifted so this campaign's country lands in view)
+    mapOffset: [-380, 60],
+    stages: BRAZIL_STAGES,
+  },
+  {
+    id: 'japan',
+    country: { pt: 'Japão', en: 'Japan' },
+    flag: '🇯🇵',
+    population: 125,
+    tagline: { pt: 'Nenhuma lenda assusta quem nunca a escutou.', en: 'No legend can scare someone who never heard it.' },
+    sub: {
+      pt: 'Dez fases até o Onryō. Cada uma devolve um pedaço do país.',
+      en: 'Ten stages up to the Onryō. Each one gives back a piece of the country.',
+    },
+    finished: {
+      pt: '🎉 Japão libertado. Os próximos países vêm aí.',
+      en: '🎉 Japan is free. The next countries are coming.',
+    },
+    mapOffset: [-433, 138],
+    unlockedBy: 'brazil',
+    stages: JAPAN_STAGES,
+  },
+];
+
+// the label the player reads is local to the campaign: Japan starts at "1"
+for (const c of CAMPAIGNS) c.stages.forEach((s, i) => { s.label = i + 1; });
+
+/** Every stage of every campaign, in order. `n` is unique across the lot. */
+export const STAGES = CAMPAIGNS.flatMap((c) => c.stages);
+
+export const TOTAL_STAGES = STAGES.length;
+
+export const campaignById = (id) => CAMPAIGNS.find((c) => c.id === id) || null;
+
+/** The campaign a stage number belongs to. */
+export function campaignOf(n) {
+  return CAMPAIGNS.find((c) => c.stages.some((s) => s.n === n)) || CAMPAIGNS[0];
+}
+
+/** A campaign opens when the one before it has been fully won. */
+export function isCampaignOpen(campaign, won = []) {
+  if (!campaign) return false;
+  if (!campaign.unlockedBy) return true;
+  const prev = campaignById(campaign.unlockedBy);
+  return !!prev && prev.stages.every((s) => won.includes(s.n));
+}
+
+export function isCampaignDone(campaign, won = []) {
+  return !!campaign && campaign.stages.every((s) => won.includes(s.n));
+}
+
+/** Total humans the whole atlas gives back (in millions) — the world scoreboard. */
+export const HUMANS_TOTAL = STAGES.reduce((s, st) => s + st.humans, 0);

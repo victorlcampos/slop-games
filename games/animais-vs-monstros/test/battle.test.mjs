@@ -282,4 +282,330 @@ scenario('a phone held upright gets the board laid on its side, not a wall', asy
   check(!canvas.style.transform, `a transform survived the turn back: "${canvas.style.transform}"`);
 });
 
+// ---------------------------------------------------------------- the yōkai
+//
+// Japan's cast each carries a mechanic of its own, and each one here is the
+// rule as the stage note promises it — not the drawing.
+
+const stageIdx = (n) => STAGES.findIndex((s) => s.n === n);
+
+scenario('the Kappa spills his bowl at half health and turns slow', () => {
+  const b = open(stageIdx(12), ['monkey']);
+  b.st.queued.push({ kind: 'kappa', when: 0, row: 1 });
+  tick(b, 0.2);
+  const kappa = b.st.monsters[0];
+  check(kappa, 'no Kappa came in');
+  check(!kappa.spilled, 'the bowl arrived already spilled');
+
+  const x0 = kappa.x;
+  tick(b, 1);
+  const fullStride = x0 - kappa.x;
+
+  kappa.hp = kappa.maxHp * 0.4;
+  tick(b, 0.1);
+  check(kappa.spilled, 'half health should tip the bowl');
+  const x1 = kappa.x;
+  tick(b, 1);
+  const spiltStride = x1 - kappa.x;
+  check(spiltStride < fullStride * 0.7,
+    `spilled he walked ${spiltStride.toFixed(1)} against ${fullStride.toFixed(1)} with the bowl full`);
+});
+
+scenario('the Kitsune splits into illusions that pay nothing and die with her', () => {
+  const b = open(stageIdx(13), ['monkey']);
+  b.st.queued.push({ kind: 'kitsune', when: 0, row: 2 });
+  tick(b, 0.2);
+  const fox = b.st.monsters[0];
+  check(fox, 'no Kitsune came in');
+
+  // she casts on stepping into the board
+  tick(b, 4);
+  const ghosts = b.st.monsters.filter((m) => m.illusion);
+  check(ghosts.length === 2, `${ghosts.length} illusions appeared — the legend says two`);
+  check(ghosts.every((g) => g.hp === 1), 'an illusion dies at one hit, so it starts at 1 hp');
+
+  // killing one — through the game's own death path — pays no seed, counts no kill
+  const seeds0 = b.st.seeds;
+  const killed0 = b.st.killed;
+  ghosts[0].dots.push({ damage: 9999, t: 1, pool: 0 });
+  // and an illusion reaching the fence is smoke, not defeat
+  ghosts[1].x = 100;
+  tick(b, 1);
+  check(!b.st.over, 'an illusion crossed the fence and the stage ended');
+  checkEqual(b.st.seeds, seeds0, 'smoke paid seeds');
+  checkEqual(b.st.killed, killed0, 'smoke went on the scoreboard');
+
+  // and the survivors vanish the moment the real fox falls
+  b.st.queued.push({ kind: 'kitsune', when: 0, row: 2 });
+  tick(b, 4.2);
+  const fox2 = b.st.monsters.find((m) => m.def.illusions && !m.illusion && !m.dead && m.id !== fox.id);
+  check(fox2, 'the second Kitsune never came in');
+  const hers = b.st.monsters.filter((m) => m.illusion && m.owner === fox2.id);
+  check(hers.length === 2, `the second fox cast ${hers.length} copies`);
+  fox2.dots.push({ damage: 99999, t: 1, pool: 0 });
+  tick(b, 0.5);
+  check(b.st.monsters.every((m) => m.owner !== fox2.id), 'the copies outlived the caster');
+});
+
+scenario('the Tengu flies over the wall, lands behind it, and only then can anyone hit him', () => {
+  const b = open(stageIdx(14), ['turtle', 'monkey']);
+  b.st.queued.push({ kind: 'tengu', when: 0, row: 2 });
+  tick(b, 0.2);
+  const tengu = b.st.monsters[0];
+  check(tengu, 'no Tengu came in');
+  check(tengu.flying, 'a Tengu enters flying');
+
+  const wall = plant(b, 'turtle', 700, tengu.y);
+  check(wall, 'the turtle was never planted');
+
+  // still short of the wall: airborne
+  tengu.x = wall.x + 80;
+  tick(b, 0.1);
+  check(tengu.flying, 'he landed before crossing the wall');
+
+  // past it: feet on the ground, an ordinary brawler now
+  tengu.x = wall.x - 80;
+  tick(b, 0.1);
+  check(!tengu.flying, 'crossing the front line should bring him down');
+
+  const hp0 = tengu.hp;
+  const gun = plant(b, 'monkey', 400, tengu.y);
+  check(gun, 'the monkey was never planted');
+  tengu.x = gun.x + 200;
+  tengu.stunned = 9; // hold him still so the coconut has someone to hit
+  tick(b, 3);
+  check(tengu.hp < hp0 || tengu.dead, 'landed, the ground shooter still could not touch him');
+});
+
+scenario("the Rokurokubi stops at the wall but her neck eats whoever hides behind it", () => {
+  const b = open(stageIdx(15), ['turtle', 'squirrel']);
+  b.st.queued.push({ kind: 'rokurokubi', when: 0, row: 2 });
+  tick(b, 0.2);
+  const neck = b.st.monsters[0];
+  check(neck, 'no Rokurokubi came in');
+
+  const wall = plant(b, 'turtle', 700, neck.y);
+  const prey = plant(b, 'squirrel', 590, neck.y);
+  check(wall && prey, 'the lane was never set up');
+
+  neck.x = wall.x + 50;
+  const wallHp = wall.hp;
+  const preyHp = prey.hp;
+  tick(b, 4);
+  check(prey.hp < preyHp, 'the neck never reached past the wall');
+  checkEqual(wall.hp, wallHp, 'she bit the wall instead — the neck exists to skip it');
+});
+
+scenario('the Yuki-onna freezes the defenders — except the one who lives in hot springs', () => {
+  const b = open(stageIdx(16), ['monkey', 'snowmonkey']);
+  b.st.queued.push({ kind: 'yukionna', when: 0, row: 2 });
+  tick(b, 0.2);
+  const yuki = b.st.monsters[0];
+  check(yuki, 'no Yuki-onna came in');
+
+  const cold = plant(b, 'monkey', 600, yuki.y);
+  const warm = plant(b, 'snowmonkey', 480, yuki.y);
+  check(cold && warm, 'the pair was never planted');
+
+  yuki.x = cold.x + 120;
+  tick(b, 7);
+  check(cold.frozen > 0, 'her breath froze nobody');
+  checkEqual(warm.frozen, 0, 'the Snow Monkey is warm — her cold cannot bite him');
+
+  // frozen solid means not shooting: no shot leaves while the ice holds
+  b.st.shots.length = 0;
+  cold.frozen = 2;
+  warm.hp = 0; // only the frozen one left
+  tick(b, 0.5);
+  check(b.st.shots.every((sh) => false) || b.st.shots.length === 0, 'a frozen shooter kept firing');
+});
+
+scenario('the Nurikabe swallows piercing shots and no kick moves it', () => {
+  const b = open(stageIdx(18), ['snake', 'kangaroo']);
+  b.st.queued.push({ kind: 'nurikabe', when: 0, row: 2 });
+  b.st.queued.push({ kind: 'karakasa', when: 0, row: 2 });
+  tick(b, 0.2);
+  const wall = b.st.monsters.find((m) => m.def.id === 'nurikabe');
+  const behind = b.st.monsters.find((m) => m.def.id === 'karakasa');
+  check(wall && behind, 'the pair never came in');
+
+  const gun = plant(b, 'snake', 400, wall.y);
+  check(gun, 'the snake was never planted');
+  wall.x = gun.x + 300;
+  behind.x = gun.x + 400;
+  wall.stunned = 30;
+  behind.stunned = 30;
+
+  const hp0 = behind.hp;
+  tick(b, 6);
+  check(wall.hp < wall.maxHp, 'the snake never even hit the wall');
+  checkEqual(behind.hp, hp0, 'a piercing shot went THROUGH the living wall');
+
+  // and the kangaroo's kick moves everyone but him
+  const roo = plant(b, 'kangaroo', 600, wall.y);
+  check(roo, 'the kangaroo was never planted');
+  wall.stunned = 0;
+  wall.x = roo.x + 60;
+  const wx = wall.x;
+  tick(b, 2);
+  check(wall.x <= wx + 1, `the kick pushed the wall from ${wx.toFixed(0)} to ${wall.x.toFixed(0)}`);
+});
+
+scenario("the Oni's club reaches the cell behind whoever it bites", () => {
+  const b = open(stageIdx(17), ['turtle', 'squirrel']);
+  b.st.queued.push({ kind: 'oni', when: 0, row: 2 });
+  tick(b, 0.2);
+  const oni = b.st.monsters[0];
+  check(oni, 'no Oni came in');
+
+  const front = plant(b, 'turtle', 700, oni.y);
+  check(front, 'the turtle was never planted');
+  // the neighbour cell behind the turtle, found from the game's own geometry
+  const gap = plant(b, 'squirrel', front.x - 112, oni.y);
+  check(gap && gap.col === front.col - 1, 'the squirrel is not in the cell behind the wall');
+
+  oni.x = front.x + 50;
+  const backHp = gap.hp;
+  tick(b, 4);
+  check(front.hp < front.maxHp, 'the Oni never swung');
+  check(gap.hp < backHp, 'the smash never reached the cell behind');
+});
+
+scenario('the Onryō walks untouchable while phased, and returns in another lane', () => {
+  const b = open(stageIdx(20), ['monkey']);
+  b.st.queued.push({ kind: 'onryo', when: 0, row: 2 });
+  tick(b, 0.2);
+  const boss = b.st.monsters.find((m) => m.def.boss);
+  check(boss, 'no Onryō came in');
+
+  boss.phased = 2;
+  const hp0 = boss.hp;
+  const row0 = boss.row;
+  const gun = plant(b, 'monkey', 400, boss.y);
+  check(gun, 'the monkey was never planted');
+  boss.x = gun.x + 250;
+  tick(b, 1);
+  checkEqual(boss.hp, hp0, 'a shot touched the intangible');
+
+  tick(b, 1.5); // the phase runs out mid-way here
+  check(boss.row !== row0, 'he came back in the same lane he left');
+});
+
+// ------------------------------------------------------- the Japan recruits
+
+scenario('the Tanuki cheats death exactly once', () => {
+  const b = open(stageIdx(11), ['tanuki']);
+  b.st.queued.push({ kind: 'karakasa', when: 0, row: 2 });
+  tick(b, 0.2);
+  const monster = b.st.monsters[0];
+
+  const tanuki = plant(b, 'tanuki', 600, monster.y);
+  check(tanuki, 'the tanuki was never planted');
+  monster.x = tanuki.x + 40;
+
+  tanuki.hp = 1; // the next bite would be the end
+  tick(b, 2);
+  check(tanuki.tricked, 'the killing blow should have hit a statue');
+  check(tanuki.hp > 0, 'the trick left him dead anyway');
+  check(tanuki.hp <= tanuki.maxHp * 0.5 + 1, 'the trick brings back half, not a full heal');
+
+  tanuki.hp = 1;
+  tick(b, 3);
+  check(b.st.planted.every((p) => p.id !== tanuki.id) || tanuki.hp <= 0,
+    'the trick worked twice — once is the whole bargain');
+});
+
+scenario('the Crane covers its own lane and both neighbours', () => {
+  const b = open(stageIdx(11), ['crane']);
+  // three monsters, three lanes, all held in front of the crane
+  for (const row of [1, 2, 3]) b.st.queued.push({ kind: 'karakasa', when: 0, row });
+  tick(b, 0.2);
+  check(b.st.monsters.length === 3, `${b.st.monsters.length} monsters came in`);
+  const middle = b.st.monsters.find((m) => m.row === 2);
+
+  const crane = plant(b, 'crane', 400, middle.y);
+  check(crane, 'the crane was never planted');
+  for (const m of b.st.monsters) { m.stunned = 30; m.x = crane.x + 300; }
+
+  tick(b, 3);
+  const rows = new Set(b.st.shots.map((sh) => sh.row));
+  for (const m of b.st.monsters) rows.add(m.row); // shots may have landed already
+  const hurt = b.st.monsters.filter((m) => m.hp < m.maxHp).map((m) => m.row);
+  check(hurt.includes(1) && hurt.includes(2) && hurt.includes(3),
+    `only lanes [${hurt.join(', ')}] were hit — a crane covers all three`);
+});
+
+scenario('a snowball slows whoever it hits', () => {
+  const b = open(stageIdx(16), ['snowmonkey']);
+  b.st.queued.push({ kind: 'karakasa', when: 0, row: 2 });
+  tick(b, 0.2);
+  const target = b.st.monsters[0];
+
+  const monkey = plant(b, 'snowmonkey', 400, target.y);
+  check(monkey, 'the snow monkey was never planted');
+  target.x = monkey.x + 300;
+  target.stunned = 3;
+
+  tick(b, 3);
+  check(target.frozen > 0 || target.dead, 'a snowball landed and nothing slowed down');
+});
+
+scenario('the Koi is the first shooter who fights from inside the river', () => {
+  const stage = STAGES.find((s) => s.n === 12);
+  const b = open(stageIdx(12), ['koi', 'monkey']);
+  b.st.queued.push({ kind: 'kappa', when: 0, row: 0 });
+  tick(b, 0.2);
+  const kappa = b.st.monsters[0];
+  check(stage.water.includes(kappa.row), 'the Kappa should enter by the water');
+
+  const koi = plant(b, 'koi', 500, kappa.y);
+  check(koi && stage.water.includes(koi.row), 'the koi would not go into the water');
+
+  kappa.x = koi.x + 300;
+  kappa.stunned = 5;
+  tick(b, 3);
+  check(kappa.hp < kappa.maxHp || kappa.dead, 'in the river, the koi never fired a jet');
+});
+
+// ------------------------------------------------- unlocks and the old save
+
+scenario('the shop only rolls the Japan recruits after the crossing', async () => {
+  const { shopPool, rollCards } = await import('../src/data/animals.js');
+  const japanIds = ['tanuki', 'crane', 'snowmonkey', 'koi'];
+
+  // before Japan: two hundred windows and not one Japanese card
+  for (let i = 0; i < 200; i++) {
+    const offers = rollCards(STARTER_DECK, 3, 9999);
+    check(!offers.some((id) => japanIds.includes(id)), `${offers} offered Japan before the crossing`);
+  }
+
+  // after: they are in the pool, and the window can produce them
+  const pool = shopPool(['japan']);
+  check(japanIds.every((id) => pool.some((a) => a.id === id)), 'the crossing did not unlock the recruits');
+  const everything = ANIMALS_COUNT_GUARD();
+  function ANIMALS_COUNT_GUARD() {
+    let seen = false;
+    for (let i = 0; i < 400 && !seen; i++) {
+      seen = rollCards(STARTER_DECK, 3, 9999, [], pool).some((id) => japanIds.includes(id));
+    }
+    return seen;
+  }
+  check(everything, '400 windows after the crossing and no Japanese card ever showed up');
+});
+
+scenario('a save that beat Brazil wakes up pointing at Japan', async () => {
+  const Save = await import('../src/save.js');
+  const beaten = {
+    ...Save.freshSave(),
+    won: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    currentStage: 10, // written by the version that ended at the Cuca
+    sawIntro: true,
+  };
+  localStorage.setItem('animais-vs-monstros:save', JSON.stringify(beaten));
+  const s = Save.load();
+  checkEqual(s.currentStage, 11, 'the old save should walk forward to the first Japan stage');
+  checkEqual(s.sawJapanIntro, false, 'the crossing film still owes this player a showing');
+  localStorage.removeItem('animais-vs-monstros:save');
+});
+
 await run('animals vs monsters — battle');

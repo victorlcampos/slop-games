@@ -215,6 +215,8 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       born: st.time,
       shake: 0,
       advance: 0,
+      frozen: 0,
+      tricked: false,
     });
     st.seeds -= card.cost;
     st.cooldowns[card.id] = card.cooldown;
@@ -312,16 +314,13 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     }
   }
 
-  function spawnMonster(kind, suggestedRow) {
-    const def = MONSTER_BY_ID[kind];
-    if (!def) return;
-    const row = entryRow(def, suggestedRow);
-    if (row === null) return;
-    st.monsters.push({
+  /** One monster instance, every per-instance state in place. */
+  function makeMonster(def, row, x) {
+    return {
       id: idSeq++,
       def,
       row,
-      x: vp.W + 40 + Math.random() * 60,
+      x,
       y: centerY(row),
       hp: def.hp,
       maxHp: def.hp,
@@ -335,12 +334,32 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       bossPhase: 0,
       summonCd: 6,
       swapCd: def.swap ? def.swap.interval : 0,
+      // `flies` is the species; `flying` is this one, because a Tengu that has
+      // landed is an ordinary brawler while the def still says it flies
+      flying: !!def.flies,
+      // the Kappa's bowl: spills once, at low hp, and never refills
+      spilled: false,
+      // the Kitsune casts her copies once, when she steps onto the board
+      cloned: false,
+      // the Onryō's intangibility: phased > 0 means shots pass through
+      phased: 0,
+      phaseCd: def.phase ? def.phase.interval : 0,
+      chillCd: 0,
+      neckTo: null,
       // the amphibian arrives already wearing the face of the terrain it landed on
       sprite: def.swap ? spriteForRow(row) : def.id,
       form: def.swap ? formAt(row) : null,
       shake: 0,
       gait: Math.random() * 10,
-    });
+    };
+  }
+
+  function spawnMonster(kind, suggestedRow) {
+    const def = MONSTER_BY_ID[kind];
+    if (!def) return;
+    const row = entryRow(def, suggestedRow);
+    if (row === null) return;
+    st.monsters.push(makeMonster(def, row, vp.W + 40 + Math.random() * 60));
     if (def.boss) {
       sfx.boss();
       st.shake = 1.2;
@@ -351,6 +370,35 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     }
   }
 
+  /**
+   * The Kitsune's copies: same sprite, one hp, no seed, no bite. They drift
+   * through the defence (a ghost stops for nobody) and burst into smoke at the
+   * fence, at the end of their span, or the moment the real fox falls.
+   */
+  function castIllusions(m) {
+    const spec = m.def.illusions;
+    const rows = [m.row - 1, m.row + 1].filter((r) => r >= 0 && r < ROWS && !isWater(r));
+    for (let i = 0; i < spec.count; i++) {
+      const row = rows.length ? rows[i % rows.length] : m.row;
+      const ghost = makeMonster(m.def, row, m.x + 14 + Math.random() * 30);
+      ghost.illusion = true;
+      ghost.owner = m.id;
+      ghost.hp = 1;
+      ghost.maxHp = 1;
+      ghost.life = spec.life;
+      st.monsters.push(ghost);
+      spark(ghost.x, ghost.y, '#efe4cc', 10, 90);
+    }
+    sfx.card();
+  }
+
+  /** An illusion comes apart: white smoke, no seed, no kill counted. */
+  function poof(m) {
+    if (m.dead) return;
+    m.dead = true;
+    spark(m.x, m.y, '#efe4cc', 12, 100);
+  }
+
   function isVisible(m) {
     // the hidden one only shows with a revealer on the field, or while biting
     return !m.def.hidden || st.revealed || m.biting;
@@ -359,7 +407,8 @@ export function createBattle(stage, deck, onDone, levels = {}) {
   // ------------------------------------------------------------------ damage
 
   function damage(m, amount, fromAir = false, ignoreArmor = false) {
-    if (m.def.flies && !fromAir) return false;
+    if (m.flying && !fromAir) return false;
+    if (m.phased > 0) return false; // intangible: the blow passes through
     let real = amount;
     if (m.def.armor && !ignoreArmor) real = Math.max(amount * 0.25, amount - m.def.armor);
     m.hp -= real;
@@ -371,6 +420,12 @@ export function createBattle(stage, deck, onDone, levels = {}) {
   function kill(m) {
     if (m.dead) return;
     m.dead = true;
+
+    // an illusion is smoke: no seed, no kill on the scoreboard
+    if (m.illusion) {
+      poof(m);
+      return;
+    }
     st.killed++;
 
     // A monster returns seed when it falls, and that goes straight to the
@@ -382,12 +437,17 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     st.killGain += prize;
     floatText(m.x, m.y - 34, `+${prize}`, COLORS.seed);
 
+    // the copies die with the caster — that is what makes the real fox a target
+    if (m.def.illusions) {
+      for (const o of st.monsters) if (o.illusion && o.owner === m.id) poof(o);
+    }
+
     spark(m.x, m.y, m.def.boss ? '#e0913a' : '#8a7a64', m.def.boss ? 40 : 12, m.def.boss ? 220 : 110);
     sfx.death();
     if (prize >= 50) sfx.coin();
     if (m.def.boss) {
       st.shake = 1.6;
-      st.notice = { field: T.bossDown, t: 5 };
+      st.notice = { field: m.def.victory || T.bossDown, t: 5 };
     }
   }
 
@@ -395,6 +455,15 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     p.hp -= amount;
     p.shake = 0.14;
     if (p.hp <= 0) {
+      // the Tanuki cheats death exactly once: the killing blow hit a statue,
+      // and the real one puffs back in at half health
+      if (p.def.trick && !p.tricked) {
+        p.tricked = true;
+        p.hp = Math.round(p.maxHp * p.def.trick);
+        spark(p.x, p.y, '#e8dcc4', 16, 130);
+        sfx.card();
+        return;
+      }
       spark(p.x, p.y, '#9c8a6a', 12, 90);
       sfx.bite();
     }
@@ -409,6 +478,11 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       if (p.hp <= 0) continue;
       const d = p.def;
       p.shake = Math.max(0, p.shake - dt);
+
+      // frozen solid by the Yuki-onna: no shot, no seed, no bite until it thaws
+      p.frozen = Math.max(0, (p.frozen || 0) - dt);
+      if (p.frozen > 0) continue;
+
       p.cd -= dt;
 
       // the jaguar creeps forward until it finds trouble
@@ -438,8 +512,13 @@ export function createBattle(stage, deck, onDone, levels = {}) {
         }
 
         case 'shooter': {
+          // the Crane covers its own lane and both neighbours; everyone else,
+          // just their own
+          const rows = d.lanes === 3
+            ? [p.row - 1, p.row, p.row + 1].filter((r) => r >= 0 && r < ROWS)
+            : [p.row];
           const targets = st.monsters.filter(
-            (m) => !m.dead && m.row === p.row && m.x > p.x - 10 && isVisible(m) && (!m.def.flies || d.air)
+            (m) => !m.dead && rows.includes(m.row) && m.x > p.x - 10 && isVisible(m) && (!m.flying || d.air)
           );
           if (!targets.length) {
             p.cd = 0.1;
@@ -447,26 +526,31 @@ export function createBattle(stage, deck, onDone, levels = {}) {
           }
           p.cd = d.interval;
           p.shotAt = st.time;
-          st.shots.push({
-            x: p.x + 26,
-            y: p.y - 8,
-            row: p.row,
-            speed: 420,
-            damage: d.damage,
-            kind: d.projectile || 'coconut',
-            pierces: !!d.pierces,
-            air: !!d.air,
-            poison: d.poison || null,
-            hit: new Set(),
-            spin: 0,
-          });
+          // one shot per lane that actually has something in it
+          const hitRows = d.lanes === 3 ? [...new Set(targets.map((m) => m.row))] : [p.row];
+          for (const row of hitRows) {
+            st.shots.push({
+              x: p.x + 26,
+              y: centerY(row) - 8,
+              row,
+              speed: 420,
+              damage: d.damage,
+              kind: d.projectile || 'coconut',
+              pierces: !!d.pierces,
+              air: !!d.air,
+              poison: d.poison || null,
+              chill: d.chillShot || null,
+              hit: new Set(),
+              spin: 0,
+            });
+          }
           sfx.shot();
           break;
         }
 
         case 'bruiser': {
           const target = st.monsters.find(
-            (m) => !m.dead && m.row === p.row && Math.abs(m.x - p.x) < CELL_W * 0.85 && isVisible(m) && !m.def.flies
+            (m) => !m.dead && m.row === p.row && Math.abs(m.x - p.x) < CELL_W * 0.85 && isVisible(m) && !m.flying
           );
           if (!target) {
             p.cd = 0.1;
@@ -475,7 +559,8 @@ export function createBattle(stage, deck, onDone, levels = {}) {
           p.cd = d.interval;
           p.hitAt = st.time;
           damage(target, d.damage);
-          if (d.knockback) target.x += d.knockback;
+          // the Nurikabe is a wall: no kick moves it
+          if (d.knockback && !target.def.steady) target.x += d.knockback;
           spark(target.x - 20, target.y, COLORS.danger, 6, 80);
           sfx.hit();
           break;
@@ -550,6 +635,18 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       m.dots = m.dots.filter((x) => x.t > 0);
       if (m.dead) continue;
 
+      // an illusion is theatre: it drifts through the defence without biting,
+      // and it never wins the stage — at the fence it is smoke, not defeat
+      if (m.illusion) {
+        m.life -= dt;
+        if (m.stunned > 0) continue;
+        let ghostSpeed = d.speed;
+        if (m.frozen > 0) ghostSpeed *= 0.45;
+        m.x -= ghostSpeed * dt;
+        if (m.life <= 0 || m.x < FENCE_X + 4) poof(m);
+        continue;
+      }
+
       // boss: phases and summoning
       if (d.phases) {
         const frac = m.hp / m.maxHp;
@@ -572,6 +669,45 @@ export function createBattle(stage, deck, onDone, levels = {}) {
         }
       }
 
+      // the Onryō's cycle: fade out, walk untouchable, come back in another
+      // lane — a defence stacked in one row loses him twice per pass
+      if (d.phase) {
+        if (m.phased > 0) {
+          m.phased -= dt;
+          if (m.phased <= 0) {
+            const rows = [...Array(ROWS).keys()].filter((r) => r !== m.row && !isWater(r));
+            if (rows.length) {
+              m.row = rows[Math.floor(Math.random() * rows.length)];
+              m.y = centerY(m.row);
+            }
+            m.biting = false;
+            spark(m.x, m.y, '#b9a4c4', 18, 140);
+            sfx.wave();
+          }
+        } else {
+          m.phaseCd -= dt;
+          if (m.phaseCd <= 0) {
+            m.phaseCd = d.phase.interval;
+            m.phased = d.phase.duration;
+            spark(m.x, m.y, '#b9a4c4', 10, 90);
+          }
+        }
+      }
+
+      // the Kappa's bowl tips over at half health: the water — and the
+      // strength that lived in it — never comes back
+      if (d.bowl && !m.spilled && m.hp / m.maxHp <= d.bowl.at) {
+        m.spilled = true;
+        spark(m.x, m.y - 40, '#9fd4e6', 14, 120);
+        sfx.splash();
+      }
+
+      // the Kitsune casts her copies the moment she steps onto the board
+      if (d.illusions && !m.cloned && m.x < vp.W - CELL_W * 0.5) {
+        m.cloned = true;
+        castIllusions(m);
+      }
+
       // gets faster the more it is hit
       const trigger = d.enrage || d.charge;
       if (trigger && !m.enraged && m.hp / m.maxHp <= trigger.trigger) {
@@ -589,6 +725,38 @@ export function createBattle(stage, deck, onDone, levels = {}) {
         if (m.swapCd <= 0) {
           m.swapCd = d.swap.interval;
           switchRow(m);
+        }
+      }
+
+      // the Tengu crosses the front line from above and touches down behind
+      // it: from here on he is an ordinary brawler, and anyone can hit him
+      if (m.flying && d.lands) {
+        const front = st.planted.reduce(
+          (mx, p) => (p.hp > 0 && p.row === m.row && p.x > mx ? p.x : mx),
+          -Infinity
+        );
+        if (front > -Infinity && m.x < front - CELL_W * 0.55) {
+          m.flying = false;
+          spark(m.x, m.y + 34, '#cfd8c8', 12, 100);
+          sfx.hit();
+        }
+      }
+
+      // the Yuki-onna's breath: freezes every animal in reach (the hot-spring
+      // monkey excepted), and waits until someone is actually in reach
+      if (d.chill) {
+        m.chillCd -= dt;
+        if (m.chillCd <= 0) {
+          const near = st.planted.filter(
+            (p) => p.hp > 0 && !p.def.warm && Math.hypot(p.x - m.x, p.y - m.y) < d.chill.radius * CELL_W
+          );
+          if (near.length) {
+            m.chillCd = d.chill.interval;
+            for (const p of near) p.frozen = Math.max(p.frozen || 0, d.chill.duration);
+            m.blewAt = st.time;
+            spark(m.x - 30, m.y, '#cfe8f2', 14, 120);
+            sfx.ice();
+          }
         }
       }
 
@@ -610,16 +778,38 @@ export function createBattle(stage, deck, onDone, levels = {}) {
         continue;
       }
 
-      // a flier ignores whoever is on the ground
-      if (target && !d.flies) {
+      // a flier ignores whoever is on the ground; an intangible ghost walks on
+      if (target && !m.flying && m.phased <= 0) {
         m.biting = true;
+        // the Rokurokubi stops at the wall like anyone — but her neck reaches
+        // over it and feeds on the furthest defender it can find
+        let victim = target;
+        if (d.neck) {
+          const reach = st.planted.filter(
+            (p) => p.hp > 0 && p.row === m.row && p.x < m.x && m.x - p.x < CELL_W * d.neck
+          );
+          if (reach.length) victim = reach.reduce((a, b) => (a.x < b.x ? a : b));
+          m.neckTo = { x: victim.x, y: victim.y };
+        }
         if (m.cd <= 0) {
           m.cd = d.interval;
-          hurtPlanted(target, d.damage);
+          // a spilled Kappa bites at half strength
+          const bite = m.spilled && d.bowl ? Math.round(d.damage * d.bowl.factor) : d.damage;
+          hurtPlanted(victim, bite);
           sfx.bite();
-          if (target.def.spikes) damage(m, target.def.spikes, true, true);
+          // the Oni's club lands on the victim and reaches the cell behind it
+          if (d.smash) {
+            const behind = st.planted.find(
+              (p) => p.hp > 0 && p.row === m.row && p.col === victim.col - 1
+            );
+            if (behind) {
+              hurtPlanted(behind, Math.round(d.damage * d.smash));
+              spark(behind.x, behind.y, COLORS.danger, 5, 70);
+            }
+          }
+          if (victim.def.spikes) damage(m, victim.def.spikes, true, true);
           if (d.burn) m.burnMark = true;
-          spark(target.x + 18, target.y, COLORS.danger, 5, 70);
+          spark(victim.x + 18, victim.y, COLORS.danger, 5, 70);
         }
         // the ranged one burns/spits without coming close
         if (d.range && d.burn) {
@@ -629,8 +819,10 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       }
 
       m.biting = false;
+      m.neckTo = null;
       let speed = d.speed;
       if (m.enraged) speed *= (d.enrage || d.charge).factor;
+      if (m.spilled && d.bowl) speed *= d.bowl.factor;
       if (m.frozen > 0) speed *= 0.45;
       m.x -= speed * dt;
 
@@ -649,15 +841,19 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       sh.spin += dt * 8;
       const targets = st.monsters.filter(
         (m) => !m.dead && m.row === sh.row && !sh.hit.has(m.id) &&
-          Math.abs(m.x - sh.x) < 34 && isVisible(m) && (!m.def.flies || sh.air)
+          Math.abs(m.x - sh.x) < 34 && isVisible(m) && (!m.flying || sh.air) &&
+          // an intangible Onryō lets the shot sail through
+          !(m.phased > 0)
       );
       for (const m of targets) {
         sh.hit.add(m.id);
         damage(m, sh.damage, sh.air);
         if (sh.poison) m.dots.push({ damage: sh.poison.damage, t: sh.poison.duration, pool: 0, color: '#8a9b5c' });
-        spark(sh.x, sh.y, '#c9a86a', 5, 70);
+        if (sh.chill) m.frozen = Math.max(m.frozen, sh.chill.duration);
+        spark(sh.x, sh.y, sh.chill ? '#cfe8f2' : '#c9a86a', 5, 70);
         sfx.hit();
-        if (!sh.pierces) {
+        // a wall swallows everything — even the shots that pierce a whole lane
+        if (!sh.pierces || m.def.blocks) {
           sh.dead = true;
           break;
         }
@@ -983,7 +1179,16 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       const bob = Math.sin(st.time * 2.4 + p.x) * 2;
 
       shadow(ctx, p.x, p.y + 46, 40, 12, 0.36);
+      ctx.save();
+      if (p.frozen > 0) ctx.filter = 'saturate(0.35)';
       putSprite(ctx, animalSprite(d.id, 128), p.x + shakeX + (justHit ? 8 : 0), p.y + bob, scale, false);
+      ctx.restore();
+
+      // frozen solid by the Yuki-onna: an ice shell says why nothing is firing
+      if (p.frozen > 0) {
+        circle(ctx, p.x, p.y, 42, { color: '#9fd4e6', width: 2.6, alpha: 0.6, seed: 15 });
+        text(ctx, '❄', p.x + 26, p.y - 30, { size: 17, align: 'center', color: '#cfe8f2' });
+      }
 
       // the area animal's pulse
       if (d.role === 'area' && st.time - (p.pulsedAt || -9) < 0.5) {
@@ -1019,7 +1224,23 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       const shakeX = m.shake > 0 ? (Math.random() - 0.5) * 7 : 0;
       const bob = Math.sin(m.gait * 6) * 3;
       const jump = m.jumping > 0 ? -Math.sin(((0.6 - m.jumping) / 0.6) * Math.PI) * 60 : 0;
+      // the Tengu rides higher while airborne; landing drops him to the row
+      const lift = m.flying && d.lands ? -30 : 0;
       const scale = (d.scale || 1) * 0.94;
+      // intangible: a ghost you can watch and not touch. An illusion draws at
+      // full strength on purpose — a see-through copy would fool nobody
+      const alpha = m.phased > 0 ? 0.35 : m.stunned > 0 ? 0.75 : 1;
+
+      // the Rokurokubi's neck, drawn body-first so the head sits over the prey
+      if (m.biting && d.neck && m.neckTo) {
+        const nx = m.neckTo.x;
+        const ny = m.neckTo.y;
+        stroke(ctx, [[m.x - 10, m.y - 26], [(m.x + nx) / 2, Math.min(m.y, ny) - 58], [nx + 6, ny - 24]], {
+          color: '#e8cba4', width: 9, seed: 17,
+        });
+        circle(ctx, nx + 4, ny - 26, 11, { color: INK, width: 2.2, fill: '#e8cba4', seed: 18 });
+        circle(ctx, nx + 4, ny - 32, 8, { color: null, fill: '#2f2822', seed: 19 });
+      }
 
       shadow(ctx, m.x, m.y + 46, 38 * (d.scale || 1), 12 * (d.scale || 1), 0.36);
       ctx.save();
@@ -1027,8 +1248,18 @@ export function createBattle(stage, deck, onDone, levels = {}) {
         ctx.filter = 'saturate(0.4)';
       }
       // `m.sprite` only exists for whoever changes shape (the Boto); the rest is the id
-      putSprite(ctx, monsterSprite(m.sprite || d.id, 128), m.x + shakeX, m.y + bob + jump, scale, false, m.stunned > 0 ? 0.75 : 1);
+      putSprite(ctx, monsterSprite(m.sprite || d.id, 128), m.x + shakeX, m.y + bob + jump + lift, scale, false, alpha);
       ctx.restore();
+
+      // the spilled bowl keeps dripping: the mark that this Kappa is broken
+      if (m.spilled && d.bowl) {
+        for (let i = 0; i < 2; i++) {
+          const drip = (m.gait * 1.4 + i * 0.5) % 1;
+          circle(ctx, m.x - 14 + i * 22, m.y - 46 + drip * 34, 2.6, {
+            color: null, fill: withAlpha('#6fa8c4', 0.8 - drip * 0.5), seed: 21 + i,
+          });
+        }
+      }
 
       if (m.frozen > 0) {
         circle(ctx, m.x, m.y, 40 * (d.scale || 1), { color: '#9fd4e6', width: 2.4, alpha: 0.5, seed: 11 });
@@ -1080,6 +1311,19 @@ export function createBattle(stage, deck, onDone, levels = {}) {
           break;
         case 'talon':
           shape(ctx, [[-10, -6], [8, 0], [-10, 6], [-4, 0]], { color: INK, width: 2, fill: '#e8b23c', seed: 26 });
+          break;
+        case 'snowball':
+          circle(ctx, 0, 0, 8, { color: '#9fc4d4', width: 2, fill: '#eef6f8', seed: 28 });
+          circle(ctx, -2, -2, 3, { color: null, fill: '#ffffff', seed: 29 });
+          break;
+        case 'waterjet':
+          ellipse(ctx, 0, 0, 13, 5, { color: '#3d7791', width: 2, fill: '#8ec4dc', seed: 30 });
+          circle(ctx, 7, -3, 2, { color: null, fill: '#dff0f6', seed: 31 });
+          break;
+        case 'crest':
+          // the crane's crest: a white blade with a red crown-tip
+          shape(ctx, [[-10, 0], [0, -5], [10, 0], [0, 5]], { color: INK, width: 1.6, fill: '#f5efe3', seed: 32 });
+          circle(ctx, 6, -1, 3, { color: null, fill: '#c1503f', seed: 33 });
           break;
         case 'echo':
         default:
@@ -1248,9 +1492,10 @@ export function createBattle(stage, deck, onDone, levels = {}) {
       }
     });
 
-    // wave progress, under the seed counter
+    // wave progress, under the seed counter. The number is the campaign-local
+    // one: Japan's first board says "STAGE 1", not "STAGE 11".
     const waves = stage.waves.length;
-    const stageLabel = fill(T.stage, { n: stage.n });
+    const stageLabel = fill(T.stage, { n: stage.label || stage.n });
     text(ctx, stageLabel, 20, HUD_H - 12, { size: 12, color: '#d9bd8a' });
     // the pips start after the label, measured: "STAGE 10" is wider than
     // "FASE 10" and ran under the first one at a fixed x

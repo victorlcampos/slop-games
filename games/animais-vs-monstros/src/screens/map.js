@@ -9,7 +9,7 @@ import { stroke, box, text, measureText, wrapText, paper, putSprite, circle } fr
 import { INK, INK_SOFT, COLORS, PAPER, PAPER_DARK, withAlpha } from '../palette.js';
 import { cachedMap, project, COUNTRIES } from '../draw/worldmap.js';
 import { monsterSprite } from '../draw/monsters.js';
-import { STAGES, CAMPAIGN, HUMANS_BRAZIL } from '../data/stages.js';
+import { CAMPAIGNS, TOTAL_STAGES, campaignById, campaignOf, isCampaignOpen, isCampaignDone, HUMANS_TOTAL } from '../data/stages.js';
 import { vp, HEIGHT, applyFrame, pointInFrame, menuWidth } from '../viewport.js';
 import { sfx } from '../audio.js';
 import { i18n, pick, t } from '../i18n.js';
@@ -33,24 +33,17 @@ const T = {
   stagesOf: { pt: '{n}/{total} fases', en: '{n}/{total} stages' },
   humansFreed: { pt: 'HUMANOS LIBERTADOS', en: 'HUMANS FREED' },
   millions: { pt: '{n} milhões', en: '{n} million' },
-  countrySub: {
-    pt: 'Dez fases até a Cuca. Cada uma devolve um pedaço do país.',
-    en: 'Ten stages up to the Cuca. Each one gives back a piece of the country.',
-  },
   stageLabel: { pt: 'Fase {n} — {name}', en: 'Stage {n} — {name}' },
   yourDeck: { pt: 'SEU BARALHO', en: 'YOUR DECK' },
   cards: { pt: '{n} cartas', en: '{n} cards' },
   playStage: { pt: 'JOGAR FASE {n}', en: 'PLAY STAGE {n}' },
-  finished: {
-    pt: '🎉 Brasil libertado. Os outros países vêm aí.',
-    en: '🎉 Brazil is free. The other countries are coming.',
-  },
   backToWorld: { pt: '← mundo', en: '← world' },
   downloadSave: { pt: '💾 baixar save', en: '💾 download save' },
   loadSave: { pt: '📂 carregar', en: '📂 load' },
   soundOn: { pt: '🔊 som', en: '🔊 sound' },
   soundOff: { pt: '🔇 som', en: '🔇 sound' },
   replayIntro: { pt: '🎬 rever abertura', en: '🎬 replay intro' },
+  replayFilm: { pt: '🎬 rever filme', en: '🎬 replay film' },
   restart: { pt: '🔄 recomeçar', en: '🔄 restart' },
   saved: { pt: 'save baixado', en: 'save downloaded' },
   loaded: { pt: 'save carregado', en: 'save loaded' },
@@ -78,6 +71,9 @@ const fill = (field, values) => {
 export function createMap(state, actions) {
   let MENU_W = menuWidth();
   let view = state.won.length ? 'country' : 'world';
+  // the campaign the open country screen shows — starts on whichever campaign
+  // the player is currently fighting through
+  let campaign = campaignOf(state.currentStage);
   let t0 = 0;
   let notice = null;
   let confirming = false;
@@ -110,11 +106,17 @@ export function createMap(state, actions) {
 
     for (const c of COUNTRIES) {
       const [px, py] = project(c.lon, c.lat, MAP.x, MAP.y, MAP.w, MAP.h);
-      const done = c.id === 'brazil' && state.won.length >= STAGES.length;
+      // a country is playable when its campaign exists in the data AND the one
+      // before it has been fully won; the rest wear a padlock and a promise
+      const camp = campaignById(c.id);
+      const open = camp && isCampaignOpen(camp, state.won);
+      const done = camp && isCampaignDone(camp, state.won);
+      const wonHere = camp ? camp.stages.filter((s) => state.won.includes(s.n)).length : 0;
       const pulse = 1 + Math.sin(t0 * 3) * 0.12;
 
-      if (c.unlocked) {
-        circle(ctx, px, py, 24 * pulse, { color: COLORS.accent, width: 3, alpha: 0.5, seed: 10 });
+      if (open) {
+        // the campaign being fought pulses; a finished one sits green
+        if (!done) circle(ctx, px, py, 24 * pulse, { color: COLORS.accent, width: 3, alpha: 0.5, seed: 10 });
         circle(ctx, px, py, 17, {
           color: INK, width: 3, fill: done ? COLORS.good : COLORS.accent, seed: 11,
         });
@@ -124,12 +126,12 @@ export function createMap(state, actions) {
         });
         text(
           ctx,
-          done ? pick(T.freed) : fill(T.stagesOf, { n: state.won.length, total: c.stages }),
+          done ? pick(T.freed) : fill(T.stagesOf, { n: wonHere, total: camp.stages.length }),
           px,
           py + 66,
           { size: 15, align: 'center', color: INK_SOFT, outline: PAPER, outlineWidth: 4 }
         );
-        buttons.push({ x: px - 40, y: py - 40, w: 80, h: 80, action: 'openCountry' });
+        buttons.push({ x: px - 40, y: py - 40, w: 80, h: 80, action: 'openCountry', country: c.id });
       } else {
         circle(ctx, px, py, 13, { color: '#5b4a52', width: 2.4, fill: '#7d6470', seed: 12 });
         text(ctx, '🔒', px, py + 5, { size: 14, align: 'center' });
@@ -147,7 +149,7 @@ export function createMap(state, actions) {
     box(ctx, MENU_W / 2 - 300, HEIGHT - 168, 600, 74, 12, { color: INK, width: 3, fill: '#fbf5e6', seed: 20 });
     text(ctx, pick(T.humansFreed), MENU_W / 2, HEIGHT - 142, { size: 15, align: 'center', color: INK_SOFT });
     text(ctx, fill(T.millions, { n: freed }), MENU_W / 2, HEIGHT - 112, { size: 32, align: 'center', color: COLORS.good });
-    const frac = Math.min(1, freed / HUMANS_BRAZIL);
+    const frac = Math.min(1, freed / HUMANS_TOTAL);
     ctx.fillStyle = 'rgba(43,38,34,0.15)';
     ctx.fillRect(MENU_W / 2 - 270, HEIGHT - 104, 540, 8);
     ctx.fillStyle = COLORS.good;
@@ -159,26 +161,31 @@ export function createMap(state, actions) {
   // --------------------------------------------------------- country screen
 
   function drawCountry(ctx) {
-    // the outline of Brazil in the background, very lightly
+    const camp = campaign;
+    // the country's outline in the background, very lightly — the same world
+    // map, shifted so this campaign's country is the one in view
     ctx.save();
     ctx.globalAlpha = 0.14;
-    ctx.drawImage(cachedMap(1600, 640, { taken: false, seaColor: 'rgba(0,0,0,0)' }), -380, 60);
+    ctx.drawImage(cachedMap(1600, 640, { taken: false, seaColor: 'rgba(0,0,0,0)' }), camp.mapOffset[0], camp.mapOffset[1]);
     ctx.restore();
 
-    text(ctx, `${CAMPAIGN.flag}  ${pick(CAMPAIGN.country)}`, MENU_W / 2, 60, { size: 44, align: 'center', color: INK });
-    text(ctx, pick(T.countrySub), MENU_W / 2, 90, { size: 18, align: 'center', color: INK_SOFT });
+    text(ctx, `${camp.flag}  ${pick(camp.country)}`, MENU_W / 2, 60, { size: 44, align: 'center', color: INK });
+    text(ctx, pick(camp.sub), MENU_W / 2, 90, { size: 18, align: 'center', color: INK_SOFT });
 
     buttons.length = 0;
 
     // the trail linking the stages
     stroke(ctx, TRAIL.map(([x, y]) => [x, y]), { color: withAlpha(INK, 0.35), width: 5, seed: 30 });
 
-    STAGES.forEach((st, i) => {
+    // the first stage of this campaign not yet won is the one that pulses
+    const nextHere = camp.stages.find((s) => !state.won.includes(s.n)) || null;
+
+    camp.stages.forEach((stg, i) => {
       const [x, y] = TRAIL[i];
-      const won = state.won.includes(st.n);
-      const available = st.n === state.currentStage && !won;
+      const won = state.won.includes(stg.n);
+      const available = nextHere && stg.n === nextHere.n;
       const locked = !won && !available;
-      const isBoss = !!st.boss;
+      const isBoss = !!stg.boss;
       const radius = isBoss ? 40 : 30;
 
       if (available) {
@@ -192,24 +199,25 @@ export function createMap(state, actions) {
       });
 
       if (isBoss) {
-        putSprite(ctx, monsterSprite('cuca', 128), x, y - 2, 0.46, false, locked ? 0.5 : 1);
+        putSprite(ctx, monsterSprite(stg.boss, 128), x, y - 2, 0.46, false, locked ? 0.5 : 1);
       } else {
-        text(ctx, won ? '✓' : String(st.n), x, y + 9, {
+        // the number on the node is the campaign-local one: Japan counts 1-10
+        text(ctx, won ? '✓' : String(stg.label), x, y + 9, {
           size: won ? 30 : 26, align: 'center', color: locked ? '#8a7f6e' : INK,
         });
       }
 
-      text(ctx, pick(st.name), x, y + radius + 22, {
+      text(ctx, pick(stg.name), x, y + radius + 22, {
         size: 15, align: 'center', color: locked ? '#8a7f6e' : INK, outline: PAPER, outlineWidth: 4,
       });
 
-      if (!locked) buttons.push({ x: x - radius, y: y - radius, w: radius * 2, h: radius * 2, action: 'play', stage: st.n });
+      if (!locked) buttons.push({ x: x - radius, y: y - radius, w: radius * 2, h: radius * 2, action: 'play', stage: stg.n });
     });
 
-    // panel for the current stage
-    const current = STAGES.find((st) => st.n === state.currentStage) || STAGES[STAGES.length - 1];
+    // panel for the stage the player is on (or the boss stage, once done)
+    const current = nextHere || camp.stages[camp.stages.length - 1];
     box(ctx, 60, 130, 470, 172, 14, { color: INK, width: 3, fill: '#fbf5e6', seed: 60 });
-    text(ctx, fill(T.stageLabel, { n: current.n, name: pick(current.name) }), 84, 164, { size: 25, color: INK });
+    text(ctx, fill(T.stageLabel, { n: current.label, name: pick(current.name) }), 84, 164, { size: 25, color: INK });
     text(ctx, pick(current.place), 84, 188, { size: 15, color: COLORS.accentDark });
     wrapText(ctx, pick(current.intro), 420, 17).slice(0, 4).forEach((ln, i) => {
       text(ctx, ln, 84, 216 + i * 22, { size: 17, color: INK_SOFT });
@@ -221,14 +229,13 @@ export function createMap(state, actions) {
     text(ctx, fill(T.cards, { n: state.deck.length }), MENU_W - 380, 186, { size: 24, color: INK });
     text(ctx, `🪙 ${state.coins}`, MENU_W - 380, 210, { size: 17, color: COLORS.accentDark });
 
-    // the play button
-    const canPlay = state.won.length < STAGES.length;
-    if (canPlay) {
+    // the play button — or, with the campaign complete, its farewell line
+    if (nextHere) {
       box(ctx, MENU_W / 2 - 160, HEIGHT - 158, 320, 66, 12, { color: INK, width: 3.4, fill: COLORS.accent, seed: 80 });
-      text(ctx, fill(T.playStage, { n: state.currentStage }), MENU_W / 2, HEIGHT - 115, { size: 26, align: 'center', color: INK });
-      buttons.push({ x: MENU_W / 2 - 160, y: HEIGHT - 158, w: 320, h: 66, action: 'play', stage: state.currentStage });
+      text(ctx, fill(T.playStage, { n: nextHere.label }), MENU_W / 2, HEIGHT - 115, { size: 26, align: 'center', color: INK });
+      buttons.push({ x: MENU_W / 2 - 160, y: HEIGHT - 158, w: 320, h: 66, action: 'play', stage: nextHere.n });
     } else {
-      text(ctx, pick(T.finished), MENU_W / 2, HEIGHT - 122, { size: 24, align: 'center', color: COLORS.good });
+      text(ctx, pick(camp.finished), MENU_W / 2, HEIGHT - 122, { size: 24, align: 'center', color: COLORS.good });
     }
 
     // back to the world
@@ -263,7 +270,11 @@ export function createMap(state, actions) {
       { label: pick(T.downloadSave), action: 'download' },
       { label: pick(T.loadSave), action: 'load' },
       { label: pick(actions.soundOn() ? T.soundOn : T.soundOff), action: 'sound' },
-      { label: pick(T.replayIntro), action: 'intro' },
+      // on the world it replays the opening; inside a country, that country's
+      // own film (Brazil = the opening, Japan = the crossing interlude)
+      view === 'country'
+        ? { label: pick(T.replayFilm), action: 'film' }
+        : { label: pick(T.replayIntro), action: 'intro' },
       // the destructive one goes last and without an accent colour: whoever is
       // looking finds it; whoever is running a finger along the bar doesn't
       { label: pick(T.restart), action: 'restart', quiet: true },
@@ -331,7 +342,7 @@ export function createMap(state, actions) {
     text(ctx, pick(T.restartTitle), MENU_W / 2, y + 56, { size: 34, align: 'center', color: INK });
 
     const losses = [
-      [fill(T.ofTotal, { n: state.won.length, total: STAGES.length }), pick(T.stagesWon)],
+      [fill(T.ofTotal, { n: state.won.length, total: TOTAL_STAGES }), pick(T.stagesWon)],
       [`${state.deck.length}`, pick(T.cardsInDeck)],
       [`🪙 ${state.coins}`, pick(T.coins)],
       [fill(T.millionsShort, { n: state.humans }), pick(T.humansFreedSmall)],
@@ -399,6 +410,7 @@ export function createMap(state, actions) {
         sfx.click();
         switch (b.action) {
           case 'openCountry':
+            campaign = campaignById(b.country) || campaign;
             view = 'country';
             return;
           case 'world':
@@ -406,6 +418,9 @@ export function createMap(state, actions) {
             return;
           case 'play':
             actions.play(b.stage);
+            return;
+          case 'film':
+            actions.film(campaign.id);
             return;
           case 'download':
             actions.download();
