@@ -93,3 +93,16 @@ export function makeRng(seed = 1) {
 
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const lerp = (a, b, t) => a + (b - a) * t;
+
+/**
+ * What survives a run. The mechanism is the kit's (`slopkit/records`); this is
+ * only the declaration, and it lives here so the game and its test race the
+ * same axes. The score is a whole number on the card; the time is not, so the
+ * clock can round it itself.
+ */
+export const RECORD = {
+  game: 'chuva-de-ferro',
+  version: 1,
+  key: 'chuva-de-ferro.best.v1',
+  axes: { score: { round: true }, time: {} },
+};

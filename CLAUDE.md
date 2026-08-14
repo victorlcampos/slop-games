@@ -132,16 +132,16 @@ flips the flag.
 
 ## 2b. The slopkit
 
-The four games solved the same handful of problems — viewport, loop, save, mute —
-and each solved them its own way. `lib/` keeps the best answer of each, and a new
-game starts from there instead of reinventing (worse).
+The four games solved the same handful of problems — viewport, loop, save,
+record, mute — and each solved them its own way. `lib/` keeps the best answer of
+each, and a new game starts from there instead of reinventing (worse).
 
 ```bash
 npm i slopkit          # it is already a workspace: just declare the dependency
 ```
 
 ```js
-import { createViewport, createLoop, createSave, createSound, createI18n } from 'slopkit';
+import { createViewport, createLoop, createSave, createRecords, createSound, createI18n } from 'slopkit';
 ```
 
 ### Where each piece came from
@@ -158,6 +158,7 @@ implementations that already existed.
 | `save` — one format | Zoo Tycoon | the same snapshot serves the autosave and the file. Two formats become two saves drifting apart |
 | `save` — normalise | Animals vs Monsters | every save read goes through a function that fills in what's missing; an old save loses a field, never the run |
 | `save` — download a file | Zoo Tycoon | `revokeObjectURL` with slack (revoking early cancels the download in Safari) |
+| `records` — the best score | 3 games had written it | the same twenty lines each time, and **the same bug** in two of them: `best = vault.save(...)`, which stores the boolean `true` where the record should be |
 | `sound` — persisted mute | 3 of the 4 | Animals was the only one that forgot the choice on reload |
 | `i18n` — dictionary by phrase | new | with one object per language, a key exists in one and vanishes in the other with nobody noticing |
 
@@ -168,13 +169,19 @@ implementations that already existed.
    with the player's monitor.
 2. **Never trust what you read off disk.** Every save goes through `normalize`.
    The game has to open even with a save two versions old, hand-edited.
-3. **The logical height is fixed; the width is not.** Draw against `H` and read
+3. **A record is filed, not saved.** `vault.save()` answers *whether it wrote* —
+   `best = vault.save(...)` put the boolean `true` where the record should be in
+   two different games, and neither failed loudly: the Fortress froze on the
+   frame the player died, Iron Rain printed `best: undefined · NaN:NaN` and reset
+   the record on every death. `createRecords().file(run)` hands the record back,
+   so the mistake has no shape to take.
+4. **The logical height is fixed; the width is not.** Draw against `H` and read
    `W`. Anything with an absolute X position only survives inside a *frame* — and
    a frame **scales** when the screen is narrower than it is, or it spills (a
    16:10 monitor gives 1152 of logical width, not 1280).
-4. **A DPR ceiling.** Rendering a cartoon outline at 3x is spending three times
+5. **A DPR ceiling.** Rendering a cartoon outline at 3x is spending three times
    as much for nobody to see a difference.
-5. **A game that needs landscape turns itself.** Never ask the player to turn
+6. **A game that needs landscape turns itself.** Never ask the player to turn
    their phone — see below.
 
 ### Turning the canvas instead of asking for a turn
@@ -240,20 +247,29 @@ The games share the build and the test scaffold. Beyond that, each adopted
 what brought a real gain — swapping good code for equivalent code is risk with no
 return:
 
-| | build | test | save | viewport | loop | sound | i18n |
-|---|---|---|---|---|---|---|---|
-| Animals vs Monsters | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Infinite Fortress | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ |
+| | build | test | save | records | viewport | loop | sound | i18n |
+|---|---|---|---|---|---|---|---|---|
+| Animals vs Monsters | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ |
+| Infinite Fortress | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SkiFree 3D | ✅ | ✅ | ✅ | ✅ | — | — | — | ✅ |
+| World Drive | ✅ | ✅ | ✅ | — | — | — | — | ✅ |
+| Zoo Tycoon | ✅ | ✅ | — | — | — | — | — | ✅ |
 
 SkiFree kept its own mute flag in a module variable and forgot it on every
 reload — the one thing the kit's `sound` exists to prevent. It persists now,
 under `skifree3d:sound`, without importing the module: the game's audio is a
 hand-built WebAudio graph and swapping it wholesale would be risk with no
 return.
+
+The record has two shapes and the kit keeps both, because that is what the games
+actually keep: **named axes** declared up front (Iron Rain races a score and a
+time; the Fortress races money and floors, counts the quiet ones without
+celebrating them, and carries a flag for the opening film) and an **open** record
+whose fields are only known at runtime (SkiFree keeps one score per mode, so a
+mode added later needs no save migration). Animals keeps its record per stage
+inside its own full save, and World Drive keeps preferences, not records —
+neither has twenty lines to delete.
 
 Zoo is the origin of half the kit — its save, its viewport and its loop **are**
 the standard; it just doesn't import the module because it runs in global scope
@@ -387,9 +403,9 @@ animals.
 
 ### File weight
 
-Current reference: Infinite Fortress 104 KB, Iron Rain 91 KB, Animals vs Monsters 138 KB
-and Zoo Tycoon 309 KB (all four with no libraries), World Drive 598 KB and
-SkiFree 3D 703 KB (three.js minified in). The last two carry all of three — that
+Current reference: Infinite Fortress 107 KB, Iron Rain 92 KB, Animals vs Monsters 138 KB
+and Zoo Tycoon 311 KB (all four with no libraries), World Drive 598 KB and
+SkiFree 3D 705 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.
 
 Past ~2 MB, investigate before accepting it: it is almost always an asset
@@ -448,11 +464,11 @@ await build({ root: import.meta.dirname });
 
 **4. `game.json`** with the metadata (section 2).
 
-**5. Wire up slopkit** — viewport, loop, save, sound and language already solved
-(2b and 2c):
+**5. Wire up slopkit** — viewport, loop, save, record, sound and language already
+solved (2b and 2c):
 
 ```js
-import { createViewport, createLoop, createSave, createI18n } from 'slopkit';
+import { createViewport, createLoop, createSave, createRecords, createI18n } from 'slopkit';
 
 const i18n = createI18n({ dict: { play: { en: 'Play', pt: 'Jogar' } } });
 
@@ -461,6 +477,11 @@ vp.watch(() => reposition());
 
 const vault = createSave({ game: 'my-game', version: 1, initial: freshSave, normalize, i18n });
 let state = vault.load();
+
+// the best score is not the save: declare the axes and file the run. What
+// `file` returns IS the record — the vault only answers whether it wrote.
+const records = createRecords({ game: 'my-game', axes: { score: { round: true } } });
+// const { best, record } = records.file({ score });   // at the end of a run
 
 createLoop({
   step: 1 / 60,

@@ -5,12 +5,13 @@
 // walking there from the front door. What is under test is the rule, not the
 // metres in between.
 
-import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/testing';
+import { scenario, check, checkEqual, run as runTests, installHeadlessDom } from 'slopkit/testing';
+import { mergeRecord } from 'slopkit/records';
 
 installHeadlessDom();     // render.js reaches i18n, which reads localStorage on load
 
 const game_config = await import('../src/config.js');
-const { floorSeed, PLAYER, PICKUP, ROLL, TILE, GUARD, dist, angleDelta } = game_config;
+const { floorSeed, PLAYER, PICKUP, ROLL, TILE, GUARD, RECORD, dist, angleDelta } = game_config;
 const { generateFloor } = await import('../src/levelgen.js');
 const { createGame, assistedAim } = await import('../src/game.js');
 const { createRun, silentBonus } = await import("../src/run.js");
@@ -1042,6 +1043,30 @@ scenario('the whole screen draws, on every phase, in both languages', () => {
     });
   }
   check(true, 'a full frame was painted without throwing');
+});
+
+// -------------------------------------------------------------- the record
+
+// The mechanism is the kit's (`slopkit/records`, tested there). What is the
+// Fortress's own is the declaration in config.js: which numbers are raced,
+// which are only counted, and what a run does not decide.
+scenario('the record races money and floors, counts the quiet ones, and keeps the short watched', () => {
+  const first = mergeRecord(RECORD, null, { money: 4200.6, floor: 3, silent: 1 });
+  checkEqual(first.best.money, 4201, `the money on the card is ${first.best.money}`);
+  checkEqual(first.best.floor, 3, `${first.best.floor} floors kept`);
+  check(first.record, 'the first run was not a record');
+
+  // a quiet floor is worth money, not a fanfare: `silent` is kept, never raced
+  const quiet = mergeRecord(RECORD, first.best, { money: 10, floor: 1, silent: 9 });
+  checkEqual(quiet.best.silent, 9, `${quiet.best.silent} silent floors kept`);
+  check(!quiet.record, 'a worse run announced a record because it was quiet');
+
+  // and the short is watched once — a run never decides it, and never loses it
+  const seen = { ...quiet.best, intro: 1 };
+  checkEqual(mergeRecord(RECORD, seen, { money: 99999, floor: 40 }).best.intro, 1,
+    'a good run made the player watch the opening film again');
+  checkEqual(mergeRecord(RECORD, true, { money: 1 }).best.intro, 0,
+    'a broken save skipped the film instead of playing it');
 });
 
 await runTests('infinite fortress — the escape');

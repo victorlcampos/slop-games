@@ -2,10 +2,10 @@
 
 import { createViewport } from 'slopkit/viewport';
 import { createLoop } from 'slopkit/loop';
-import { createSave } from 'slopkit/save';
+import { createRecords } from 'slopkit/records';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { H } from './config.js';
+import { H, RECORD } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createRun } from './run.js';
 import { createFx } from './fx.js';
@@ -30,25 +30,9 @@ i18n.onChange(applyTitle);
 // than asking anybody to unlock rotation (CLAUDE.md, section 2b).
 const vp = createViewport(canvas, { height: H, frame: 1280, landscape: true });
 
-const vault = createSave({
-  game: 'fortaleza-infinita',
-  version: 1,
-  key: 'fortaleza-infinita.best.v1',
-  initial: () => ({ money: 0, floor: 0, silent: 0, runs: 0, intro: 0 }),
-  normalize: (raw, base) => {
-    if (!raw || typeof raw !== 'object') return base;
-    const n = (v, d) => (Number.isFinite(v) && v >= 0 ? v : d);
-    return {
-      ...base,
-      money: n(raw.money, 0),
-      floor: n(raw.floor, 0),
-      silent: n(raw.silent, 0),
-      runs: n(raw.runs, 0),
-      intro: raw.intro ? 1 : 0,
-    };
-  },
-});
-let best = vault.load();
+// the money, the floor and the quiet floors, plus whether the short has been
+// watched — the declaration is in config.js, the mechanism in slopkit/records
+const records = createRecords({ ...RECORD, i18n });
 
 const fx = createFx();
 const renderer = createRenderer();
@@ -200,10 +184,7 @@ function goToIntro() {
   sfx.alarmStop();
   cut = createCutscene(() => {
     cut = null;
-    if (!best.intro) {
-      best = { ...best, intro: 1 };
-      vault.save(best);
-    }
+    if (!records.best.intro) records.set({ intro: 1 });
     phase = 'menu';
     show(menu, true);
   }, () => sfx.pick());
@@ -240,21 +221,8 @@ function finishFloor() {
 function finishRun() {
   sfx.alarmStop();
   const floors = run.totals.floors;
-  const record = run.money > best.money || floors > best.floor;
-  // `save` reports whether it managed to write, it does not hand the state
-  // back. Assigning its answer to `best` made `best` the boolean `true`, and
-  // the first `best.money.toLocaleString()` below threw — with `phase` already
-  // set to 'over', so the loop had stopped simulating and the card was never
-  // shown. The whole screen froze on the frame he died in.
-  const next = {
-    money: Math.max(best.money, Math.round(run.money)),
-    floor: Math.max(best.floor, floors),
-    silent: Math.max(best.silent, run.totals.silent),
-    runs: best.runs + 1,
-    intro: best.intro,
-  };
-  vault.save(next);
-  best = next;
+  const filed = records.file({ money: run.money, floor: floors, silent: run.totals.silent });
+  const best = filed.best;
   phase = 'over';
   document.getElementById('o-title').textContent = t('over.title', { n: run.game.level.floor });
   document.getElementById('o-money').textContent = `◆ ${money(Math.round(run.money))}`;
@@ -263,7 +231,7 @@ function finishRun() {
   document.getElementById('o-silent').textContent = String(run.totals.silent);
   document.getElementById('o-best').textContent = `◆ ${money(best.money)} · ${best.floor}`;
   document.getElementById('o-time').textContent = clock(run.totals.time);
-  show(document.getElementById('o-record'), record);
+  show(document.getElementById('o-record'), filed.record);
   show(over, true);
 }
 
@@ -339,7 +307,7 @@ document.getElementById('boot').hidden = true;
 document.getElementById('btn-sound').textContent = sound.on ? '🔊' : '🔇';
 
 // the first boot opens on the film; every boot after that opens on the menu
-if (!best.intro) goToIntro();
+if (!records.best.intro) goToIntro();
 
 // the bridge: a handle for the console while playing
 window.__game = {
@@ -350,6 +318,6 @@ window.__game = {
   get game() { return run && run.game; },
   start,
   nextFloor,
-  best: () => best,
+  best: () => records.best,
   state: () => (run && run.game ? run.game.snapshot() : null),
 };

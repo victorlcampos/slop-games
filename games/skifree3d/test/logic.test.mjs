@@ -13,6 +13,7 @@
 // rest is a run down the mountain by hand before a deploy.
 
 import { installHeadlessDom, scenario, check, run } from 'slopkit/testing';
+import { mergeRecord } from 'slopkit/records';
 import * as THREE from 'three';
 
 installHeadlessDom();
@@ -308,6 +309,34 @@ scenario('a command key runs its command and nothing else', () => {
   k.press('KeyZ');   // nothing is bound to it
   check(pauses === 1, 'an unbound key ran the last command again');
   releaseAll();
+});
+
+// --------------------------------------------------------------- records
+
+scenario('every mode keeps its own best, and a new one needs no migration', () => {
+  // the mountain's record is `open`: the keys are the modes, and the kit races
+  // whatever it is handed. That is what lets MODES grow without a save version.
+  const spec = { game: 'skifree3d', open: true, runs: false };
+  let best = {};
+  for (const mode of Object.keys(MODES)) {
+    const filed = mergeRecord(spec, best, { [mode]: 1000 });
+    check(filed.record, `a first score in ${mode} was not a record`);
+    best = filed.best;
+  }
+  check(Object.keys(best).length === Object.keys(MODES).length,
+    `${Object.keys(best).length} modes kept out of ${Object.keys(MODES).length}`);
+
+  const [first] = Object.keys(MODES);
+  const worse = mergeRecord(spec, best, { [first]: 10 });
+  check(!worse.record, 'a worse run was announced as a new best');
+  check(worse.best[first] === 1000, `the record in ${first} fell to ${worse.best[first]}`);
+  check(worse.previous[first] === 1000, 'the card cannot say what the previous best was');
+
+  // and the card is drawn off these three numbers, so none of them may be junk
+  const filed = mergeRecord(spec, true, { [first]: 4321 });
+  const card = { isNew: filed.record, value: filed.best[first], previous: filed.previous[first] ?? 0 };
+  check(Number.isFinite(card.value) && Number.isFinite(card.previous),
+    `a broken save put ${card.value} / ${card.previous} on the card`);
 });
 
 await run('skifree 3d — logic');

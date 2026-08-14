@@ -1,7 +1,7 @@
 // Scene assembly and the main loop.
 
 import * as THREE from 'three';
-import { createSave } from 'slopkit/save';
+import { createRecords } from 'slopkit/records';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -39,23 +39,16 @@ import { t, num } from './i18n.js';
 // It also throws grazing light, long shadows and rim light on the crystals.
 const SUN_DIR = new THREE.Vector3(-0.470, 0.342, 0.814).normalize();
 const CAMERA_MODES = ['chase', 'retro', 'close'];
-// The best scores go through slopkit: they get normalisation (a record saved
-// with the wrong type doesn't turn into NaN on screen) and the same key and
-const cofre = createSave({
+// One score per mode, and the set of modes is the game's own business — an
+// `open` record races whatever key it is handed, so a mode added later needs no
+// migration and a mode retired keeps its score. The kit normalises what it
+// reads, so a hand-edited save cannot put a NaN on the card.
+const records = createRecords({
   game: 'skifree3d',
   version: 1,
   key: 'skifree3d.best.v1',
-  initial: () => ({ version: 1 }),
-  normalize: (bruto, base) => {
-    if (!bruto || typeof bruto !== 'object') return base;
-    const s = { ...base };
-    // only a finite number gets in: the rest is noise from a hand-edited save
-    for (const [k, v] of Object.entries(bruto)) {
-      if (k === 'version' || k === 'updatedAt') continue;
-      if (Number.isFinite(v)) s[k] = v;
-    }
-    return s;
-  },
+  open: true,
+  runs: false,
 });
 
 export function createGame(container) {
@@ -249,8 +242,6 @@ export function createGame(container) {
     prevZ: 0,
   };
 
-  const best = loadBest();
-
   // arrays reused per frame (zero allocation in the loop)
   const propColliders = [];
   const ramps = [];
@@ -267,13 +258,6 @@ export function createGame(container) {
   let fov = 58;
 
   // ------------------------------------------------------------ helpers
-  function loadBest() {
-    return cofre.load();
-  }
-  function saveBest() {
-    cofre.save(best);
-  }
-
   /** Position of a world point in scene space. */
   function toScene(x, y, z, out) {
     return out.set(x + worldGroup.position.x, y + worldGroup.position.y, z + worldGroup.position.z);
@@ -351,9 +335,10 @@ export function createGame(container) {
     silence();
     sfx.gameOver();
 
-    const prev = best[state.mode] ?? 0;
-    const isNew = state.score > prev;
-    if (isNew) { best[state.mode] = state.score; saveBest(); }
+    // the record comes back from file(): the vault only ever answers whether
+    // it wrote, which is not a thing to put on a card
+    const filed = records.file({ [state.mode]: state.score });
+    const prev = filed.previous[state.mode] ?? 0;
 
     hud.showHud(false);
     hud.warnYeti(false);
@@ -365,7 +350,7 @@ export function createGame(container) {
       gates: state.gatesHit,
       gatesTotal: state.gatesTotal,
       showGates: modeCfg.gates,
-      best: { isNew, value: Math.max(prev, state.score), previous: prev },
+      best: { isNew: filed.record, value: filed.best[state.mode], previous: prev },
       reason,
     });
   }

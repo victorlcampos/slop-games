@@ -2,8 +2,8 @@
 
 What every slop-games game needs before it can be a game: a viewport that
 adapts, a loop that doesn't change behaviour with the monitor, a save that
-survives the next version, a mute the player doesn't have to switch off twice,
-and the two flags.
+survives the next version, a record that survives a hand-edited one, a mute the
+player doesn't have to switch off twice, and the two flags.
 
 Nothing here draws anything — the artwork belongs to each game. The flags are
 the one exception, and for a reason: they are the same everywhere.
@@ -22,12 +22,13 @@ best of each:
 | one save format | Zoo Tycoon | the same snapshot serves the autosave and the file |
 | save normalisation | Animals vs Monsters | an old save loses a field, never the run |
 | persisted mute | 3 of the 4 games | Animals was the only one that forgot |
+| the record | 3 games, and the bug 2 of them wrote | see `records` below: the same twenty lines, and the same mistake in the middle of them |
 | dictionary keyed by phrase | new | with one object per language, a key vanishes in the other and nobody sees it |
 
 ## Usage
 
 ```js
-import { createViewport, createLoop, createSave, createSound, createI18n } from 'slopkit';
+import { createViewport, createLoop, createSave, createRecords, createSound, createI18n } from 'slopkit';
 
 const vp = createViewport(canvas);        // logical height 720, elastic width
 vp.watch(() => reposition());             // only fires if the width really moves
@@ -45,6 +46,13 @@ const vault = createSave({
 });
 let state = vault.load();
 
+// the best score is its own thing: declare the axes, file the run, draw the card
+const records = createRecords({
+  game: 'my-game',
+  axes: { score: { round: true }, time: {} },   // each kept at its highest
+});
+const { best, record, beaten } = records.file({ score: 1200.4, time: 61 });
+
 const sound = createSound({ game: 'my-game' });
 
 createLoop({
@@ -60,10 +68,14 @@ createLoop({
 - **`slopkit/loop`** — `createLoop`, `stepsFor` (same)
 - **`slopkit/save`** — `createSave`, `downloadText`, `readTextFile`
   `vault.save(state)` answers **whether it wrote**, `true`/`false` — it does not
-  hand the state back. `best = vault.save(...)` has now put the boolean `true`
-  into a game's record twice: the card then read `best.score` as `undefined`,
-  `clock(best.time)` as `NaN:NaN`, and every run after it compared against
-  `undefined`. Keep the state you built, and save a copy of it.
+  hand the state back. Keep the state you built, and save a copy of it.
+- **`slopkit/records`** — `createRecords`, `mergeRecord`, `normalizeRecord`, `freshRecord`
+  The handful of numbers a game keeps between runs, which is the one use of
+  `save` every game here has in common — and where `best = vault.save(...)` was
+  written twice, putting the boolean `true` where the record should be (the
+  Fortress froze on the frame the player died; Iron Rain printed
+  `best: undefined · NaN:NaN` and quietly reset the record on every death).
+  `file()` returns the record; nothing here hands back a boolean.
 - **`slopkit/sound`** — `createSound`
 - **`slopkit/i18n`** — `createI18n`, `pickLang`, `interpolate`, `missingKeys`
 - **`slopkit/flags`** — `drawFlag`, `flagDataURL` (flags drawn on a canvas)

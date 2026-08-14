@@ -279,3 +279,17 @@ export function turnTowards(a, b, max) {
   const d = angleDelta(a, b);
   return a + clamp(d, -max, max);
 }
+
+/**
+ * What survives a run — the declaration only; the mechanism is the kit's
+ * (`slopkit/records`). Silent floors are counted but never announced: a quiet
+ * floor is worth money, not a fanfare. `intro` is not a record at all, it is
+ * whether the cutscene has been watched, and a run never decides it.
+ */
+export const RECORD = {
+  game: 'fortaleza-infinita',
+  version: 1,
+  key: 'fortaleza-infinita.best.v1',
+  axes: { money: { round: true }, floor: {}, silent: { race: false } },
+  extra: { intro: (v) => (v ? 1 : 0) },
+};

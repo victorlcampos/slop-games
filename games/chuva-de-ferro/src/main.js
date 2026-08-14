@@ -2,13 +2,12 @@
 
 import { createViewport } from 'slopkit/viewport';
 import { createLoop } from 'slopkit/loop';
-import { createSave } from 'slopkit/save';
+import { createRecords } from 'slopkit/records';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { H, PLAYER } from './config.js';
+import { H, PLAYER, RECORD } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createGame } from './game.js';
-import { freshBest, normalizeBest, mergeBest } from './records.js';
 import { createFx } from './fx.js';
 import { createRenderer, clock } from './render.js';
 import { createTouchControls } from './controls.js';
@@ -29,14 +28,8 @@ i18n.onChange(applyTitle);
 // anyone to unlock their phone (CLAUDE.md, section 2b).
 const vp = createViewport(canvas, { height: H, frame: 1280, landscape: true });
 
-const vault = createSave({
-  game: 'chuva-de-ferro',
-  version: 1,
-  key: 'chuva-de-ferro.best.v1',
-  initial: freshBest,
-  normalize: normalizeBest,
-});
-let best = vault.load();
+// score and time alive, each kept on its own axis (config.js, RECORD)
+const records = createRecords({ ...RECORD, i18n });
 
 const fx = createFx();
 const renderer = createRenderer();
@@ -138,16 +131,12 @@ function start() {
 function finish(result) {
   phase = 'over';
   sfx.over();
-  // the record comes from mergeBest, never from vault.save — the vault answers
-  // whether it wrote, not what the record now is (see src/records.js)
-  const merged = mergeBest(best, result);
-  best = merged.best;
-  vault.save({ ...best });
+  const filed = records.file(result);
   document.getElementById('o-score').textContent = String(Math.round(result.score));
   document.getElementById('o-time').textContent = clock(result.time);
   document.getElementById('o-killed').textContent = String(result.killed);
-  document.getElementById('o-best').textContent = `${best.score} · ${clock(best.time)}`;
-  show(document.getElementById('o-record'), merged.record);
+  document.getElementById('o-best').textContent = `${filed.best.score} · ${clock(filed.best.time)}`;
+  show(document.getElementById('o-record'), filed.record);
   show(over, true);
 }
 
@@ -183,10 +172,10 @@ createLoop({
     vp.begin();
     const ctx = vp.ctx;
     if (phase === 'playing' && game) {
-      renderer.draw(ctx, game, vp.W, { best, touch: vp.touch ? touch : null });
+      renderer.draw(ctx, game, vp.W, { best: records.best, touch: vp.touch ? touch : null });
     } else {
       // the menu paints the same sky behind the card, so the game is never a blank
-      renderer.draw(ctx, idleGame(), vp.W, { best, pads: null, chrome: false });
+      renderer.draw(ctx, idleGame(), vp.W, { best: records.best, pads: null, chrome: false });
     }
   },
 }).start();
@@ -213,5 +202,5 @@ window.__game = {
   get game() { return game; },
   start,
   state: () => (game ? game.state : null),
-  best: () => best,
+  best: () => records.best,
 };
