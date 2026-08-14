@@ -59,6 +59,11 @@ createLoop({
 - **`slopkit/viewport`** — `createViewport`, `measure` (the pure arithmetic, testable with no browser)
 - **`slopkit/loop`** — `createLoop`, `stepsFor` (same)
 - **`slopkit/save`** — `createSave`, `downloadText`, `readTextFile`
+  `vault.save(state)` answers **whether it wrote**, `true`/`false` — it does not
+  hand the state back. `best = vault.save(...)` has now put the boolean `true`
+  into a game's record twice: the card then read `best.score` as `undefined`,
+  `clock(best.time)` as `NaN:NaN`, and every run after it compared against
+  `undefined`. Keep the state you built, and save a copy of it.
 - **`slopkit/sound`** — `createSound`
 - **`slopkit/i18n`** — `createI18n`, `pickLang`, `interpolate`, `missingKeys`
 - **`slopkit/flags`** — `drawFlag`, `flagDataURL` (flags drawn on a canvas)

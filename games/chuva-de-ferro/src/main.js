@@ -8,6 +8,7 @@ import { mountLangPicker, bindText } from 'slopkit/langpicker';
 import { H, PLAYER } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createGame } from './game.js';
+import { freshBest, normalizeBest, mergeBest } from './records.js';
 import { createFx } from './fx.js';
 import { createRenderer, clock } from './render.js';
 import { createTouchControls } from './controls.js';
@@ -32,12 +33,8 @@ const vault = createSave({
   game: 'chuva-de-ferro',
   version: 1,
   key: 'chuva-de-ferro.best.v1',
-  initial: () => ({ score: 0, time: 0, runs: 0 }),
-  normalize: (raw, base) => {
-    if (!raw || typeof raw !== 'object') return base;
-    const n = (v, d) => (Number.isFinite(v) && v >= 0 ? v : d);
-    return { ...base, score: n(raw.score, 0), time: n(raw.time, 0), runs: n(raw.runs, 0) };
-  },
+  initial: freshBest,
+  normalize: normalizeBest,
 });
 let best = vault.load();
 
@@ -141,17 +138,16 @@ function start() {
 function finish(result) {
   phase = 'over';
   sfx.over();
-  const record = result.score > best.score || result.time > best.time;
-  best = vault.save({
-    score: Math.max(best.score, Math.round(result.score)),
-    time: Math.max(best.time, result.time),
-    runs: best.runs + 1,
-  });
+  // the record comes from mergeBest, never from vault.save — the vault answers
+  // whether it wrote, not what the record now is (see src/records.js)
+  const merged = mergeBest(best, result);
+  best = merged.best;
+  vault.save({ ...best });
   document.getElementById('o-score').textContent = String(Math.round(result.score));
   document.getElementById('o-time').textContent = clock(result.time);
   document.getElementById('o-killed').textContent = String(result.killed);
   document.getElementById('o-best').textContent = `${best.score} · ${clock(best.time)}`;
-  show(document.getElementById('o-record'), record);
+  show(document.getElementById('o-record'), merged.record);
   show(over, true);
 }
 

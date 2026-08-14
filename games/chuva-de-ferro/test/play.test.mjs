@@ -13,6 +13,8 @@ import { OBJECT_BY_ID, spawnObject } from '../src/objects.js';
 import { WEAPON_BY_ID, PRIMARY, loadout } from '../src/weapons.js';
 import { fire, updateShots } from '../src/shots.js';
 import { silentFx } from '../src/fx.js';
+import { freshBest, mergeBest } from '../src/records.js';
+import { clock } from '../src/render.js';
 import { PLAYER, makeRng, pressureAt } from '../src/config.js';
 
 const STEP = 1 / 120;
@@ -445,6 +447,55 @@ scenario('the run ends when the third life goes, and the score is what is kept',
   const before = g.state.score;
   play(g, 3, { ...STILL, fire: true });
   checkEqual(g.state.score, before, 'the score kept moving after the run ended');
+});
+
+// ------------------------------------------------------------- the record
+
+scenario('the end-of-run card has numbers to read, and the record keeps them', () => {
+  // The bug: `vault.save()` reports whether it wrote, it does not hand the
+  // state back — so `best = vault.save(...)` made `best` the boolean `true`,
+  // and the card read "best: undefined · NaN:NaN". Everything the card touches
+  // has to still be a number after a run has been filed.
+  const first = mergeBest(freshBest(), { score: 14814.4, time: 119.7, killed: 99 });
+  checkEqual(first.best.score, 14814, `the record kept ${first.best.score}`);
+  checkEqual(first.best.time, 119.7, `the record kept ${first.best.time} s`);
+  checkEqual(first.best.runs, 1, 'the first run was not counted');
+  check(first.record, 'the first run over zero was not a record');
+  checkEqual(clock(first.best.time), '01:59', `the card would print ${clock(first.best.time)}`);
+
+  // a worse run keeps the record, and each axis is kept on its own: a bigger
+  // score does not erase a longer life
+  const second = mergeBest(first.best, { score: 20000, time: 40 });
+  checkEqual(second.best.score, 20000, `the bigger score was lost (${second.best.score})`);
+  checkEqual(second.best.time, 119.7, `the longer run was erased (${second.best.time})`);
+  check(second.record, 'a bigger score was not called a record');
+  checkEqual(second.best.runs, 2, `${second.best.runs} runs counted after two`);
+
+  const third = mergeBest(second.best, { score: 10, time: 10 });
+  check(!third.record, 'a run beaten on both axes was announced as a record');
+  checkEqual(third.best.score, 20000, `the record fell to ${third.best.score}`);
+});
+
+scenario('a record read off a broken save is still a number', () => {
+  // `true` is exactly what the old bug left in the variable, and a save two
+  // versions old is the same problem with better manners
+  for (const junk of [true, null, undefined, 'best', { score: NaN, time: -3 }, { score: '9' }]) {
+    const merged = mergeBest(junk, { score: 500, time: 12 });
+    check(Number.isFinite(merged.best.score) && Number.isFinite(merged.best.time),
+      `${JSON.stringify(junk)} produced ${merged.best.score} · ${merged.best.time}`);
+    checkEqual(clock(merged.best.time), '00:12', `the card would print ${clock(merged.best.time)}`);
+  }
+  // and a run that reports nothing does not take the record down with it
+  const kept = mergeBest({ score: 800, time: 30, runs: 4 }, {});
+  checkEqual(kept.best.score, 800, `an empty result rewrote the record as ${kept.best.score}`);
+  check(!kept.record, 'an empty result was announced as a record');
+});
+
+scenario('the clock never says NaN', () => {
+  checkEqual(clock(undefined), '00:00', `clock(undefined) said ${clock(undefined)}`);
+  checkEqual(clock(NaN), '00:00', `clock(NaN) said ${clock(NaN)}`);
+  checkEqual(clock(-5), '00:00', `clock(-5) said ${clock(-5)}`);
+  checkEqual(clock(659.9), '10:59', `clock(659.9) said ${clock(659.9)}`);
 });
 
 await run('iron rain — the run');

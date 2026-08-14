@@ -935,6 +935,8 @@ export function createRenderer() {
 }
 
 export function clock(seconds) {
-  const s = Math.max(0, Math.floor(seconds));
+  // a clock is never `NaN:NaN`: whatever is handed in that is not a number
+  // reads as zero, which is at least a time
+  const s = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
