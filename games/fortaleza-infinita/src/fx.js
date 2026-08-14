@@ -1,4 +1,4 @@
-// Sparks, blood, rings and the numbers that float off a bag of cash.
+// Sparks, blood, rings and the numbers that float off a pile of shards.
 //
 // It exists so the simulation can say "that hurt" without knowing what a spark
 // looks like — which is also why game.js runs in Node: the tests hand it a
@@ -21,13 +21,16 @@ export function createFx() {
     }
   }
 
-  function blood(x, y, n = 8) {
+  // The colour is the caller's: the escapee bleeds red, the sentinels ichor —
+  // and in a torch-lit corridor that difference is often the only after-action
+  // report you get.
+  function blood(x, y, n = 8, colour = '#8e2f3f') {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const v = 130 * (0.2 + Math.random());
       bits.push({
         x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
-        t: 0.4 + Math.random() * 0.5, life: 0.9, colour: '#8e2f3f', size: 2 + Math.random() * 3, drag: 4,
+        t: 0.4 + Math.random() * 0.5, life: 0.9, colour, size: 2 + Math.random() * 3, drag: 4,
       });
     }
   }
@@ -36,7 +39,7 @@ export function createFx() {
     rings.push({ x, y, r: r * 0.15, max: r, t: 0.7, life: 0.7, colour });
   }
 
-  function float(x, y, text, colour = '#f0c65a') {
+  function float(x, y, text, colour = '#5ce8cf') {
     floats.push({ x, y, text, colour, t: 1.1, life: 1.1 });
   }
 

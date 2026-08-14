@@ -1,8 +1,8 @@
-// The rules of the building: how a floor is put together, what can see what,
-// and the promise the game's own description makes — that floor N+1 is worse
-// than floor N, for every N there is.
+// The rules of the Fortress: how a ring is put together, what can see what,
+// and the promise the game's own description makes — that ring N+1 is worse
+// than ring N, for every N there is.
 
-import { scenario, check, run } from 'slopkit/testing';
+import { scenario, check, run, headlessContext } from 'slopkit/testing';
 import { missingKeys } from 'slopkit/i18n';
 
 import { plan, threat, floorSeed, TILE, makeRng } from '../src/config.js';
@@ -13,52 +13,53 @@ import {
 import { canSee, visibilityFan } from '../src/vision.js';
 import { WEAPONS, lootGuns, guardGun, droppedAmmo } from '../src/weapons.js';
 import { dict } from '../src/i18n.js';
+import { SCENES, SKIP_HINT, createCutscene } from '../src/cutscene.js';
 
 const cell = (x, y) => cellOf(x, y);
 
-// ------------------------------------------------------------- the building
+// ------------------------------------------------------------- the fortress
 
-scenario('every floor builds, and everything on it can be walked to', () => {
+scenario('every ring builds, and everything on it can be walked to', () => {
   for (let f = 1; f <= 40; f++) {
     const lv = generateFloor(f, floorSeed(20260813, f));
     const start = cell(lv.spawn.x, lv.spawn.y);
     const field = flowField(lv.grid, [start]);
     const reach = (o, what) => {
       const c = cell(o.x, o.y);
-      check(field.at(c.cx, c.cy) >= 0, `floor ${f}: a ${what} at ${c.cx},${c.cy} is walled off from the door`);
+      check(field.at(c.cx, c.cy) >= 0, `ring ${f}: a ${what} at ${c.cx},${c.cy} is walled off from the cell`);
     };
-    reach(lv.vault, 'vault');
-    for (const g of lv.guards) reach(g, 'guard');
+    reach(lv.vault, 'seal');
+    for (const g of lv.guards) reach(g, 'sentinel');
     for (const it of lv.items) reach(it, lv.items.kind || 'pickup');
-    for (const a of lv.alarms) reach(a, 'alarm panel');
-    for (const c of lv.cameras) reach(c, 'camera');
-    check(!lv.grid.solidAt(lv.spawn.x, lv.spawn.y), `floor ${f}: the player spawns inside a wall`);
+    for (const a of lv.alarms) reach(a, 'alarm node');
+    for (const c of lv.cameras) reach(c, 'eye');
+    check(!lv.grid.solidAt(lv.spawn.x, lv.spawn.y), `ring ${f}: the player spawns inside a wall`);
   }
 });
 
-scenario('the vault is put at the far end, not next to the door', () => {
+scenario('the seal is put at the far end, not next to the cell', () => {
   let worst = Infinity;
   for (let f = 1; f <= 25; f++) {
     const lv = generateFloor(f, floorSeed(4242, f));
     const field = flowField(lv.grid, [cell(lv.spawn.x, lv.spawn.y)]);
     const steps = field.at(lv.vault.cx, lv.vault.cy);
-    // in tiles: anything under ten is "the vault is in the lobby"
+    // in tiles: anything under ten is "the seal is in the cell block"
     worst = Math.min(worst, steps);
-    check(steps >= 10, `floor ${f}: the vault is only ${steps} tiles from the front door`);
+    check(steps >= 10, `ring ${f}: the seal is only ${steps} tiles from the cell`);
   }
-  check(worst > 0, `the nearest vault of the 25 was ${worst} tiles away`);
+  check(worst > 0, `the nearest seal of the 25 was ${worst} tiles away`);
 });
 
-scenario('a floor is the same floor twice, and two runs are two banks', () => {
+scenario('a ring is the same ring twice, and two runs are two fortresses', () => {
   const a = generateFloor(7, floorSeed(1000, 7));
   const b = generateFloor(7, floorSeed(1000, 7));
-  check(String(a.grid.cells) === String(b.grid.cells), 'the same seed built two different floors');
-  check(a.guards.length === b.guards.length, 'the same seed staffed the floor differently');
+  check(String(a.grid.cells) === String(b.grid.cells), 'the same seed built two different rings');
+  check(a.guards.length === b.guards.length, 'the same seed garrisoned the ring differently');
   const other = generateFloor(7, floorSeed(1001, 7));
-  check(String(a.grid.cells) !== String(other.grid.cells), 'two different runs built the identical floor');
+  check(String(a.grid.cells) !== String(other.grid.cells), 'two different runs built the identical ring');
 });
 
-scenario('a floor has rooms and the corridors that join them', () => {
+scenario('a ring has rooms and the corridors that join them', () => {
   const lv = generateFloor(6, floorSeed(88, 6));
   let rooms = 0;
   let halls = 0;
@@ -67,39 +68,39 @@ scenario('a floor has rooms and the corridors that join them', () => {
     if (c === HALL) halls++;
   }
   check(halls > 20, `only ${halls} corridor tiles — the rooms are touching, not connected`);
-  check(rooms > halls, `${rooms} room tiles against ${halls} of corridor: this is a maze, not a bank`);
+  check(rooms > halls, `${rooms} room tiles against ${halls} of corridor: this is a maze, not a fortress`);
 });
 
 // ------------------------------------------------------------ the staircase
 
-scenario('every floor is harder than the one before it, for two hundred floors', () => {
+scenario('every ring is harder than the one before it, for two hundred rings', () => {
   let prev = -Infinity;
   for (let f = 1; f <= 200; f++) {
     const t = threat(f);
-    check(t > prev, `floor ${f} is no worse than floor ${f - 1} (${t.toFixed(2)} against ${prev.toFixed(2)})`);
+    check(t > prev, `ring ${f} is no worse than ring ${f - 1} (${t.toFixed(2)} against ${prev.toFixed(2)})`);
     prev = t;
   }
-  check(threat(10) > threat(1) * 3, `floor 10 is only ${(threat(10) / threat(1)).toFixed(1)}x floor 1`);
+  check(threat(10) > threat(1) * 3, `ring 10 is only ${(threat(10) / threat(1)).toFixed(1)}x ring 1`);
 });
 
-scenario('the staff stops growing, the men themselves do not', () => {
+scenario('the garrison stops growing, the sentinels themselves do not', () => {
   const deep = plan(120);
   const deeper = plan(121);
-  check(deep.guards === deeper.guards, 'the guard count is meant to hit a ceiling — a corridor is only so wide');
-  check(deeper.guardHp > deep.guardHp, 'past the ceiling the guards themselves have to keep getting harder');
+  check(deep.guards === deeper.guards, 'the sentinel count is meant to hit a ceiling — a corridor is only so wide');
+  check(deeper.guardHp > deep.guardHp, 'past the ceiling the sentinels themselves have to keep getting harder');
   check(deeper.guardDamage > deep.guardDamage, 'and they have to keep hitting harder');
-  check(plan(1).cameras === 0, 'the first floor is meant to be free of cameras');
-  check(plan(3).cameras > 0, 'by floor 3 there should be cameras');
+  check(plan(1).cameras === 0, 'the first ring is meant to be free of eyes');
+  check(plan(3).cameras > 0, 'by ring 3 there should be eyes on the walls');
 });
 
-scenario('the floor grows, and the drilling gets longer', () => {
+scenario('the ring grows, and the overload gets longer', () => {
   const a = plan(1);
   const b = plan(12);
-  check(b.cols > a.cols && b.rows > a.rows, `floor 12 (${b.cols}x${b.rows}) is not bigger than floor 1 (${a.cols}x${a.rows})`);
+  check(b.cols > a.cols && b.rows > a.rows, `ring 12 (${b.cols}x${b.rows}) is not bigger than ring 1 (${a.cols}x${a.rows})`);
   check(b.rooms > a.rooms, `${b.rooms} rooms against ${a.rooms}`);
-  check(b.vaultTime > a.vaultTime + 3, `the vault still opens in ${b.vaultTime.toFixed(1)}s on floor 12`);
-  check(b.guardAim < a.guardAim, 'guards on floor 12 should shoot sooner than on floor 1');
-  check(b.payday > a.payday * 3, `floor 12 pays ${b.payday} against ${a.payday}`);
+  check(b.vaultTime > a.vaultTime + 3, `the seal still gives in ${b.vaultTime.toFixed(1)}s on ring 12`);
+  check(b.guardAim < a.guardAim, 'sentinels on ring 12 should shoot sooner than on ring 1');
+  check(b.payday > a.payday * 3, `ring 12 pays ${b.payday} against ${a.payday}`);
 });
 
 // ------------------------------------------------------------------ looking
@@ -210,10 +211,10 @@ scenario('a goal behind a wall is reported as unreachable, not walked to', () =>
 // ----------------------------------------------------------------- the guns
 
 scenario('what separates the guns is noise, not damage', () => {
-  // Two guns are quiet — the pistol you start with and the dart gun — and
-  // everything else is in another league entirely. A gun that sits between the
-  // two groups is a gun with no decision attached to it.
-  const QUIET = ['silenced', 'dart'];
+  // Two guns are quiet — the whisper coil you start with and the stasis dart —
+  // and everything else is in another league entirely. A gun that sits between
+  // the two groups is a gun with no decision attached to it.
+  const QUIET = ['whisper', 'stasis'];
   const loudest = Math.max(...QUIET.map((id) => WEAPONS[id].noise));
   for (const w of Object.values(WEAPONS)) {
     if (QUIET.includes(w.id)) {
@@ -222,33 +223,33 @@ scenario('what separates the guns is noise, not damage', () => {
       check(w.noise > loudest * 3, `the ${w.id} is only ${w.noise} loud against ${loudest} for the quiet ones`);
     }
   }
-  check(WEAPONS.shotgun.noise > WEAPONS.pistol.noise, 'a shotgun should carry further than a pistol');
+  check(WEAPONS.shockwave.noise > WEAPONS.blaster.noise, 'a shockwave should carry further than a blaster');
 
-  // The dart is the quietest thing on the floor, so it has to pay somewhere or
-  // there is no reason ever to hold anything else.
-  const dart = WEAPONS.dart;
-  check(dart.rate > WEAPONS.silenced.rate * 3, `the dart fires every ${dart.rate}s — as fast as a pistol and silent`);
-  check(dart.range < WEAPONS.silenced.range * 0.75, `the dart reaches ${dart.range}px, as far as the gun you started with`);
-  check(Number.isFinite(dart.mag) && dart.mag <= 12, `the dart carries ${dart.mag} rounds`);
+  // The stasis dart is the quietest thing on the ring, so it has to pay
+  // somewhere or there is no reason ever to hold anything else.
+  const stasis = WEAPONS.stasis;
+  check(stasis.rate > WEAPONS.whisper.rate * 3, `the stasis dart fires every ${stasis.rate}s — as fast as the coil and silent`);
+  check(stasis.range < WEAPONS.whisper.range * 0.75, `the stasis dart reaches ${stasis.range}px, as far as the gun you started with`);
+  check(Number.isFinite(stasis.mag) && stasis.mag <= 12, `the stasis dart carries ${stasis.mag} rounds`);
 
-  check(!Number.isFinite(WEAPONS.silenced.mag), 'the gun you always have should never run out');
+  check(!Number.isFinite(WEAPONS.whisper.mag), 'the gun you always have should never run out');
   for (const w of Object.values(WEAPONS)) {
-    if (w.id !== 'silenced') check(Number.isFinite(w.mag), `the ${w.id} has no ammunition limit`);
+    if (w.id !== 'whisper') check(Number.isFinite(w.mag), `the ${w.id} has no ammunition limit`);
   }
 });
 
-scenario('the wreckage gets better as you go down, and never offers your own gun', () => {
+scenario('the armoury gets better as you climb, and never offers your own gun', () => {
   const rng = makeRng(5);
   for (let tier = 0; tier <= 3; tier++) {
     const pool = lootGuns(tier);
     check(pool.length > 0, `tier ${tier} has nothing to find`);
-    check(!pool.includes('silenced'), `tier ${tier} drops the gun you started with`);
+    check(!pool.includes('whisper'), `tier ${tier} drops the gun you started with`);
     for (const id of pool) check(WEAPONS[id], `tier ${tier} offers "${id}", which is not a gun`);
   }
-  check(lootGuns(3).length > lootGuns(0).length, 'the deep floors offer no more than the first');
-  check(WEAPONS[guardGun(3, 0)].tier >= WEAPONS[guardGun(0, 0)].tier, 'guards deeper down carry no better');
-  const ammo = droppedAmmo('pistol', rng, 0.5);
-  check(ammo > 0 && ammo <= WEAPONS.pistol.mag, `a dropped pistol came with ${ammo} rounds`);
+  check(lootGuns(3).length > lootGuns(0).length, 'the high rings offer no more than the first');
+  check(WEAPONS[guardGun(3, 0)].tier >= WEAPONS[guardGun(0, 0)].tier, 'sentinels higher up carry no better');
+  const ammo = droppedAmmo('blaster', rng, 0.5);
+  check(ammo > 0 && ammo <= WEAPONS.blaster.mag, `a dropped blaster came with ${ammo} rounds`);
 });
 
 // ------------------------------------------------------------- the two flags
@@ -266,4 +267,43 @@ scenario('every gun the game can hand you has a name in both languages', () => {
   }
 });
 
-await run('bank job — the building');
+// ------------------------------------------------------------- the opening
+
+scenario('the opening speaks both languages, plays to the end, and can be skipped', () => {
+  check(SCENES.length >= 5, `an opening with ${SCENES.length} scenes is a slide, not a film`);
+  const missing = missingKeys({
+    ...Object.fromEntries(SCENES.map((s, i) => [`scene.${i}`, s.line])),
+    skip: SKIP_HINT,
+  });
+  check(missing.length === 0, `the opening is missing translations: ${missing.join(', ')}`);
+  for (const s of SCENES) check(s.duration > 2, `a ${s.duration}s scene cannot be read, let alone watched`);
+
+  // left alone, the film ends exactly once — drawn every frame while it runs,
+  // so a scene that throws mid-way turns this red
+  const ctx = headlessContext(1280, 720);
+  let ended = 0;
+  const cut = createCutscene(() => ended++);
+  const total = SCENES.reduce((s, c) => s + c.duration, 0);
+  for (let t = 0; t < total + 5 && !ended; t += 1 / 30) {
+    cut.update(1 / 30);
+    cut.draw(ctx, 1280);
+  }
+  check(ended === 1, `${total + 5} seconds passed and the film never ended`);
+  cut.update(1);
+  check(ended === 1, 'the film ended twice');
+
+  // ESC is a promise
+  let skipped = 0;
+  const cut2 = createCutscene(() => skipped++);
+  cut2.update(1 / 30);
+  cut2.skip();
+  check(skipped === 1 && cut2.done, 'ESC did not end the opening');
+
+  // and so is clicking through every page by hand
+  let clicked = 0;
+  const cut3 = createCutscene(() => clicked++);
+  for (let i = 0; i < SCENES.length + 2; i++) cut3.click();
+  check(clicked === 1, 'clicking through every page did not end the film');
+});
+
+await run('infinite fortress — the ring');

@@ -1,11 +1,11 @@
-// One floor, from the front door to the vault.
+// One ring, from the cell door to the seal.
 //
-// Everything the player can do to the building is here, and everything the
-// building can do back. It knows nothing about canvases: the tests drive this
+// Everything the player can do to the Fortress is here, and everything the
+// Fortress can do back. It knows nothing about canvases: the tests drive this
 // module directly, at a fixed step, with no browser anywhere.
 
 import {
-  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, ASSIST, HIT_R, TILE,
+  PLAYER, GUARD, CAMERA, VAULT, ROLL, PICKUP, ASSIST, HIT_R, TILE, COLOURS,
   clamp, dist, dist2, makeRng, turnTowards, angleDelta, RAD,
 } from './config.js';
 import { moveCircle, flowField, castRay, lineOfSight } from './grid.js';
@@ -171,7 +171,7 @@ export function createGame(opts) {
         side,
       });
     }
-    fx.spark(from.x + Math.cos(angle) * 20, from.y + Math.sin(angle) * 20, '#ffd88a', 3, 120);
+    fx.spark(from.x + Math.cos(angle) * 20, from.y + Math.sin(angle) * 20, '#9ff0e0', 3, 120);
     game.makeNoise(from.x, from.y, w.noise, 'shot');
     stats.shots += side === 'player' ? 1 : 0;
   }
@@ -185,7 +185,7 @@ export function createGame(opts) {
     if (Number.isFinite(slot.ammo)) slot.ammo--;
     if (slot.ammo <= 0) {
       // an empty gun is dropped for the one you always have, rather than
-      // leaving you holding a club in front of four men with rifles
+      // leaving you holding a club in front of four sentinels with lances
       player.weapon = createLoadout();
       game.onDry?.();
     }
@@ -227,8 +227,8 @@ export function createGame(opts) {
 
       if (hit) {
         applyHit(hit, b);
-        // a rifle round goes through the first man to reach the second; a
-        // pistol round stops in him
+        // a lance bolt goes through the first sentinel to reach the second; a
+        // blaster bolt stops in him
         if (b.pierce > 0 && hit.route) {
           b.pierce--;
           b.hit = [...(b.hit || []), hit];
@@ -268,9 +268,9 @@ export function createGame(opts) {
       }
       target.hp -= b.dmg;
       target.alert = 1;
-      fx.blood(b.x, b.y);
+      fx.blood(b.x, b.y, 8, COLOURS.ichor);
       // a hit that lands hard enough knocks him off his aim: he has to start
-      // lining you up again, which is what a shotgun is *for*
+      // lining you up again, which is what the shockwave is *for*
       if (b.stagger) {
         target.aim = -b.stagger;
         target.cool = Math.max(target.cool, b.stagger * 0.5);
@@ -284,10 +284,13 @@ export function createGame(opts) {
       }
       return;
     }
-    // a camera or a panel: one bullet and it is scrap, which is the trade —
-    // quiet with a silenced pistol, an announcement with anything else
+    // an eye or a node: one bolt and it is scrap, which is the trade —
+    // quiet with the whisper coil, an announcement with anything else
     target.dead = true;
-    fx.spark(target.x, target.y, '#8fa9d6', 8, 300);
+    // and shooting the one that is *ringing* shuts it up: the hunt it started
+    // keeps running, but the ring stops screaming about it
+    if (alarm.on && alarm.source === target) game.onAlarmSilenced?.(target);
+    fx.spark(target.x, target.y, '#a98fe0', 8, 300);
     game.onBreak?.(target);
   }
 
@@ -309,7 +312,7 @@ export function createGame(opts) {
   function killGuard(g, how = 'shot') {
     g.dead = true;
     stats.kills++;
-    if (how !== 'tranq') fx.blood(g.x, g.y, 14);
+    if (how !== 'tranq') fx.blood(g.x, g.y, 14, COLOURS.ichor);
     const body = { x: g.x, y: g.y, a: g.facing, seen: 0, gun: g.gun, id: g.id, tranq: how === 'tranq' };
     bodies.push(body);
     if (rng() < 0.75) {
@@ -348,6 +351,7 @@ export function createGame(opts) {
     if (alarm.timer <= 0) {
       alarm.on = false;
       alarm.source = null;
+      game.onAlarmOff?.();
       for (const g of game.guards) {
         if (g.dead) continue;
         g.state = 'investigate';
@@ -376,7 +380,7 @@ export function createGame(opts) {
 
     player.sneaking = !!input.sneak && player.roll <= 0;
     // A heavy gun costs you your feet while it is firing. It is the price the
-    // machine gun and the sniper rifle pay for what they do, and it is what
+    // shredder and the railgun pay for what they do, and it is what
     // stops "the best gun" from also being the most mobile one.
     const heavy = WEAPONS[player.weapon.id].heavy;
     const braced = heavy && player.weapon.cool > 0 ? heavy : 1;
@@ -541,7 +545,7 @@ export function createGame(opts) {
         return;
       }
       player.weapon = { id: target.gun, ammo: target.ammo, cool: 0 };
-      if (old.id !== 'silenced' && old.ammo > 0) {
+      if (old.id !== 'whisper' && old.ammo > 0) {
         level.items.push({
           kind: 'gun', gun: old.id, ammo: old.ammo, x: player.x, y: player.y,
           taken: false, armAt: stats.time + PICKUP.armAfter,
@@ -574,8 +578,8 @@ export function createGame(opts) {
     const v = level.vault;
     if (dist(player.x, player.y, v.x, v.y) > VAULT.r) return;
     v.cracked = Math.min(1, v.cracked + dt / level.plan.vaultTime);
-    // the drill is the loudest thing on the floor, and it runs for as long as
-    // the floor number says: the last stretch is always a fight or a sprint
+    // the overload is the loudest thing on the ring, and it runs for as long
+    // as the ring number says: the last stretch is always a fight or a sprint
     if (rng() < dt * 4) game.makeNoise(v.x, v.y, 460, 'drill');
     if (v.cracked >= 1 && game.state === 'playing') {
       game.state = 'cleared';

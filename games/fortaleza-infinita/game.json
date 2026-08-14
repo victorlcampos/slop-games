@@ -1,0 +1,20 @@
+{
+  "slug": "fortaleza-infinita",
+  "name": {
+    "en": "Infinite Fortress",
+    "pt": "Fortaleza Infinita"
+  },
+  "emoji": "🛸",
+  "description": {
+    "en": "One human, taken, deep inside an alien fortress built of rings with no top. Every ring is born the moment you step into it. You see what your torch reaches. So do the sentinels — and the one that spots you runs for the alarm node.",
+    "pt": "Um humano capturado no fundo de uma fortaleza alienígena feita de anéis sem topo. Cada anel nasce na hora em que você pisa nele. Você enxerga o que a lanterna alcança. Os sentinelas também — e quem te vê corre para o nó de alarme."
+  },
+  "tags": [
+    "2d",
+    "stealth",
+    "roguelike"
+  ],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

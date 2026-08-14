@@ -1,12 +1,13 @@
-// Where a floor comes from.
+// Where a ring of the Fortress comes from.
 //
-// There is no map file anywhere in this game: a floor is a seed and a plan
-// (config.js), and this turns the two into rooms, corridors, a vault at the far
-// end, the people guarding it and the things worth stealing on the way.
+// There is no map file anywhere in this game: a ring is a seed and a plan
+// (config.js), and this turns the two into rooms, corridors, a seal at the far
+// end, the sentinels guarding it and the things worth taking on the way.
 //
-// The one promise it has to keep is that the floor can be finished — the vault
-// reachable on foot from the front door, and nothing placed inside a wall. That
-// is checked here on every generation, not left to a test to notice later.
+// The one promise it has to keep is that the ring can be finished — the seal
+// reachable on foot from the cell you wake in, and nothing placed inside a
+// wall. That is checked here on every generation, not left to a test to notice
+// later.
 
 import { plan, makeRng, TILE, dist } from './config.js';
 import {
@@ -14,7 +15,7 @@ import {
 } from './grid.js';
 import { guardGun, lootGuns, droppedAmmo } from './weapons.js';
 
-const ROOM_KINDS = ['office', 'hall', 'office', 'records', 'hall', 'security'];
+const ROOM_KINDS = ['lab', 'hall', 'lab', 'archive', 'hall', 'watch'];
 
 export function generateFloor(floor, seed) {
   const p = plan(floor);
@@ -26,11 +27,11 @@ export function generateFloor(floor, seed) {
   const rooms = carveRooms(grid, p, rng, range);
   connect(grid, rooms, rng);
 
-  // The front door is the first room placed; the vault is whichever room is
+  // The cell block is the first room placed; the seal is whichever room is
   // furthest from it *on foot*, which is not the same as furthest in a straight
-  // line — a room across a wall is next door and half a floor away.
+  // line — a room across a wall is next door and half a ring away.
   const entrance = rooms[0];
-  entrance.kind = 'lobby';
+  entrance.kind = 'dock';
   const reach = flowField(grid, [{ cx: entrance.cx, cy: entrance.cy }]);
   let vaultRoom = rooms[rooms.length - 1];
   let far = -1;
@@ -41,7 +42,7 @@ export function generateFloor(floor, seed) {
       vaultRoom = r;
     }
   }
-  vaultRoom.kind = 'vault';
+  vaultRoom.kind = 'seal';
   for (let cy = vaultRoom.y; cy < vaultRoom.y + vaultRoom.h; cy++) {
     for (let cx = vaultRoom.x; cx < vaultRoom.x + vaultRoom.w; cx++) grid.set(cx, cy, VAULT_FLOOR);
   }
@@ -54,8 +55,8 @@ export function generateFloor(floor, seed) {
   const reachable = (cx, cy) => reach.at(cx, cy) >= 0;
   if (!reachable(vaultRoom.cx, vaultRoom.cy)) {
     // the corridors always connect, so this is a bug rather than bad luck —
-    // and a floor whose vault is walled in cannot be played to the end
-    throw new Error(`floor ${floor}: the vault is not reachable from the door`);
+    // and a ring whose seal is walled in cannot be played to the end
+    throw new Error(`ring ${floor}: the seal is not reachable from the cell`);
   }
 
   const free = walkableCells(grid).filter((c) => reachable(c.cx, c.cy));
@@ -92,13 +93,13 @@ export function generateFloor(floor, seed) {
   };
 }
 
-/** What each cell is floored with. Corridors are whatever is cheapest. */
-export const MATERIALS = { stone: 0, marble: 1, wood: 2, lino: 3, gold: 4 };
+/** What each cell is floored with. Corridors are bare deck plating. */
+export const MATERIALS = { deck: 0, slate: 1, membrane: 2, panel: 3, seal: 4 };
 
 function materialGrid(grid, rooms) {
   const out = new Uint8Array(grid.cols * grid.rows);
   for (const r of rooms) {
-    const m = MATERIALS[r.floor] ?? MATERIALS.lino;
+    const m = MATERIALS[r.floor] ?? MATERIALS.panel;
     for (let cy = r.y; cy < r.y + r.h; cy++) {
       for (let cx = r.x; cx < r.x + r.w; cx++) out[cy * grid.cols + cx] = m;
     }
@@ -135,17 +136,17 @@ function carveRooms(grid, p, rng, range) {
 
   if (rooms.length < 3) {
     // a plan this cramped cannot happen with the numbers in config.js, but a
-    // floor with two rooms is not a bank and would be shipped silently
-    throw new Error(`floor plan too tight: only ${rooms.length} rooms fitted`);
+    // ring with two rooms is not a fortress and would be shipped silently
+    throw new Error(`ring plan too tight: only ${rooms.length} rooms fitted`);
   }
   return rooms;
 }
 
 /**
- * Joins the rooms into one building: a nearest-neighbour chain, then a couple
+ * Joins the rooms into one ring: a nearest-neighbour chain, then a couple
  * of extra links.
  *
- * The extra links are not decoration — a floor plan shaped like a tree has one
+ * The extra links are not decoration — a plan shaped like a tree has one
  * way in and out of every room, so being seen anywhere means being cornered.
  * The loops are what make it possible to break away and come round.
  */
@@ -380,27 +381,27 @@ function placeItems(p, free, rooms, entrance, vaultRoom, rng, pick, isFree, clai
   return items;
 }
 
-/** What each kind of room is furnished with, and what its floor is made of. */
+/** What each kind of room is fitted with, and what its floor is made of. */
 const FURNISHING = {
-  lobby: { floor: 'marble', props: ['counter', 'plant', 'bench', 'rug'] },
-  office: { floor: 'wood', props: ['desk', 'chair', 'cabinet', 'plant'] },
-  hall: { floor: 'marble', props: ['bench', 'plant', 'rug'] },
-  records: { floor: 'lino', props: ['cabinet', 'cabinet', 'desk', 'crate'] },
-  security: { floor: 'lino', props: ['desk', 'monitor', 'cabinet', 'chair'] },
-  vault: { floor: 'gold', props: ['crate', 'crate', 'plate'] },
+  dock: { floor: 'slate', props: ['conduit', 'growth', 'berth', 'glyph'] },
+  lab: { floor: 'membrane', props: ['console', 'seat', 'locker', 'growth'] },
+  hall: { floor: 'slate', props: ['berth', 'growth', 'glyph'] },
+  archive: { floor: 'panel', props: ['locker', 'locker', 'console', 'pod'] },
+  watch: { floor: 'panel', props: ['console', 'holo', 'locker', 'seat'] },
+  seal: { floor: 'seal', props: ['pod', 'pod', 'inlay'] },
 };
 
 /**
- * The furniture. None of it blocks anything — a bank that is
- * furniture-and-physics is a different game, and a guard who has to path round
- * a chair is a bug factory. What it has to do is say what the room *is*: a
- * counter and a plant read as a lobby, four cabinets read as records, and a
- * room with neither reads as a grey rectangle.
+ * The fittings. None of it blocks anything — a fortress that is
+ * furniture-and-physics is a different game, and a sentinel that has to path
+ * round a seat is a bug factory. What it has to do is say what the room *is*:
+ * a conduit and a growth read as a dock, four lockers read as an archive, and
+ * a room with neither reads as a grey rectangle.
  */
 function decorate(rooms, rng) {
   const props = [];
   for (const r of rooms) {
-    const kit = FURNISHING[r.kind] || FURNISHING.office;
+    const kit = FURNISHING[r.kind] || FURNISHING.lab;
     r.floor = kit.floor;
     const n = 2 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {

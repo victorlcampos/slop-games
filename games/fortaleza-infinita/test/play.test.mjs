@@ -1,4 +1,4 @@
-// The heist itself, played in Node at a fixed step.
+// The escape itself, played in Node at a fixed step.
 //
 // Every scenario here puts the actor where the scenario happens — a guard is
 // moved into the doorway, a camera is pointed down the corridor — rather than
@@ -10,7 +10,7 @@ import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/te
 installHeadlessDom();     // render.js reaches i18n, which reads localStorage on load
 
 const game_config = await import('../src/config.js');
-const { floorSeed, PLAYER, PICKUP, ROLL, TILE, dist, angleDelta } = game_config;
+const { floorSeed, PLAYER, PICKUP, ROLL, TILE, GUARD, dist, angleDelta } = game_config;
 const { generateFloor } = await import('../src/levelgen.js');
 const { createGame, assistedAim } = await import('../src/game.js');
 const { createRun, silentBonus } = await import("../src/run.js");
@@ -151,7 +151,7 @@ scenario('a guard who sees you runs for a panel and rings it', () => {
 scenario('shoot him first and nobody is told', () => {
   const game = open(4, 7);
   const g = faceOff(game);
-  // Track him and hold the trigger, the way a player does: the silenced pistol
+  // Track him and hold the trigger, the way a player does: the whisper coil
   // has to finish him before he crosses the floor. Aiming at the spot he was
   // standing on when the scenario started is not a test of the gun, it is a
   // test of whether he stayed still — and he does not, he runs for the alarm.
@@ -181,7 +181,7 @@ scenario('a body on the carpet tells the same story as you do', () => {
     game.level.plan.guardSight = 200;
     const spot = openSpotNear(game, g.x, g.y, 110);
     check(spot, "no clear spot in the guard's own room to drop a body on");
-    game.bodies.push({ x: spot.x, y: spot.y, a: 0, seen: 0, gun: 'pistol', id: 'z' });
+    game.bodies.push({ x: spot.x, y: spot.y, a: 0, seen: 0, gun: 'blaster', id: 'z' });
     const towards = Math.atan2(spot.y - g.y, spot.x - g.x);
     g.facing = facingTheBody ? towards : towards + Math.PI;
     check(
@@ -206,7 +206,7 @@ scenario('a body on the carpet tells the same story as you do', () => {
 
 scenario('you can pick a body up and take it somewhere else', () => {
   const game = open();
-  const body = { x: game.player.x + 40, y: game.player.y, a: 0, seen: 0, gun: 'pistol', id: 'z' };
+  const body = { x: game.player.x + 40, y: game.player.y, a: 0, seen: 0, gun: 'blaster', id: 'z' };
   game.bodies.push(body);
   const where = { x: body.x, y: body.y };
 
@@ -291,7 +291,54 @@ scenario('pulling an alarm yourself sends them to the panel, not to you', () => 
   );
 });
 
-scenario('a shot is heard; a silenced shot is not', () => {
+/** Stand him in front of a node, in the open, and let the gun do the rest. */
+function shootNode(game, node) {
+  game.player.x = node.x + Math.cos(node.facing) * 46;
+  game.player.y = node.y + Math.sin(node.facing) * 46;
+  game.player.facing = Math.atan2(node.y - game.player.y, node.x - game.player.x);
+  game.player.weapon = { id: 'blaster', ammo: 30, cool: 0 };
+  tick(game, 1.2, { fire: true, aim: { x: node.x, y: node.y } }, () => node.dead);
+}
+
+scenario('the siren starts with the alarm, and shooting the ringing node ends it', () => {
+  // These hooks are what main.js hangs the actual sound off — the WebAudio
+  // graph itself is a browser thing, but *when it starts and stops* is a rule,
+  // and rules live here.
+  const game = open(5, 11);
+  for (const c of game.cameras) c.dead = true;    // nobody re-raises mid-test
+  const heard = [];
+  game.onAlarm = () => heard.push('start');
+  game.onAlarmSilenced = () => heard.push('silenced');
+  game.onAlarmOff = () => heard.push('off');
+
+  const [ringing, other] = game.alarms;
+  check(ringing && other, `the ring has ${game.alarms.length} node(s) and the test needs two`);
+  game.raiseAlarm(ringing, 'player');
+  check(heard.includes('start'), 'the alarm went up and the siren was never asked for');
+
+  // a node that is NOT the one ringing is scrap, not silence
+  shootNode(game, other);
+  check(other.dead, 'the second node survived point-blank fire');
+  check(!heard.includes('silenced'), 'breaking a mute node stopped a siren it was not making');
+
+  // the one that IS ringing is both
+  shootNode(game, ringing);
+  check(ringing.dead, 'the ringing node survived point-blank fire');
+  check(heard.includes('silenced'), 'the ringing node is dead and the siren was never told');
+  check(game.alarm.on, 'silencing the siren should not call off the hunt');
+
+  // and left alone, the timer ends the ring — and says so
+  const quiet = open(5, 11);
+  for (const c of quiet.cameras) c.dead = true;
+  const events = [];
+  quiet.onAlarmOff = () => events.push('off');
+  quiet.raiseAlarm(quiet.alarms[0], 'player');
+  tick(quiet, GUARD.alarmHold + 1, IDLE);
+  check(!quiet.alarm.on, `the alarm is still on after ${GUARD.alarmHold + 1}s of nobody seeing anything`);
+  check(events.includes('off'), 'the alarm timed out and the siren was never told');
+});
+
+scenario('a shot is heard; a whisper shot is not', () => {
   const setup = (gun) => {
     const game = open(4, 55);
     game.level.plan.guardSight = 1;
@@ -306,10 +353,10 @@ scenario('a shot is heard; a silenced shot is not', () => {
     tick(game, 1, { fire: true });
     return g;
   };
-  check(WEAPONS.silenced.noise < 340, 'the test assumes 340px is outside the silenced pistol');
-  check(WEAPONS.shotgun.noise > 340, 'the test assumes 340px is inside a shotgun');
-  check(setup('shotgun').state === 'investigate', 'a shotgun went off 340px away and nobody came');
-  check(setup('silenced').state === 'patrol', 'the silenced pistol woke a guard 340px away');
+  check(WEAPONS.whisper.noise < 340, 'the test assumes 340px is outside the whisper coil');
+  check(WEAPONS.shockwave.noise > 340, 'the test assumes 340px is inside a shockwave');
+  check(setup('shockwave').state === 'investigate', 'a shockwave went off 340px away and nobody came');
+  check(setup('whisper').state === 'patrol', 'the whisper coil woke a guard 340px away');
 });
 
 scenario('with every panel broken, the man who saw you comes himself', () => {
@@ -332,30 +379,30 @@ scenario('with every panel broken, the man who saw you comes himself', () => {
 scenario('a gun is swapped by standing on it, and the old one is left on the floor', () => {
   const game = open();
   const before = game.items.length;
-  game.items.push({ kind: 'gun', gun: 'shotgun', ammo: 12, x: game.player.x + 20, y: game.player.y, taken: false });
-  game.player.weapon = { id: 'rifle', ammo: 9, cool: 0 };
+  game.items.push({ kind: 'gun', gun: 'shockwave', ammo: 12, x: game.player.x + 20, y: game.player.y, taken: false });
+  game.player.weapon = { id: 'lance', ammo: 9, cool: 0 };
 
   game.update(STEP, IDLE);
   check(game.focus && game.focus.kind === 'gun', `the ring offered "${game.focus && game.focus.kind}"`);
-  tick(game, PICKUP.gun + 0.2, IDLE, (g) => g.player.weapon.id === 'shotgun');
-  check(game.player.weapon.id === 'shotgun', `he is holding a ${game.player.weapon.id}`);
+  tick(game, PICKUP.gun + 0.2, IDLE, (g) => g.player.weapon.id === 'shockwave');
+  check(game.player.weapon.id === 'shockwave', `he is holding a ${game.player.weapon.id}`);
   check(game.player.weapon.ammo === 12, `it came with ${game.player.weapon.ammo} rounds instead of 12`);
-  const dropped = game.items.filter((i) => !i.taken && i.gun === 'rifle');
-  check(dropped.length === 1, 'the rifle he was holding vanished instead of hitting the floor');
-  check(dropped[0].ammo === 9, `the dropped rifle carries ${dropped[0].ammo} rounds instead of 9`);
+  const dropped = game.items.filter((i) => !i.taken && i.gun === 'lance');
+  check(dropped.length === 1, 'the lance he was holding vanished instead of hitting the floor');
+  check(dropped[0].ammo === 9, `the dropped lance carries ${dropped[0].ammo} rounds instead of 9`);
   check(game.items.length > before, 'nothing was added to the floor');
 
   // and it does not immediately pick itself back up: the gun he just put down
   // is under his feet, and without the arming delay he swaps for ever
   tick(game, PICKUP.gun + 0.3);
-  check(game.player.weapon.id === 'shotgun', `he swapped straight back to the ${game.player.weapon.id}`);
+  check(game.player.weapon.id === 'shockwave', `he swapped straight back to the ${game.player.weapon.id}`);
 });
 
 scenario('sprinting over a gun does not take it; stopping on it does', () => {
   const rig = () => {
     const game = open();
-    game.player.weapon = { id: 'rifle', ammo: 9, cool: 0 };
-    game.items.push({ kind: 'gun', gun: 'shotgun', ammo: 12, x: game.player.x, y: game.player.y, taken: false });
+    game.player.weapon = { id: 'lance', ammo: 9, cool: 0 };
+    game.items.push({ kind: 'gun', gun: 'shockwave', ammo: 12, x: game.player.x, y: game.player.y, taken: false });
     return game;
   };
 
@@ -369,11 +416,11 @@ scenario('sprinting over a gun does not take it; stopping on it does', () => {
     top = Math.max(top, past.player.speed);
   }
   check(top > PICKUP.stillSpeed, `he never got past ${top.toFixed(0)} px/s — the test never sprinted`);
-  check(past.player.weapon.id === 'rifle', `running over it swapped him to a ${past.player.weapon.id}`);
+  check(past.player.weapon.id === 'lance', `running over it swapped him to a ${past.player.weapon.id}`);
 
   const stopped = rig();
   tick(stopped, PICKUP.gun + 0.4, IDLE);
-  check(stopped.player.weapon.id === 'shotgun', `stopping on it left him holding a ${stopped.player.weapon.id}`);
+  check(stopped.player.weapon.id === 'shockwave', `stopping on it left him holding a ${stopped.player.weapon.id}`);
 });
 
 scenario('a shot that crosses a man hits him, at any range', () => {
@@ -387,37 +434,37 @@ scenario('a shot that crosses a man hits him, at any range', () => {
     const g = faceOffClear(game, gap);
     check(g, `no clear line at ${gap}px anywhere around him — the test could not aim`);
     const hp = g.hp;
-    game.player.weapon = { id: 'rifle', ammo: 30, cool: 0 };
+    game.player.weapon = { id: 'lance', ammo: 30, cool: 0 };
     tick(game, 0.5, { fire: true, aim: { x: g.x, y: g.y } });
     check(g.hp < hp || g.dead, `at ${gap}px the rounds went straight past him (${g.hp}/${hp} hp)`);
   }
 });
 
-scenario('a dart drops a guard however big he is', () => {
+scenario('a stasis dart drops a guard however big he is', () => {
   // As a damage weapon this stopped working around floor 17, where guard health
-  // passes what a dart used to do — a silent takedown that quietly becomes the
+  // passes what a stasis dart used to do — a silent takedown that quietly becomes the
   // worst gun in the game exactly where you need it.
   for (const floor of [1, 20, 60]) {
     const game = open(floor, 99);
     const g = faceOff(game, 120);
     game.player.facing = 0;
-    game.player.weapon = { id: 'dart', ammo: 6, cool: 0 };
+    game.player.weapon = { id: 'stasis', ammo: 6, cool: 0 };
     tick(game, 1, { fire: true, aim: { x: g.x, y: g.y } }, (gm) => gm.guards[0].dead);
-    check(g.dead, `on floor ${floor} (${g.maxHp.toFixed(0)} hp) a dart left him standing`);
+    check(g.dead, `on floor ${floor} (${g.maxHp.toFixed(0)} hp) a stasis dart left him standing`);
     check(game.bodies.length === 1, `no body on floor ${floor}`);
     check(game.bodies[0].tranq, 'a tranquillised guard should not be bleeding on the carpet');
   }
-  check(WEAPONS.dart.noise < WEAPONS.silenced.noise, 'the dart has to be the quietest thing on the floor');
+  check(WEAPONS.stasis.noise < WEAPONS.whisper.noise, 'the stasis dart has to be the quietest thing on the floor');
 });
 
 scenario('the same gun again is ammunition, not a swap', () => {
   const game = open();
-  game.player.weapon = { id: 'smg', ammo: 20, cool: 0 };
-  game.items.push({ kind: 'gun', gun: 'smg', ammo: 40, x: game.player.x, y: game.player.y, taken: false });
+  game.player.weapon = { id: 'needler', ammo: 20, cool: 0 };
+  game.items.push({ kind: 'gun', gun: 'needler', ammo: 40, x: game.player.x, y: game.player.y, taken: false });
   tick(game, PICKUP.gun + 0.3, IDLE);
-  check(game.player.weapon.id === 'smg', `he is holding a ${game.player.weapon.id}`);
+  check(game.player.weapon.id === 'needler', `he is holding a ${game.player.weapon.id}`);
   check(game.player.weapon.ammo === 60, `he has ${game.player.weapon.ammo} rounds instead of 60`);
-  check(!game.items.some((i) => !i.taken && i.gun === 'smg'), 'a second SMG was put on the floor for no reason');
+  check(!game.items.some((i) => !i.taken && i.gun === 'needler'), 'a second needler was put on the floor for no reason');
 });
 
 scenario('the roll is faster than a walk, and everybody hears it', () => {
@@ -450,7 +497,7 @@ scenario('the roll is faster than a walk, and everybody hears it', () => {
 
 scenario('a roll has to finish before the next one, and it drops what you are carrying', () => {
   const game = open();
-  game.bodies.push({ x: game.player.x, y: game.player.y, a: 0, seen: 0, gun: 'pistol', id: 'z' });
+  game.bodies.push({ x: game.player.x, y: game.player.y, a: 0, seen: 0, gun: 'blaster', id: 'z' });
   game.update(STEP, IDLE);
   game.update(STEP, { use: true });
   check(game.player.dragging, 'the body was not picked up');
@@ -470,9 +517,9 @@ scenario('a roll has to finish before the next one, and it drops what you are ca
 
 scenario('an empty gun falls back to the one you always have', () => {
   const game = open();
-  game.player.weapon = { id: 'revolver', ammo: 2, cool: 0 };
+  game.player.weapon = { id: 'ioncannon', ammo: 2, cool: 0 };
   tick(game, 3, { fire: true });
-  check(game.player.weapon.id === 'silenced', `he is still holding a ${game.player.weapon.id} with ${game.player.weapon.ammo} rounds`);
+  check(game.player.weapon.id === 'whisper', `he is still holding a ${game.player.weapon.id} with ${game.player.weapon.ammo} rounds`);
 });
 
 scenario('cash goes in the bag, a medkit goes in the arm', () => {
@@ -516,14 +563,14 @@ scenario('the lift carries your health, your gun and the bag', () => {
   const run = createRun({ seed: 3 });
   const first = run.start();
   first.player.hp = 55;
-  first.player.weapon = { id: 'rifle', ammo: 30, cool: 0 };
+  first.player.weapon = { id: 'lance', ammo: 30, cool: 0 };
   first.stats.money = 4000;
   first.level.vault.cracked = 1;
   first.state = 'cleared';
 
   const second = run.advance();
   check(second.level.floor === 2, `the lift arrived on floor ${second.level.floor}`);
-  check(second.player.weapon.id === 'rifle', `he arrived holding a ${second.player.weapon.id}`);
+  check(second.player.weapon.id === 'lance', `he arrived holding a ${second.player.weapon.id}`);
   check(second.player.weapon.ammo === 30, `with ${second.player.weapon.ammo} rounds`);
   check(second.stats.money === 4000 + silentBonus(1), `the bag holds ${second.stats.money} — the silent bonus is missing`);
   check(second.player.hp > 55, `he arrived with ${second.player.hp} hp, no better than he left`);
@@ -745,14 +792,14 @@ scenario('the assist does not aim at what you cannot see', () => {
 // ---------------------------------------------------------------- the guns
 
 scenario('the gun you start with is the worst gun in a fight, by a distance', () => {
-  const quiet = dps(WEAPONS.silenced);
+  const quiet = dps(WEAPONS.whisper);
   for (const w of Object.values(WEAPONS)) {
-    if (w.id === 'silenced' || w.id === 'dart') continue;
+    if (w.id === 'whisper' || w.id === 'stasis') continue;
     const ratio = dps(w) / quiet;
-    check(ratio >= 3, `the ${w.id} is only ${ratio.toFixed(1)}x the starting pistol — nobody would carry it`);
+    check(ratio >= 3, `the ${w.id} is only ${ratio.toFixed(1)}x the starting coil — nobody would carry it`);
     check(w.mag >= 20, `the ${w.id} carries ${w.mag} rounds, too few to be worth the noise`);
   }
-  check(dps(WEAPONS.lmg) > dps(WEAPONS.pistol), 'a machine gun should out-shoot a pistol');
+  check(dps(WEAPONS.shredder) > dps(WEAPONS.blaster), 'a shredder should out-shoot a blaster');
 });
 
 scenario('every gun does something no other gun does', () => {
@@ -761,12 +808,12 @@ scenario('every gun does something no other gun does', () => {
   check(has('pierce').length >= 2, 'nothing goes through a man');
   check(has('heavy').length >= 2, 'no gun costs you your feet');
   check(has('stagger').length >= 2, 'no gun knocks a man off his aim');
-  check(WEAPONS.sniper.pierce > WEAPONS.rifle.pierce, 'the sniper should out-punch the rifle');
-  check(WEAPONS.shotgun.range < WEAPONS.rifle.range * 0.6, 'the shotgun is meant to be a close-quarters gun');
-  check(WEAPONS.lmg.heavy < WEAPONS.shotgun.heavy, 'the machine gun should be the heaviest thing to carry');
+  check(WEAPONS.railgun.pierce > WEAPONS.lance.pierce, 'the railgun should out-punch the lance');
+  check(WEAPONS.shockwave.range < WEAPONS.lance.range * 0.6, 'the shockwave is meant to be a close-quarters gun');
+  check(WEAPONS.shredder.heavy < WEAPONS.shockwave.heavy, 'the shredder should be the heaviest thing to carry');
 });
 
-scenario('a rifle round goes through the first man to reach the second', () => {
+scenario('a lance round goes through the first man to reach the second', () => {
   const game = open(6, 5);
   const a = faceOffClear(game, 150);
   check(a, 'no clear line to line two men up on');
@@ -790,7 +837,7 @@ scenario('a rifle round goes through the first man to reach the second', () => {
   b.x = placed.x;
   b.y = placed.y;
 
-  game.player.weapon = { id: 'sniper', ammo: 9, cool: 0 };
+  game.player.weapon = { id: 'railgun', ammo: 9, cool: 0 };
   const hpB = b.hp;
   tick(game, 0.3, { fire: true, aim: { x: a.x, y: a.y } });
   check(a.hp < a.maxHp || a.dead, 'the first man was not hit at all');
@@ -799,15 +846,15 @@ scenario('a rifle round goes through the first man to reach the second', () => {
 
 scenario('a heavy gun costs you your feet while it fires', () => {
   const light = open();
-  light.player.weapon = { id: 'pistol', ammo: 60, cool: 0 };
+  light.player.weapon = { id: 'blaster', ammo: 60, cool: 0 };
   tick(light, 1.2, { mx: 1, my: 0, fire: true });
   const a = dist(light.level.spawn.x, light.level.spawn.y, light.player.x, light.player.y);
 
   const heavy = open();
-  heavy.player.weapon = { id: 'lmg', ammo: 200, cool: 0 };
+  heavy.player.weapon = { id: 'shredder', ammo: 200, cool: 0 };
   tick(heavy, 1.2, { mx: 1, my: 0, fire: true });
   const b = dist(heavy.level.spawn.x, heavy.level.spawn.y, heavy.player.x, heavy.player.y);
-  check(b < a * 0.8, `firing the machine gun on the move covered ${b.toFixed(0)}px against ${a.toFixed(0)}px with a pistol`);
+  check(b < a * 0.8, `firing the shredder on the move covered ${b.toFixed(0)}px against ${a.toFixed(0)}px with a blaster`);
 });
 
 scenario('staying quiet is worth more the deeper you go, not less', () => {
@@ -971,7 +1018,7 @@ scenario('the whole screen draws, on every phase, in both languages', () => {
   const renderer = createRenderer();
   const game = open(6, 44, { clearGuards: false });
   game.items.push({ kind: 'loot', value: 100, x: game.player.x + 30, y: game.player.y, taken: false });
-  game.bodies.push({ x: game.player.x - 30, y: game.player.y, a: 1, seen: 0, gun: 'pistol', id: 'z' });
+  game.bodies.push({ x: game.player.x - 30, y: game.player.y, a: 1, seen: 0, gun: 'blaster', id: 'z' });
 
   const fx = { bits: [{ x: 0, y: 0, size: 3, colour: '#fff', t: 0.2, life: 0.4 }], rings: [{ x: 0, y: 0, r: 5, max: 40, t: 0.2, life: 0.4, colour: '#f00' }], floats: [{ x: 0, y: 0, text: '+$1', colour: '#fff', t: 0.5, life: 1 }], state: { shake: 4 } };
 
@@ -997,4 +1044,4 @@ scenario('the whole screen draws, on every phase, in both languages', () => {
   check(true, 'a full frame was painted without throwing');
 });
 
-await runTests('bank job — the heist');
+await runTests('infinite fortress — the escape');

@@ -1,12 +1,12 @@
-// The heist: floor after floor, for as long as you last.
+// The escape: ring after ring, for as long as you last.
 //
-// A run is a seed and a floor number. Nothing about a floor is stored — floor
+// A run is a seed and a ring number. Nothing about a ring is stored — ring
 // 12 of run 481 is rebuilt from those two numbers whenever it is needed, which
-// is what makes "infinite floors" cost nothing but the arithmetic.
+// is what makes "an infinite fortress" cost nothing but the arithmetic.
 //
-// What crosses the lift doors with you: your health, your gun and what is in
-// the bag. Which is why the third floor is not the third floor — it is the
-// third floor arriving on whatever the second one left of you.
+// What crosses the gate with you: your health, your gun and the shards in
+// your pockets. Which is why the third ring is not the third ring — it is the
+// third ring arriving on whatever the second one left of you.
 
 import { PLAYER, floorSeed } from './config.js';
 import { generateFloor } from './levelgen.js';
@@ -14,11 +14,11 @@ import { createGame } from './game.js';
 import { createLoadout } from './weapons.js';
 
 /**
- * Cleared without the building ever hearing you: worth money and a bandage.
+ * Cleared without the Fortress ever hearing you: worth shards and a bandage.
  *
- * It scales with the floor, and it has to. A flat bonus is most of the takings
- * on floor 1 and a rounding error on floor 20, so the deeper you get the less
- * reason there is to bother being quiet — exactly backwards from how the floors
+ * It scales with the ring, and it has to. A flat bonus is most of the takings
+ * on ring 1 and a rounding error on ring 20, so the higher you get the less
+ * reason there is to bother being quiet — exactly backwards from how the rings
  * are built.
  */
 export const silentBonus = (floor) => Math.round(1200 + 700 * Math.max(0, floor - 1));
@@ -60,7 +60,7 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
     return game;
   }
 
-  /** Bank the floor he died on. Idempotent: death arrives from two directions. */
+  /** Book the ring he died on. Idempotent: death arrives from two directions. */
   function close(g) {
     if (run.over) return;
     run.over = true;
@@ -81,7 +81,7 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
     return build(1);
   };
 
-  /** Bank what the floor just paid, and open the next one. */
+  /** Book what the ring just paid, and open the next one. */
   run.advance = () => {
     const g = run.game;
     if (!g || g.state !== 'cleared') return run.game;
@@ -106,7 +106,7 @@ export function createRun({ seed = 1, fx, hooks = {} } = {}) {
     if (g.state === 'dead') close(g);
   };
 
-  /** What the run is worth: the bag, plus the floors it took to fill it. */
+  /** What the run is worth: the pockets, plus the rings it took to fill them. */
   run.score = () => {
     const g = run.game;
     const bag = g ? g.stats.money : run.money;

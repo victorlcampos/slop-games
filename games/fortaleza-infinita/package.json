@@ -1,7 +1,7 @@
 {
-  "name": "assalto-ao-banco",
+  "name": "fortaleza-infinita",
   "version": "1.0.0",
-  "description": "A top-down heist through a bank that is generated, floor by floor, and never gets easier.",
+  "description": "A top-down escape through an alien fortress that is generated, ring by ring, and never gets easier.",
   "type": "module",
   "private": true,
   "scripts": {

@@ -1,4 +1,4 @@
-// The bank, seen from almost directly above and tipped just a little.
+// The Fortress, seen from almost directly above and tipped just a little.
 //
 // Everybody fits inside their own square, which is the rule that matters: what
 // you aim at and what the simulation shoots at have to be the same place. The
@@ -55,13 +55,14 @@ function radials() {
     RADIALS = {
       // the torch falloff: same stops the old per-frame gradient carried
       falloff: radialSprite(512, '7,8,12', [[0, 0], [0.22, 0], [0.735, 0.18], [1, 0.56]]),
-      // a breath of warm light at his feet — a torch, not a fluorescent tube
+      // a breath of warm light at his feet — a human torch in an alien hull,
+      // and the one warm thing on the ring
       glow: radialSprite(256, '255,205,150', [[0, 0.1], [0.55, 0.04], [1, 0]]),
-      muzzle: radialSprite(128, '255,195,120', [[0, 0.85], [1, 0]]),
-      coneCalm: radialSprite(256, '255,225,170', CONE_STOPS),
+      muzzle: radialSprite(128, '185,245,255', [[0, 0.85], [1, 0]]),
+      coneCalm: radialSprite(256, '150,240,220', CONE_STOPS),
       coneWary: radialSprite(256, '255,200,110', CONE_STOPS),
       coneHot: radialSprite(256, '255,90,77', CONE_STOPS),
-      coneCam: radialSprite(256, '143,169,214', CONE_STOPS),
+      coneCam: radialSprite(256, '178,143,230', CONE_STOPS),
     };
   }
   return RADIALS;
@@ -221,16 +222,17 @@ function clipToSight(ctx, sight) {
 
 /**
  * What a tile is made of. Four materials and a corridor, each with its own
- * pattern — a chequer for marble, planks for wood, a plain slab for lino — so
- * you can tell a lobby from a records room from the floor alone, which is most
- * of what tells you where you are when you can only see one room at a time.
+ * pattern — a chequer for slate, ribs for the membrane decks, a plain slab for
+ * the panelled rooms — so you can tell a dock from an archive from the floor
+ * alone, which is most of what tells you where you are when you can only see
+ * one room at a time.
  */
 const MATERIAL = [
-  { a: '#3f4657', b: '#3a4152', pattern: 'plain' },     // stone: the corridors
-  { a: '#525c72', b: '#485166', pattern: 'chequer' },   // marble
-  { a: '#4e4131', b: '#463a2c', pattern: 'plank' },     // wood
-  { a: '#454c5c', b: '#414755', pattern: 'plain' },     // lino
-  { a: '#6b5a2a', b: '#5d4e24', pattern: 'chequer' },   // the vault
+  { a: '#3a444d', b: '#353e47', pattern: 'plain' },     // deck: the corridors
+  { a: '#4a5a68', b: '#42505e', pattern: 'chequer' },   // slate, cut and polished
+  { a: '#463c58', b: '#3e354e', pattern: 'plank' },     // membrane, laid in ribs
+  { a: '#42505a', b: '#3d4a54', pattern: 'plain' },     // panel
+  { a: '#2a5a58', b: '#254e4d', pattern: 'chequer' },   // the seal chamber
 ];
 
 function paintRemembered(ctx, game, view) {
@@ -313,7 +315,7 @@ function paintFloor(ctx, game, view) {
         ctx.fillStyle = 'rgba(0,0,0,0.16)';
         for (let i = 1; i < 4; i++) ctx.fillRect(x, y + i * 16, TILE, 1);
         ctx.fillRect(x + ((cx * 29 + cy * 13) % 3) * 21, y, 1, TILE);
-        // every few boards, one lies a shade darker — sawn from another tree
+        // every few ribs, one lies a shade darker — grown in another season
         if (h % 5 === 0) {
           ctx.fillStyle = 'rgba(0,0,0,0.07)';
           ctx.fillRect(x, y + ((h >> 3) % 4) * 16, TILE, 16);
@@ -322,9 +324,9 @@ function paintFloor(ctx, game, view) {
         ctx.fillStyle = 'rgba(255,255,255,0.035)';
         ctx.fillRect(x + 2, y + 2, 28, 28);
         ctx.fillRect(x + 34, y + 34, 28, 28);
-        // a faint vein wandering across the odd slab of marble
+        // the odd slab has a live filament under it, faint as a vein
         if (h % 7 === 0) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.strokeStyle = 'rgba(92,232,207,0.09)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x + ((h >> 4) % 48), y);
@@ -332,7 +334,7 @@ function paintFloor(ctx, game, view) {
           ctx.stroke();
         }
       } else if (h % 11 === 0) {
-        // the corridors are the used floors: a scuff where the trolleys turn
+        // the corridors are the used floors: a scorch where the haulers turn
         ctx.fillStyle = 'rgba(0,0,0,0.08)';
         ctx.fillRect(x + ((h >> 5) % 38), y + ((h >> 9) % 52) + 6, 22, 3);
       }
@@ -364,87 +366,116 @@ function paintProps(ctx, game, view) {
     ctx.rotate(pr.a);
     ctx.scale(pr.size, pr.size);
     switch (pr.kind) {
-      case 'desk':
-        slab(ctx, 52, 30, '#5a4227', '#3a2b1a');
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(-24, -13, 16, 20);            // the drawers
-        ctx.fillStyle = '#8b6b3e';
-        ctx.fillRect(-22, -6, 12, 2);
+      case 'console':
+        slab(ctx, 52, 30, '#3d4854', '#242c36');
+        ctx.fillStyle = `rgba(92,232,207,${0.35 + pr.tone * 0.3})`;
+        ctx.fillRect(-20, -14, 40, 3);             // the live read-out strip
+        ctx.fillStyle = 'rgba(92,232,207,0.18)';
+        for (let i = 0; i < 4; i++) ctx.fillRect(-18 + i * 10, -7, 6, 3);
         break;
-      case 'counter':
-        slab(ctx, 76, 24, '#5b4a2e', '#3a2f1d', 7);
-        ctx.fillStyle = '#8f7440';
-        ctx.fillRect(-38, -19, 76, 3);             // the brass rail
+      case 'conduit':
+        slab(ctx, 76, 24, '#39434e', '#20272f', 7);
+        ctx.fillStyle = `rgba(92,232,207,${0.4 + pr.tone * 0.25})`;
+        ctx.fillRect(-38, -19, 76, 3);             // the current running along it
+        ctx.fillStyle = 'rgba(232,255,250,0.5)';
+        for (let i = 0; i < 3; i++) ctx.fillRect(-28 + i * 26, -19, 3, 3);
         break;
-      case 'cabinet':
-        slab(ctx, 32, 26, '#4a5162', '#2b303c');
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.fillRect(-14, -12, 28, 1);
-        ctx.fillRect(-14, -4, 28, 1);
-        ctx.fillStyle = '#98a3b8';
+      case 'locker':
+        slab(ctx, 32, 26, '#46525e', '#262e38');
+        ctx.fillStyle = 'rgba(92,232,207,0.22)';
+        ctx.fillRect(-14, -12, 28, 2);             // the specimen slots, lit
+        ctx.fillRect(-14, -4, 28, 2);
+        ctx.fillStyle = '#9fb2c4';
         ctx.fillRect(-3, -9, 6, 2);
         break;
-      case 'chair':
+      case 'seat':
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
         ctx.ellipse(2, 3, 12, 10, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#3d3346';
+        ctx.fillStyle = '#33304a';
         ctx.beginPath();
         ctx.ellipse(0, 0, 11, 9, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#584a63';
-        ctx.fillRect(-11, -12, 22, 6);             // the back
+        ctx.strokeStyle = 'rgba(169,143,224,0.5)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();                            // the cradle's collar
+        ctx.arc(0, -6, 10, Math.PI, Math.PI * 2);
+        ctx.stroke();
         break;
-      case 'plant':
+      case 'growth':
         ctx.fillStyle = 'rgba(0,0,0,0.32)';
         ctx.beginPath();
         ctx.ellipse(2, 4, 14, 11, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#6a4a32';
+        ctx.fillStyle = '#333b42';
         ctx.beginPath();
         ctx.arc(0, 0, 11, 0, Math.PI * 2);
         ctx.fill();
         for (let i = 0; i < 6; i++) {
           const a = i * 1.05 + pr.tone * 3;
-          ctx.fillStyle = i % 2 ? '#3f7a48' : '#2f5f38';
+          ctx.fillStyle = i % 2 ? '#2f7a6a' : '#4a3f78';
           ctx.beginPath();
           ctx.ellipse(Math.cos(a) * 7, Math.sin(a) * 7 - 5, 8, 5, a, 0, Math.PI * 2);
           ctx.fill();
         }
+        ctx.fillStyle = 'rgba(143,240,220,0.8)';    // the spores that make it a lamp
+        for (let i = 0; i < 3; i++) {
+          const a = i * 2.1 + pr.tone * 5;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 6, Math.sin(a) * 6 - 6, 1.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
-      case 'bench':
-        slab(ctx, 60, 18, '#4d3a24', '#2f2416', 4);
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      case 'berth':
+        slab(ctx, 60, 18, '#3c4650', '#232a31', 4);
+        ctx.fillStyle = 'rgba(143,240,220,0.16)';
         ctx.fillRect(-30, -6, 60, 1);
         break;
-      case 'crate':
-        slab(ctx, 34, 30, '#6b5836', '#3f3320');
-        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      case 'pod':
+        slab(ctx, 34, 30, '#4a5560', '#2a323b');
+        ctx.strokeStyle = 'rgba(92,232,207,0.28)';
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-17, -20);
-        ctx.lineTo(17, 5);
-        ctx.moveTo(17, -20);
-        ctx.lineTo(-17, 5);
+        ctx.beginPath();                            // the hex seal on the lid
+        for (let i = 0; i <= 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const px = Math.cos(a) * 10;
+          const py = Math.sin(a) * 10 - 7;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
         ctx.stroke();
         break;
-      case 'monitor':
-        slab(ctx, 30, 20, '#232833', '#171b24', 6);
-        ctx.fillStyle = pr.tone > 0.5 ? '#3f6ea0' : '#2f5580';
-        ctx.fillRect(-12, -24, 24, 12);            // the screen, faintly on
+      case 'holo':
+        slab(ctx, 30, 20, '#242c36', '#161c24', 6);
+        ctx.fillStyle = pr.tone > 0.5 ? 'rgba(92,232,207,0.4)' : 'rgba(169,143,224,0.4)';
+        ctx.fillRect(-12, -30, 24, 14);            // the picture, hanging in the air
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        for (let i = 0; i < 3; i++) ctx.fillRect(-12, -27 + i * 4, 24, 1);
         break;
-      case 'rug':
-        ctx.fillStyle = `rgba(104,46,56,${0.4 + pr.tone * 0.25})`;
-        ctx.fillRect(-46, -32, 92, 64);
-        ctx.strokeStyle = 'rgba(210,160,110,0.2)';
+      case 'glyph':
+        ctx.strokeStyle = `rgba(92,232,207,${0.14 + pr.tone * 0.12})`;
         ctx.lineWidth = 3;
-        ctx.strokeRect(-40, -26, 80, 52);
+        ctx.beginPath();
+        ctx.arc(0, 0, 34, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + pr.tone;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * 24, Math.sin(a) * 24);
+          ctx.lineTo(Math.cos(a) * 32, Math.sin(a) * 32);
+          ctx.stroke();
+        }
         break;
-      default:                                     // 'plate', the vault's inlay
-        ctx.strokeStyle = `rgba(240,198,90,${0.25 + pr.tone * 0.2})`;
+      default:                                     // 'inlay', the seal chamber's floor mark
+        ctx.strokeStyle = `rgba(92,232,207,${0.25 + pr.tone * 0.2})`;
         ctx.lineWidth = 2;
         ctx.strokeRect(-30, -22, 60, 44);
+        ctx.strokeRect(-24, -16, 48, 32);
     }
     ctx.restore();
   }
@@ -458,7 +489,7 @@ function paintProps(ctx, game, view) {
  * At most two casts: the face nearest on x and the one nearest on y. The points
  * are just *outside* the tile, never inside it — a point one pixel into a wall
  * is inside a wall, nothing inside a wall is ever visible, and asking that way
- * draws the bank as rooms with no walls at all.
+ * draws the Fortress as rooms with no walls at all.
  */
 function wallLit(sight, cx, cy) {
   const x0 = cx * TILE;
@@ -505,7 +536,7 @@ function paintStanding(ctx, game, view, opts, wallScale = 1) {
   }
   for (const c of game.cameras) {
     if (!lit(c.x, c.y)) continue;
-    add(c.y, () => drawCamera(ctx, c));
+    add(c.y, () => drawCamera(ctx, c, game));
   }
   for (const g of game.guards) {
     if (g.dead || !lit(g.x, g.y)) continue;
@@ -706,38 +737,52 @@ function drawPerson(ctx, x, y, facing, kit, o = {}) {
   ctx.translate(hx, hy);
   ctx.rotate(facing);
   ctx.scale(k, k);
-  ctx.fillStyle = kit.skin;
-  ctx.beginPath();
-  ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
-  ctx.fill();
-  // the top of the head: whatever he has on it, seen from above
-  ctx.fillStyle = kit.head;
-  if (kit.hat === 'cap') {
-    ctx.beginPath();
-    ctx.arc(0, 0, 7.5, Math.PI * 0.5, Math.PI * 1.5);   // the crown
-    ctx.fill();
-    ctx.fillRect(0, -6, 5, 12);                         // the peak, pointing forward
-    ctx.fillStyle = kit.trim;
-    ctx.fillRect(1.5, -2, 3, 4);                        // the badge on it
-  } else if (kit.hat === 'helmet') {
-    ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = kit.trim;
-    ctx.fillRect(-7, -1.5, 14, 3);                      // the ridge over the top
-    ctx.fillStyle = COLOURS.ink;
-    ctx.fillRect(4, -4, 3, 8);                          // the visor
-  } else {
-    // a balaclava with a strip of face showing, which is what a bank robber
-    // looks like from directly overhead
+  // the top of the head: what species it is, seen from above
+  if (kit.hat === 'headlamp') {
+    // the one human head on the ring: hair, a strip of forehead, and the lamp
+    // whose light the whole renderer is built around
+    ctx.fillStyle = kit.skin;
     ctx.beginPath();
     ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = kit.skin;
-    ctx.fillRect(2.5, -4.5, 4.5, 9);
+    ctx.fillStyle = kit.head;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7.5, Math.PI * 0.42, Math.PI * 1.58);   // the hair, worn back
+    ctx.fill();
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(-2, -7.5, 3.5, 15);                      // the lamp's strap
+    ctx.fillStyle = '#fff2c8';
+    ctx.fillRect(4.5, -2, 3.5, 4);                        // the lamp itself
+  } else if (kit.hat === 'dome' || kit.hat === 'ridge' || kit.hat === 'crest') {
+    // a sentinel's head: one smooth cranium, longer than it is wide, and the
+    // two black eyes that do all the seeing in this game — set forward, so
+    // even from directly above you can tell where the cone is about to be
+    ctx.fillStyle = kit.head;
+    ctx.beginPath();
+    ctx.ellipse(-1, 0, 8.5, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = COLOURS.ink;
-    ctx.fillRect(3.5, -3.5, 2, 2.5);
-    ctx.fillRect(3.5, 1, 2, 2.5);
+    ctx.beginPath();
+    ctx.ellipse(4.5, -3.4, 2.6, 1.7, 0.5, 0, Math.PI * 2);
+    ctx.ellipse(4.5, 3.4, 2.6, 1.7, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (kit.hat === 'ridge') {
+      ctx.fillStyle = kit.trim;
+      ctx.fillRect(-8, -1.2, 9, 2.4);                     // a rank stripe of chitin
+    } else if (kit.hat === 'crest') {
+      ctx.fillStyle = kit.trim;
+      ctx.beginPath();                                    // the crest the veterans grow
+      ctx.moveTo(-9.5, 0);
+      ctx.lineTo(3, -2.6);
+      ctx.lineTo(3, 2.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+    ctx.fillStyle = kit.head;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 }
@@ -746,73 +791,93 @@ function drawPerson(ctx, x, y, facing, kit, o = {}) {
  * Every gun as a silhouette, drawn pointing right from the grip at (0,0).
  *
  * They are told apart by outline alone: on the floor there is no label, and in
- * a corridor lit by a torch there is no time to read one.
+ * a corridor lit by a torch there is no time to read one. Each carries one
+ * point of light in its own colour — the cell, the vial, the charge — because
+ * in the dark an outline needs a heart to hang off.
  */
 export function drawGunShape(ctx, id) {
-  const steel = COLOURS.steel;
-  const black = '#2f3542';
-  const wood = '#7a5230';
-  const wear = '#5f6b82';
+  const alloy = COLOURS.steel;
+  const dark = '#2b3240';
+  const shell = '#4c5a6e';
+  const glow = '#6ff0dc';
+  const hot = '#ff6ad5';
+  const amber = '#ffb84a';
   const set = (c) => { ctx.fillStyle = c; };
 
   switch (id) {
-    case 'silenced':
-      set(black); ctx.fillRect(-3, 1, 5, 8);              // the grip
-      set(steel); ctx.fillRect(-2, -2, 14, 4);
-      set(wear); ctx.fillRect(12, -3.5, 13, 7);           // the can, fatter than the barrel
-      set(black); ctx.fillRect(22, -3.5, 3, 7);
+    case 'whisper':
+      set(dark); ctx.fillRect(-3, 1, 5, 8);               // the grip
+      set(alloy); ctx.fillRect(-2, -2, 24, 4);            // the rail
+      set(shell);                                          // the coil, ring by ring
+      for (let i = 0; i < 3; i++) ctx.fillRect(10 + i * 5, -3.5, 3, 7);
+      set(glow); ctx.fillRect(2, -1, 3, 2);               // the core, barely awake
       break;
-    case 'pistol':
-      set(black); ctx.fillRect(-3, 1, 6, 9);
-      set(steel); ctx.fillRect(-2, -2.5, 18, 5);
-      set(black); ctx.fillRect(-1, -2.5, 4, 5);           // the ejection port
+    case 'blaster':
+      set(dark); ctx.fillRect(-3, 1, 6, 9);
+      set(alloy); ctx.fillRect(-2, -2.5, 18, 5);
+      set(hot); ctx.fillRect(3, -1.5, 5, 3);              // the plasma cell, showing through
+      set(dark); ctx.fillRect(13, -4, 4, 2.5);            // the heat fin over the muzzle
       break;
-    case 'revolver':
-      set(wood); ctx.fillRect(-4, 1, 6, 9);               // wooden grips
-      set(steel); ctx.fillRect(-2, -2, 19, 4);
-      set(wear); ctx.beginPath(); ctx.arc(4, 0, 5, 0, Math.PI * 2); ctx.fill();
-      set(black); ctx.beginPath(); ctx.arc(4, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+    case 'ioncannon':
+      set(dark); ctx.fillRect(-4, 1, 6, 9);
+      set(alloy); ctx.fillRect(-2, -2, 20, 4);
+      set(shell); ctx.beginPath(); ctx.arc(4, 0, 5.5, 0, Math.PI * 2); ctx.fill();  // the capacitor wheel
+      set(amber); ctx.beginPath(); ctx.arc(4, 0, 2, 0, Math.PI * 2); ctx.fill();    // charged and sulking
+      set(dark); ctx.fillRect(15, -3, 4, 6);              // the choke
       break;
-    case 'smg':
-      set(black); ctx.fillRect(-9, -2, 6, 4);             // the folded stock
+    case 'needler':
+      set(dark); ctx.fillRect(-9, -2, 6, 4);              // the folded stock
       ctx.fillRect(-4, -3.5, 22, 6);
       ctx.fillRect(2, 2, 5, 12);                          // the long magazine
-      set(wear); ctx.fillRect(10, -1.5, 10, 3);
+      set(hot);                                            // the needles, riding exposed
+      for (let i = 0; i < 4; i++) ctx.fillRect(i * 4.5, -6, 2, 3);
+      set(alloy); ctx.fillRect(10, -1.5, 10, 3);
       break;
-    case 'shotgun':
-      set(wood); ctx.fillRect(-12, -3.5, 9, 7);           // the butt
-      set(black); ctx.fillRect(-4, -3, 30, 5);
-      set(wood); ctx.fillRect(8, 2, 13, 4);               // the pump
-      set(wear); ctx.fillRect(20, -3, 8, 5);
+    case 'shockwave':
+      set(dark); ctx.fillRect(-12, -3.5, 9, 7);           // the stock
+      ctx.fillRect(-4, -3, 24, 5);
+      set(shell); ctx.fillRect(8, 2, 13, 4);              // the pump — some designs are right twice
+      set(alloy);                                          // the horn, opening at the mouth
+      ctx.beginPath();
+      ctx.moveTo(20, -3); ctx.lineTo(28, -6.5); ctx.lineTo(28, 6.5); ctx.lineTo(20, 3);
+      ctx.closePath(); ctx.fill();
+      set(amber); ctx.fillRect(14, -1.5, 5, 3);
       break;
-    case 'rifle':
-      set(wood); ctx.fillRect(-13, -3, 10, 6);
-      set(black); ctx.fillRect(-5, -2.5, 34, 4.5);
-      ctx.fillRect(0, 1, 5, 11);
-      set(wear); ctx.fillRect(20, -1.5, 10, 3);
+    case 'lance':
+      set(dark); ctx.fillRect(-13, -3, 10, 6);
+      ctx.fillRect(-5, -2.5, 34, 4.5);
+      ctx.fillRect(0, 1, 5, 11);                          // the cell well
+      set(glow); ctx.fillRect(-2, -1, 29, 1.6);           // the beam channel, lit end to end
+      set(alloy); ctx.fillRect(29, -4.5, 3, 9);           // the focusing prong
       break;
-    case 'sniper':
-      set(wood); ctx.fillRect(-16, -3, 12, 6);
-      set(black); ctx.fillRect(-6, -2, 44, 3.5);
-      ctx.fillRect(0, 1, 4, 9);
-      set(wear); ctx.fillRect(1, -9, 16, 4.5);            // the scope on its rail
-      set(black); ctx.fillRect(3, -5.5, 2, 3); ctx.fillRect(13, -5.5, 2, 3);
-      break;
-    case 'lmg':
-      set(black); ctx.fillRect(-13, -4, 7, 8);
+    case 'shredder':
+      set(dark); ctx.fillRect(-13, -4, 7, 8);
       ctx.fillRect(-8, -4, 34, 7);
-      set(wear); ctx.beginPath(); ctx.arc(4, 7, 8, 0, Math.PI * 2); ctx.fill();  // the drum
-      set(black); ctx.beginPath(); ctx.arc(4, 7, 3, 0, Math.PI * 2); ctx.fill();
-      set(wear); ctx.fillRect(20, -2, 10, 3);
+      set(shell); ctx.beginPath(); ctx.arc(4, 7, 8, 0, Math.PI * 2); ctx.fill();  // the drum of cells
+      set(hot); ctx.beginPath(); ctx.arc(4, 7, 3, 0, Math.PI * 2); ctx.fill();
+      set(dark);
+      for (let i = 0; i < 3; i++) ctx.fillRect(12 + i * 5, -6.5, 3, 2.5);         // the heat vents
+      set(alloy); ctx.fillRect(20, -2, 10, 3);
       break;
-    case 'dart':
-      set('#3f4a3a'); ctx.fillRect(-4, 0, 5, 8);
-      set('#6d7a5e'); ctx.fillRect(-2, -1.5, 21, 3);      // olive, not gunmetal
-      set(wear); ctx.beginPath(); ctx.arc(6, -4.5, 4, 0, Math.PI * 2); ctx.fill();  // gas bottle
-      set('#e08a3a'); ctx.fillRect(17, -2, 4, 4);         // the orange tip
+    case 'railgun':
+      set(dark); ctx.fillRect(-16, -3, 12, 6);
+      ctx.fillRect(-6, -2, 18, 3.5);
+      ctx.fillRect(0, 1, 4, 9);
+      set(alloy); ctx.fillRect(10, -2.8, 34, 2);          // the rails, and the void between them
+      ctx.fillRect(10, 0.8, 34, 2);
+      set(shell);
+      for (let i = 0; i < 3; i++) ctx.fillRect(14 + i * 9, -4.5, 3, 9);           // the accelerator rings
+      set(glow); ctx.fillRect(11, -0.6, 32, 1.2);         // the charge sitting in the gap
+      break;
+    case 'stasis':
+      set(dark); ctx.fillRect(-4, 0, 5, 8);
+      set('#6d8a7a'); ctx.fillRect(-2, -1.5, 15, 3);      // sap green, not gunmetal
+      set(shell); ctx.beginPath(); ctx.arc(5, -4.5, 4, 0, Math.PI * 2); ctx.fill();  // the vial
+      set('#8fd07a'); ctx.beginPath(); ctx.arc(5, -4.5, 2, 0, Math.PI * 2); ctx.fill();  // lit from inside
+      set(alloy); ctx.fillRect(13, -1, 9, 1.8);           // the needle
       break;
     default:
-      set(steel); ctx.fillRect(-2, -2, 16, 4);
+      set(alloy); ctx.fillRect(-2, -2, 16, 4);
   }
 }
 
@@ -847,17 +912,17 @@ function drawPlayer(ctx, game, opts = {}) {
     ctx.ellipse(p.x, p.y + 2, 19, 12, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (game.focus) ring(ctx, p.x, p.y - 30, 13, game.focus.t / game.focus.need, COLOURS.gold);
+  if (game.focus) ring(ctx, p.x, p.y - 30, 13, game.focus.t / game.focus.need, COLOURS.energy);
   void opts;
 }
 
-/** The uniform he is in, which is also how far down the building he works. */
+/** The carapace it grew, which is also how high up the Fortress it serves. */
 function guardKit(g) {
   const base = g.state === 'patrol' ? KIT.guardCalm : KIT.guard;
   const tier = WEAPONS[g.gun] ? WEAPONS[g.gun].tier : 0;
-  if (tier >= 3) return { ...base, hat: 'helmet', vest: '#2b3140' };
-  if (tier === 2) return { ...base, hat: 'cap', vest: '#39303c' };
-  return { ...base, hat: 'cap' };
+  if (tier >= 3) return { ...base, hat: 'crest', vest: '#252d3d' };
+  if (tier === 2) return { ...base, hat: 'ridge', vest: '#3a2f4a' };
+  return base;
 }
 
 function drawGuard(ctx, g) {
@@ -881,10 +946,11 @@ function drawGuard(ctx, g) {
   }
 }
 
-/** A man on the floor: face down, arms out, and no head lifted off it. */
+/** A sentinel on the floor: face down, arms out, and no head lifted off it. */
 function drawBody(ctx, b) {
   if (!b.tranq) {
-    ctx.fillStyle = 'rgba(142,47,63,0.35)';
+    // ichor, not blood — the reddest thing in the Fortress is you
+    ctx.fillStyle = 'rgba(63,174,116,0.3)';
     ctx.beginPath();
     ctx.ellipse(b.x, b.y + 2, 25, 17, b.a, 0, Math.PI * 2);
     ctx.fill();
@@ -919,26 +985,51 @@ function drawItem(ctx, it, game) {
   const bob = Math.sin((it.x + it.y) * 0.05 + game.stats.time * 2) * 2;
   shadow(ctx, it.x, it.y, 10);
   if (it.kind === 'loot') {
+    // a shard of the Fortress's own current, standing on its point
     const y = it.y - 12 + bob;
     ctx.fillStyle = COLOURS.loot;
     ctx.beginPath();
-    ctx.moveTo(it.x - 11, y + 11);
-    ctx.lineTo(it.x - 7, y - 5);
-    ctx.lineTo(it.x + 7, y - 5);
+    ctx.moveTo(it.x, y - 10);
+    ctx.lineTo(it.x + 7, y);
+    ctx.lineTo(it.x, y + 11);
+    ctx.lineTo(it.x - 7, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';        // the facet the torch catches
+    ctx.beginPath();
+    ctx.moveTo(it.x, y - 10);
+    ctx.lineTo(it.x + 7, y);
+    ctx.lineTo(it.x, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(92,232,207,0.5)';         // two splinters at its feet
+    ctx.beginPath();
+    ctx.moveTo(it.x - 10, y + 10);
+    ctx.lineTo(it.x - 7, y + 4);
+    ctx.lineTo(it.x - 4, y + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(it.x + 5, y + 11);
+    ctx.lineTo(it.x + 8, y + 6);
     ctx.lineTo(it.x + 11, y + 11);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#7a5f12';
-    ctx.fillRect(it.x - 5, y - 9, 10, 5);
   } else if (it.kind === 'medkit') {
+    // the nanogel pod. The cross stays — it is still the one word every
+    // species in this catalog reads as "heal"
     const y = it.y - 14 + bob;
-    ctx.fillStyle = '#e8eef8';
-    ctx.fillRect(it.x - 10, y, 20, 14);
-    ctx.fillStyle = '#b9c4d6';
-    ctx.fillRect(it.x - 10, y + 14, 20, 4);
-    ctx.fillStyle = COLOURS.blood;
-    ctx.fillRect(it.x - 2, y + 3, 4, 9);
-    ctx.fillRect(it.x - 6, y + 6, 12, 3);
+    ctx.fillStyle = '#dbe4ee';
+    ctx.beginPath();
+    ctx.roundRect(it.x - 10, y, 20, 15, 7);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(143,208,122,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(it.x - 6, y + 3.5, 12, 8.5, 4);
+    ctx.fill();
+    ctx.fillStyle = '#eafff2';
+    ctx.fillRect(it.x - 1.5, y + 4.5, 3, 6.5);
+    ctx.fillRect(it.x - 4, y + 6.5, 8, 2.5);
   } else {
     ctx.save();
     ctx.translate(it.x - 8, it.y - 8 + bob);
@@ -948,46 +1039,81 @@ function drawItem(ctx, it, game) {
     ctx.restore();
   }
   const f = game.focus;
-  if (f && f.target === it) ring(ctx, it.x, it.y - 26, 14, f.t / f.need, COLOURS.gold);
+  if (f && f.target === it) ring(ctx, it.x, it.y - 26, 14, f.t / f.need, COLOURS.energy);
 }
 
-/** Bolted to the wall behind it, so it is drawn up the wall's face. */
+/** Grown out of the wall behind it, so it is drawn up the wall's face. */
 function drawPanel(ctx, a, game) {
   const onWall = Math.sin(a.facing) > 0.5 ? WALL_H * 0.7 : 10;
   const y = a.y - onWall;
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillRect(a.x - 11, y - 12, 22, 26);
-  ctx.fillStyle = a.dead ? '#3a3f4c' : COLOURS.alarm;
-  ctx.fillRect(a.x - 9, y - 10, 18, 22);
-  ctx.fillStyle = a.dead ? '#20242f' : '#ffd9c8';
-  ctx.fillRect(a.x - 4, y - 5, 8, 11);
-  if (!a.dead && game.alarm.on) {
-    ctx.fillStyle = `rgba(255,90,77,${0.3 + Math.abs(Math.sin(game.alarm.ring * 6)) * 0.5})`;
+  ctx.fillRect(a.x - 11, y - 12, 22, 26);          // the socket of chitin
+  // the node itself: a crystal of alarm, red for as long as it is alive
+  const hex = (r, cy) => {
     ctx.beginPath();
-    ctx.arc(a.x, y, 20, 0, Math.PI * 2);
+    for (let i = 0; i < 6; i++) {
+      const h = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const px = a.x + Math.cos(h) * r;
+      const py = cy + Math.sin(h) * r * 1.2;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  };
+  ctx.fillStyle = a.dead ? '#3a3f4c' : COLOURS.alarm;
+  hex(9, y + 1);
+  ctx.fillStyle = a.dead ? '#20242f' : '#ffd9c8';
+  hex(4, y + 1);
+  if (!a.dead && game.alarm.on) {
+    // every node glows while the ring is hot; the one that is *ringing* — the
+    // one a bolt can silence — screams wider, so you know which box to shoot
+    const ringing = game.alarm.source === a;
+    const pulse = 0.3 + Math.abs(Math.sin(game.alarm.ring * 6)) * 0.5;
+    ctx.fillStyle = `rgba(255,90,77,${ringing ? pulse : pulse * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(a.x, y, ringing ? 34 : 18, 0, Math.PI * 2);
     ctx.fill();
   }
   const f = game.focus;
   if (f && f.target === a) ring(ctx, a.x, y - 26, 14, f.t / f.need, COLOURS.alarm);
 }
 
-function drawCamera(ctx, c) {
+/** An eye on a stalk. It is not a metaphor: the Fortress is looking. */
+function drawCamera(ctx, c, game) {
   const y = c.y - WALL_H * 0.75;
+  // an eye that called the alarm in is the thing ringing — same scream, same cure
+  if (!c.dead && game && game.alarm.on && game.alarm.source === c) {
+    ctx.fillStyle = `rgba(255,90,77,${0.25 + Math.abs(Math.sin(game.alarm.ring * 6)) * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(c.x, y, 30, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.save();
   ctx.translate(c.x, y);
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillRect(-9, -8, 18, 16);
+  ctx.fillRect(-9, -8, 18, 16);                    // the socket it grew from
   ctx.rotate(c.facing);
-  ctx.fillStyle = c.dead ? '#3a3f4c' : COLOURS.camera;
-  ctx.fillRect(-7, -6, 15, 12);
-  ctx.fillRect(7, -3, 8, 6);
+  ctx.fillStyle = c.dead ? '#3a3f4c' : '#5a4a78';
+  ctx.fillRect(-4, -3.5, 11, 7);                   // the stalk
+  ctx.fillStyle = c.dead ? '#2a2f3c' : '#e8e4f4';
+  ctx.beginPath();
+  ctx.arc(9, 0, 6.5, 0, Math.PI * 2);              // the ball
+  ctx.fill();
   if (!c.dead) {
-    ctx.fillStyle = c.lock > 0 ? COLOURS.alarm : '#5f7ba8';
-    ctx.fillRect(-6, -5, 3, 3);
+    ctx.fillStyle = c.lock > 0 ? COLOURS.alarm : COLOURS.camera;
+    ctx.beginPath();
+    ctx.arc(11.5, 0, 3.4, 0, Math.PI * 2);         // the iris, out along the stare
+    ctx.fill();
+    ctx.fillStyle = COLOURS.ink;
+    ctx.beginPath();
+    ctx.arc(12.4, 0, 1.5, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 }
 
+/** The seal: the lock on the way up, and the loudest thing you will ever open. */
 function drawVault(ctx, v) {
   ctx.save();
   ctx.translate(v.x, v.y);
@@ -998,21 +1124,27 @@ function drawVault(ctx, v) {
   ctx.translate(0, -14);
   ctx.fillStyle = COLOURS.vaultLit;
   ctx.beginPath();
-  ctx.arc(0, 0, VAULT.r, 0, Math.PI * 2);
+  ctx.arc(0, 0, VAULT.r, 0, Math.PI * 2);          // the collar
   ctx.fill();
-  ctx.fillStyle = '#2a2415';
+  ctx.fillStyle = '#0c2326';
   ctx.beginPath();
-  ctx.arc(0, 0, VAULT.r - 9, 0, Math.PI * 2);
+  ctx.arc(0, 0, VAULT.r - 9, 0, Math.PI * 2);      // the throat
   ctx.fill();
-  ctx.strokeStyle = COLOURS.gold;
+  // the glyph spokes walk as the overload runs — the seal reading itself
+  ctx.strokeStyle = COLOURS.energy;
   ctx.lineWidth = 4;
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + v.cracked * 6;
     ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * 10, Math.sin(a) * 10);
+    ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
     ctx.lineTo(Math.cos(a) * (VAULT.r - 14), Math.sin(a) * (VAULT.r - 14));
     ctx.stroke();
   }
+  // the core, waking with the overload
+  ctx.fillStyle = `rgba(92,232,207,${0.2 + v.cracked * 0.7})`;
+  ctx.beginPath();
+  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
   if (v.cracked > 0 && v.cracked < 1) ring(ctx, v.x, v.y - 14, VAULT.r + 10, v.cracked, COLOURS.good);
 }
@@ -1049,7 +1181,7 @@ function paintReticle(ctx, g, p) {
   const off = Math.abs(angleDelta(p.facing, Math.atan2(g.y - p.y, g.x - p.x)));
   const open = clamp(off / (45 * RAD), 0, 1);
   const t = 19 + open * 14;
-  ctx.strokeStyle = `rgba(255,238,160,${0.85 - open * 0.35})`;
+  ctx.strokeStyle = `rgba(160,255,235,${0.85 - open * 0.35})`;
   ctx.lineWidth = 2.5;
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     ctx.beginPath();
@@ -1140,7 +1272,9 @@ function paintBullets(ctx, game) {
   ctx.lineCap = 'round';
   ctx.lineWidth = 3;
   for (const b of game.bullets) {
-    ctx.strokeStyle = b.side === 'player' ? 'rgba(180,240,225,0.9)' : 'rgba(255,150,110,0.95)';
+    // his bolts run pale teal; the sentinels' run the magenta of their coats,
+    // so a crossfire reads as two sides even at 1700 px/s
+    ctx.strokeStyle = b.side === 'player' ? 'rgba(180,240,225,0.9)' : 'rgba(255,130,205,0.95)';
     ctx.beginPath();
     // Drawn on the floor plane, which is exactly where it travels. Lifting the
     // tracer to chest height looks better and lies: the round is then somewhere
@@ -1246,7 +1380,7 @@ function paintHud(ctx, game, vp, opts, r) {
   ctx.fillText(t('hud.floor', { n: game.level.floor }), 28 + inset, 38);
   ctx.fillStyle = COLOURS.loot;
   ctx.font = 'bold 20px system-ui, sans-serif';
-  ctx.fillText(`$ ${stats.money.toLocaleString(i18n.lang === 'pt' ? 'pt-BR' : 'en-US')}`, 28 + inset, 64);
+  ctx.fillText(`◆ ${stats.money.toLocaleString(i18n.lang === 'pt' ? 'pt-BR' : 'en-US')}`, 28 + inset, 64);
 
   // ---- health, and the gun in his hands drawn rather than named twice
   const barW = 250;
@@ -1269,8 +1403,8 @@ function paintHud(ctx, game, vp, opts, r) {
   ctx.font = 'bold 17px system-ui, sans-serif';
   ctx.fillText(`${t(`gun.${p.weapon.id}`)}  ·  ${ammo}`, 96, H - 44);
 
-  // ---- what he is standing on, named. Measured, because "pegar espingarda"
-  //      and "take the shotgun" are not the same width.
+  // ---- what he is standing on, named. Measured, because "pegar onda de choque"
+  //      and "take the shockwave" are not the same width.
   if (game.focus || game.prompt) {
     const label = game.focus ? focusLabel(game.focus) : promptLabel(game.prompt, opts);
     ctx.font = 'bold 17px system-ui, sans-serif';
@@ -1363,7 +1497,7 @@ function paintMinimap(ctx, game, vp) {
   }
   const v = game.level.vault;
   if (game.seen[v.cy * grid.cols + v.cx]) {
-    ctx.fillStyle = COLOURS.gold;
+    ctx.fillStyle = COLOURS.energy;
     ctx.fillRect(x + v.cx * size - 2, y + v.cy * size - 2, size + 4, size + 4);
   }
   for (const a of game.alarms) {
@@ -1377,7 +1511,7 @@ function paintMinimap(ctx, game, vp) {
   ctx.fillRect(x + (game.player.x / TILE) * size - 2, y + (game.player.y / TILE) * size - 2, 5, 5);
 }
 
-/** Which way the vault is, from the middle of the screen. Always on. */
+/** Which way the seal is, from the middle of the screen. Always on. */
 function paintCompass(ctx, game, vp) {
   const p = game.player;
   const v = game.level.vault;
@@ -1386,7 +1520,7 @@ function paintCompass(ctx, game, vp) {
   ctx.save();
   ctx.translate(vp.W / 2 + Math.cos(a) * rr, vp.H / 2 + Math.sin(a) * rr);
   ctx.rotate(a);
-  ctx.fillStyle = 'rgba(240,198,90,0.5)';
+  ctx.fillStyle = 'rgba(92,232,207,0.55)';
   ctx.beginPath();
   ctx.moveTo(11, 0);
   ctx.lineTo(-6, -7);

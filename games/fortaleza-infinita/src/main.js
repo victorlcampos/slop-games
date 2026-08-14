@@ -11,6 +11,7 @@ import { createRun } from './run.js';
 import { createFx } from './fx.js';
 import { createRenderer, clock, screenToWorld } from './render.js';
 import { createTouchControls } from './controls.js';
+import { createCutscene } from './cutscene.js';
 import { sound, sfx } from './audio.js';
 
 const canvas = document.getElementById('canvas');
@@ -24,20 +25,27 @@ const applyTitle = () => { document.title = t('page.title'); };
 applyTitle();
 i18n.onChange(applyTitle);
 
-// A bank floor read through a torch needs width — you have to see the corridor
+// A ring read through a torch needs width — you have to see the corridor
 // before you are in it. Upright, the kit lays the canvas on its side rather
 // than asking anybody to unlock rotation (CLAUDE.md, section 2b).
 const vp = createViewport(canvas, { height: H, frame: 1280, landscape: true });
 
 const vault = createSave({
-  game: 'assalto-ao-banco',
+  game: 'fortaleza-infinita',
   version: 1,
-  key: 'assalto-ao-banco.best.v1',
-  initial: () => ({ money: 0, floor: 0, silent: 0, runs: 0 }),
+  key: 'fortaleza-infinita.best.v1',
+  initial: () => ({ money: 0, floor: 0, silent: 0, runs: 0, intro: 0 }),
   normalize: (raw, base) => {
     if (!raw || typeof raw !== 'object') return base;
     const n = (v, d) => (Number.isFinite(v) && v >= 0 ? v : d);
-    return { ...base, money: n(raw.money, 0), floor: n(raw.floor, 0), silent: n(raw.silent, 0), runs: n(raw.runs, 0) };
+    return {
+      ...base,
+      money: n(raw.money, 0),
+      floor: n(raw.floor, 0),
+      silent: n(raw.silent, 0),
+      runs: n(raw.runs, 0),
+      intro: raw.intro ? 1 : 0,
+    };
   },
 });
 let best = vault.load();
@@ -47,7 +55,8 @@ const renderer = createRenderer();
 const touch = createTouchControls(() => vp.W, () => vp.H);
 
 let run = null;
-let phase = 'menu';                 // menu | playing | cleared | over
+let cut = null;
+let phase = 'menu';                 // intro | menu | playing | cleared | over
 
 // ------------------------------------------------------------------- input
 
@@ -59,6 +68,11 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') sound.toggle();
+  if (phase === 'intro' && cut) {
+    if (e.code === 'Escape') cut.skip();
+    else if (e.code === 'Enter' || e.code === 'Space') cut.click();
+    return;
+  }
   if (phase === 'menu' && (e.code === 'Enter' || e.code === 'Space')) start();
   if (phase === 'cleared' && (e.code === 'Enter' || e.code === 'Space')) nextFloor();
   if (phase === 'over' && e.code === 'Enter') start();
@@ -84,7 +98,15 @@ function readKeys() {
 
 let mouseDown = false;
 let mouse = null;
-canvas.addEventListener('mousedown', (e) => { mouseDown = true; mouse = vp.point(e.clientX, e.clientY); sound.resume(); });
+canvas.addEventListener('mousedown', (e) => {
+  sound.resume();
+  if (phase === 'intro' && cut) {
+    cut.click();
+    return;
+  }
+  mouseDown = true;
+  mouse = vp.point(e.clientX, e.clientY);
+});
 canvas.addEventListener('mousemove', (e) => { mouse = vp.point(e.clientX, e.clientY); });
 canvas.addEventListener('mouseleave', () => { mouse = null; });
 addEventListener('mouseup', () => { mouseDown = false; });
@@ -93,6 +115,10 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 for (const [type, handler] of [
   ['touchstart', (e) => {
     sound.resume();
+    if (phase === 'intro' && cut) {
+      cut.click();
+      return;
+    }
     for (const f of e.changedTouches) {
       const p = vp.point(f.clientX, f.clientY);
       touch.start(f.identifier, p.x, p.y);
@@ -134,13 +160,17 @@ const hooks = {
   onHurt: () => sfx.hurt(),
   onKill: () => sfx.kill(),
   onBreak: () => sfx.break(),
-  onAlarm: () => sfx.alarm(),
+  // the siren runs for as long as the alarm does — and stops the moment the
+  // ringing node is shot or the timer gives up, which is the game telling you
+  onAlarm: () => sfx.alarmStart(),
+  onAlarmSilenced: () => sfx.alarmStop(),
+  onAlarmOff: () => sfx.alarmStop(),
   onDry: () => sfx.pick(),
   onRoll: () => sfx.roll(),
   onPick: (it) => {
     if (it.kind === 'loot') {
       sfx.cash();
-      fx.float(it.x, it.y, `+$${money(it.value)}`);
+      fx.float(it.x, it.y, `+◆${money(it.value)}`);
     } else sfx.pick();
   },
   onCleared: () => { sfx.vault(); finishFloor(); },
@@ -149,6 +179,7 @@ const hooks = {
 
 function start() {
   sound.resume();
+  sfx.alarmStop();
   fx.clear();
   renderer.reset();
   touch.clear();
@@ -160,7 +191,30 @@ function start() {
   show(over, false);
 }
 
+/**
+ * The opening short. It plays itself on the first ever boot and stays one
+ * click away after that — the card that covers the canvas has to come down,
+ * because the film *is* the canvas.
+ */
+function goToIntro() {
+  sfx.alarmStop();
+  cut = createCutscene(() => {
+    cut = null;
+    if (!best.intro) {
+      best = { ...best, intro: 1 };
+      vault.save(best);
+    }
+    phase = 'menu';
+    show(menu, true);
+  }, () => sfx.pick());
+  phase = 'intro';
+  show(menu, false);
+  show(cleared, false);
+  show(over, false);
+}
+
 function nextFloor() {
+  sfx.alarmStop();
   fx.clear();
   renderer.reset();
   touch.clear();
@@ -170,17 +224,21 @@ function nextFloor() {
 }
 
 function finishFloor() {
+  // the update loop stops with the card up, so an alarm still ringing here
+  // would ring under the whole card — the seal opening ends the argument
+  sfx.alarmStop();
   phase = 'cleared';
   const g = run.game;
   const silent = g.stats.alarms === 0;
   document.getElementById('c-floor').textContent = String(g.level.floor);
-  document.getElementById('c-money').textContent = `$ ${money(g.stats.money)}`;
+  document.getElementById('c-money').textContent = `◆ ${money(g.stats.money)}`;
   document.getElementById('c-kills').textContent = String(g.stats.kills);
   show(document.getElementById('c-silent'), silent);
   show(cleared, true);
 }
 
 function finishRun() {
+  sfx.alarmStop();
   const floors = run.totals.floors;
   const record = run.money > best.money || floors > best.floor;
   // `save` reports whether it managed to write, it does not hand the state
@@ -193,16 +251,17 @@ function finishRun() {
     floor: Math.max(best.floor, floors),
     silent: Math.max(best.silent, run.totals.silent),
     runs: best.runs + 1,
+    intro: best.intro,
   };
   vault.save(next);
   best = next;
   phase = 'over';
   document.getElementById('o-title').textContent = t('over.title', { n: run.game.level.floor });
-  document.getElementById('o-money').textContent = `$ ${money(Math.round(run.money))}`;
+  document.getElementById('o-money').textContent = `◆ ${money(Math.round(run.money))}`;
   document.getElementById('o-floors').textContent = String(floors);
   document.getElementById('o-kills').textContent = String(run.totals.kills);
   document.getElementById('o-silent').textContent = String(run.totals.silent);
-  document.getElementById('o-best').textContent = `$ ${money(best.money)} · ${best.floor}`;
+  document.getElementById('o-best').textContent = `◆ ${money(best.money)} · ${best.floor}`;
   document.getElementById('o-time').textContent = clock(run.totals.time);
   show(document.getElementById('o-record'), record);
   show(over, true);
@@ -219,6 +278,7 @@ i18n.onChange(() => {
 document.getElementById('btn-start').addEventListener('click', start);
 document.getElementById('btn-next').addEventListener('click', nextFloor);
 document.getElementById('btn-again').addEventListener('click', start);
+document.getElementById('btn-intro').addEventListener('click', goToIntro);
 document.getElementById('btn-sound').addEventListener('click', (e) => {
   const on = sound.toggle();
   e.currentTarget.textContent = on ? '🔊' : '🔇';
@@ -229,6 +289,10 @@ document.getElementById('btn-sound').addEventListener('click', (e) => {
 createLoop({
   step: 1 / 120,
   update: (h) => {
+    if (phase === 'intro' && cut) {
+      cut.update(h);
+      return;
+    }
     if (phase !== 'playing' || !run) return;
     readKeys();
     input.aim = toWorld(mouse);
@@ -258,10 +322,14 @@ createLoop({
   draw: () => {
     vp.begin();
     const ctx = vp.ctx;
+    if (phase === 'intro' && cut) {
+      cut.draw(ctx, vp.W);
+      return;
+    }
     if (run && run.game) {
       renderer.draw(ctx, run.game, vp, { fx, touch: vp.touch && phase === 'playing' ? touch : null, dt: 1 / 60 });
     } else {
-      ctx.fillStyle = '#07080c';
+      ctx.fillStyle = '#05070b';
       ctx.fillRect(0, 0, vp.W, vp.H);
     }
   },
@@ -270,9 +338,12 @@ createLoop({
 document.getElementById('boot').hidden = true;
 document.getElementById('btn-sound').textContent = sound.on ? '🔊' : '🔇';
 
+// the first boot opens on the film; every boot after that opens on the menu
+if (!best.intro) goToIntro();
+
 // the bridge: a handle for the console while playing
 window.__game = {
-  name: 'assalto-ao-banco',
+  name: 'fortaleza-infinita',
   viewport: vp,
   i18n,
   get run() { return run; },

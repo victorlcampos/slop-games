@@ -1,6 +1,6 @@
-// The numbers the whole heist agrees on: the size of a tile, what a body can
-// take, and — the one that matters most here — how much worse floor N+1 is than
-// floor N.
+// The numbers the whole escape agrees on: the size of a tile, what a body can
+// take, and — the one that matters most here — how much worse ring N+1 is than
+// ring N.
 
 export const H = 720;                 // logical height (slopkit fixes this)
 export const TILE = 64;               // a corridor is exactly one tile wide
@@ -46,9 +46,9 @@ export const ASSIST = {
   // misses — which on a phone, where the trigger is a tap, means the tap that
   // should have saved you did nothing.
   settle: 13,
-  // Cameras and panels are targets too, with this many degrees of handicap
-  // against a guard near the same line: point straight at a camera and you get
-  // the camera; point roughly at both and you get the man who shoots back.
+  // Eyes and alarm nodes are targets too, with this many degrees of handicap
+  // against a sentinel near the same line: point straight at an eye and you get
+  // the eye; point roughly at both and you get the one that shoots back.
   deviceBias: 6,
 };
 
@@ -139,13 +139,13 @@ export const CAMERA = {
 export const VAULT = { r: 46 };
 
 /**
- * The floor's shape and its staff. Everything that gets harder reads this, and
- * `threat` below turns it into one number a test can hold to account.
+ * The ring's shape and its garrison. Everything that gets harder reads this,
+ * and `threat` below turns it into one number a test can hold to account.
  *
- * Counts hit a ceiling — sixteen guards in a corridor is a crowd, not a
+ * Counts hit a ceiling — sixteen sentinels in a corridor is a crowd, not a
  * challenge — but `guardHp` and `guardDamage` never do. That is what keeps
- * floor 40 harder than floor 39 after the building has run out of room for
- * more staff, and it is why `threat` can promise to rise forever.
+ * ring 40 harder than ring 39 after the Fortress has run out of room for
+ * more of them, and it is why `threat` can promise to rise forever.
  */
 export function plan(floor) {
   const f = Math.max(1, Math.floor(floor));
@@ -173,18 +173,18 @@ export function plan(floor) {
     guardAim: Math.max(0.16, 0.62 - 0.022 * k),   // seconds between seeing you and firing
     guardHearing: grow(1, 0.02, 1.6), // multiplier on how far a noise reaches them
 
-    cameraLock: Math.max(0.55, 1.7 - 0.05 * k),   // seconds in shot before it calls it in
+    cameraLock: Math.max(0.55, 1.7 - 0.05 * k),   // seconds in an eye's stare before it calls it in
     cameraRange: grow(320, 9, 520),
 
-    vaultTime: grow(4.5, 0.42, 14),   // seconds of drilling, all of them loud
-    tier: Math.min(3, Math.floor(k / 3)),         // what the wreckage is worth picking up
-    payday: Math.round(2400 + 950 * k),
+    vaultTime: grow(4.5, 0.42, 14),   // seconds of overloading the seal, all of them loud
+    tier: Math.min(3, Math.floor(k / 3)),         // what the armoury is worth picking up
+    payday: Math.round(2400 + 950 * k),           // shards, when the seal gives
   };
 }
 
 /**
- * One number for "how bad is this floor", used by the test that guards the
- * promise in the game's description: every floor is harder than the one before.
+ * One number for "how bad is this ring", used by the test that guards the
+ * promise in the game's description: every ring is harder than the one before.
  *
  * It is a weighted sum of the plan, not a hand-written table — so tuning a
  * constant above cannot quietly flatten the curve without the test noticing.
@@ -204,43 +204,45 @@ export function threat(floor) {
 }
 
 export const COLOURS = {
-  void: '#07080c',
-  fog: '#0d1018',
-  remembered: '#171c27',
+  void: '#05070b',
+  fog: '#0c1016',
+  remembered: '#141b23',
   // The lighting is from above, so the order is: floor lit, wall top a shade
   // lighter still, wall face in shadow. Getting that backwards — which the
   // first pass did, with near-black floors under pale walls — reads as a
   // building made of light standing on a hole.
-  floor: '#4c5568',
-  floorAlt: '#434b5e',
-  grout: '#343b4c',
-  carpet: '#6b3038',
-  wallFace: '#272c3a',                // the side turned towards you: in shade
-  wallTop: '#5f6982',                 // the side turned towards the ceiling: lit
-  wallEdge: '#161a24',
-  vault: '#6b5a2a',
-  vaultLit: '#c9a03f',
-  gold: '#f0c65a',
+  floor: '#47545e',
+  floorAlt: '#3f4b55',
+  grout: '#2f3a44',
+  carpet: '#2f5a52',
+  wallFace: '#222b35',                // the side turned towards you: in shade
+  wallTop: '#5b7079',                 // the side turned towards the ceiling: lit
+  wallEdge: '#121820',
+  vault: '#1f4a50',                   // the seal, dormant
+  vaultLit: '#2a6a6e',                // the seal's collar, faintly alive
+  energy: '#5ce8cf',                  // what the whole Fortress runs on
   ink: '#0a0b10',
-  skin: '#d9a878',
+  skin: '#d9a878',                    // the one human on the ring
+  hide: '#8fae9a',                    // sentinel hide, grey-green
   hud: '#e8eef8',
   dim: '#8a93a8',
   good: '#8fd07a',
   alarm: '#ff5a4d',
-  camera: '#8fa9d6',
-  blood: '#8e2f3f',
-  loot: '#f0c65a',
-  steel: '#aab4c8',
+  camera: '#a98fe0',                  // the eyes on the walls: violet
+  blood: '#8e2f3f',                   // his — the sentinels bleed `ichor`
+  ichor: '#3fae74',
+  loot: '#5ce8cf',                    // the shards, same current as everything
+  steel: '#9fb2c4',
 };
 
 /** Who wears what. A figure is read by its colours before its shape. */
 export const KIT = {
-  // the thief: a balaclava, and a duffel that only shows up once there is
-  // something in it
-  player: { coat: '#2f9e8c', coatDark: '#1f6f63', legs: '#232a38', head: '#1b2130', skin: COLOURS.skin, trim: '#7fd7c4', bag: '#3d3428' },
-  guard: { coat: '#b8455e', coatDark: '#7d2c40', legs: '#2a2230', head: '#3a2b33', skin: COLOURS.skin, trim: '#e0c98a' },
-  guardCalm: { coat: '#c9a05e', coatDark: '#8a6a35', legs: '#2a2635', head: '#3a3128', skin: COLOURS.skin, trim: '#f0d9a8' },
-  body: { coat: '#6b5462', coatDark: '#4a3a45', legs: '#2a2430', head: '#3a2f36', skin: '#a98a6a', trim: '#6b5462' },
+  // the escapee: a prison jumpsuit, a headlamp, and a satchel that only shows
+  // up once there is something in it
+  player: { coat: '#c96f3a', coatDark: '#8e4a26', legs: '#33291f', head: '#2e2118', skin: COLOURS.skin, trim: '#ffd9a0', bag: '#3d3428', hat: 'headlamp' },
+  guard: { coat: '#a04a78', coatDark: '#6c2f52', legs: '#241f30', head: '#8fa5b8', skin: COLOURS.hide, trim: '#ff8fb8', hat: 'dome' },
+  guardCalm: { coat: '#3f7a6e', coatDark: '#2a544c', legs: '#20282e', head: '#9db4a6', skin: COLOURS.hide, trim: '#8ff0dc', hat: 'dome' },
+  body: { coat: '#4a5a56', coatDark: '#35423f', legs: '#242c2e', head: '#6e8078', skin: '#7a9484', trim: '#4a5a56' },
 };
 
 /** A seeded stream: the same seed builds the same floor, on any machine. */
@@ -254,7 +256,7 @@ export function makeRng(seed = 1) {
   };
 }
 
-/** The seed of floor N of run S — so a run is one number, not a saved map. */
+/** The seed of ring N of run S — so a run is one number, not a saved map. */
 export const floorSeed = (runSeed, floor) =>
   (Math.imul(runSeed >>> 0 || 1, 0x9e3779b1) ^ Math.imul(floor + 1, 0x85ebca6b)) >>> 0;
 
