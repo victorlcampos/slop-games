@@ -34,8 +34,9 @@ const T = {
   humansFreed: { pt: 'HUMANOS LIBERTADOS', en: 'HUMANS FREED' },
   millions: { pt: '{n} milhões', en: '{n} million' },
   stageLabel: { pt: 'Fase {n} — {name}', en: 'Stage {n} — {name}' },
-  yourDeck: { pt: 'SEU BARALHO', en: 'YOUR DECK' },
-  cards: { pt: '{n} cartas', en: '{n} cards' },
+  yourDeck: { pt: 'SEU TIME', en: 'YOUR SQUAD' },
+  cards: { pt: '{n} em campo · {t} no total', en: '{n} fielded · {t} owned' },
+  barracksBtn: { pt: '🎪 quartel — time & treino', en: '🎪 barracks — squad & training' },
   playStage: { pt: 'JOGAR FASE {n}', en: 'PLAY STAGE {n}' },
   backToWorld: { pt: '← mundo', en: '← world' },
   downloadSave: { pt: '💾 baixar save', en: '💾 download save' },
@@ -223,11 +224,15 @@ export function createMap(state, actions) {
       text(ctx, ln, 84, 216 + i * 22, { size: 17, color: INK_SOFT });
     });
 
-    // the deck
+    // the squad — and the door to the barracks, so a bench card can be
+    // fielded without having to play (or lose) a stage first
     box(ctx, MENU_W - 400, 130, 340, 92, 12, { color: INK, width: 2.6, fill: '#fbf5e6', seed: 70 });
     text(ctx, pick(T.yourDeck), MENU_W - 380, 158, { size: 14, color: INK_SOFT });
-    text(ctx, fill(T.cards, { n: state.deck.length }), MENU_W - 380, 186, { size: 24, color: INK });
+    text(ctx, fill(T.cards, { n: state.deck.length, t: state.owned.length }), MENU_W - 380, 186, { size: 19, color: INK });
     text(ctx, `🪙 ${state.coins}`, MENU_W - 380, 210, { size: 17, color: COLORS.accentDark });
+    box(ctx, MENU_W - 400, 228, 340, 46, 10, { color: INK, width: 2.6, fill: '#e4dac2', seed: 71 });
+    text(ctx, pick(T.barracksBtn), MENU_W - 230, 257, { size: 15, align: 'center', color: INK });
+    buttons.push({ x: MENU_W - 400, y: 228, w: 340, h: 46, action: 'barracks' });
 
     // the play button — or, with the campaign complete, its farewell line
     if (nextHere) {
@@ -343,7 +348,7 @@ export function createMap(state, actions) {
 
     const losses = [
       [fill(T.ofTotal, { n: state.won.length, total: TOTAL_STAGES }), pick(T.stagesWon)],
-      [`${state.deck.length}`, pick(T.cardsInDeck)],
+      [`${state.owned.length}`, pick(T.cardsInDeck)],
       [`🪙 ${state.coins}`, pick(T.coins)],
       [fill(T.millionsShort, { n: state.humans }), pick(T.humansFreedSmall)],
     ];
@@ -421,6 +426,9 @@ export function createMap(state, actions) {
             return;
           case 'film':
             actions.film(campaign.id);
+            return;
+          case 'barracks':
+            actions.barracks();
             return;
           case 'download':
             actions.download();

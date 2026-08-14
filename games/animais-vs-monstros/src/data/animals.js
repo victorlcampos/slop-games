@@ -508,6 +508,50 @@ export function rollCards(deck, count = 3, coins = 0, required = [], pool = shop
   return rolled;
 }
 
+// ---------------------------------------------------------------- the squad
+
+/**
+ * The battle takes at most 14 cards. The number is the board's, not a whim:
+ * 14 is what the HUD holds in two rows without the cards shrinking past a
+ * finger, and it is what turns a big collection into a real choice — whoever
+ * owns more than 14 picks a squad at the barracks.
+ */
+export const DECK_LIMIT = 14;
+
+/** Below this the squad cannot shrink: a battle needs something to plant. */
+export const SQUAD_MIN = 3;
+
+/**
+ * Moves a card between the field squad and the reserve. Pure on purpose — the
+ * barracks screen calls it, the test calls it, and the rule lives here once.
+ *
+ * Returns `{ deck, moved }` on success or `{ error }` when the swap would
+ * break the squad: 'full' past the limit, 'min' below the floor.
+ */
+export function toggleActive(deck, id) {
+  if (!BY_ID[id]) return { error: 'unknown' };
+  if (deck.includes(id)) {
+    if (deck.length <= SQUAD_MIN) return { error: 'min' };
+    return { deck: deck.filter((d) => d !== id), moved: 'reserve' };
+  }
+  if (deck.length >= DECK_LIMIT) return { error: 'full' };
+  return { deck: [...deck, id], moved: 'field' };
+}
+
+/**
+ * A recruit joins the collection always, and the squad only while there is
+ * room — past 14 it waits on the bench. Mutates `state` (the save object),
+ * which is what every barracks action does; returns where the card landed.
+ */
+export function buyCard(state, id) {
+  if (!state.owned.includes(id)) state.owned.push(id);
+  if (state.deck.length < DECK_LIMIT && !state.deck.includes(id)) {
+    state.deck.push(id);
+    return 'field';
+  }
+  return 'reserve';
+}
+
 // ------------------------------------------------------------------- levels
 
 /**
@@ -516,15 +560,24 @@ export function rollCards(deck, count = 3, coins = 0, required = [], pool = shop
  * the field now buys more. If the cost went up with it, training would just be
  * inflation under another name.
  *
- * Level 3 also shortens the cooldown: on top of being stronger, the card comes
- * back sooner.
+ * From level 3 the cooldown also shortens: on top of being stronger, the card
+ * comes back sooner. Levels IV and V exist, but Brazil cannot buy them —
+ * `levelCap` says how deep the training goes for the campaigns a player has
+ * reached, and opening Japan is what raises the ceiling from 3 to 5.
  */
-export const MAX_LEVEL = 3;
+export const MAX_LEVEL = 5;
+
+/** How far training can go, given which extra campaigns are open. */
+export function levelCap(unlocked = []) {
+  return Math.min(MAX_LEVEL, 3 + 2 * unlocked.length);
+}
 
 export const LEVELS = [
   { n: 1, power: 1, cooldown: 1, label: '' },
   { n: 2, power: 1.35, cooldown: 0.9, label: 'II' },
   { n: 3, power: 1.8, cooldown: 0.75, label: 'III' },
+  { n: 4, power: 2.35, cooldown: 0.65, label: 'IV' },
+  { n: 5, power: 3, cooldown: 0.55, label: 'V' },
 ];
 
 /** What power multiplies. Cost and interval stay out of it, on purpose. */
@@ -544,10 +597,14 @@ export function cardAtLevel(idOrCard, level = 1) {
   for (const attr of SCALED) {
     if (typeof c[attr] === 'number') c[attr] = Math.round(c[attr] * info.power);
   }
+  // Control stops growing at level III: a level-V Lion whose stun outlasted
+  // his own interval would freeze a whole area forever. Damage keeps scaling —
+  // the deep levels buy muscle, never permanent crowd control.
+  const control = Math.min(info.power, LEVELS[2].power);
   // poison and slow are objects: scale only what hurts
   if (c.poison) c.poison = { ...c.poison, damage: Math.round(c.poison.damage * info.power) };
-  if (c.slow) c.slow = { ...c.slow, duration: +(c.slow.duration * info.power).toFixed(1) };
-  if (c.stun) c.stun = +(c.stun * info.power).toFixed(1);
+  if (c.slow) c.slow = { ...c.slow, duration: +(c.slow.duration * control).toFixed(1) };
+  if (c.stun) c.stun = +(c.stun * control).toFixed(1);
   c.cooldown = +(base.cooldown * info.cooldown).toFixed(1);
 
   return c;
@@ -560,11 +617,14 @@ export function cardAtLevel(idOrCard, level = 1) {
  * than training a Squirrel — and more than recruiting an average card. That is
  * the game's choice: deepen what you have or widen the spread.
  *
+ * The IV and V factors are steep on purpose: both campaigns together pay for
+ * everything at III or a hand-picked few at V — never the whole collection.
+ *
  * The three starter cards have no price (they come free), so they use a
  * reference value to keep training from going for peanuts.
  */
 const STARTER_VALUE = 150;
-const FACTOR = { 2: 0.7, 3: 1.2 };
+const FACTOR = { 2: 0.7, 3: 1.2, 4: 2, 5: 3.2 };
 
 export function trainingCost(idOrCard, currentLevel) {
   const base = typeof idOrCard === 'string' ? BY_ID[idOrCard] : idOrCard;

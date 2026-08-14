@@ -608,4 +608,31 @@ scenario('a save that beat Brazil wakes up pointing at Japan', async () => {
   localStorage.removeItem('animais-vs-monstros:save');
 });
 
+scenario('a save from before the squad limit keeps its collection and fields 14', async () => {
+  const Save = await import('../src/save.js');
+  const { ANIMALS, DECK_LIMIT } = await import('../src/data/animals.js');
+  const everything = ANIMALS.filter((a) => !a.unlock).map((a) => a.id); // the 19 Brazil cards
+  const hoarder = {
+    ...Save.freshSave(),
+    deck: everything, // written when `deck` WAS the collection
+    levels: { monkey: 5, elephant: 2 }, // level V without Japan: not buyable
+    won: [1, 2, 3],
+    sawIntro: true,
+  };
+  delete hoarder.owned;
+  localStorage.setItem('animais-vs-monstros:save', JSON.stringify(hoarder));
+  const s = Save.load();
+  checkEqual(s.owned.length, everything.length, 'the collection lost cards in the move');
+  checkEqual(s.deck.length, DECK_LIMIT, `the squad should cap at ${DECK_LIMIT}, got ${s.deck.length}`);
+  check(s.deck.every((id) => s.owned.includes(id)), 'the squad fields a card nobody owns');
+  checkEqual(s.levels.monkey, 3, 'level V on a Brazil-only save is a level that could not be bought');
+
+  // the same levels survive intact once Japan is genuinely open
+  const traveller = { ...hoarder, won: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+  localStorage.setItem('animais-vs-monstros:save', JSON.stringify(traveller));
+  const s2 = Save.load();
+  checkEqual(s2.levels.monkey, 5, 'with Japan open, level V is legitimate and stays');
+  localStorage.removeItem('animais-vs-monstros:save');
+});
+
 await run('animals vs monsters — battle');

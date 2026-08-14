@@ -5,7 +5,7 @@
 import { box, text, wrapText, paper, putSprite } from '../scribble.js';
 import { INK, INK_SOFT, COLORS } from '../palette.js';
 import { animalSprite } from '../draw/animals.js';
-import { BY_ID, cardAtLevel, trainingCost, MAX_LEVEL } from '../data/animals.js';
+import { BY_ID, cardAtLevel, trainingCost, buyCard, toggleActive, DECK_LIMIT } from '../data/animals.js';
 import { vp, HEIGHT, applyFrame, pointInFrame, menuWidth } from '../viewport.js';
 import { sfx } from '../audio.js';
 import { pick } from '../i18n.js';
@@ -13,6 +13,10 @@ import { pick } from '../i18n.js';
 const T = {
   stageWon: { pt: 'FASE VENCIDA', en: 'STAGE WON' },
   barracks: { pt: 'QUARTEL', en: 'BARRACKS' },
+  visitSub: {
+    pt: 'recrute, treine e escale o time — a batalha leva 14',
+    en: 'recruit, train and pick the squad — the battle takes 14',
+  },
   coins: { pt: 'moedas', en: 'coins' },
   change: { pt: '{base} + {change} de troco', en: '{base} + {change} in change' },
   monstersDropped: { pt: 'monstros derrubados', en: 'monsters dropped' },
@@ -21,7 +25,26 @@ const T = {
   millions: { pt: '{n} milhões', en: '{n} million' },
   youHave: { pt: 'você tem 🪙 {n}', en: 'you have 🪙 {n}' },
   recruitTab: { pt: 'RECRUTAR ({n})', en: 'RECRUIT ({n})' },
+  squadTab: { pt: 'TIME {n}/{max}', en: 'SQUAD {n}/{max}' },
   trainTab: { pt: 'TREINAR ({n})', en: 'TRAIN ({n})' },
+  squadHint: {
+    pt: 'toque num bicho para trocá-lo entre o campo e a reserva',
+    en: 'tap an animal to swap it between the field and the reserve',
+  },
+  inField: { pt: 'em campo', en: 'fielded' },
+  inReserve: { pt: 'reserva', en: 'reserve' },
+  squadFull: { pt: 'time cheio — tire alguém primeiro', en: 'squad full — bench someone first' },
+  squadMin: { pt: 'o time precisa de pelo menos 3 bichos', en: 'the squad needs at least 3 animals' },
+  toField: { pt: '{name} entrou em campo!', en: '{name} took the field!' },
+  toReserve: { pt: '{name} foi para a reserva', en: '{name} went to the reserve' },
+  joinedReserve: {
+    pt: '{name} entrou na reserva — o time está cheio',
+    en: '{name} joined the reserve — the squad is full',
+  },
+  waterWarning: {
+    pt: '⚠ a próxima fase tem água e o time não tem bicho aquático!',
+    en: '⚠ the next stage has water and the squad has no aquatic animal!',
+  },
   nextStage: { pt: 'SEGUIR PARA A FASE {n}', en: 'ON TO STAGE {n}' },
   seeMap: { pt: 'VER O MAPA', en: 'SEE THE MAP' },
   deckComplete: { pt: 'Baralho completo!', en: 'Deck complete!' },
@@ -43,6 +66,10 @@ const T = {
   trainingNote: {
     pt: 'treinar não muda o custo em sementes — a mesma semente rende mais',
     en: 'training does not change the seed cost — the same seed buys more',
+  },
+  trainingNoteDeep: {
+    pt: 'o Japão destravou os níveis IV e V — fundo custa caro, escolha o seu núcleo',
+    en: 'Japan unlocked levels IV and V — deep is expensive, pick your core',
   },
   levelUp: { pt: 'nível {from} → {to}', en: 'level {from} → {to}' },
   andMore: {
@@ -88,15 +115,20 @@ export function createShop(result, state, onContinue) {
   let MENU_W = menuWidth();
   const offers = result.offers.map((id) => BY_ID[id]).filter(Boolean);
   const bought = new Set();
+  const visit = !!result.visit;
+  // training deeper than III is Japan's gift; the cap arrives with the result
+  const cap = result.levelCap || 3;
   // whoever lost the stage lands straight in training: recruiting a new card is
-  // rarely the answer to "I couldn't hold the horde"
-  let tab = result.won === false ? 'train' : 'recruit';
+  // rarely the answer to "I couldn't hold the horde". A visit from the map is
+  // about the squad, so it opens there.
+  let tab = visit ? 'squad' : result.won === false ? 'train' : 'recruit';
 
-  /** The deck cards that can still go up a level. */
+  /** The collection cards that can still go up a level — training follows a
+   *  card onto the bench, so this reads `owned`, not the squad. */
   function trainable() {
-    return state.deck
+    return state.owned
       .map((id) => ({ id, level: state.levels[id] || 1 }))
-      .filter((c) => c.level < MAX_LEVEL)
+      .filter((c) => c.level < cap)
       .map((c) => ({ ...c, base: BY_ID[c.id], cost: trainingCost(c.id, c.level) }))
       .filter((c) => c.base)
       .sort((a, b) => a.cost - b.cost);
@@ -127,53 +159,62 @@ export function createShop(result, state, onContinue) {
     applyFrame(ctx);
     buttons.length = 0;
 
-    // header — the barracks serve whoever won and whoever fell
-    const won = result.won !== false;
+    // header — the barracks serve whoever won, whoever fell, and whoever just
+    // dropped by from the map to re-pick the squad
+    const won = !visit && result.won !== false;
     text(ctx, pick(won ? T.stageWon : T.barracks), MENU_W / 2, 62, {
       size: 42, align: 'center', color: won ? COLORS.good : INK,
     });
-    text(ctx, `${pick(result.stage.name)} · ${pick(result.stage.place)}`, MENU_W / 2, 90, {
-      size: 17, align: 'center', color: INK_SOFT,
-    });
+    text(
+      ctx,
+      visit ? pick(T.visitSub) : `${pick(result.stage.name)} · ${pick(result.stage.place)}`,
+      MENU_W / 2,
+      90,
+      { size: 17, align: 'center', color: INK_SOFT }
+    );
 
-    // earnings — the coin is broken down so the economy stays readable
-    const earnings = [
-      {
-        label: pick(T.coins),
-        value: `🪙 ${result.coins}`,
-        color: COLORS.accentDark,
-        foot: result.change ? fill(T.change, { base: result.base, change: result.change }) : null,
-      },
-      {
-        label: pick(T.monstersDropped),
-        value: String(result.killed),
-        color: COLORS.danger,
-        foot: result.killGain ? fill(T.yieldedSeeds, { n: result.killGain }) : null,
-      },
-      {
-        label: pick(T.humansFreed),
-        value: fill(T.millions, { n: result.humans }),
-        color: COLORS.good,
-        foot: null,
-      },
-    ];
-    earnings.forEach((g, i) => {
-      const x = MENU_W / 2 - 345 + i * 230;
-      box(ctx, x, 118, 214, 76, 10, { color: INK, width: 2.4, fill: '#fbf5e6', seed: 10 + i });
-      text(ctx, g.label, x + 107, 140, { size: 13, align: 'center', color: INK_SOFT });
-      text(ctx, g.value, x + 107, 168, { size: 23, align: 'center', color: g.color });
-      if (g.foot) text(ctx, g.foot, x + 107, 186, { size: 12, align: 'center', color: INK_SOFT });
-    });
+    // earnings — the coin is broken down so the economy stays readable. A map
+    // visit earned nothing, so it shows nothing.
+    if (!visit) {
+      const earnings = [
+        {
+          label: pick(T.coins),
+          value: `🪙 ${result.coins}`,
+          color: COLORS.accentDark,
+          foot: result.change ? fill(T.change, { base: result.base, change: result.change }) : null,
+        },
+        {
+          label: pick(T.monstersDropped),
+          value: String(result.killed),
+          color: COLORS.danger,
+          foot: result.killGain ? fill(T.yieldedSeeds, { n: result.killGain }) : null,
+        },
+        {
+          label: pick(T.humansFreed),
+          value: fill(T.millions, { n: result.humans }),
+          color: COLORS.good,
+          foot: null,
+        },
+      ];
+      earnings.forEach((g, i) => {
+        const x = MENU_W / 2 - 345 + i * 230;
+        box(ctx, x, 118, 214, 76, 10, { color: INK, width: 2.4, fill: '#fbf5e6', seed: 10 + i });
+        text(ctx, g.label, x + 107, 140, { size: 13, align: 'center', color: INK_SOFT });
+        text(ctx, g.value, x + 107, 168, { size: 23, align: 'center', color: g.color });
+        if (g.foot) text(ctx, g.foot, x + 107, 186, { size: 12, align: 'center', color: INK_SOFT });
+      });
+    }
 
     // balance
     text(ctx, fill(T.youHave, { n: state.coins }), MENU_W / 2, 216, { size: 21, align: 'center', color: INK });
 
     // ------------------------------------------------------------------ tabs
-    // Recruiting widens the spread; training deepens what you already use. The
-    // campaign doesn't pay for both, and that choice is what gives a deck its
-    // identity.
+    // Recruiting widens the spread; training deepens what you already use; the
+    // squad tab picks the 14 that actually march. The campaign doesn't pay for
+    // everything, and those choices are what give a deck its identity.
     const tabs = [
       { id: 'recruit', label: fill(T.recruitTab, { n: offers.filter((c) => !bought.has(c.id)).length }) },
+      { id: 'squad', label: fill(T.squadTab, { n: state.deck.length, max: DECK_LIMIT }) },
       { id: 'train', label: fill(T.trainTab, { n: trainable().length }) },
     ];
     const tabW = 220;
@@ -193,6 +234,7 @@ export function createShop(result, state, onContinue) {
     });
 
     if (tab === 'recruit') drawRecruit(ctx);
+    else if (tab === 'squad') drawSquad(ctx);
     else drawTrain(ctx);
 
     // continue — the number shown is the campaign-local label, so crossing
@@ -269,6 +311,67 @@ export function createShop(result, state, onContinue) {
     });
   }
 
+  // ---------------------------------------------------------------- the squad
+
+  /**
+   * Every card the player owns, field and bench side by side. Tapping a card
+   * swaps it across; the rule itself (the 14 limit, the floor of 3) lives in
+   * `toggleActive`, where the test reaches it.
+   */
+  function drawSquad(ctx) {
+    text(ctx, pick(T.squadHint), MENU_W / 2, 294, { size: 14, align: 'center', color: INK_SOFT });
+
+    // sailing into a water stage with no fins in the squad is a lost stage
+    // waiting to start — the bench may hold the answer, so say it here
+    if (result.nextHasWater && !state.deck.some((id) => BY_ID[id] && BY_ID[id].aquatic)) {
+      text(ctx, pick(T.waterWarning), MENU_W / 2, 314, { size: 15, align: 'center', color: COLORS.danger });
+    }
+
+    const items = state.owned.map((id) => BY_ID[id]).filter(Boolean);
+    const perRow = Math.min(8, Math.max(4, Math.ceil(items.length / 3)));
+    const cw = Math.min(140, (MENU_W - 120) / perRow - 8);
+    const ch = 92;
+    const y0 = 324;
+
+    items.forEach((c, i) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const inThisRow = Math.min(perRow, items.length - row * perRow);
+      const x = MENU_W / 2 - (inThisRow * (cw + 8)) / 2 + col * (cw + 8);
+      const y = y0 + row * (ch + 10);
+      const active = state.deck.includes(c.id);
+
+      box(ctx, x, y, cw, ch, 10, {
+        color: active ? COLORS.good : INK_SOFT,
+        width: active ? 3.4 : 2,
+        fill: active ? '#eaf3df' : '#e6ddc8',
+        seed: 500 + i,
+      });
+      ctx.save();
+      ctx.globalAlpha = active ? 1 : 0.55;
+      putSprite(ctx, animalSprite(c.id, 128), x + cw / 2, y + 38, 0.31);
+      ctx.restore();
+      text(ctx, pick(c.name), x + cw / 2, y + 74, { size: 11, align: 'center', color: active ? INK : INK_SOFT });
+      text(ctx, pick(active ? T.inField : T.inReserve), x + cw / 2, y + 87, {
+        size: 9, align: 'center', color: active ? COLORS.good : INK_SOFT,
+      });
+      if (active) {
+        text(ctx, '✓', x + cw - 12, y + 16, { size: 15, align: 'center', color: COLORS.good });
+      }
+      // the training badge travels with the card, bench included
+      const lvl = state.levels[c.id] || 1;
+      if (lvl > 1) {
+        box(ctx, x + 4, y + 4, 24, 15, 4, {
+          color: COLORS.accentDark, width: 1.6, fill: '#f7d98a', seed: 540 + i,
+        });
+        text(ctx, cardAtLevel(c.id, lvl).levelLabel, x + 16, y + 16, {
+          size: 10, align: 'center', color: COLORS.accentDark,
+        });
+      }
+      buttons.push({ x, y, w: cw, h: ch, action: 'toggle', id: c.id });
+    });
+  }
+
   // ---------------------------------------------------------------- training
 
   function drawTrain(ctx) {
@@ -280,7 +383,9 @@ export function createShop(result, state, onContinue) {
       return;
     }
 
-    text(ctx, pick(T.trainingNote), MENU_W / 2, 294, { size: 14, align: 'center', color: INK_SOFT });
+    text(ctx, pick(cap > 3 ? T.trainingNoteDeep : T.trainingNote), MENU_W / 2, 294, {
+      size: 14, align: 'center', color: INK_SOFT,
+    });
 
     // A grid of up to 14 cards in two rows. With two, the card shrinks — the
     // second row has to end before the continue button, or it hides behind it.
@@ -352,10 +457,28 @@ export function createShop(result, state, onContinue) {
             return;
           }
           state.coins -= c.price;
-          state.deck.push(c.id);
+          const landed = buyCard(state, c.id);
           bought.add(c.id);
           sfx.coin();
-          say(() => fill(T.joinedDeck, { name: pick(c.name) }), COLORS.good);
+          say(
+            () => fill(landed === 'field' ? T.joinedDeck : T.joinedReserve, { name: pick(c.name) }),
+            landed === 'field' ? COLORS.good : COLORS.accentDark
+          );
+          return;
+        }
+        if (b.action === 'toggle') {
+          const r = toggleActive(state.deck, b.id);
+          if (r.error) {
+            sfx.error();
+            say(r.error === 'full' ? T.squadFull : T.squadMin, COLORS.danger);
+            return;
+          }
+          state.deck = r.deck;
+          sfx.card();
+          say(
+            () => fill(r.moved === 'field' ? T.toField : T.toReserve, { name: pick(BY_ID[b.id].name) }),
+            COLORS.good
+          );
           return;
         }
         if (b.action === 'tab') {

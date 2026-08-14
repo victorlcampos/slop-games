@@ -10,7 +10,7 @@ import { createBattle } from './screens/battle.js';
 import { createShop } from './screens/shop.js';
 import { monsterSprite } from './draw/monsters.js';
 import { STAGES, CAMPAIGNS, campaignById, isCampaignOpen, isCampaignDone } from './data/stages.js';
-import { requiredCards, rollCards, shopPool } from './data/animals.js';
+import { requiredCards, rollCards, shopPool, levelCap } from './data/animals.js';
 import { calcReward } from './data/economy.js';
 import { vp, HEIGHT, resize, begin, watch, pointIn, applyFrame, pointInFrame, menuWidth } from './viewport.js';
 import { createLoop } from 'slopkit/loop';
@@ -74,6 +74,9 @@ function goToMap() {
     intro: goToIntro,
     // the country screen's "replay film": each campaign owns its reel
     film: (campaignId) => (campaignId === 'japan' ? goToJapanFilm() : goToIntro()),
+    // a visit to the barracks from the map: no prize screen, straight to the
+    // squad — this is how a bench alligator gets fielded before a water stage
+    barracks: () => goToShop({ visit: true, won: null, stage: null, coins: 0, humans: 0, killed: 0 }),
     restart: () => {
       // a genuinely new game: wipe what's stored, zero the in-memory state and
       // play the intro again, which is where the campaign starts
@@ -156,22 +159,30 @@ function lostStage(stage, summary) {
   current = defeatScreen(stage, summary, { coins: total, base, change });
 }
 
-/** The screen between stages: recruit new cards or train the ones you have. */
+/** The screen between stages: recruit, train, and pick the squad of 14. */
 function goToShop(result) {
   const next = state.won.length >= STAGES.length ? null : state.currentStage;
   const nextStage = STAGES.find((s) => s.n === next);
   // the shop only sells what the player's campaigns have unlocked: the Japan
   // recruits stay out of the window until the crossing happens
-  const pool = shopPool(
-    CAMPAIGNS.filter((c) => c.unlockedBy && isCampaignOpen(c, state.won)).map((c) => c.id)
-  );
-  // what the next stage demands goes into the shop window by force: reaching
-  // the water stage with no aquatic animal is reaching it with no defence in
-  // the lane the Iara comes down
-  const required = requiredCards(nextStage, state.deck, pool);
-  const offers = rollCards(state.deck, 3, state.coins, required, pool);
+  const extra = CAMPAIGNS.filter((c) => c.unlockedBy && isCampaignOpen(c, state.won)).map((c) => c.id);
+  const pool = shopPool(extra);
+  // what the next stage demands goes into the shop window by force — but only
+  // if the COLLECTION has no answer: an alligator on the bench is an answer,
+  // it just needs fielding, and the squad tab says so
+  const required = requiredCards(nextStage, state.owned, pool);
+  const offers = rollCards(state.owned, 3, state.coins, required, pool);
   current = createShop(
-    { ...result, offers, nextStage: next, nextLabel: nextStage ? nextStage.label : null },
+    {
+      ...result,
+      offers,
+      nextStage: next,
+      nextLabel: nextStage ? nextStage.label : null,
+      // opening Japan raises the training ceiling from III to V
+      levelCap: levelCap(extra),
+      // the squad tab warns when the next board has water and the squad no fins
+      nextHasWater: !!(nextStage && nextStage.water && nextStage.water.length),
+    },
     state,
     () => {
       Save.save(state);

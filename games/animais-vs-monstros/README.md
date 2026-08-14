@@ -71,21 +71,30 @@ many waves you held, from 12% to 35% of the prize. Trying a hard stage can't be
 time thrown away, but losing never pays more than winning. Replaying a stage
 already won pays 30%, or stage 1 becomes a cash machine.
 
-At the barracks, coins go to two places:
+At the barracks, coins go to three places:
 
 - **Recruit** — three cards rolled from the ones you don't have yet.
-- **Train** — take a card in your deck up a level (to level 3).
+- **Squad** — the battle takes at most **14 cards**. Everything you buy stays in
+  the collection; past 14, new recruits wait on the bench and you pick who
+  marches by tapping cards on the squad tab. The barracks is one button away
+  from the map, so a benched Alligator can be fielded before a water stage
+  without playing a stage first.
+- **Train** — take a card up a level. Brazil trains to level **III**; opening
+  Japan raises the ceiling to **V**.
 
 Training raises what the card already does and **does not change its seed cost**:
-the same seed on the field now buys more. At level 3 the card also comes back
-sooner. A trained Squirrel produces 25 → 34 → 45 seeds; a Monkey hits 22 → 30 →
-40.
+the same seed on the field now buys more. From level 3 the card also comes back
+sooner. A trained Squirrel produces 25 → 34 → 45 → 59 → 75 seeds; a Monkey hits
+22 → 30 → 40 → 52 → 66. Crowd control is the one thing that stops growing at
+III — a level-V Lion whose roar outlasted its own interval would freeze an area
+permanently, so the deep levels buy muscle, never lockdown.
 
 Training is priced off the card's own value, so deepening an Elephant costs more
-than recruiting an average card. And the budget doesn't cover both: **recruiting
-everything costs 4030, training everything 8512, and the campaign pays around
-3800**. Either you widen the spread or you deepen what you already use — every
-player's deck ends up different because of that choice.
+than recruiting an average card. And the budget doesn't cover a fraction of it:
+**recruiting everything costs about 5,100, training everything to V about
+39,000, and the two campaigns pay around 9,900**. Either you widen the spread,
+or you take a hand-picked core to level V — every player's squad ends up
+different because of that choice.
 
 | Action | On a computer | On a phone |
 |---|---|---|

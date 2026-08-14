@@ -3,8 +3,8 @@
 // the format and the sanitising rules for each field.
 
 import { createSave } from 'slopkit/save';
-import { STARTER_DECK, BY_ID, MAX_LEVEL } from './data/animals.js';
-import { TOTAL_STAGES } from './data/stages.js';
+import { STARTER_DECK, BY_ID, MAX_LEVEL, DECK_LIMIT, levelCap } from './data/animals.js';
+import { TOTAL_STAGES, campaignById, isCampaignOpen } from './data/stages.js';
 import { i18n } from './i18n.js';
 
 /** A brand new save. It is also the template of what has to exist. */
@@ -12,6 +12,9 @@ export function freshSave() {
   return {
     version: 4,
     coins: 0,
+    // `owned` is the collection; `deck` is the squad that enters battle, at
+    // most DECK_LIMIT of it, picked at the barracks
+    owned: [...STARTER_DECK],
     deck: [...STARTER_DECK],
     // training level of each card; absent = level 1
     levels: {},
@@ -54,8 +57,17 @@ function normalize(raw, base) {
   const s = { ...base, ...named };
   s.coins = Number.isFinite(s.coins) ? Math.max(0, Math.floor(s.coins)) : 0;
 
-  const known = Array.isArray(s.deck) ? [...new Set(s.deck)].filter((id) => BY_ID[id]) : [];
-  s.deck = known.length ? known : [...STARTER_DECK];
+  // The collection is the union of whatever the save calls owned and whatever
+  // sits in the deck — a save from before `owned` existed carried the whole
+  // collection in `deck`. The starters are always owned; nothing can lose them.
+  const deckRaw = Array.isArray(s.deck) ? [...new Set(s.deck)].filter((id) => BY_ID[id]) : [];
+  const ownedRaw = Array.isArray(s.owned) ? s.owned.filter((id) => BY_ID[id]) : [];
+  s.owned = [...new Set([...STARTER_DECK, ...ownedRaw, ...deckRaw])];
+
+  // The squad is capped: an old save with 19 cards in the deck keeps all 19
+  // owned and fields the first 14 — the barracks is where it gets re-picked.
+  const squad = deckRaw.filter((id) => s.owned.includes(id)).slice(0, DECK_LIMIT);
+  s.deck = squad.length ? squad : [...STARTER_DECK];
 
   s.won = Array.isArray(s.won) ? s.won.filter((n) => Number.isFinite(n)) : [];
   s.currentStage = Number.isFinite(s.currentStage)
@@ -71,13 +83,20 @@ function normalize(raw, base) {
   s.sawJapanIntro = !!s.sawJapanIntro;
 
   // levels: a v2 save had no such field, and nothing stops a hand-edited file
-  // from carrying level 99 on a card the player doesn't even own
+  // from carrying level 99 on a card the player doesn't even own. Training
+  // follows the card into the reserve (keyed on owned, not the squad), and the
+  // ceiling is the campaign's: level V on a save that never opened Japan is a
+  // level the player could not have bought.
+  const cap = Math.min(
+    MAX_LEVEL,
+    levelCap(isCampaignOpen(campaignById('japan'), s.won) ? ['japan'] : [])
+  );
   const levels = {};
   if (s.levels && typeof s.levels === 'object') {
     for (const [id, n] of Object.entries(s.levels)) {
-      if (!s.deck.includes(id)) continue;
+      if (!s.owned.includes(id)) continue;
       if (!Number.isFinite(n)) continue;
-      levels[id] = Math.min(Math.max(1, Math.floor(n)), MAX_LEVEL);
+      levels[id] = Math.min(Math.max(1, Math.floor(n)), cap);
     }
   }
   s.levels = levels;

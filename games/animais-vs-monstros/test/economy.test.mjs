@@ -9,6 +9,7 @@ import { missingKeys } from 'slopkit';
 import { calcReward } from '../src/data/economy.js';
 import {
   ANIMALS, BY_ID, STARTER_DECK, cardAtLevel, trainingCost, requiredCards, rollCards, MAX_LEVEL,
+  levelCap, toggleActive, buyCard, DECK_LIMIT, SQUAD_MIN,
 } from '../src/data/animals.js';
 import { MONSTERS, MONSTER_BY_ID } from '../src/data/monsters.js';
 import { STAGES, CAMPAIGNS } from '../src/data/stages.js';
@@ -50,8 +51,78 @@ scenario('the base definition is never mutated', () => {
 
 scenario('training gets pricier each level, and better cards cost more', () => {
   check(trainingCost('monkey', 2) > trainingCost('monkey', 1), '2→3 costs more than 1→2');
+  check(trainingCost('monkey', 3) > trainingCost('monkey', 2), '3→4 costs more than 2→3');
+  check(trainingCost('monkey', 4) > trainingCost('monkey', 3), '4→5 costs more than 3→4');
   check(trainingCost('elephant', 1) > trainingCost('bee', 1), 'training the Elephant costs more than the Bee');
   checkEqual(trainingCost('monkey', MAX_LEVEL), null, 'at max level there is nothing to buy');
+});
+
+scenario('Japan raises the training ceiling from III to V', () => {
+  checkEqual(levelCap([]), 3, 'Brazil alone trains up to III');
+  checkEqual(levelCap(['japan']), 5, 'opening Japan unlocks IV and V');
+  check(levelCap(['japan', 'whatever']) <= MAX_LEVEL, 'no list of campaigns escapes the absolute cap');
+});
+
+scenario('levels IV and V buy muscle, never permanent crowd control', () => {
+  // damage, hp and yield keep climbing…
+  check(cardAtLevel('monkey', 5).damage > cardAtLevel('monkey', 3).damage, 'level V hits harder than III');
+  check(cardAtLevel('squirrel', 5).yield > cardAtLevel('squirrel', 3).yield, 'a level V generator produces more');
+  check(cardAtLevel('scorpion', 5).poison.damage > cardAtLevel('scorpion', 3).poison.damage, 'poison is damage — it scales');
+  // …but control freezes at the level-III multiplier: a stun that outlasted
+  // the Lion's own interval would lock an area forever
+  checkEqual(cardAtLevel('lion', 5).stun, cardAtLevel('lion', 3).stun, 'the stun must stop growing at III');
+  checkEqual(cardAtLevel('polarbear', 5).slow.duration, cardAtLevel('polarbear', 3).slow.duration, 'and so must the slow');
+  const lion5 = cardAtLevel('lion', 5);
+  check(lion5.stun < lion5.interval, `a ${lion5.stun}s stun on a ${lion5.interval}s interval is a permanent freeze`);
+});
+
+// ------------------------------------------------------------------ the squad
+
+scenario('the squad holds 14, never fewer than 3, and the rule says why it refused', () => {
+  // fill it to the brim…
+  let deck = ANIMALS.slice(0, DECK_LIMIT - 1).map((a) => a.id);
+  const joining = ANIMALS[DECK_LIMIT - 1].id;
+  const joined = toggleActive(deck, joining);
+  check(joined.deck && joined.deck.length === DECK_LIMIT, 'card 14 should still fit');
+  checkEqual(joined.moved, 'field', 'and it lands on the field');
+
+  // …the 15th stays out…
+  const overflow = toggleActive(joined.deck, ANIMALS[DECK_LIMIT].id);
+  checkEqual(overflow.error, 'full', 'card 15 has to be refused, with the reason');
+
+  // …and the floor holds
+  deck = [...STARTER_DECK];
+  check(deck.length === SQUAD_MIN, 'the starter squad sits exactly on the floor');
+  const under = toggleActive(deck, deck[0]);
+  checkEqual(under.error, 'min', 'a battle needs something to plant');
+
+  // benching from a healthy squad works, and is reversible
+  const five = ANIMALS.slice(0, 5).map((a) => a.id);
+  const benched = toggleActive(five, five[0]);
+  checkEqual(benched.moved, 'reserve', 'a healthy squad can bench');
+  check(!benched.deck.includes(five[0]), 'the benched card left the field');
+  const back = toggleActive(benched.deck, five[0]);
+  checkEqual(back.moved, 'field', 'and the bench door swings both ways');
+});
+
+scenario('a recruit joins the collection always, the squad only while there is room', () => {
+  const state = { owned: ANIMALS.slice(0, DECK_LIMIT).map((a) => a.id), deck: ANIMALS.slice(0, DECK_LIMIT).map((a) => a.id) };
+  const late = ANIMALS[DECK_LIMIT].id;
+  checkEqual(buyCard(state, late), 'reserve', 'a full squad sends the recruit to the bench');
+  check(state.owned.includes(late), 'but the collection always keeps it');
+  checkEqual(state.deck.length, DECK_LIMIT, 'the squad did not swell past the limit');
+
+  const roomy = { owned: [...STARTER_DECK], deck: [...STARTER_DECK] };
+  checkEqual(buyCard(roomy, 'bee'), 'field', 'with room, a recruit marches straight in');
+  check(roomy.deck.includes('bee') && roomy.owned.includes('bee'), 'in both lists');
+});
+
+scenario('an alligator on the bench already answers the water requirement', () => {
+  const pantanal = STAGES.find((s) => s.n === 4);
+  // the collection has the answer — the shop must not force-sell another one,
+  // because the squad tab is where this gets fixed
+  checkEqual(requiredCards(pantanal, ['squirrel', 'monkey', 'turtle', 'alligator']), [],
+    'owning an aquatic (even benched) satisfies the requirement');
 });
 
 // ----------------------------------------------------------- water and cast
