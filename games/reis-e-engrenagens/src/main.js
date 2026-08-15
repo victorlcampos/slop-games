@@ -10,7 +10,7 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { CASTLE_X, CELL, COLS, DRIVE_SPEED, GAUGE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
+import { BASE_Y, CASTLE_X, CELL, COLS, DRIVE_SPEED, GAUGE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createMatch } from './battle.js';
 import { buildTerrain } from './terrain.js';
@@ -79,6 +79,8 @@ let time = 0;
 let overT = 0;
 /** -1, 0 or 1: which way the thumb is holding the engine. */
 let driving = 0;
+/** -1, 0 or 1: which way the thumb is holding the elevation. */
+let aiming = 0;
 const enemy = { stage: 'idle', t: 0, plan: null };
 
 const seedOf = (r) => 101 + r.level * 13 + (r.faction === 'knights' ? 0 : 5);
@@ -110,6 +112,7 @@ function buildStage() {
 /** The menu is not a blank screen: it is the siege you are about to walk into. */
 function showcase() {
   buildStage();
+  cam.zoomTo(1, true);
   cam.follow(menuFocus(), viewWidth(vp), 1, true);
   previewCastle = createCastle('player', run.blueprint || suggestBlueprint(run.coins));
   foePreview = createCastle('enemy', foeBlueprint());
@@ -120,10 +123,22 @@ function showcase() {
 /** Behind the menu: your castle and a stretch of the valley it is defending. */
 const menuFocus = () => ({ x: CASTLE_X.player + COLS * CELL + 190, y: 380 });
 
-/** In the workshop the camera is parked over your own plot and stays there. */
+/**
+ * In the workshop the camera is parked over your own plot and zoomed in.
+ *
+ * The zoom is not decoration: a 40px cell drawn at 1:1 on a phone held upright
+ * is about twenty screen pixels, which is half of what a thumb can reliably hit,
+ * and building was the part of the game that suffered most for it.
+ */
 function shopFocus() {
-  return { x: CASTLE_X.player + (COLS * CELL) / 2 + 120, y: 400 };
+  return { x: CASTLE_X.player + (COLS * CELL) / 2 + 40, y: BASE_Y - 130 };
 }
+// The plot is 280 wide and 360 tall; these are those plus room for the top bar
+// and the palette. Height is what really binds — a zoom chosen on width alone
+// magnified the castle past the top of the screen.
+const SHOP_SPAN = 560;
+const SHOP_TALL = 486;
+const shopZoom = () => clamp(Math.min(viewWidth(vp) / SHOP_SPAN, H / SHOP_TALL), 1, 2.6);
 
 function openShop() {
   buildStage();
@@ -137,6 +152,7 @@ function openShop() {
   hover = null;
   message = '';
   fx.clear();
+  cam.zoomTo(shopZoom(), true);
   cam.follow(shopFocus(), viewWidth(vp), 1, true);
   setScreen('shop');
 }
@@ -159,6 +175,7 @@ function startBattle() {
   power = 0;
   overT = 0;
   enemy.stage = 'idle';
+  cam.zoomTo(1, true);
   cam.follow(focusOf(match, 'player'), viewWidth(vp), 1, true);
   setScreen('battle');
 }
@@ -208,19 +225,37 @@ const view = () => ({ W: viewWidth(vp), H: vp.H });
 
 const worldPoint = (x, y) => cam.toWorld(x, y);
 
-function aimTowards(x, y) {
-  const p = worldPoint(x, y);
-  const L = match.launchers.player;
-  const dx = (p.x - L.x) * L.dir;
-  const dy = L.y - 28 - p.y;
-  const a = (Math.atan2(dy, Math.max(dx, 6)) * 180) / Math.PI;
-  match.aim('player', clamp(a, 4, 89));
+/**
+ * Aiming by *dragging*, not by pointing.
+ *
+ * Pointing at the spot you wanted the barrel to face reads well with a mouse and
+ * is unusable with a thumb: the same tap that opened the power gauge also
+ * snapped the aim to wherever the thumb happened to be, which on a phone is the
+ * bottom of the screen — four degrees, every time. Dragging changes the angle by
+ * how far you dragged and a tap changes nothing.
+ */
+function aimBy(dy) {
+  if (!dy) return;
+  match.aim('player', match.launchers.player.angle + dy * AIM_PER_PX);
 }
+const AIM_PER_PX = 0.17;
+let dragY = null;
 
 function fireNow() {
   match.fire('player', power);
   match.commit();
   phase = 'flight';
+}
+
+/** The one button that ends a turn: once to open the gauge, again to let go. */
+function onFire() {
+  if (!match || match.over || match.turn !== 'player' || match.flying()) return;
+  if (phase === 'aim') {
+    phase = 'charging';
+    gaugeT = 0;
+  } else if (phase === 'charging') {
+    fireNow();
+  }
 }
 
 function shopCellAt(x, y) {
@@ -250,10 +285,15 @@ const input = createInput(canvas, vp, {
     const r = hit(hudRects, x, y);
     if (r) {
       if (r.kind === 'drive') driving = r.dir;
+      else if (r.kind === 'aim') aiming = r.dir;
+      else if (r.kind === 'fire') onFire();
+      else if (r.kind === 'weapon') {
+        if (!match.pick('player', r.id)) sfx.deny();
+        else sfx.place();
+      }
       return;
     }
-    if (match.over || match.turn !== 'player' || match.flying()) return;
-    if (phase === 'aim') aimTowards(x, y);
+    dragY = y;
   },
 
   move(x, y, pressed) {
@@ -263,54 +303,28 @@ const input = createInput(canvas, vp, {
       return;
     }
     if (screen !== 'battle' || !match) return;
-    if (match.over || match.turn !== 'player' || match.flying()) return;
-    if (phase === 'aim' && (pressed || !vp.touch)) aimTowards(x, y);
+    if (dragY === null || !pressed) return;
+    if (match.over || match.turn !== 'player' || match.flying() || phase !== 'aim') return;
+    aimBy(dragY - y);
+    dragY = y;
   },
 
-  up(x, y) {
+  up() {
     driving = 0;
-    if (screen !== 'battle' || !match) return;
-    if (hit(hudRects, x, y)) {
-      const r = hit(hudRects, x, y);
-      if (r && r.kind === 'weapon') {
-        if (!match.pick('player', r.id)) sfx.deny();
-        else sfx.place();
-      }
-      return;
-    }
-    if (match.over || match.turn !== 'player' || match.flying()) return;
-    if (phase === 'aim') {
-      phase = 'charging';
-      gaugeT = 0;
-    } else if (phase === 'charging') {
-      fireNow();
-    }
+    aiming = 0;
+    dragY = null;
   },
 
   key(code) {
     if (screen === 'battle' && match && !match.over) {
       if (code === 'Space' || code === 'Enter') {
-        if (match.turn !== 'player' || match.flying()) return true;
-        if (phase === 'aim') {
-          phase = 'charging';
-          gaugeT = 0;
-        } else if (phase === 'charging') fireNow();
+        onFire();
         return true;
       }
-      if (phase === 'aim' && match.turn === 'player') {
-        const L = match.launchers.player;
-        if (code === 'ArrowUp' || code === 'KeyW') {
-          match.aim('player', L.angle + 1);
-          return true;
-        }
-        if (code === 'ArrowDown' || code === 'KeyS') {
-          match.aim('player', L.angle - 1);
-          return true;
-        }
-        // left and right are the engine, not the angle — the layout every
-        // artillery game with a mobile has used since Gunbound
-        if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD') return true;
-      }
+      // all four arrows are *held*, and the update loop reads them: left and
+      // right are the engine, up and down the elevation — the layout every
+      // artillery game with a mobile has used since Gunbound
+      if (/^(Arrow(Up|Down|Left|Right)|Key[WASD])$/.test(code)) return true;
       const n = /^Digit([1-4])$/.exec(code);
       if (n) {
         const ids = Object.keys(match.ammo.player);
@@ -389,9 +403,16 @@ function update(h) {
   fx.update(h, terrain);
 
   const viewW = viewWidth(vp);
-  if (screen === 'battle' && match) cam.follow(focusOf(match), viewW, h);
-  else if (screen === 'shop') cam.follow(shopFocus(), viewW, h);
-  else cam.follow(menuFocus(), viewW, h);
+  if (screen === 'battle' && match) {
+    cam.zoomTo(1);
+    cam.follow(focusOf(match), viewW, h);
+  } else if (screen === 'shop') {
+    cam.zoomTo(shopZoom());
+    cam.follow(shopFocus(), viewW, h);
+  } else {
+    cam.zoomTo(1);
+    cam.follow(menuFocus(), viewW, h);
+  }
 
   if (screen !== 'battle' || !match) return;
 
@@ -405,6 +426,10 @@ function update(h) {
       const moved = match.drive('player', dir * DRIVE_SPEED * h);
       if (moved) sfx.roll(match.launchers.player.fuel);
     }
+    const tilt = (input.held.has('ArrowUp') || input.held.has('KeyW') ? 1 : 0) +
+      (input.held.has('ArrowDown') || input.held.has('KeyS') ? -1 : 0);
+    const up = tilt || aiming;
+    if (up) match.aim('player', match.launchers.player.angle + up * 42 * h);
   }
 
   if (phase === 'charging' && match.turn === 'player' && !match.flying()) {
@@ -469,6 +494,11 @@ function drain() {
       case 'split':
         fx.boom(ev.x, ev.y, 14, '#cccccc');
         break;
+      case 'burrow':
+        // it went in here, and the only evidence until it goes off is the spray
+        fx.shards(ev.x, ev.y, terrain.spec.dust, 14);
+        sfx.tumble();
+        break;
       case 'break':
         fx.shards(ev.x, ev.y, material(ev.m).face, 14);
         sfx.crack(ev.m);
@@ -510,7 +540,8 @@ function draw() {
   ctx.save();
   const sx = shake ? (Math.random() - 0.5) * 18 * shake : 0;
   const sy = shake ? (Math.random() - 0.5) * 18 * shake : 0;
-  ctx.translate(-Math.round(cam.x) + sx, -Math.round(cam.y) + sy);
+  ctx.translate(sx, sy);
+  cam.apply(ctx);
 
   if (screen === 'battle' && match) {
     drawField(ctx, { match, scene, fx, time, cam, viewW: v.W });
@@ -518,19 +549,20 @@ function draw() {
       drawAim(ctx, match, 'player', match.launchers.player.angle, phase === 'charging' ? power : 55);
     }
   } else if (scene) {
-    scene.drawSky(ctx, cam, v.W);
-    scene.drawGround(ctx, cam, v.W);
-    scene.drawProps(ctx, cam, v.W);
+    const span = cam.span(v.W);
+    scene.drawSky(ctx, cam, span);
+    scene.drawGround(ctx, cam, span);
+    scene.drawProps(ctx, cam, span);
     const castle = shop ? shop.castle : previewCastle;
     if (foePreview) drawStill(ctx, foePreview, foeFaction());
     if (screen === 'shop') drawShopGrid(ctx, shop, hover, run.faction);
     else if (castle) drawStill(ctx, castle, run.faction);
-    scene.drawWeather(ctx, cam, v.W);
+    scene.drawWeather(ctx, cam, span);
   }
   ctx.restore();
 
   if (screen === 'battle' && match) {
-    hudRects = drawBattleHud(ctx, v, { match, level, phase, power, driving });
+    hudRects = drawBattleHud(ctx, v, { match, level, phase, power, driving, aiming });
   } else if (screen === 'shop') {
     hudRects = drawShopHud(ctx, v, shop, level, { message, foe: foePreview, foeFaction: foeFaction() });
   } else {
@@ -572,7 +604,20 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   vault.save(run);
   showcase();
   refreshMenu();
+  // It always worked. What it never did was *look* like it worked: with no run
+  // saved there is nothing on the menu for it to clear, so the button read as
+  // dead. Now it is only offered when there is something to throw away, and it
+  // says what it threw away.
+  flashMenu(t('menu.wiped'));
 });
+
+let menuNoteT = null;
+function flashMenu(text) {
+  const el = document.getElementById('m-progress');
+  el.textContent = text;
+  clearTimeout(menuNoteT);
+  menuNoteT = setTimeout(refreshMenu, 2400);
+}
 for (const el of document.querySelectorAll('[data-faction]')) {
   el.addEventListener('click', () => {
     run.faction = el.dataset.faction;
@@ -595,8 +640,10 @@ for (const el of document.querySelectorAll('[data-menu]')) {
 function refreshMenu() {
   const has = !!run.blueprint;
   document.getElementById('btn-resume').hidden = !has;
+  document.getElementById('btn-reset').hidden = !has;
+  document.getElementById('btn-start').textContent = t(has ? 'menu.restart' : 'menu.start');
   document.getElementById('m-progress').textContent = has
-    ? `${t('run.level', { n: run.level + 1 })} · ${t('run.coins', { n: run.coins })}`
+    ? `${t('run.level', { n: run.level + 1 })} · ${t('run.coins', { n: run.coins })} · ${t('run.record', { n: run.wins })}`
     : '';
 }
 

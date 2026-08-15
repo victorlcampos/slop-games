@@ -60,22 +60,26 @@ export function createFx() {
     },
 
     boom(x, y, radius, dust = '#8a6a45') {
-      rings.push({ x, y, r: radius, life: 0.42, max: 0.42 });
-      for (let i = 0; i < 26; i++) {
+      // A white flash for two frames. It is the cheapest thing in the whole file
+      // and it is what makes a detonation read as a detonation rather than as a
+      // ring appearing: the eye wants to be *hit* before it is shown anything.
+      rings.push({ x, y, r: radius, life: 0.42, max: 0.42, flash: 0.12 });
+      for (let i = 0; i < 34; i++) {
         const a = Math.random() * Math.PI * 2;
-        const v = 60 + Math.random() * radius * 5;
+        const v = 60 + Math.random() * radius * 6;
         add({
           x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40,
           life: 0.3 + Math.random() * 0.5, max: 0.8, size: 2 + Math.random() * 4,
           color: i % 3 === 0 ? '#ffd27a' : '#ff8a3a', gravity: 0.2, drag: 2.2, spin: 0, spinRate: 0, kind: 'spark',
         });
       }
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 22; i++) {
         const a = Math.random() * Math.PI * 2;
+        const v = 30 + Math.random() * 70;
         add({
-          x, y, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 - 50,
-          life: 0.7 + Math.random() * 0.7, max: 1.4, size: 8 + Math.random() * 14,
-          color: '#4a4038', gravity: -0.06, drag: 1.1, spin: 0, spinRate: 0, kind: 'smoke',
+          x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 70,
+          life: 0.9 + Math.random() * 1.1, max: 2, size: 10 + Math.random() * 18,
+          color: i % 4 ? '#4a4038' : '#6b5f52', gravity: -0.08, drag: 1.1, spin: 0, spinRate: 0, kind: 'smoke',
         });
       }
       for (let i = 0; i < 18; i++) {

@@ -398,7 +398,7 @@ animals.
 
 ### File weight
 
-Current reference: Iron Rain 91 KB, Kings & Gears 102 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
+Current reference: Iron Rain 91 KB, Kings & Gears 104 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
 and Zoo Tycoon 311 KB (all six with no libraries), World Drive 600 KB and
 SkiFree 3D 704 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.

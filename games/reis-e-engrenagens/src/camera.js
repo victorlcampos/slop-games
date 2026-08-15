@@ -11,7 +11,7 @@
 // the screen. Panning down would show the player the underside of the map,
 // which contains nothing but the floor of the world.
 
-import { W, clamp } from './config.js';
+import { H, W, clamp } from './config.js';
 
 /** As far up as the view will ever go — a very high lob, and no further. */
 export const CAM_TOP = -560;
@@ -20,9 +20,25 @@ export function createCamera() {
   const cam = {
     x: 0,
     y: 0,
+    /**
+     * How much the view is magnified. The battle runs at 1 — the field is drawn
+     * at the size it was designed at — and the workshop zooms in, because a
+     * 40px cell on a phone held upright is about twenty screen pixels, which is
+     * half of what a thumb can hit.
+     */
+    z: 1,
+    wantZ: 1,
     /** Where the view would like to be, before the drift catches up. */
     wantX: 0,
     wantY: 0,
+  };
+
+  /** How much *world* fits on screen, which is what everything else measures in. */
+  cam.span = (viewW) => viewW / cam.z;
+
+  cam.zoomTo = (z, snap = false) => {
+    cam.wantZ = z;
+    if (snap) cam.z = z;
   };
 
   /**
@@ -32,10 +48,19 @@ export function createCamera() {
    * @param {boolean} [snap] jump instead of drifting (a new siege)
    */
   cam.follow = (target, viewW, h, snap = false) => {
-    cam.wantX = clamp(target.x - viewW / 2, 0, Math.max(0, W - viewW));
-    // only climbs: the shell going up pulls the view with it, the shell coming
-    // back down finds the view already where it was
-    cam.wantY = clamp(Math.min(0, target.y - 220), CAM_TOP, 0);
+    if (snap) cam.z = cam.wantZ;
+    else cam.z += (cam.wantZ - cam.z) * (1 - Math.exp(-6 * h));
+    const span = cam.span(viewW);
+    cam.wantX = clamp(target.x - span / 2, 0, Math.max(0, W - span));
+
+    // Vertically the rule is "the ground never leaves the bottom of the screen",
+    // and with a zoom that is not the same as "y never goes above 0": magnified,
+    // less than the world's height fits, so the view has to move *down* to keep
+    // the ground in it. Written as `min(0, …)` the workshop zoomed in on nothing
+    // but sky, which is exactly what it did.
+    const visible = H / cam.z;
+    const floor = H - visible;
+    cam.wantY = clamp(Math.min(floor, target.y - visible * 0.3), CAM_TOP, floor);
 
     if (snap) {
       cam.x = cam.wantX;
@@ -51,10 +76,13 @@ export function createCamera() {
   };
 
   /** Screen point (already in logical viewport units) → world point. */
-  cam.toWorld = (x, y) => ({ x: x + cam.x, y: y + cam.y });
+  cam.toWorld = (x, y) => ({ x: x / cam.z + cam.x, y: y / cam.z + cam.y });
 
-  /** True when a world rectangle is worth drawing at all. */
-  cam.sees = (x0, x1, viewW) => x1 > cam.x - 80 && x0 < cam.x + viewW + 80;
+  /** Lay the world transform on a context. Everything after it is world space. */
+  cam.apply = (ctx) => {
+    ctx.scale(cam.z, cam.z);
+    ctx.translate(-cam.x, -cam.y);
+  };
 
   return cam;
 }

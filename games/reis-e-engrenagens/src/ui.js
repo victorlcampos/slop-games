@@ -86,12 +86,44 @@ export function hit(rects, x, y) {
   return found;
 }
 
-/** The four munitions, bottom left, above the thumb. */
-export function dockLayout(vpW, vpH, ids) {
-  const w = Math.min(126, (vpW - PAD * 2 - (ids.length - 1) * 6) / ids.length);
+/**
+ * Every control the battle has, laid out at once so none of them can land on
+ * another at any width.
+ *
+ * They used to be three independent functions each anchored to its own edge, and
+ * at 1040 logical pixels — a 4:3 monitor — the fire button sat on top of the
+ * munition dock. One function that measures the gaps is the only way this stays
+ * true at every width, and it is a pure function, so a test can check it.
+ *
+ * The shape is two thumbs: everything you *shoot* with on the left, everything
+ * you *move* with on the right, and the one button that ends the turn between
+ * them where neither thumb rests by accident.
+ */
+export function battleLayout(vpW, vpH, weaponIds) {
   const h = 58;
   const y = vpH - h - PAD;
-  return ids.map((id, i) => ({ id, x: PAD + i * (w + 6), y, w, h }));
+  const pw = 74;
+  const ah = 40;
+
+  const driveX = vpW - PAD - pw * 2 - 6;
+  const drive = [
+    { id: 'left', dir: -1, x: driveX, y, w: pw, h },
+    { id: 'right', dir: 1, x: driveX + pw + 6, y, w: pw, h },
+  ];
+  const aim = [
+    { id: 'up', dir: 1, x: driveX, y: y - ah - 6, w: pw, h: ah },
+    { id: 'down', dir: -1, x: driveX + pw + 6, y: y - ah - 6, w: pw, h: ah },
+  ];
+
+  const n = weaponIds.length;
+  const dw = Math.max(74, Math.min(118, (driveX - PAD * 2 - 180 - (n - 1) * 6) / n));
+  const dock = weaponIds.map((id, i) => ({ id, x: PAD + i * (dw + 6), y, w: dw, h }));
+  const dockRight = PAD + n * (dw + 6) - 6;
+
+  const fw = Math.max(96, Math.min(190, driveX - dockRight - 28));
+  const fire = { id: 'fire', x: (dockRight + driveX) / 2 - fw / 2, y, w: fw, h };
+
+  return { dock, drive, aim, fire, fuel: { x: driveX, y: aim[0].y - 16, w: pw * 2 + 6, h: 7 } };
 }
 
 /** The workshop palette: five materials, the king and the eraser. */
@@ -116,20 +148,6 @@ export function shopButtons(ctx, vpW, vpH, texts) {
     x += widths[i] + 8;
     return rect;
   });
-}
-
-/**
- * The two drive pads, bottom right — the far side of the screen from the dock,
- * so a phone held in two hands has one thumb on each.
- */
-export function driveLayout(vpW, vpH) {
-  const w = 78;
-  const h = 58;
-  const y = vpH - h - PAD;
-  return [
-    { id: 'left', dir: -1, x: vpW - PAD - w * 2 - 6, y, w, h },
-    { id: 'right', dir: 1, x: vpW - PAD - w, y, w, h },
-  ];
 }
 
 /** A bar that fills left to right — king health, power, everything. */

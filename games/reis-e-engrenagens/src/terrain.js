@@ -101,9 +101,17 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
       for (let i = a; i <= b; i++) if (h[i] > m) m = h[i];
       return m;
     },
-    /** Is this point inside the dirt? */
+    /**
+     * Is this point inside the dirt?
+     *
+     * Note what is *not* here: a check that x is on the map. `yAt` clamps to the
+     * end column, so the ground carries on past both edges — which is what stops
+     * a shell that overshoots the last hill from sliding straight through it and
+     * being counted a miss. The bounds check that used to be here made the two
+     * ends of the world hollow.
+     */
     solid(x, y) {
-      return x >= 0 && x <= W && y >= t.yAt(x);
+      return y >= t.yAt(x);
     },
     /**
      * Punch a bowl. The surface only ever drops — a heightmap has no way to

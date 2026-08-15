@@ -17,7 +17,7 @@ import { blueprintCost, foeCastle, normalizeBlueprint } from '../src/castles.js'
 import { createWorkshop, suggestBlueprint } from '../src/workshop.js';
 import { freshRun, normalizeRun, reward } from '../src/run.js';
 import { gaugeAt } from '../src/controls.js';
-import { dockLayout, hit, paletteLayout } from '../src/ui.js';
+import { battleLayout, hit, paletteLayout } from '../src/ui.js';
 import { dict } from '../src/i18n.js';
 
 const flatTerrain = () => buildTerrain({ kind: 'soil', seed: 5, middle: 'flat' });
@@ -367,6 +367,24 @@ scenario('winning pays more for a castle that survived', () => {
 
 // ------------------------------------------------------------- the screen
 
+scenario('zooming in keeps the view on the map and a tap where it was drawn', () => {
+  const cam = createCamera();
+  cam.zoomTo(2.4, true);
+  check(cam.span(1558) < 700, `zoomed in, ${cam.span(1558).toFixed(0)}px of world is on screen — that is no zoom at all`);
+
+  // the right edge has to account for the zoom, or the view walks off the map
+  cam.follow({ x: W, y: 400 }, 1558, 1, true);
+  check(cam.x + cam.span(1558) <= W + 0.01,
+    `zoomed in at the right edge it is showing up to x=${(cam.x + cam.span(1558)).toFixed(0)} of a ${W} map`);
+
+  // and a tap comes back where it was drawn, magnification and all
+  const back = cam.toWorld(300, 200);
+  check(Math.abs(back.x - (300 / cam.z + cam.x)) < 0.01 && Math.abs(back.y - (200 / cam.z + cam.y)) < 0.01,
+    'a tap on a zoomed view came back at the wrong place');
+  const cell = 40 * cam.z;
+  check(cell > 80, `a workshop cell is ${cell.toFixed(0)} logical pixels — too small for a thumb`);
+});
+
 scenario('the camera stays on the map, drifts rather than snaps, and only ever climbs', () => {
   for (const viewW of [1040, 1280, 1900]) {
     const cam = createCamera();
@@ -406,14 +424,33 @@ scenario('the camera stays on the map, drifts rather than snaps, and only ever c
   check(cam.x > before + gap * 0.85, `half a second of drift only covered ${(((cam.x - before) / gap) * 100).toFixed(0)}%`);
 });
 
-scenario('the dock and the palette stay on the screen at every width', () => {
-  for (const vw of [1040, 1280, 1900]) {
-    const dock = dockLayout(vw, 720, ARSENAL.knights);
-    for (const r of dock) check(r.x >= 0 && r.x + r.w <= vw && r.y + r.h <= 720, `the dock left the screen at ${vw}`);
+scenario('no two controls ever land on each other, at any width', () => {
+  // The three clusters used to be laid out independently against their own
+  // edges, and on a 4:3 monitor the fire button sat on top of the munition dock.
+  // This is that bug turned into a test: every control, every width, no overlap.
+  const overlap = (a, b) =>
+    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+  for (const vw of [1040, 1280, 1558, 1900]) {
+    const bay = battleLayout(vw, 720, ARSENAL.knights);
+    const all = [...bay.dock, ...bay.drive, ...bay.aim, bay.fire];
+    for (const r of all) {
+      check(r.x >= 0 && r.x + r.w <= vw + 0.001, `a control left the screen at ${vw}: ${r.id} at ${r.x.toFixed(0)}`);
+      check(r.y + r.h <= 720.001 && r.y > 0, `a control left the screen vertically at ${vw}: ${r.id}`);
+      // and a thumb has to be able to hit it
+      check(r.w >= 40 && r.h >= 36, `${r.id} is ${r.w.toFixed(0)}x${r.h.toFixed(0)} at ${vw} — too small for a thumb`);
+    }
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        check(!overlap(all[i], all[j]), `${all[i].id} and ${all[j].id} overlap at ${vw}`);
+      }
+    }
+    check(hit(bay.dock, bay.dock[1].x + 4, bay.dock[1].y + 4).id === ARSENAL.knights[1],
+      `a tap on the second dock slot missed at ${vw}`);
+    check(hit(all, 4, 4) === null, 'a tap on the top corner hit a control');
+
     const pal = paletteLayout(vw, 720, [...PALETTE, 'king', 'erase']);
     for (const r of pal) check(r.x >= 0 && r.x + r.w <= vw + 0.001, `the palette left the screen at ${vw}`);
-    check(hit(dock, dock[1].x + 4, dock[1].y + 4).id === ARSENAL.knights[1], `a tap on the second dock slot missed at ${vw}`);
-    check(hit(dock, 4, 4) === null, 'a tap on the top corner hit the dock');
   }
 });
 

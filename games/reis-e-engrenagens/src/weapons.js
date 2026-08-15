@@ -125,8 +125,12 @@ export const WEAPONS = {
     speed: 1,
     wind: 0.6,
     dig: 1.2,
-    // it does not hit a castle, it takes the ground out from under one
-    burrow: 0.32,
+    // It does not hit a castle, it takes the ground out from under one — and it
+    // gets *under* it first. Short on purpose: at 0.32s it travelled a third of
+    // a screen through solid earth in plain view, which reads as the shell
+    // having missed the ground entirely.
+    burrow: 0.16,
+    burrowDrag: 3.4,
     vs: { sand: 1.5, stone: 1.2, crystal: 0.9, wood: 0.8, iron: 0.7, king: 1 },
     ground: { rock: 0.6, sand: 1.3 },
   },

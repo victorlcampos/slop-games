@@ -39,9 +39,15 @@ is the whole game.
 1. **Drive** — hold ◀ ▶ on screen, or the left and right arrows. The fuel bar is
    the whole of your movement for this turn, and once the gauge is open you have
    committed and cannot move again.
-2. **Aim** — drag on the field, or hover with a mouse. Up and down nudge a degree.
-3. **Tap** — the power gauge opens and starts sweeping.
-4. **Tap again** — it fires at whatever the gauge was reading.
+2. **Aim** — hold ▲ ▼, the up and down arrows, or drag the field up and down. The
+   angle is next to the fuel bar.
+3. **POWER** — the gauge opens and starts sweeping.
+4. **FIRE** — it goes at whatever the gauge was reading.
+
+Nothing aims by being tapped. Pointing at the spot you wanted to hit reads well
+with a mouse and is unusable with a thumb — the tap that opened the gauge also
+snapped the barrel to wherever the thumb was, which on a phone is the bottom of
+the screen.
 
 At full power a shot barely carries the width of the valley, so the top of the
 gauge is a real decision and not a default.
@@ -94,6 +100,13 @@ munitions, six skies and every crater — all drawn at runtime from rectangles a
 arcs. A sandbag is two rounded rectangles and a line of stitches; a cloud is five
 overlapping circles with one outline round the lot, which Canvas cannot do and
 has to be faked by drawing the shape twice.
+
+**The workshop zooms and the battle does not.** A 40px cell drawn at 1:1 on a
+phone held upright is about twenty screen pixels — half of what a thumb can hit —
+so the camera magnifies the plot until the whole grid still fits the screen and
+the cells are worth aiming at. Height is what binds: a zoom chosen on width alone
+put the top of the castle above the top of the screen, and on a phone it zoomed
+in on nothing but sky.
 
 **A block is recognisable by its lid.** Whatever is on top of a column gets the
 decoration: stone is crenellated, timber gets a shingle roof, iron a riveted cap,

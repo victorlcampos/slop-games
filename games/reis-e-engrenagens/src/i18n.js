@@ -30,6 +30,8 @@ export const dict = {
   'menu.start': { en: 'Raise a castle', pt: 'Erguer um castelo' },
   'menu.resume': { en: 'Back to the siege', pt: 'Voltar ao cerco' },
   'menu.newRun': { en: 'Start over', pt: 'Recomeçar' },
+  'menu.restart': { en: 'Pick a new crown', pt: 'Escolher outra coroa' },
+  'menu.wiped': { en: 'Run wiped — starting from nothing.', pt: 'Progresso apagado — recomeçando do zero.' },
   'menu.rules': {
     en: 'You get coins and a plot of ground. Buy walls, stack them, put your king somewhere you believe in — then take turns lobbing things at each other until one crown is under the rubble.',
     pt: 'Você recebe moedas e um terreno. Compre paredes, empilhe, ponha seu rei onde você acredita — e depois vocês se revezam jogando coisas um no outro até uma coroa ficar debaixo do entulho.',
@@ -74,12 +76,9 @@ export const dict = {
   'hud.wind': { en: 'wind', pt: 'vento' },
   'hud.power': { en: 'power', pt: 'força' },
   'hud.fuel': { en: 'fuel', pt: 'combustível' },
-  'hud.tapDrive': { en: 'hold ◀ ▶ to drive · drag to aim', pt: 'segure ◀ ▶ para andar · arraste para mirar' },
+  'hud.fire': { en: 'FIRE', pt: 'FOGO' },
   'hud.angle': { en: 'angle', pt: 'ângulo' },
   'hud.turn': { en: 'turn {n}', pt: 'turno {n}' },
-  'hud.tapAim': { en: 'drag to aim', pt: 'arraste para mirar' },
-  'hud.tapPower': { en: 'tap to open the gauge', pt: 'toque para abrir a barra' },
-  'hud.tapFire': { en: 'tap to fire', pt: 'toque para disparar' },
   'hud.infinite': { en: '∞', pt: '∞' },
 
   // ------------------------------------------------------------ the result
@@ -143,6 +142,7 @@ export const dict = {
 
   'run.level': { en: 'Siege {n}', pt: 'Cerco {n}' },
   'run.coins': { en: '{n} coins', pt: '{n} moedas' },
+  'run.record': { en: '{n} won', pt: '{n} vencidos' },
 };
 
 export const i18n = createI18n({ dict });

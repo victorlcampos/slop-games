@@ -188,8 +188,10 @@ export function createMatch(cfg) {
       }
 
       const hit = advance(s, match, h);
+      // the ghost trail stops at the surface: a dotted line carrying on *into*
+      // a hill is the single most convincing way to look like a collision bug
       const path = match.lastShot[s.side];
-      if (path && !s.child) path.path.push({ x: s.x, y: s.y });
+      if (path && !s.child && !s.dug) path.path.push({ x: s.x, y: s.y });
       if (!hit) continue;
       match.shots.splice(i, 1);
       resolveHit(match, s, hit);
@@ -281,6 +283,11 @@ export function advance(s, world, h) {
     s.y += (s.vy * h) / n;
     if (s.burrow > 0) {
       s.burrow -= h / n;
+      // digging is not flying: it slows as it goes, so the hole ends up under
+      // the wall it was aimed at rather than half a screen past it
+      const drag = 1 - (w.burrowDrag || 0) * (h / n);
+      s.vx *= drag;
+      s.vy *= drag;
       if (s.burrow <= 0) return { kind: 'terrain', x: s.x, y: s.y };
       continue;
     }
@@ -312,6 +319,7 @@ function probe(world, s) {
       // a drill does not stop at the surface, it goes looking for the cellar
       s.dug = true;
       s.burrow = w.burrow;
+      world.say('burrow', { x: s.x, y: s.y });
       return null;
     }
     return { kind: 'terrain', x: s.x, y: s.y };

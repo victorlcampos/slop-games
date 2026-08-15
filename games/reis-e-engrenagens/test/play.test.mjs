@@ -232,6 +232,21 @@ scenario('the drill takes the ground; the trebuchet takes the wall', () => {
   check(quarryHole < drillHole / 2.5, `the same drill dug ${quarryHole.toFixed(0)}px of bedrock against ${drillHole.toFixed(0)}px of meadow`);
 });
 
+scenario('the ground is solid all the way to the edges of the world', () => {
+  // It was not: `solid` checked that x was on the map before it checked the
+  // height, so the last hill at each end was hollow and a shell that overshot
+  // slid through it and was scored a miss.
+  const m = mk();
+  for (const x of [-30, 4, W - 4, W + 30]) {
+    const y = m.terrain.yAt(x);
+    check(m.terrain.solid(x, y + 20), `the ground at x=${x} is not solid 20px below its own surface`);
+    check(!m.terrain.solid(x, y - 20), `the air 20px above the ground at x=${x} is solid`);
+  }
+  // and a shell fired flat at the end of the world stops in it
+  const res = m.trace('player', 'boulder', 6, 100);
+  check(res.kind !== 'out' || res.x < 0, `a flat shot came back as ${res.kind} at x=${res.x.toFixed(0)}`);
+});
+
 scenario('a drill bomb burrows before it goes off, so the crater is under the crust', () => {
   const m = mk();
   const x = 700;
@@ -240,6 +255,25 @@ scenario('a drill bomb burrows before it goes off, so the crater is under the cr
   const boom = m.events.find((e) => e.kind === 'boom');
   check(boom, 'the drill never went off');
   check(boom.y > surface + 4, `the drill detonated at y=${boom.y.toFixed(0)} with the surface at ${surface.toFixed(0)} — it stopped at the crust`);
+  check(m.events.some((e) => e.kind === 'burrow'), 'nothing marked where it went in');
+
+  // and it does not travel half the map underground on the way. A long burrow
+  // is a shell visibly sliding through solid ground, which reads as the
+  // collision being broken however deliberate it is.
+  const went = m.events.find((e) => e.kind === 'burrow');
+  const dug = Math.hypot(boom.x - went.x, boom.y - went.y);
+  check(dug < 120, `it tunnelled ${dug.toFixed(0)}px from where it broke the crust`);
+  check(dug > 10, `it only got ${dug.toFixed(0)}px in — that is not a burrow, that is a bounce`);
+});
+
+scenario('a shell that has broken the crust is no longer on the trail you can see', () => {
+  const m = mk();
+  fire(m, 'player', 'drill', 45, 62);
+  const trail = m.lastShot.player.path;
+  const last = trail[trail.length - 1];
+  check(trail.length > 10, `the trail recorded ${trail.length} points`);
+  check(last.y <= m.terrain.yAt(last.x) + 6,
+    `the ghost trail carries on ${(last.y - m.terrain.yAt(last.x)).toFixed(0)}px into the hill`);
 });
 
 // ------------------------------------------------------------ fire and rust

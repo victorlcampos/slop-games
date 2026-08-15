@@ -10,8 +10,8 @@
 import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS } from './config.js';
 import { MATERIALS, material } from './materials.js';
 import { WEAPONS } from './weapons.js';
-import { drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
-import { button, dockLayout, driveLayout, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
+import { INK, drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
+import { battleLayout, button, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
 
 const TAU = Math.PI * 2;
@@ -29,6 +29,10 @@ const CORNER = 134;
 export function drawField(ctx, view) {
   const { match, scene, fx, time, cam = { x: 0, y: 0 }, viewW = 1280 } = view;
   scene.drawSky(ctx, cam, viewW);
+  // A drill that has broken the crust is *underground*, so it is drawn before
+  // the dirt is and the dirt covers it. Drawn after, it slid across the face of
+  // the hill in plain sight and read as a shell passing through solid ground.
+  for (const s of match.shots) if (s.burrow > 0) drawShot(ctx, s, time * 6);
   scene.drawGround(ctx, cam, viewW);
   scene.drawProps(ctx, cam, viewW);
 
@@ -72,6 +76,7 @@ export function drawField(ctx, view) {
   drawParticles(ctx, fx);
 
   for (const s of match.shots) {
+    if (s.burrow > 0) continue;
     drawShot(ctx, s, time * 6);
   }
 
@@ -81,6 +86,7 @@ export function drawField(ctx, view) {
 
 function drawCastle(ctx, match, side, faction, fx, time) {
   const castle = match.castles[side];
+  drawFooting(ctx, castle, side);
   for (const b of castle.blocks()) {
     const rect = castle.rect(b.c, b.r);
     // The top of a column gets the decorated lid — battlements, a shingle roof,
@@ -93,17 +99,101 @@ function drawCastle(ctx, match, side, faction, fx, time) {
     if (b.rust > 0 && Math.random() < 0.15) fx.rust(rect.x + rect.w / 2, rect.y + rect.h / 2);
     if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.03);
   }
+  drawBanners(ctx, castle, faction, time, Math.floor((match.launchers[side].x - castle.baseX) / CELL));
+}
+
+/**
+ * The plinth and the shadow the castle sits in.
+ *
+ * Blocks drawn straight onto turf look like they were dropped there. A course of
+ * dressed stone under the bottom row and a soft shadow around it is four lines
+ * of code and the difference between a stack of squares and a building with
+ * foundations — and because it is drawn per column, a column that has been
+ * blown away leaves a gap in the footing too.
+ */
+function drawFooting(ctx, castle, side) {
+  const cols = [];
+  for (let c = 0; c < COLS; c++) if (castle.at(c, 0)) cols.push(c);
+  if (!cols.length) return;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(24,16,10,0.28)';
+  for (const c of cols) {
+    ctx.beginPath();
+    ctx.ellipse(castle.baseX + c * CELL + CELL / 2, BASE_Y + 7, CELL * 0.72, 9, 0, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  for (const c of cols) {
+    const x = castle.baseX + c * CELL;
+    ctx.beginPath();
+    ctx.moveTo(x - 3, BASE_Y + 11);
+    ctx.lineTo(x - 1, BASE_Y - 3);
+    ctx.lineTo(x + CELL + 1, BASE_Y - 3);
+    ctx.lineTo(x + CELL + 3, BASE_Y + 11);
+    ctx.closePath();
+    ink(ctx, '#7d7466', 2.5);
+  }
+}
+
+/** A pennant on the highest tower, which is what says the castle is *held*. */
+function drawBanners(ctx, castle, faction, time, gunCol) {
+  let best = -1;
+  let bestTop = 2;
+  for (let c = 0; c < COLS; c++) {
+    if (c === gunCol) continue;
+    for (let r = ROWS - 1; r > bestTop; r--) {
+      if (castle.at(c, r)) {
+        bestTop = r;
+        best = c;
+        break;
+      }
+    }
+  }
+  if (best < 0) return;
+  const x = castle.baseX + best * CELL + CELL / 2;
+  const y = BASE_Y - (bestTop + 1) * CELL;
+  const dir = castle.side === 'player' ? 1 : -1;
+  ctx.save();
+  ctx.translate(x, y - 12);
+  ctx.scale(dir, 1);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 4);
+  ctx.lineTo(0, -34);
+  ctx.stroke();
+  const wave = Math.sin(time * 3.4 + best) * 3;
+  ctx.beginPath();
+  ctx.moveTo(1, -34);
+  ctx.lineTo(-20 + wave, -29);
+  ctx.lineTo(-13 + wave, -24);
+  ctx.lineTo(-20 + wave, -19);
+  ctx.lineTo(1, -21);
+  ctx.closePath();
+  ink(ctx, faction === 'machines' ? '#3fb6e0' : '#c0335a', 2.5);
+  ctx.restore();
 }
 
 function drawParticles(ctx, fx) {
   for (const ring of fx.rings) {
     const k = 1 - ring.life / ring.max;
     ctx.save();
-    ctx.globalAlpha = (1 - k) * 0.8;
+    if (ring.flash && ring.life > ring.max - ring.flash) {
+      const f = (ring.life - (ring.max - ring.flash)) / ring.flash;
+      ctx.globalAlpha = f;
+      ctx.fillStyle = '#fff6dc';
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.r * (0.5 + (1 - f) * 0.9), 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = (1 - k) * 0.85;
     ctx.strokeStyle = '#ffd9a0';
-    ctx.lineWidth = 6 * (1 - k) + 1;
+    ctx.lineWidth = 9 * (1 - k) + 1;
     ctx.beginPath();
-    ctx.arc(ring.x, ring.y, ring.r * (0.35 + k * 1.15), 0, TAU);
+    ctx.arc(ring.x, ring.y, ring.r * (0.35 + k * 1.35), 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
@@ -215,7 +305,7 @@ export function drawGauge(ctx, vp, power, charging) {
   const w = 260;
   const h = 16;
   const x = (vp.W - w) / 2;
-  const y = vp.H - 152;
+  const y = vp.H - 156;
   panel(ctx, x - 10, y - 10, w + 20, h + 20, { fill: 'rgba(12,10,16,0.72)', r: 10 });
   const g = ctx.createLinearGradient(x, 0, x + w, 0);
   g.addColorStop(0, '#5fd16a');
@@ -236,31 +326,31 @@ export function drawGauge(ctx, vp, power, charging) {
 // -------------------------------------------------------------------- HUD
 
 export function drawBattleHud(ctx, vp, state) {
-  const { match, level, phase, power = 0 } = state;
+  const { match, level, phase, power = 0, driving = 0, aiming = 0 } = state;
   const rects = [];
+  const L = match.launchers.player;
+  const mine = !match.over && match.turn === 'player' && !match.flying();
+  const canMove = mine && phase === 'aim';
 
   // --- top bar
   const barH = 46;
   panel(ctx, 0, -12, vp.W, barH + 12, { r: 0, stroke: null, fill: 'rgba(14,12,18,0.62)' });
-
-  const turnText =
-    match.over ? '' : match.turn === 'player' ? t('turn.you') : t('turn.foe');
-  label(ctx, turnText, 16, barH / 2 - 2, { size: 19, color: match.turn === 'player' ? '#ffe08a' : '#ff9b9b', shadow: true });
-
+  label(ctx, match.over ? '' : match.turn === 'player' ? t('turn.you') : t('turn.foe'), 16, barH / 2 - 2, {
+    size: 19, color: match.turn === 'player' ? '#ffe08a' : '#ff9b9b', shadow: true,
+  });
   label(ctx, `${t(`lv.${level.id}`)} · ${t('hud.turn', { n: match.turnCount + 1 })}`, vp.W - CORNER, barH / 2 - 2, {
     size: 15, align: 'right', color: '#d8cdb4',
   });
-
   drawWind(ctx, vp.W / 2, barH / 2 - 2, match.wind);
 
-  // --- the two crowns
-  drawCrownBar(ctx, 16, barH + 10, match, 'player', false);
-  drawCrownBar(ctx, vp.W - 16 - 190, barH + 14, match, 'enemy', true);
+  drawCrownBar(ctx, 16, barH + 10, match, 'player');
+  drawCrownBar(ctx, vp.W - 16 - 190, barH + 14, match, 'enemy');
 
-  // --- the dock
   const ids = Object.keys(match.ammo.player);
-  const dock = dockLayout(vp.W, vp.H, ids);
-  for (const r of dock) {
+  const bay = battleLayout(vp.W, vp.H, ids);
+
+  // --- the munitions
+  for (const r of bay.dock) {
     const ammo = match.ammo.player[r.id];
     const on = match.weapon.player === r.id;
     const off = !(ammo > 0);
@@ -271,49 +361,50 @@ export function drawBattleHud(ctx, vp, state) {
     });
     ctx.save();
     ctx.globalAlpha = off ? 0.35 : 1;
-    drawShotIcon(ctx, r.id, r.x + r.w / 2 - 6, r.y + 21, 0.95);
+    drawShotIcon(ctx, r.id, r.x + r.w / 2 - 6, r.y + 21, 0.9);
     ctx.restore();
     label(ctx, ammo === Infinity ? t('hud.infinite') : String(ammo), r.x + r.w - 9, r.y + 14, {
       size: 15, align: 'right', color: on ? '#2a2210' : off ? 'rgba(240,232,214,0.4)' : '#ffe08a',
     });
-    // the name gets the whole width: squeezed into the gap beside the icon it
-    // came out as "Trebuc…" and "Ballista…", which is a dock of four ellipses
     label(ctx, fit(ctx, weaponName(r.id), r.w - 12, 11), r.x + r.w / 2, r.y + r.h - 13, {
       size: 11, weight: 600, align: 'center', color: on ? '#2a2210' : off ? 'rgba(240,232,214,0.35)' : '#cdc3ae',
     });
     rects.push({ ...r, kind: 'weapon' });
   }
 
-  // --- the drive pads and the tank they are spending
-  const L = match.launchers.player;
-  const canDrive = !match.over && match.turn === 'player' && !match.flying() && phase === 'aim';
-  const pads = driveLayout(vp.W, vp.H);
-  const fuel = L.fuel / DRIVE_FUEL;
-  for (const r of pads) {
-    const dead = !canDrive || L.fuel <= 0;
+  // --- aim and drive, the right thumb
+  const pad = (r, on, dead, glyph, size) => {
     panel(ctx, r.x, r.y, r.w, r.h, {
-      fill: dead ? 'rgba(24,22,28,0.5)' : state.driving === r.dir ? 'rgba(232,187,74,0.92)' : 'rgba(30,27,36,0.86)',
-      stroke: state.driving === r.dir ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.14)',
+      fill: dead ? 'rgba(24,22,28,0.5)' : on ? 'rgba(232,187,74,0.92)' : 'rgba(30,27,36,0.86)',
+      stroke: on ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.14)',
       r: 9,
     });
-    label(ctx, r.dir < 0 ? '◀' : '▶', r.x + r.w / 2, r.y + r.h / 2 - 4, {
-      size: 22, align: 'center', color: dead ? 'rgba(240,232,214,0.35)' : state.driving === r.dir ? '#2a2210' : '#f2e7d0',
+    label(ctx, glyph, r.x + r.w / 2, r.y + r.h / 2 - 1, {
+      size, align: 'center', color: dead ? 'rgba(240,232,214,0.35)' : on ? '#2a2210' : '#f2e7d0',
     });
+  };
+  for (const r of bay.aim) {
+    pad(r, aiming === r.dir, !mine, r.dir > 0 ? '▲' : '▼', 17);
+    rects.push({ ...r, kind: 'aim' });
+  }
+  for (const r of bay.drive) {
+    pad(r, driving === r.dir, !canMove || L.fuel <= 0, r.dir < 0 ? '◀' : '▶', 22);
     rects.push({ ...r, kind: 'drive' });
   }
-  const fx = pads[0].x;
-  const fw = pads[1].x + pads[1].w - fx;
-  label(ctx, t('hud.fuel'), fx, pads[0].y - 16, { size: 11, weight: 600, color: '#b9b0a0' });
-  meter(ctx, fx, pads[0].y - 10, fw, 7, fuel, fuel > 0.35 ? '#6fd36a' : '#e8a24a');
 
-  // --- the gauge and what to do next
-  if (!match.over && match.turn === 'player' && !match.flying()) {
-    drawGauge(ctx, vp, power, phase === 'charging');
-    const hintText = phase === 'charging' ? t('hud.tapFire') : t('hud.tapPower');
-    const wpx = textWidth(ctx, hintText, 16) + 28;
-    panel(ctx, vp.W / 2 - wpx / 2, vp.H - 118, wpx, 30, { fill: 'rgba(12,10,16,0.6)', r: 15 });
-    label(ctx, hintText, vp.W / 2, vp.H - 103, { size: 16, align: 'center', color: '#ffe9b8' });
-  }
+  const fuel = L.fuel / DRIVE_FUEL;
+  label(ctx, `${t('hud.fuel')}`, bay.fuel.x, bay.fuel.y - 7, { size: 11, weight: 600, color: '#b9b0a0' });
+  label(ctx, `${Math.round(L.angle)}°`, bay.fuel.x + bay.fuel.w, bay.fuel.y - 7, {
+    size: 13, align: 'right', color: '#ffe08a',
+  });
+  meter(ctx, bay.fuel.x, bay.fuel.y, bay.fuel.w, bay.fuel.h, fuel, fuel > 0.35 ? '#6fd36a' : '#e8a24a');
+
+  // --- the one button that ends the turn
+  const firing = phase === 'charging';
+  button(ctx, bay.fire, firing ? t('hud.fire') : t('hud.power'), { on: firing, off: !mine, size: 17 });
+  rects.push({ ...bay.fire, kind: 'fire' });
+
+  if (mine) drawGauge(ctx, vp, power, firing);
 
   return rects;
 }
@@ -325,7 +416,7 @@ function fit(ctx, text, max, size) {
   return s + '…';
 }
 
-function drawCrownBar(ctx, x, y, match, side, mirror) {
+function drawCrownBar(ctx, x, y, match, side) {
   const w = 190;
   const castle = match.castles[side];
   const king = castle.king();
@@ -489,11 +580,14 @@ export function drawShopHud(ctx, vp, shop, level, opts = {}) {
  */
 function drawIntel(ctx, vp, foe, faction) {
   if (!foe) return;
-  const scale = 0.42;
+  const scale = 0.38;
   const w = COLS * CELL * scale + 20;
   const h = ROWS * CELL * scale + 34;
-  const x = vp.W - w - 14;
-  const y = 66;
+  // top *left*: the right-hand corner belongs to the flags and the mute button,
+  // and on a phone — where the canvas is lying on its side — they land exactly
+  // on top of this panel
+  const x = 14;
+  const y = 62;
   panel(ctx, x, y, w, h, { fill: 'rgba(16,14,22,0.88)', r: 10 });
   label(ctx, t('shop.intel'), x + w / 2, y + 14, { size: 11, weight: 600, align: 'center', color: '#cdc3ae' });
 
