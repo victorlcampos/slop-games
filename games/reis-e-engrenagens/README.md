@@ -146,6 +146,13 @@ the same counter-battery play you are invited to make against it. The later
 gunners also arrive better supplied: the campaign tier feeds their rack, so the
 forge opens with three more of everything.
 
+**The valley takes sides.** Walk toward the machines' castle and the scenery
+industrialises — gears and vents among the trees, mill chimneys replacing firs
+on the ridgelines, smog in the clouds, steel filings in the dirt; walk the
+other way and it is pennants, old pillars and green. The blend is a pure
+function of x and of who holds which castle, so picking the other crown
+mirrors the whole world.
+
 **Not one image.** Five kinds of wall, two kings, two siege engines, eight
 munitions, six skies and every crater — all drawn at runtime from rectangles and
 arcs. A sandbag is two rounded rectangles and a line of stitches; a cloud is five

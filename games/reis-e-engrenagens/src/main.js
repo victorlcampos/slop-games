@@ -113,10 +113,13 @@ function setScreen(next) {
   overCard.hidden = next !== 'over';
 }
 
+/** Which end of the valley industrialises — it follows the crown you picked. */
+const machinesSideOf = () => (run.faction === 'machines' ? 'player' : 'enemy');
+
 function buildStage() {
   level = levelOf(run);
   terrain = buildTerrain({ kind: level.terrain, seed: seedOf(run), middle: level.middle });
-  scene = createScene(level, terrain, seedOf(run));
+  scene = createScene(level, terrain, seedOf(run), { machinesSide: machinesSideOf() });
 }
 
 /** The menu is not a blank screen: it is the siege you are about to walk into. */
@@ -182,7 +185,7 @@ function startBattle() {
     seed: seedOf(run),
   });
   terrain = match.terrain;
-  scene = createScene(level, terrain, seedOf(run));
+  scene = createScene(level, terrain, seedOf(run), { machinesSide: machinesSideOf() });
   fx.clear();
   phase = 'aim';
   gaugeT = 0;

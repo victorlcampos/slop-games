@@ -15,9 +15,29 @@ import { CASTLE_X, CELL, COLS } from './config.js';
 
 const TAU = Math.PI * 2;
 
-export function createScene(level, terrain, seed = 1) {
+/**
+ * The valley takes sides. Walk toward the machines' castle and the scenery
+ * industrialises — gears, vents, chimneys on the ridgelines, smog in the
+ * clouds, steel in the dirt; walk the other way and it is pennants, pillars
+ * and trees. Which end is which depends on who is defending which castle, so
+ * the blend is a function, not a constant.
+ *
+ * 0 is the deepest kingdom end of the field, 1 the deepest machine end.
+ */
+export function towardMachines(x, machinesSide = 'enemy') {
+  const t = clamp(x / W, 0, 1);
+  return machinesSide === 'player' ? 1 - t : t;
+}
+
+/** What grows near each crown, on top of whatever the terrain itself grows. */
+export const MACHINE_PROPS = ['gear', 'antenna', 'vent', 'pipe'];
+export const MEDIEVAL_PROPS = ['pennant', 'pillar'];
+
+export function createScene(level, terrain, seed = 1, opts = {}) {
   const spec = terrain.spec;
   const rng = makeRng(seed * 2654435761 + 97);
+  const machinesSide = opts.machinesSide || 'enemy';
+  const toward = (x) => towardMachines(x, machinesSide);
 
   /** A ridgeline you can evaluate anywhere: three sines and a phase. */
   const ridgeOf = (base, amp, len, phase) => (x) =>
@@ -48,8 +68,21 @@ export function createScene(level, terrain, seed = 1) {
   // Scenery on the ground itself, placed once and then left alone. Each prop
   // remembers the height of the ground it was planted on, so that when a shell
   // takes that ground away the tree goes with it instead of hovering.
+  //
+  // What gets planted depends on where: the terrain's own flora everywhere,
+  // shading into machinery toward the machines' gate (t², so the middle of the
+  // valley stays mostly wild) and into pennants and old stonework toward the
+  // kingdom's. Walking the field is walking from one civilisation to the other.
   const props = [];
   const kinds = spec.props || ['rock'];
+  const kindAt = (x) => {
+    const t = toward(x);
+    const u = 1 - t;
+    const roll = rng();
+    if (roll < t * t * 0.9) return MACHINE_PROPS[Math.floor(rng() * MACHINE_PROPS.length)];
+    if (roll > 1 - u * u * 0.5) return MEDIEVAL_PROPS[Math.floor(rng() * MEDIEVAL_PROPS.length)];
+    return kinds[Math.floor(rng() * kinds.length)];
+  };
   const plot = (x) =>
     (x > CASTLE_X.player - 70 && x < CASTLE_X.player + COLS * CELL + 70) ||
     (x > CASTLE_X.enemy - 70 && x < CASTLE_X.enemy + COLS * CELL + 70);
@@ -57,7 +90,7 @@ export function createScene(level, terrain, seed = 1) {
     if (plot(x)) continue;
     props.push({
       x,
-      kind: kinds[Math.floor(rng() * kinds.length)],
+      kind: kindAt(x),
       s: 0.85 + rng() * 0.85,
       flip: rng() < 0.5,
       tone: rng(),
@@ -98,19 +131,31 @@ export function createScene(level, terrain, seed = 1) {
       ctx.fillStyle = g;
       ctx.fillRect(cam.x - 40, cam.y - 600, viewW + 80, H + 1200);
 
+      // the machine end of the sky wears a film of smog, the kingdom end a
+      // warm haze — faint, but it is what tells you which way you are facing
+      // before either castle is on screen
+      const side = ctx.createLinearGradient(0, 0, W, 0);
+      const kEnd = 'rgba(255,214,120,0.07)';
+      const mEnd = 'rgba(88,94,110,0.20)';
+      side.addColorStop(0, machinesSide === 'player' ? mEnd : kEnd);
+      side.addColorStop(0.5, 'rgba(0,0,0,0)');
+      side.addColorStop(1, machinesSide === 'player' ? kEnd : mEnd);
+      ctx.fillStyle = side;
+      ctx.fillRect(cam.x - 40, cam.y - 600, viewW + 80, H + 1200);
+
       sun(ctx, cam, viewW, spec);
 
       for (const c of clouds) {
         const x = c.x - cam.x * 0.08;
         if (x < cam.x - 260 || x > cam.x + viewW + 260) continue;
-        cloud(ctx, x, c.y + cam.y * 0.25, c.s, spec);
+        cloud(ctx, x, c.y + cam.y * 0.25, c.s, spec, toward(x));
       }
 
       for (const r of ridges) {
         const shift = cam.x * (1 - r.depth);
         ctx.save();
         ctx.translate(-shift, cam.y * (1 - r.depth) * 0.5);
-        band(ctx, r, cam.x + shift, viewW, spec);
+        band(ctx, r, cam.x + shift, viewW, spec, (x) => toward(x - shift));
         ctx.restore();
       }
     },
@@ -173,6 +218,24 @@ export function createScene(level, terrain, seed = 1) {
         ctx.arc(i * COL_W, h[i] + 12 + n * 5, 6 + n * 8, 0, TAU);
         ctx.fill();
       }
+      ctx.restore();
+
+      // the dirt itself takes sides: steel-grey filings toward the machines'
+      // gate, mossy loam toward the kingdom's — painted into the same body the
+      // gradient above just filled, so a crater keeps the tint of its end
+      ctx.save();
+      surface();
+      ctx.lineTo(b * COL_W, H + 400);
+      ctx.lineTo(a * COL_W, H + 400);
+      ctx.closePath();
+      const tint = ctx.createLinearGradient(0, 0, W, 0);
+      const loam = 'rgba(96,140,52,0.12)';
+      const steel = 'rgba(104,114,134,0.22)';
+      tint.addColorStop(0, machinesSide === 'player' ? steel : loam);
+      tint.addColorStop(0.5, 'rgba(0,0,0,0)');
+      tint.addColorStop(1, machinesSide === 'player' ? loam : steel);
+      ctx.fillStyle = tint;
+      ctx.fill();
       ctx.restore();
 
       // and the ink line that makes it an object rather than a colour
@@ -244,8 +307,12 @@ function sun(ctx, cam, viewW, spec) {
   ctx.restore();
 }
 
-/** Overlapping circles with one outline round the lot, not five outlined blobs. */
-function cloud(ctx, x, y, s, spec) {
+/**
+ * Overlapping circles with one outline round the lot, not five outlined blobs.
+ * `smog` is how far into machine country this cloud has drifted: white weather
+ * on the kingdom end, mill-smoke grey over the machines.
+ */
+function cloud(ctx, x, y, s, spec, smog = 0) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -255,12 +322,13 @@ function cloud(ctx, x, y, s, spec) {
     ctx.moveTo(dx + r, dy);
     ctx.arc(dx, dy, r, 0, TAU);
   }
-  ctx.fillStyle = spec.ember ? '#5a3a3a' : '#ffffff';
+  const grey = Math.round(255 - 88 * smog * smog);
+  ctx.fillStyle = spec.ember ? '#5a3a3a' : `rgb(${grey},${grey + 1},${grey + 4})`;
   ctx.fill();
   ctx.restore();
 }
 
-function band(ctx, r, left, viewW, spec) {
+function band(ctx, r, left, viewW, spec, toward = () => 0) {
   ctx.beginPath();
   ctx.moveTo(left - 80, H + 200);
   for (let x = left - 80; x <= left + viewW + 80; x += 22) ctx.lineTo(x, r.at(x));
@@ -270,19 +338,31 @@ function band(ctx, r, left, viewW, spec) {
   ctx.fill();
 
   if (!r.trees) return;
-  // a treeline on the near ridges, which is what stops them reading as paper
+  // A treeline on the near ridges, which is what stops them reading as paper —
+  // and the treeline is where the transformation reads from furthest away:
+  // slot by slot, firs give way to mill chimneys as the ridge runs toward the
+  // machines' end of the valley.
   ctx.save();
   ctx.clip();
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = spec.hills[2];
   for (let x = Math.floor((left - 80) / 46) * 46; x <= left + viewW + 80; x += 46) {
     const y = r.at(x) + 6;
-    ctx.beginPath();
-    ctx.moveTo(x - 9, y + 22);
-    ctx.lineTo(x, y - 14 * r.trees);
-    ctx.lineTo(x + 9, y + 22);
-    ctx.closePath();
-    ctx.fill();
+    const t = toward(x);
+    // deterministic per slot, so a chimney does not flicker back into a tree
+    const slot = Math.abs(Math.sin(x * 0.618));
+    if (slot < t * t) {
+      const h = 15 * r.trees + slot * 14;
+      ctx.fillRect(x - 3.5, y - h, 7, h + 24);
+      ctx.fillRect(x - 6, y - h - 4, 12, 5);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x - 9, y + 22);
+      ctx.lineTo(x, y - 14 * r.trees);
+      ctx.lineTo(x + 9, y + 22);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -305,6 +385,8 @@ function drawProp(ctx, kind, tone, time) {
       return rock(ctx, kind === 'boulder' ? 1.6 : 1, tone);
     case 'pillar':
       return pillar(ctx, tone);
+    case 'pennant':
+      return pennant(ctx, tone, time);
     case 'skull':
       return skull(ctx);
     case 'icicle':
@@ -431,6 +513,27 @@ function pillar(ctx, tone) {
     ctx.lineTo(dx, -4);
   }
   ctx.stroke();
+}
+
+/** A wayside pennant: the kingdom's colours planted in its own half of the map. */
+function pennant(ctx, tone, time) {
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -46);
+  ctx.stroke();
+  const wave = Math.sin(time * 3.1 + tone * 6) * 2.5;
+  ctx.beginPath();
+  ctx.moveTo(1, -46);
+  ctx.lineTo(18 + wave, -40);
+  ctx.lineTo(1, -34);
+  ctx.closePath();
+  ink(ctx, tone > 0.55 ? '#ffd646' : '#c0335a', 2.2);
+  ctx.beginPath();
+  ctx.arc(0, -48, 2.4, 0, TAU);
+  ink(ctx, '#ffd646', 1.8);
 }
 
 function skull(ctx) {

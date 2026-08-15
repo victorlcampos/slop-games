@@ -18,7 +18,7 @@ import { createMatch, detonate, restand, trace } from '../src/battle.js';
 import { foeCastle } from '../src/castles.js';
 import { suggestBlueprint } from '../src/workshop.js';
 import { pickTarget, planDrive, planShot, skillNow } from '../src/ai.js';
-import { createScene } from '../src/scene.js';
+import { MACHINE_PROPS, MEDIEVAL_PROPS, createScene, towardMachines } from '../src/scene.js';
 import { createFx } from '../src/fx.js';
 import { drawBattleHud, drawField } from '../src/render.js';
 
@@ -809,6 +809,36 @@ scenario('a siege nobody can finish is decided by the crown that is in better sh
   check(m.over, `after ${TURN_LIMIT} turns the match had not been called`);
   check(m.over.winner === 'player', `the healthier crown lost the decision to ${m.over.winner}`);
   check(m.over.reason === 'time', `the match ended for the reason "${m.over.reason}"`);
+});
+
+// -------------------------------------------------------------- the valley
+
+scenario('the valley takes sides: machinery thickens toward the machines, heraldry toward the kingdom', () => {
+  // the blend is a pure function of x and of who holds which castle
+  check(towardMachines(0, 'enemy') === 0 && towardMachines(W, 'enemy') === 1,
+    'with the machines on the right, the left end of the field is not fully medieval');
+  check(towardMachines(0, 'player') === 1 && towardMachines(W, 'player') === 0,
+    'flipping the crowns did not flip the blend');
+
+  const m = mk();
+  const census = (scene, pool, lo, hi) =>
+    scene.props.filter((p) => p.x >= lo && p.x < hi && pool.includes(p.kind)).length;
+  const third = W / 3;
+
+  // machines defending the right: their third of the valley is where the
+  // gears and vents cluster, and the kingdom's third is where the pennants do
+  const right = createScene(LEVELS[0], m.terrain, 9, { machinesSide: 'enemy' });
+  check(census(right, MACHINE_PROPS, 2 * third, W) > census(right, MACHINE_PROPS, 0, third),
+    `machines on the right, but their third grows ${census(right, MACHINE_PROPS, 2 * third, W)} machines against ${census(right, MACHINE_PROPS, 0, third)} on the kingdom's`);
+  check(census(right, MEDIEVAL_PROPS, 0, third) > 0,
+    "the kingdom's third of the valley has not a single pennant or pillar in it");
+  check(census(right, MEDIEVAL_PROPS, 0, third) >= census(right, MEDIEVAL_PROPS, 2 * third, W),
+    'the heraldry is thicker at the machine end than at the kingdom end');
+
+  // and the whole gradient mirrors when the player takes the machines
+  const left = createScene(LEVELS[0], m.terrain, 9, { machinesSide: 'player' });
+  check(census(left, MACHINE_PROPS, 0, third) > census(left, MACHINE_PROPS, 2 * third, W),
+    'with the machines defending the left plot the industry stayed on the right');
 });
 
 // -------------------------------------------------------------- the drawing
