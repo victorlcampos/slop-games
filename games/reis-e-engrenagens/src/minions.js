@@ -29,15 +29,19 @@ import { CASTLE_X, CELL, COLS, ROWS, W, clamp, other } from './config.js';
  * the spider climbs), so no map is open to one army and shut to the other.
  *
  * `unlock` is the campaign level (0-based) where the kind first musters.
- * `climb` is the steepest slope (dy/dx) it will walk, judged after STEP_FREE
- * forgives a ledge — and the rule of thumb is **everyone climbs**: any hill a
- * player would call a hill is walkable by every kind. What stops a walker is
- * a genuinely bad angle — a fresh crater wall, a sheer cliff face — and even
- * those only sort the army: spiders walk them, diggers go through them, and
- * only the ordinary infantry stands flashing `!` until a shell reshapes it.
- * `dig` is a tunnelling speed in px/s: when the slope says no, a digger goes
- * *into* the hill at its own level and comes out where the ground is back
- * down to it — a mound of moving earth is all the surface sees of it.
+ *
+ * `climb` and the ground rule: **born terrain always goes.** Any slope the
+ * world came with — up to and including a vertical cliff — is climbed by
+ * every kind; past `climb` it just becomes a slow, leaning scramble instead
+ * of a walk. The only ground that refuses a walker is ground *a shell has
+ * chewed* (the terrain keeps a scar per column): a raw crater face steeper
+ * than `climb` is the one wall in the game, and even it only sorts the army —
+ * spiders walk it, diggers tunnel it, and ordinary infantry stands flashing
+ * `!` until another shell reshapes what the first one broke.
+ *
+ * `dig` is a tunnelling speed in px/s: refused by a crater wall, a digger
+ * goes *into* it with a slight upward pitch and comes out where the ground
+ * meets it — a mound of moving earth is all the surface sees of it.
  */
 export const MINIONS = {
   // ------------------------------------------------------------- knights
@@ -57,9 +61,13 @@ export const MINION_CAP = 6;
 /** Seconds between swings at a wall, and between shovelfuls of hill. */
 export const BITE_EVERY = 0.9;
 export const DIG_EVERY = 0.5;
-/** How far ahead a walker reads the ground, and the slow it takes uphill. */
+/** How far ahead a walker reads the ground, and the slows it takes uphill. */
 const LOOK = 14;
 const UPHILL_SLOW = 0.55;
+/** The pace of hauling yourself up a natural face past your own climb limit. */
+const SCRAMBLE_SLOW = 0.38;
+/** A tunneller bores with a slight upward pitch, so a pit is never forever. */
+const TUNNEL_RISE = 0.35;
 /**
  * A ledge this tall is a step, not a wall — it comes off the rise before the
  * slope is judged. Without it the 14px lookahead turned every lump of terrain
@@ -79,12 +87,18 @@ export function unlockedMinions(faction, stage) {
 /** Put one walker on the field. The shape every other function reads. */
 export function summon(match, kind, side, x) {
   const spec = MINIONS[kind];
+  // no two of a kind are quite the same size — it is the cheapest possible
+  // way to make a column read as individuals instead of a rubber stamp
+  const n = Math.sin(x * 12.9898 + (side === 'player' ? 1 : 7)) * 43758.5453;
+  const frac = n - Math.floor(n);
   const mn = {
     kind, side, x,
     y: match.terrain.yAt(x),
     hp: spec.hp, max: spec.hp,
-    t: 0, hitT: 0, digT: 0,
-    stuck: false, moving: false, fighting: false, digging: false,
+    t: 0, age: 0, hitT: 0, digT: 0,
+    s: 0.92 + frac * 0.18,
+    tone: frac,
+    stuck: false, moving: false, fighting: false, digging: false, scramble: false,
     underground: false, coverY: 0,
   };
   match.minions.push(mn);
@@ -152,6 +166,7 @@ export function tickMinions(match, h) {
     const spec = MINIONS[m.kind];
     const dir = m.side === 'player' ? 1 : -1;
     m.t += h;
+    m.age += h;
     m.moving = false;
     m.fighting = false;
     m.digging = false;
@@ -162,6 +177,9 @@ export function tickMinions(match, h) {
     if (m.underground) {
       m.digging = true;
       m.x = clamp(m.x + dir * spec.dig * h, 20, W - 20);
+      // boring slightly upward is what guarantees daylight: entered from the
+      // bottom of a crater, a level tunnel would ride under the whole map
+      m.y -= spec.dig * TUNNEL_RISE * h;
       m.coverY = match.terrain.yAt(m.x);
       m.digT -= h;
       if (m.digT <= 0) {
@@ -232,29 +250,36 @@ export function tickMinions(match, h) {
     }
     if (queued) continue;
 
-    // 4. the ground has a say
-    const ahead = match.terrain.yAt(m.x + dir * LOOK);
-    const rise = m.y - ahead;
+    // 4. the ground has a say — but only ground a shell has already chewed.
+    // Born steepness, vertical included, is a scramble; a raw crater face
+    // past this kind's limit is the one thing that stands in the road.
+    const aheadX = m.x + dir * LOOK;
+    const rise = m.y - match.terrain.yAt(aheadX);
     const slope = rise > STEP_FREE ? (rise - STEP_FREE) / LOOK : 0;
+    m.scramble = false;
     if (slope > spec.climb) {
-      if (spec.dig > 0) {
-        // into the hill, then: it keeps its level and lets the mountain pass
-        // overhead. Sculpting a ramp with `carve` was tried first and stalls —
-        // on a real cliff the next column up is always just out of a buried
-        // shovel's reach, and the digger chips at the toe forever.
-        m.underground = true;
-        m.digging = true;
-        m.coverY = m.y;
-      } else {
-        m.stuck = true;
+      if (match.terrain.scarred(m.x + dir * 2, aheadX)) {
+        if (spec.dig > 0) {
+          // into the wall, then. Sculpting a ramp with `carve` was tried
+          // first and stalls — on a real face the next column up is always
+          // just out of a buried shovel's reach, and the digger chips at the
+          // toe forever.
+          m.underground = true;
+          m.digging = true;
+          m.coverY = m.y;
+        } else {
+          m.stuck = true;
+        }
+        continue;
       }
-      continue;
+      m.scramble = true;
     }
 
     // 5. march
     m.stuck = false;
     m.moving = true;
-    m.x = clamp(m.x + dir * spec.speed * h * (slope > 0.4 ? UPHILL_SLOW : 1), 20, W - 20);
+    const pace = m.scramble ? SCRAMBLE_SLOW : slope > 0.4 ? UPHILL_SLOW : 1;
+    m.x = clamp(m.x + dir * spec.speed * h * pace, 20, W - 20);
     m.y = match.terrain.yAt(m.x);
   }
 

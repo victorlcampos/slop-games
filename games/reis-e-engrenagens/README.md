@@ -79,12 +79,16 @@ differ by crown and grow with the campaign:
 | The Kingdom | Squire | Sapper — *tunnels through hills* | Ram crew — *eats walls* |
 | The Machines | Scrap-bot | Tin spider — *climbs anything* | Drill mole — *tunnels, bites hard* |
 
-The ground has a say: every walker has a slope it can climb, and a face
-steeper than that stops it dead — a stuck column shows a `!` and waits for
-you to reshape the hill with a shell, while sappers and moles simply go
-*into* it and come out the far side, a mound of moving earth in between.
-The enemy gunner treats your column at its gate as worth a whole turn of
-artillery, and so should you.
+The ground has a say, and the rule is **born terrain always goes**: any
+slope the world came with — vertical cliffs included — is climbed by every
+kind, at worst as a slow, leaning scramble. The one wall in the game is
+ground *a shell has chewed*: the terrain scars every column a crater
+touches, and a raw shot-eaten face steeper than a walker's limit stops it
+dead — a stuck column shows a `!` and waits for another shell to reshape
+what the first one broke, while spiders walk the crater wall and sappers
+and moles bore *into* it with a slight upward pitch, a mound of moving
+earth until daylight. The enemy gunner treats your column at its gate as
+worth a whole turn of artillery, and so should you.
 
 ## What is interesting in here
 

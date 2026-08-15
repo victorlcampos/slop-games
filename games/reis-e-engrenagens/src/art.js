@@ -858,43 +858,64 @@ export function drawShot(ctx, s, spin) {
 /**
  * The ground war, drawn: six little walkers, each recognisable at a glance by
  * silhouette — a plume, a log on wheels, a pick, a box, a dome on legs, a cone
- * nose. Feet at (m.x, m.y), facing the way their side marches; the state flags
- * the simulation keeps (`moving`, `fighting`, `digging`, `stuck`) are the whole
- * animation system — a walk bob, a swing, and a spinning drill.
+ * nose. Feet at (m.x, m.y), facing the way their side marches.
+ *
+ * The animation *is* the simulation's state flags, read as a body: `moving`
+ * bobs and leans it forward, `scramble` bends it hard into the slope it is
+ * hauling itself up, `fighting`/`digging` swing and lunge, `stuck` stands it
+ * still under its `!`. On top of that each individual carries its own size
+ * and tone (set at summon), a quarter-second of popping out of the ground at
+ * birth, and one tic of personality per kind — a plume that streams, an eye
+ * that blinks, a crew of little legs under the ram.
  */
 export function drawMinion(ctx, m, time) {
   const dir = m.side === 'player' ? 1 : -1;
   const walk = m.moving ? Math.sin(m.t * 11) : 0;
   const swing = m.fighting || m.digging ? Math.sin(m.t * 14) : 0;
+  const tone = m.tone || 0;
+  const hurt = 1 - Math.max(0, m.hp) / m.max;
 
   // under the hill, the mound of moving earth is all the surface sees of it
   if (m.underground) {
+    const churn = Math.sin(m.t * 16) * 1.2;
     ctx.save();
     ctx.translate(m.x, m.coverY);
     ctx.beginPath();
-    ctx.arc(0, 1, 8, Math.PI, TAU);
+    ctx.arc(0, 1, 8 + churn * 0.5, Math.PI, TAU);
     ink(ctx, '#6b5233', 2.2);
     ctx.beginPath();
-    ctx.arc(-dir * 6, 1, 4.5, Math.PI, TAU);
+    ctx.arc(-dir * 6, 1, 4.5 - churn * 0.4, Math.PI, TAU);
     ink(ctx, '#7d6240', 1.8);
     ctx.restore();
     return;
   }
 
+  const size = m.s || 1;
+  // born out of the ground in a quarter second, not teleported onto it
+  const pop = Math.min(1, (m.age === undefined ? 1 : m.age) * 4);
+  // a body in motion breathes: bob on the march, a slow sway at rest,
+  // a hard lean into a scramble, a lunge behind every swing of a fight
+  const bob = m.moving ? Math.abs(Math.sin(m.t * 11)) * 2 : Math.sin(m.t * 2.2 + tone * 6) * 0.7;
+  const lean =
+    (m.scramble ? 0.3 + Math.sin(m.t * 9) * 0.06 : m.moving ? 0.06 : 0) +
+    (m.fighting ? Math.max(0, swing) * 0.14 : 0);
+
   ctx.save();
   ctx.translate(m.x, m.y);
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.beginPath();
-  ctx.ellipse(0, 0, 12, 3.4, 0, 0, TAU);
+  ctx.ellipse(0, 0, 12 * pop, 3.4, 0, 0, TAU);
   ctx.fill();
-  ctx.scale(dir, 1);
+  ctx.scale(dir * size * (0.7 + 0.3 * pop), size * (0.4 + 0.6 * pop));
+  ctx.translate(0, -bob);
+  ctx.rotate(lean);
 
   switch (m.kind) {
-    case 'squire': drawSquire(ctx, walk, swing); break;
-    case 'sapper': drawSapper(ctx, walk, swing, m.digging); break;
-    case 'ram': drawRam(ctx, m, swing); break;
-    case 'scrapper': drawScrapper(ctx, walk, swing); break;
-    case 'spider': drawSpider(ctx, m, walk); break;
+    case 'squire': drawSquire(ctx, walk, swing, time, tone, hurt, m.fighting); break;
+    case 'sapper': drawSapper(ctx, walk, swing, m.digging || m.scramble); break;
+    case 'ram': drawRam(ctx, m, swing, walk); break;
+    case 'scrapper': drawScrapper(ctx, walk, swing, time, tone, hurt); break;
+    case 'spider': drawSpider(ctx, m, walk, dir); break;
     default: drawMole(ctx, m, swing); break;
   }
   ctx.restore();
@@ -910,8 +931,8 @@ export function drawMinion(ctx, m, time) {
     ctx.restore();
   }
   if (m.stuck) {
-    // stood at the foot of a hill it cannot climb: say so, so the player knows
-    // this column is theirs to free — with a shell into the hillside
+    // stood at the foot of a shot-eaten wall: say so, so the player knows
+    // this column is theirs to free — with another shell into the face
     ctx.save();
     ctx.font = '800 13px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -937,7 +958,7 @@ function legs(ctx, walk, hipY, spread = 3.5) {
   ctx.stroke();
 }
 
-function drawSquire(ctx, walk, swing) {
+function drawSquire(ctx, walk, swing, time, tone, hurt, fighting) {
   legs(ctx, walk, -8);
   rr(ctx, -6, -20, 12, 13, 4);
   ink(ctx, '#8a5a2e', 2.5);
@@ -958,9 +979,9 @@ function drawSquire(ctx, walk, swing) {
   ctx.lineTo(13, -10);
   ctx.stroke();
   ctx.restore();
-  // shield out front
+  // shield out front, braced a little further when the fight is on
   ctx.beginPath();
-  ctx.arc(6, -13, 5, 0, TAU);
+  ctx.arc(fighting ? 7.5 : 6, -13, 5, 0, TAU);
   ink(ctx, '#c9bfa4', 2.2);
   // head and the plume that says "kingdom" at ten pixels tall
   ctx.beginPath();
@@ -969,22 +990,32 @@ function drawSquire(ctx, walk, swing) {
   ctx.beginPath();
   ctx.arc(0, -25.5, 4.8, Math.PI, TAU);
   ink(ctx, '#9aa1a8', 2);
+  // a worried little mouth once it is past half gone
+  if (hurt > 0.5) {
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(1.2, -20.6, 1.6, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+  }
+  // the plume streams and flutters — each squire's at its own beat
+  const flow = Math.sin(time * 6 + tone * 9) * 1.8;
   ctx.strokeStyle = '#c0335a';
   ctx.lineWidth = 2.4;
   ctx.beginPath();
   ctx.moveTo(-1, -30);
-  ctx.quadraticCurveTo(-6, -33, -9, -30);
+  ctx.quadraticCurveTo(-6, -33 + flow * 0.4, -9 - flow, -30 + flow);
   ctx.stroke();
 }
 
-function drawSapper(ctx, walk, swing, digging) {
+function drawSapper(ctx, walk, swing, working) {
   legs(ctx, walk, -8);
   rr(ctx, -6, -20, 12, 13, 4);
   ink(ctx, '#7a6a3a', 2.5);
-  // the pick, swung overhead when the hill says no
+  // the pick: over the shoulder on the march, overhead when the hill says no
   ctx.save();
   ctx.translate(4, -17);
-  ctx.rotate((digging ? -1.5 : -0.5) + swing * (digging ? 1 : 0.5));
+  ctx.rotate((working ? -1.5 : -0.5) + swing * (working ? 1 : 0.5));
   ctx.strokeStyle = '#8a5a2e';
   ctx.lineWidth = 2.6;
   ctx.beginPath();
@@ -1007,9 +1038,21 @@ function drawSapper(ctx, walk, swing, digging) {
   ink(ctx, '#7a6a3a', 2);
 }
 
-function drawRam(ctx, m, swing) {
+function drawRam(ctx, m, swing, walk) {
   const roll = (m.x * 0.12) % TAU;
   const lunge = Math.max(0, swing) * 6;
+  // the crew: two pairs of little legs under the sill, doing the pushing —
+  // it is a machine on the outside and four tired men underneath
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const [cx2, ph] of [[-7, 0], [-1, 2.1], [5, 1.1], [10, 3.2]]) {
+    const kick = m.moving ? Math.sin(m.t * 11 + ph) * 2.2 : 0;
+    ctx.moveTo(cx2 + kick, 0);
+    ctx.lineTo(cx2, -8);
+  }
+  ctx.stroke();
   for (const dx of [-13, 13]) {
     ctx.beginPath();
     ctx.arc(dx, -6, 6, 0, TAU);
@@ -1032,25 +1075,36 @@ function drawRam(ctx, m, swing) {
   ink(ctx, '#a05f2c', 2.6);
   rr(ctx, 16 + lunge, -18.5, 8, 10.5, 3);
   ink(ctx, '#66788c', 2.4);
-  // the little roof its crew hides under
+  // the little roof its crew hides under, rattling with every blow
+  const rattle = Math.max(0, swing) * 1.6;
   ctx.beginPath();
-  ctx.moveTo(-24, -20);
-  ctx.lineTo(0, -30);
-  ctx.lineTo(24, -20);
+  ctx.moveTo(-24, -20 + rattle);
+  ctx.lineTo(0, -30 + rattle);
+  ctx.lineTo(24, -20 + rattle);
   ctx.closePath();
   ink(ctx, '#8a4a2a', 2.6);
 }
 
-function drawScrapper(ctx, walk, swing) {
+function drawScrapper(ctx, walk, swing, time, tone, hurt) {
   legs(ctx, walk, -7, 4);
   rr(ctx, -7, -18, 14, 12, 3);
   ink(ctx, '#63768c', 2.5);
   ctx.fillStyle = '#404c5a';
   ctx.fillRect(-7, -9.5, 14, 2.5);
-  // one lamp of an eye, forward
-  ctx.beginPath();
-  ctx.arc(3.5, -13.5, 2.6, 0, TAU);
-  ink(ctx, '#4ce0ff', 1.8);
+  // one lamp of an eye, forward — and it blinks, each bot on its own clock
+  const blink = Math.sin(time * 1.7 + tone * 12) > 0.975;
+  if (blink) {
+    ctx.strokeStyle = '#4ce0ff';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(1, -13.5);
+    ctx.lineTo(6, -13.5);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(3.5, -13.5, 2.6, 0, TAU);
+    ink(ctx, hurt > 0.55 ? '#ffb03a' : '#4ce0ff', 1.8);
+  }
   // claw arm
   ctx.save();
   ctx.translate(6, -12);
@@ -1066,19 +1120,22 @@ function drawScrapper(ctx, walk, swing) {
   ctx.lineTo(10, 5);
   ctx.stroke();
   ctx.restore();
-  // antenna
+  // antenna, lamp pulsing with the machine's own heartbeat
   ctx.strokeStyle = INK;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(-3, -18);
   ctx.lineTo(-5, -24);
   ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha = 0.55 + Math.sin(time * 4 + tone * 8) * 0.45;
   ctx.beginPath();
   ctx.arc(-5.5, -25.5, 1.8, 0, TAU);
   ink(ctx, '#ffd646', 1.6);
+  ctx.restore();
 }
 
-function drawSpider(ctx, m, walk) {
+function drawSpider(ctx, m, walk, dir) {
   // four legs in two phases — the gait is the whole reason it climbs
   ctx.strokeStyle = INK;
   ctx.lineWidth = 2.4;
@@ -1096,8 +1153,10 @@ function drawSpider(ctx, m, walk) {
   ctx.beginPath();
   ctx.arc(0, -12, 7.5, Math.PI * 0.95, TAU * 1.02);
   ink(ctx, '#55637a', 2.5);
+  // the eye leads: it looks where it is going, and drifts when it waits
+  const gaze = m.moving || m.fighting ? 2.4 : Math.sin(m.t * 1.3) * 1.6;
   ctx.beginPath();
-  ctx.arc(2, -13, 2.8, 0, TAU);
+  ctx.arc(gaze, -13, 2.8, 0, TAU);
   ink(ctx, '#4ce0ff', 1.8);
 }
 
@@ -1113,6 +1172,17 @@ function drawMole(ctx, m, swing) {
   // hull and the cone that does the arguing
   rr(ctx, -14, -17, 20, 10, 3);
   ink(ctx, '#63768c', 2.5);
+  // a puff of exhaust with every metre made
+  if (m.moving) {
+    const off = (m.t * 26) % 16;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 0.5 - off * 0.03);
+    ctx.fillStyle = '#9aa4b0';
+    ctx.beginPath();
+    ctx.arc(-12, -20 - off, 2.6 + off * 0.18, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
   const jab = (m.digging || m.fighting) ? Math.max(0, swing) * 3 : 0;
   ctx.beginPath();
   ctx.moveTo(5 + jab, -17);

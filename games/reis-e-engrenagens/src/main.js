@@ -489,6 +489,15 @@ function update(h) {
   for (const s of match.shots) {
     if (!(s.burrow > 0)) fx.trail(s.x, s.y, TRAILS[s.w] || '#cfc5b0', s.w === 'boulder' ? 4 : 3);
   }
+  // a wounded walker says so from across the map: the machines trail smoke,
+  // the kingdom's men kick up the dust of a hard day
+  for (const mn of match.minions) {
+    if (mn.underground || mn.hp >= mn.max * 0.45) continue;
+    if (Math.random() < 0.07) {
+      const machine = match.faction[mn.side] === 'machines';
+      fx.trail(mn.x + (Math.random() - 0.5) * 10, mn.y - 16, machine ? '#8a97a8' : '#c9bfa4', 2);
+    }
+  }
   drain();
 
   // the enemy's turn: a pause to think, an arm swinging round, then a shot —
@@ -589,7 +598,9 @@ function drain() {
         say(t('hud.newMinion', { name: t(`mn.${ev.kind}`) }));
         break;
       case 'mdie':
-        fx.shards(ev.x, ev.y, match.faction[ev.side] === 'machines' ? '#4ce0ff' : '#c0335a', 8);
+        // a pop worth noticing: the side's colour, plus a flash of white
+        fx.shards(ev.x, ev.y, match.faction[ev.side] === 'machines' ? '#4ce0ff' : '#c0335a', 10);
+        fx.shards(ev.x, ev.y - 4, '#fff2d8', 5);
         sfx.crack(match.faction[ev.side] === 'machines' ? 'iron' : 'wood');
         break;
       case 'mhit':

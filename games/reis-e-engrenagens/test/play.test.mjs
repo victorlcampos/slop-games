@@ -721,11 +721,11 @@ scenario('an enemy walker blocks the column, and a shell into it frees the march
   check(mine.x > held + 40, `freed, it advanced ${(mine.x - held).toFixed(0)}px in two seconds`);
 });
 
-scenario('a sheer face stops a walker, a spider climbs it, and a sapper digs through', () => {
+scenario('born cliffs are a scramble for everyone; only a shell-eaten wall stops the march', () => {
+  // a natural sheer face: 200px over 40px, vertical to any eye — but the world
+  // was born with it, so the squire hauls itself over, slowly
   const m = mk({ level: LEVELS[1] });
   m.minions.length = 0;
-  // a genuinely bad angle: 200px of height gained over 40px is a slope of 5 —
-  // a cliff, not a hill. Anything gentler than this is supposed to be a walk.
   const face = (x) => {
     if (x < 1200 || x > 1400) return BASE_Y;
     if (x < 1240) return BASE_Y - ((x - 1200) / 40) * 200;
@@ -733,13 +733,41 @@ scenario('a sheer face stops a walker, a spider climbs it, and a sapper digs thr
     return BASE_Y - ((1400 - x) / 40) * 200;
   };
   for (let i = 0; i < NCOL; i++) m.terrain.h[i] = face(i * COL_W);
+  const climber = summon(m, 'squire', 'player', 1100);
+  march(m, 12);
+  check(!climber.stuck && climber.x > 1400,
+    `twelve seconds in the squire is at x=${climber.x.toFixed(0)}, stuck=${climber.stuck} — a born cliff should be a scramble, not a wall`);
 
-  const walker = summon(m, 'squire', 'player', 1100);
-  march(m, 6);
-  check(walker.stuck && walker.x < 1220, `the squire is at x=${walker.x.toFixed(0)}, stuck=${walker.stuck} — a sheer cliff should stop it`);
+  // the same squire against a wall a shell carved is a different story
+  const m2 = mk();
+  m2.minions.length = 0;
+  m2.terrain.carve(1260, m2.terrain.yAt(1260), 110);
+  const blocked = summon(m2, 'squire', 'player', 1200);
+  march(m2, 8);
+  check(blocked.stuck, `at x=${blocked.x.toFixed(0)} the squire climbed straight out of a fresh 110px crater`);
 
-  // everyone climbs ordinary hills — even a steep one. The rule is "always
-  // climbable unless the angle is truly bad", and this pins the generous half.
+  // the spider walks the crater wall...
+  const m3 = mk();
+  m3.minions.length = 0;
+  m3.terrain.carve(1260, m3.terrain.yAt(1260), 110);
+  const spider = summon(m3, 'spider', 'enemy', 1450);
+  march(m3, 14);
+  check(spider.x < 1160, `the spider should be across the crater by now; it is at x=${spider.x.toFixed(0)}`);
+
+  // ...and the mole goes through it, boring slightly upward until daylight —
+  // the upward pitch is what guarantees a pit is never a grave
+  const m4 = mk();
+  m4.minions.length = 0;
+  m4.terrain.carve(1260, m4.terrain.yAt(1260), 110);
+  const mole = summon(m4, 'mole', 'player', 1200);
+  march(m4, 9);
+  check(mole.underground, `the mole met the crater wall and is not digging: x=${mole.x.toFixed(0)}, stuck=${mole.stuck}`);
+  check(m4.events.some((e) => e.kind === 'mdig'), 'the tunnelling threw no dirt for the renderer');
+  march(m4, 16);
+  check(!mole.underground && mole.x > 1380,
+    `twenty-five seconds in the mole is at x=${mole.x.toFixed(0)}, underground=${mole.underground} — it should be out the far side`);
+
+  // ordinary hills were always for everybody, and still are — at full walk
   const mild = mk({ level: LEVELS[1] });
   mild.minions.length = 0;
   const gentle = (x) => {
@@ -753,26 +781,6 @@ scenario('a sheer face stops a walker, a spider climbs it, and a sapper digs thr
   march(mild, 12);
   check(!hiker.stuck && hiker.x > 1340,
     `twelve seconds in the squire is at x=${hiker.x.toFixed(0)}, stuck=${hiker.stuck} — a 2.0 hillside should be a climb, not a wall`);
-
-  // the spider gets the cliff to itself, or it would stop to fight the squire
-  const m1 = mk({ level: LEVELS[1] });
-  m1.minions.length = 0;
-  for (let i = 0; i < NCOL; i++) m1.terrain.h[i] = face(i * COL_W);
-  const spider = summon(m1, 'spider', 'enemy', 1560);
-  march(m1, 14);
-  check(spider.x < 1180, `the spider should be over the cliff by now; it is at x=${spider.x.toFixed(0)}`);
-
-  // the sapper answers the same hill by going through it
-  const m2 = mk({ level: LEVELS[1] });
-  m2.minions.length = 0;
-  for (let i = 0; i < NCOL; i++) m2.terrain.h[i] = face(i * COL_W);
-  const sapper = summon(m2, 'sapper', 'player', 1140);
-  march(m2, 4);
-  check(sapper.underground, `four seconds in the sapper is at x=${sapper.x.toFixed(0)} and still above ground`);
-  check(m2.events.some((e) => e.kind === 'mdig'), 'the tunnelling threw no dirt for the renderer');
-  march(m2, 12);
-  check(!sapper.underground && sapper.x > 1350,
-    `sixteen seconds in the sapper is at x=${sapper.x.toFixed(0)}, underground=${sapper.underground} — it should be out the far side`);
 });
 
 scenario('walkers at its gate change what the gunner spends the turn on', () => {

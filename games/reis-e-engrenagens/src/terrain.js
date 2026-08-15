@@ -77,10 +77,24 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
   for (let i = 0; i < half; i++) h[i] = Math.min(h[i], FLOOR_Y - 34);
   for (let i = 0; i < half; i++) h[NCOL - 1 - i] = h[i];
 
+  // Which columns a shell has chewed. Born terrain and blasted terrain look
+  // alike to a heightmap, but they are different things to walk on: a walker
+  // scrambles any slope the world was born with, and refuses only the raw
+  // faces a crater leaves behind. This is the array that knows the difference.
+  const scar = new Uint8Array(NCOL);
+
   const t = {
     kind,
     spec,
     h,
+    scar,
+    /** Has any column in this span been chewed by a shell? */
+    scarred(x0, x1) {
+      const a = clamp(Math.floor(Math.min(x0, x1) / COL_W), 0, NCOL - 1);
+      const b = clamp(Math.ceil(Math.max(x0, x1) / COL_W), 0, NCOL - 1);
+      for (let i = a; i <= b; i++) if (scar[i]) return true;
+      return false;
+    },
     /** The surface at a world x. Off the map, the wall of the world. */
     yAt(x) {
       const i = clamp(Math.round(x / COL_W), 0, NCOL - 1);
@@ -133,6 +147,7 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
         if (cy - dy <= h[i] && bottom > h[i]) {
           moved += bottom - h[i];
           h[i] = bottom;
+          scar[i] = 1;
         }
       }
       return moved;
@@ -145,6 +160,7 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
         const d = Math.abs(i * COL_W - cx) / r;
         if (d > 1) continue;
         h[i] -= amount * (1 - d) ** 2;
+        scar[i] = 1;
       }
     },
     snapshot() {
