@@ -73,6 +73,9 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
         roll: 0, rollA: 0, rollCool: 0, rollWas: false,
         combat: 0,                     // seconds left of facing the fight
         aimTarget: null,               // what the assist has, for the brackets
+        autoTarget: null,              // the man a bare trigger took, held for the burst
+        aimHold: null,                 // where the barrel stays when it loses him
+        fireWas: false,                // last frame's trigger, for the press
         aimT: 0, holdT: 0, stuck: 0, orbit: (i * 1.7) % (Math.PI * 2),
         lane: i,                       // which way across the field he likes
         strafe: 0, strafeSide: i % 2 ? 1 : -1,
@@ -331,13 +334,20 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
 /**
  * The player's thumbs, in the same shape a bot's brain writes.
  *
- * Three ways to point, and they are the Fortress's three. The mouse gives an
- * angle and the assist finds the man inside it. A thumb dragged on the right
+ * Four ways to point, and the first three are the Fortress's. The mouse gives
+ * an angle and the assist finds the man inside it. A thumb dragged on the right
  * half gives an angle directly. And a **bare trigger** — a tap with no drag, or
  * the fire key with the cursor off the canvas — does not fire wherever the body
  * happens to face: it turns him onto the nearest enemy he can see, all the way
- * round, and holds that lock while the man stays alive and in sight. That is
- * the whole of walking backwards and shooting.
+ * round, and holds that lock for the whole burst. That is the whole of walking
+ * backwards and shooting.
+ *
+ * The fourth is new and it is what a body does with **nobody's hand on it**: he
+ * looks at the man in front of him if there is one, and where his feet are
+ * going if there is not. Without it the one second of `combatHold` runs out
+ * with an enemy still standing there and the shoulders swing round to follow
+ * the walk — which reads, correctly, as the soldier losing interest in the man
+ * shooting at him.
  */
 function playerOrders(game, u, input) {
   const orders = {
@@ -348,28 +358,85 @@ function playerOrders(game, u, input) {
     roll: !!input.roll,
   };
 
-  if (input.autoAim && !input.aim && typeof input.aimAngle !== 'number') {
-    if (!stillThere(game, u, u.autoTarget)) u.autoTarget = nearestThreat(game, u);
-    const lock = u.autoTarget;
-    orders.aim = lock
-      ? { angle: Math.atan2(lock.y - u.y, lock.x - u.x), target: lock }
-      : { angle: u.facing, target: null };
+  const pressed = orders.fire && !u.fireWas;
+  u.fireWas = orders.fire;
+
+  const raw = input.aim
+    ? Math.atan2(input.aim.y - u.y, input.aim.x - u.x)
+    : (typeof input.aimAngle === 'number' ? input.aimAngle : null);
+
+  // A trigger with no direction on it. Derived here rather than taken from the
+  // caller: it is a property of the orders, and two places deciding it is two
+  // places to get it wrong.
+  if (orders.fire && raw === null) {
+    // **The lock is taken on the press and kept for the whole burst.** Losing
+    // sight of him hands the barrel to nobody: the rounds keep going through
+    // the doorway he went through, which is what a finger still on the trigger
+    // asked for. Only a new press — or the man going down — looks for another.
+    if (pressed) u.aimHold = null;
+    if (pressed || !u.autoTarget || u.autoTarget.dead) u.autoTarget = nearestThreat(game, u);
+    const lock = stillThere(game, u, u.autoTarget) ? u.autoTarget : null;
+    if (lock) u.aimHold = Math.atan2(lock.y - u.y, lock.x - u.x);
+    // a tap in an empty room still fires straight ahead: the gun helps, it does
+    // not refuse
+    orders.aim = { angle: u.aimHold === null ? u.facing : u.aimHold, target: lock };
     return orders;
   }
 
   u.autoTarget = null;
-  const raw = input.aim
-    ? Math.atan2(input.aim.y - u.y, input.aim.x - u.x)
-    : (typeof input.aimAngle === 'number' ? input.aimAngle : null);
-  if (raw !== null) orders.aim = assistedAim(game, u, raw);
+  if (raw !== null) {
+    orders.aim = assistedAim(game, u, raw);
+    u.aimHold = orders.aim.angle;
+    return orders;
+  }
+
+  // Nothing on the trigger and nothing pointing anywhere. He watches whoever he
+  // can actually see — the eyes' own test, so at night the torch is still the
+  // torch and a man round the corner is not being watched through a wall.
+  const watched = visibleThreat(game, u);
+  if (watched) {
+    u.aimHold = Math.atan2(watched.y - u.y, watched.x - u.x);
+    orders.aim = { angle: u.aimHold, target: watched };
+  }
   return orders;
 }
 
-/** Alive, inside the eyes, with a clear line — the bar every lock obeys. */
+/**
+ * Alive, in sight and with a clear line — the bar every lock obeys.
+ *
+ * **The reach is the eyes', not the gun's.** It used to be the shorter of the
+ * two, and that is a barrel that lets go of a man half way through a fight: back
+ * off four tiles with the scatter in your hands and he crosses 420px, the lock
+ * drops, and the body turns to face the corridor it is retreating down while
+ * you are still holding the trigger. Rounds falling short is the gun's business
+ * and the range already handles it; where the soldier is looking is not.
+ */
 export function stillThere(game, u, t) {
   if (!t || t.dead) return false;
-  if (dist(u.x, u.y, t.x, t.y) > Math.min(game.gun(u).range, game.eyes.sight)) return false;
+  if (dist(u.x, u.y, t.x, t.y) > game.eyes.sight) return false;
   return lineOfSight(game.grid, u.x, u.y, t.x, t.y);
+}
+
+/**
+ * The nearest enemy this body can **see** — the cone, the reach and the wall,
+ * the same test the light on the field is drawn from.
+ *
+ * It is deliberately stricter than `nearestThreat`: a bare trigger searches all
+ * the way round because you know where the man shooting you in the back is, but
+ * a soldier with his hands down does not turn to look at something behind him.
+ */
+export function visibleThreat(game, u) {
+  let best = null;
+  let bestD = Infinity;
+  for (const e of game.units) {
+    if (e.dead || e.team === u.team) continue;
+    const d = dist2(u.x, u.y, e.x, e.y);
+    if (d >= bestD) continue;
+    if (!game.visibleTo(u, e.x, e.y)) continue;
+    bestD = d;
+    best = e;
+  }
+  return best;
 }
 
 /**
@@ -762,6 +829,10 @@ function respawn(game, u) {
   u.combat = 0;
   u.autoTarget = null;
   u.aimTarget = null;
+  u.aimHold = null;
+  // he comes back with his hands empty even if the finger never left the
+  // trigger: the next frame counts as a press, and takes a man of its own
+  u.fireWas = false;
   u.facing = u.team === 'human' ? 0 : Math.PI;
   game.onRespawn?.(u);
 }

@@ -29,9 +29,21 @@ export function aimAngle(dx, dy) {
  * The roll, beside the trigger rather than under it: it is the rarer press, and
  * pressing it by accident costs the second of cooldown that was the only thing
  * left to get a stolen flag out of a hot end zone.
+ *
+ * `grab` is the circle the *finger* is measured against and it is half again
+ * the drawn one. That gap is the whole of "I pressed roll and he fired a shot":
+ * everywhere on the right half that is not this button **is** the trigger, so a
+ * thumb landing twelve pixels outside the ring does not miss a button — it
+ * starts a burst, at the exact moment you were trying to get out of one. The
+ * drawn circle stays 44, because a ring that big painted over the field reads
+ * as furniture; the finger's reaches 66, which is exactly where the trigger's
+ * own circle begins (the two centres are 124 apart and the gun's radius is 58),
+ * so nothing is taken from the button next door.
  */
+export const ROLL_GRAB = 66;
+
 export function rollButton(W, H) {
-  return { x: W - 232, y: H - 92, r: 44 };
+  return { x: W - 232, y: H - 92, r: 44, grab: ROLL_GRAB };
 }
 
 /** The gun takes the corner: it is the button pressed most, and it is also a stick. */
@@ -45,8 +57,12 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
   let rollPressed = false;
 
   function start(id, x, y) {
-    const hit = (b) => (x - b.x) ** 2 + (y - b.y) ** 2 <= b.r * b.r;
-    if (hit(rollButton(width(), height()))) {
+    const hit = (b, r = b.r) => (x - b.x) ** 2 + (y - b.y) ** 2 <= r * r;
+    const gun = fireButton(width(), height());
+    // the gun first, then the roll's generous circle: whatever is left of the
+    // right half is the trigger, and a near-miss on the roll must not fall into
+    // it (see `rollButton`)
+    if (!hit(gun) && hit(rollButton(width(), height()), ROLL_GRAB)) {
       rollPressed = true;
       return;
     }
@@ -58,7 +74,6 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
     if (trigger.on) return;
     // a drag that started on the icon is measured from the icon's middle, not
     // from the pixel the thumb happened to land on
-    const gun = fireButton(width(), height());
     const onIcon = hit(gun);
     Object.assign(trigger, {
       on: true, id, ox: onIcon ? gun.x : x, oy: onIcon ? gun.y : y, x, y, angle: null, onIcon,

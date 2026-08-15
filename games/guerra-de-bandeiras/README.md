@@ -45,7 +45,19 @@ takes a second and a half, and a tap anywhere skips it.
 
 On a phone the left half of the screen walks and the stick is born wherever
 your thumb lands; the right half is the trigger — a tap turns you onto the
-nearest enemy you can see and fires, and dragging aims by hand. 🌀 rolls.
+nearest enemy you can see and fires, and dragging aims by hand. 🌀 rolls, and
+its circle takes a good deal more finger than the ring you can see: everything
+around it is trigger, so a near-miss used to fire the shot you were rolling
+away from.
+
+**Where the soldier is looking is never a surprise.** With nobody touching the
+gun he watches the nearest man he can actually see, and where his feet are
+going when there is nobody. A burst takes its man on the press and keeps him
+for as long as the finger is down — out past what the gun in your hands
+reaches, and, when he ducks out of sight, straight through the doorway he went
+through rather than swinging onto somebody else. Letting go and pressing again
+is what asks for a new man.
+
 Held upright, the game lays the canvas on its side rather than asking you to
 unlock rotation.
 
