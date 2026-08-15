@@ -1,27 +1,35 @@
 // The measurements of the battlefield and the two numbers every shot obeys.
 //
-// Everything here is in **world** coordinates: a fixed 1280x720 field, drawn
-// into whatever the viewport turns out to be (see `worldBox`). Keeping the
-// world fixed is what lets a saved castle, an AI plan and a test all talk about
-// the same cell without asking how wide the monitor is.
+// Everything here is in **world** coordinates: a fixed field that the camera
+// looks at a screen's worth of at a time (see `camera.js`). Keeping the world
+// fixed is what lets a saved castle, an AI plan and a test all talk about the
+// same cell without asking how wide the monitor is.
 
-export const W = 1280;
+/**
+ * The field is **wider than the screen**, and that is the point.
+ *
+ * It used to be exactly one viewport across, which made every shot a flat little
+ * hop from one side of a still picture to the other. At this width the shell
+ * leaves the screen, the camera goes with it, and the valley in between has room
+ * for scenery instead of being the gap between two castles.
+ */
+export const W = 2400;
 export const H = 720;
 
 /** Where the two castles stand. Everything above this line is grid, below is dirt. */
-export const BASE_Y = 578;
+export const BASE_Y = 566;
 
-export const CELL = 34;
+export const CELL = 40;
 export const COLS = 7;
 export const ROWS = 9;
 
 /**
  * Terrain is a heightmap: one column every 4px, which is finer than a crater.
  *
- * The `+ 1` is what makes the map fair. Sampling 0..1276 and mirroring index i
- * to 319-i folds the world about x=638, not x=640 — half a column out, which is
- * invisible to look at and enough to give one castle a 2px better hill than the
- * other. One extra column puts the fold on the middle of the field.
+ * The `+ 1` is what makes the map fair. Without it the last column sits four
+ * pixels short of the right edge, so mirroring folds the world half a column
+ * off centre — invisible to look at, and enough to give one castle a slightly
+ * better hill than the other. One extra column puts the fold on the middle.
  */
 export const COL_W = 4;
 export const NCOL = W / COL_W + 1;
@@ -31,15 +39,21 @@ export const other = (side) => (side === 'player' ? 'enemy' : 'player');
 
 // The field is mirrored on purpose — a shot from the left has exactly the
 // distance a shot from the right has, so a loss is never the map's fault.
-export const CASTLE_X = { player: 88, enemy: W - 88 - COLS * CELL };
-// a multiple of COL_W, so the pad and its mirror land on the same columns
-export const LAUNCH_X = { player: 400, enemy: W - 400 };
+export const CASTLE_X = { player: 300, enemy: W - 300 - COLS * CELL };
 
 export const GRAVITY = 520;
-export const WIND_MAX = 58;
-/** Muzzle speed at power 100, before the weapon's own multiplier. */
-export const POWER_SPEED = 690;
+export const WIND_MAX = 46;
+/**
+ * Muzzle speed at power 100, before the weapon's own multiplier. Set so that a
+ * full-power 45° shot just carries the width of the valley — the last twenty
+ * per cent of the gauge has to be worth something, and a range that overshoots
+ * the map makes the whole top half of the gauge identical.
+ */
+export const POWER_SPEED = 1040;
 export const MIN_POWER = 12;
+
+/** How high above the block it stands on a siege engine's pivot sits. */
+export const GUN_HEIGHT = 30;
 
 export const KING_HP = 120;
 
@@ -109,25 +123,6 @@ export function makeRng(seed) {
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 export const lerp = (a, b, t) => a + (b - a) * t;
-
-/**
- * Where the 1280x720 field lands inside the viewport.
- *
- * The kit's viewport keeps the height fixed and lets the width breathe, so on a
- * 4:3 screen there is less than 1280 of it. A field that assumed 1280 would
- * simply spill off both ends — the castles are at fixed x. So it scales down to
- * fit and sits on the bottom of the screen, where the ground is: the sky is the
- * only thing that gains or loses pixels.
- */
-export function worldBox(vpW, vpH) {
-  const s = Math.min(vpW / W, vpH / H);
-  return { s, ox: (vpW - W * s) / 2, oy: vpH - H * s };
-}
-
-/** The inverse of `worldBox`: a finger on the screen, in field coordinates. */
-export function toWorld(box, x, y) {
-  return { x: (x - box.ox) / box.s, y: (y - box.oy) / box.s };
-}
 
 /**
  * How much of the logical width is actually on the screen.

@@ -244,24 +244,34 @@ scenario('a drill bomb burrows before it goes off, so the crater is under the cr
 
 // ------------------------------------------------------------ fire and rust
 
-scenario('fire eats a timber wall over three turns and spreads along it', () => {
-  const m = mk({ theirs: { cells: [...stack(2, 4, 'wood'), ...stack(3, 4, 'wood')], king: { c: 6, r: 0 } } });
-  const at = m.castles.enemy.centre(2, 2);
+scenario('a fire pot does not knock the wall down — it lights one end and waits', () => {
+  // a long timber wall, and the pot thrown at one end of it
+  const wall = Array.from({ length: COLS }, (_, c) => ({ c, r: 0, m: 'wood' }));
+  const m = mk({ theirs: { cells: wall, king: { c: 6, r: 1 } } });
+  const castle = m.castles.enemy;
+  const at = castle.centre(0, 0);
   detonate(m, at.x, at.y, WEAPONS.firepot, 'player');
-  const lit = m.castles.enemy.blocks().filter((b) => b.fire > 0);
+
+  check(castle.at(0, 0), 'the pot destroyed the plank it hit — then there is nothing left to burn');
+  const lit = castle.blocks().filter((b) => b.fire > 0).map((b) => b.c);
   check(lit.length > 0, 'a fire pot burst on a timber wall and set nothing alight');
+  const far = Math.max(...lit);
+  check(far < COLS - 1, `the blast alone reached column ${far} of ${COLS - 1} — nothing is left for the fire to spread to`);
 
-  const before = m.castles.enemy.blocks().reduce((s, b) => s + b.hp, 0);
+  // it eats the plank it started on…
+  const first = castle.at(0, 0);
+  const before = first.hp;
   pass(m);
-  const after = m.castles.enemy.blocks().reduce((s, b) => s + b.hp, 0);
-  check(after < before, `the wall was on fire for a whole turn and lost ${(before - after).toFixed(0)} hit points`);
+  check(first.hp < before - 20, `a turn on fire cost the plank ${(before - first.hp).toFixed(0)} hit points`);
 
-  const burning = m.castles.enemy.blocks().filter((b) => b.fire > 0).length;
-  check(burning >= lit.length, `the fire went from ${lit.length} cells to ${burning} — it is not spreading`);
+  // …and walks down the wall to planks the blast never touched
+  for (let i = 0; i < 4; i++) pass(m);
+  const reached = castle.blocks().filter((b) => b.fire > 0 || b.hp < b.max).map((b) => b.c);
+  check(Math.max(...reached, -1) > far, `five turns later the fire has got no further than column ${far}`);
 
   // and it burns itself out rather than eating the castle forever
-  for (let i = 0; i < 8; i++) pass(m);
-  check(m.castles.enemy.blocks().every((b) => b.fire === 0), 'the fire is still burning eight turns later');
+  for (let i = 0; i < 14; i++) pass(m);
+  check(castle.blocks().every((b) => b.fire === 0), 'the fire is still burning nineteen turns later');
 });
 
 scenario('fire will not touch stone, and rust will not touch anything but iron', () => {
@@ -295,13 +305,31 @@ scenario('undermine a tower and it comes down on what it was protecting', () => 
   check(king.hp < KING_HP, `the tower came down and the crown under it is still on ${king.hp}`);
 });
 
-scenario('dig out the pad and the siege engine drops into its own crater', () => {
-  const m = mk();
-  const before = m.launchers.player.y;
-  m.terrain.carve(m.launchers.player.x, before, 70);
+scenario('the siege engine rides the tallest tower, and comes down with it', () => {
+  const m = mk({ mine: { cells: [...stack(2, 2, 'stone'), ...stack(5, 5, 'stone')], king: { c: 0, r: 0 } } });
+  const L = m.launchers.player;
+  check(L.seat.c === 5, `the trebuchet sat on column ${L.seat.c} instead of the five-storey one`);
+  const high = L.y;
+  check(high < BASE_Y - CELL * 4, `standing on a five-storey tower it is at y=${high.toFixed(0)}`);
+
+  // and a shot into the tower drops the engine onto whatever is still standing
+  for (let r = 4; r >= 1; r--) m.castles.player.remove(5, r);
   restand(m);
-  check(m.launchers.player.y > before + 30,
-    `the pad was blown away and the trebuchet only moved ${(m.launchers.player.y - before).toFixed(0)}px`);
+  check(m.launchers.player.seat.c === 2,
+    `with the tower gone the engine stayed on column ${m.launchers.player.seat.c}`);
+  check(m.launchers.player.y >= high + CELL * 3,
+    `the tower came down and the engine only fell ${(m.launchers.player.y - high).toFixed(0)}px`);
+  check(m.events.some((e) => e.kind === 'gunfell'), 'nothing said the engine had dropped');
+});
+
+scenario('height is range: the same shot goes further from a taller castle', () => {
+  const low = mk({ mine: { cells: stack(3, 1, 'stone'), king: { c: 0, r: 0 } } });
+  const high = mk({ mine: { cells: stack(3, 8, 'stone'), king: { c: 0, r: 0 } } });
+  low.wind = 0;
+  high.wind = 0;
+  const a = low.trace('player', 'boulder', 40, 70).x;
+  const b = high.trace('player', 'boulder', 40, 70).x;
+  check(b > a + 60, `from one storey the shell reached ${a.toFixed(0)}, from eight ${b.toFixed(0)}`);
 });
 
 scenario('you can shell your own castle, and the game lets you', () => {

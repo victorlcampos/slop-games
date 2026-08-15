@@ -258,6 +258,54 @@ export function settle(castle, terrain) {
 }
 
 /**
+ * Where the siege engine stands: on top of the tallest column of its own castle.
+ *
+ * "Tallest" is not a preference, it is the thing that makes the shot legal. The
+ * engine fires from a pivot a little above the block it stands on, so as long as
+ * nothing in the castle is higher, even a four-degree shot clears its own walls.
+ * Put it anywhere else and the player's own battlements eat every low shot.
+ *
+ * The consequence is the best part: **build higher and you shoot further**, and
+ * the tower holding your gun up is the most obvious thing on the field to
+ * knock down. Ties go to the column nearest the enemy, so a gun on a flat
+ * castle still has a clear line rather than firing over its own roof.
+ */
+export function gunSeat(castle, terrain) {
+  const towardsFoe = castle.side === 'player' ? 1 : -1;
+  let bestCol = -1;
+  let bestTop = -1;
+
+  for (let c = 0; c < COLS; c++) {
+    let top = -1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (castle.at(c, r)) {
+        top = r;
+        break;
+      }
+    }
+    if (top < 0) continue;
+    const forward = towardsFoe > 0 ? c > bestCol : c < bestCol;
+    if (top > bestTop || (top === bestTop && forward)) {
+      bestTop = top;
+      bestCol = c;
+    }
+  }
+
+  if (bestCol < 0) {
+    // no castle left at all: it sits on the bare plot, which is where it will
+    // be finishing this siege from
+    const x = castle.baseX + (COLS * CELL) / 2;
+    return { c: -1, r: -1, x, y: terrain ? terrain.minIn(x - 24, x + 24) : BASE_Y };
+  }
+  return {
+    c: bestCol,
+    r: bestTop,
+    x: castle.baseX + bestCol * CELL + CELL / 2,
+    y: BASE_Y - (bestTop + 1) * CELL,
+  };
+}
+
+/**
  * Whether a cell may be built on in the workshop.
  *
  * The check is the real support rule, run against a copy with the cell already

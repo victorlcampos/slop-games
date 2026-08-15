@@ -13,7 +13,7 @@
 // every turn, because a gunner who has watched two of his own shells land does
 // know where the third one goes.
 
-import { LAUNCH_X, clamp, other } from './config.js';
+import { clamp, other } from './config.js';
 import { ARSENAL, WEAPONS } from './weapons.js';
 
 // Coarse first, then one cell of the grid explored properly. A flat search fine
@@ -114,9 +114,9 @@ export function scoreOf(match, side, w, res, target) {
     // a drill has no interest in the wall: it wants the cellar
     if (w.burrow && Math.abs(res.x - target.x) < 90) score += 130;
     else score -= 40;
-    // and nothing on its own half of the field is a shot at anybody
-    const home = LAUNCH_X[side];
-    const away = LAUNCH_X[foe];
+    // and nothing behind its own castle is a shot at anybody
+    const home = match.launchers[side].x;
+    const away = match.launchers[foe].x;
     if ((res.x - home) * (away - home) < 0) score -= 400;
   }
   if (res.kind === 'out') score -= 260;

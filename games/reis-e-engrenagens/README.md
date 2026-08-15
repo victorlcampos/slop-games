@@ -8,6 +8,12 @@ turns lobbing things at each other until one of them is under the rubble.
 Half Gunbound, half Angry Birds: the aiming is an artillery duel with wind and a
 power gauge, and what you are aiming at is a structure that falls over.
 
+**The siege engine stands on your castle**, on top of its tallest column. Build
+higher and you shoot further — and the tower holding your gun up is the most
+obvious thing on the field for them to knock down. The valley between the two
+plots is nearly twice a screen wide, so the shell leaves the picture and the
+camera goes with it.
+
 ## How to play
 
 **The workshop.** Tap a cell to build. Every material is cheap somewhere and
@@ -33,6 +39,9 @@ is the whole game.
 2. **Tap** — the power gauge opens and starts sweeping.
 3. **Tap again** — it fires at whatever the gauge was reading.
 
+At full power a shot barely carries the width of the valley, so the top of the
+gauge is a real decision and not a default.
+
 Pick munitions from the dock (or keys 1–4). The basic shot never runs out; the
 other three are counted, and do not carry over between sieges. The wind changes
 every turn, and it moves a fire pot far more than it moves a rock.
@@ -54,6 +63,12 @@ crater; do the same under an iron one and it hangs there like a bridge. What
 falls deals damage to what it lands on — which is how a tower you undermined
 kills the king it was built to protect.
 
+**Where the gun stands is a design decision.** It always takes the tallest
+column, which is the only seat from which even a four-degree shot clears your
+own battlements — so a tall thin tower buys range and hands them a target, and
+a low broad castle keeps the gun safe and short. Undermine theirs and the engine
+comes down with the tower it was riding.
+
 **The king is a cell in the same grid as the walls.** Not a special case with
 its own code path: support, collapse, blast falloff and crushing all treat him
 as a block with a crown on it. The one thing he does differently is brace when
@@ -68,7 +83,15 @@ shells land does know where the third one goes.
 
 **Not one image.** Five kinds of wall, two kings, two siege engines, eight
 munitions, six skies and every crater — all drawn at runtime from rectangles and
-arcs. A sandbag is two rounded rectangles and a line of stitches.
+arcs. A sandbag is two rounded rectangles and a line of stitches; a cloud is five
+overlapping circles with one outline round the lot, which Canvas cannot do and
+has to be faked by drawing the shape twice.
+
+**A block is recognisable by its lid.** Whatever is on top of a column gets the
+decoration: stone is crenellated, timber gets a shingle roof, iron a riveted cap,
+sandbags a tied ear, crystal comes to a point. It is the cheapest way to turn a
+stack of squares into architecture, and it is what you read at a distance when
+the castle is most of a map away.
 
 ## Development
 

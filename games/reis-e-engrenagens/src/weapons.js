@@ -33,7 +33,10 @@ export const WEAPONS = {
     id: 'firepot',
     faction: 'knights',
     ammo: 4,
-    damage: 34,
+    // Deliberately feeble. At 34 it *destroyed* the timber outright, which meant
+    // the wall it set alight was already gone and the fire had nothing to eat —
+    // the weapon's whole mechanic never once fired in a real match.
+    damage: 20,
     radius: 62,
     speed: 0.95,
     wind: 1.2,

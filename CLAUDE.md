@@ -43,7 +43,9 @@ changes — not the rule.
    twenty times the size the match ever sees them, so that choosing a body is
    choosing something with a face on it, Kings & Gears builds five kinds of wall
    out of rounded rectangles — a sandbag is two of them and a line of stitches —
-   and carves every crater out of a heightmap as it lands, and Infinite Fortress has no map at all — a ring is a seed, and the
+   carves every crater out of a heightmap as it lands, and outlines a cloud by
+   drawing it twice because Canvas has no way to stroke the union of five
+   overlapping circles, and Infinite Fortress has no map at all — a ring is a seed, and the
    rooms, corridors, sentinels and seal are laid out on the way in. Even the language
    picker's flags are drawn on a canvas — the 🇧🇷 emoji
    has no glyph on Windows, and there the picker would become the letters "BR" in
@@ -396,7 +398,7 @@ animals.
 
 ### File weight
 
-Current reference: Iron Rain 91 KB, Kings & Gears 90 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
+Current reference: Iron Rain 91 KB, Kings & Gears 99 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
 and Zoo Tycoon 311 KB (all six with no libraries), World Drive 600 KB and
 SkiFree 3D 704 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.

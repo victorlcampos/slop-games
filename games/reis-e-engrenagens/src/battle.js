@@ -7,13 +7,13 @@
 // with no canvas anywhere (CLAUDE.md, section 6).
 
 import {
-  GRAVITY, LAUNCH_X, MAX_SEG, MIN_POWER, POWER_SPEED,
+  GRAVITY, GUN_HEIGHT, MAX_SEG, MIN_POWER, POWER_SPEED,
   TURN_LIMIT, W, WIND_MAX, clamp, makeRng, other,
 } from './config.js';
 import { material } from './materials.js';
 import { ARSENAL, WEAPONS, craterRadius, damageAgainst, groundBonus, loadout } from './weapons.js';
-import { FLOOR_Y, buildTerrain, standHeight } from './terrain.js';
-import { createCastle, grounded, settle } from './structure.js';
+import { FLOOR_Y, buildTerrain } from './terrain.js';
+import { createCastle, grounded, gunSeat, settle } from './structure.js';
 
 const DEG = Math.PI / 180;
 
@@ -42,8 +42,8 @@ export function createMatch(cfg) {
     ammo: { player: loadout(faction), enemy: loadout(other2(faction)) },
     weapon: { player: ARSENAL[faction][0], enemy: ARSENAL[other2(faction)][0] },
     launchers: {
-      player: { side: 'player', x: LAUNCH_X.player, y: 0, angle: 45, recoil: 0, dir: 1 },
-      enemy: { side: 'enemy', x: LAUNCH_X.enemy, y: 0, angle: 45, recoil: 0, dir: -1 },
+      player: { side: 'player', x: 0, y: 0, angle: 45, recoil: 0, dir: 1, seat: null },
+      enemy: { side: 'enemy', x: 0, y: 0, angle: 45, recoil: 0, dir: -1, seat: null },
     },
     turn: 'player',
     turnCount: 0,
@@ -167,11 +167,22 @@ function rollWind(rng) {
   return (rng() * 2 - 1) * WIND_MAX;
 }
 
-/** Launchers stand on the ground, and the ground moves. */
+/**
+ * Put each siege engine back on top of its own castle.
+ *
+ * Called after every collapse, and that is the point: shoot the tower out from
+ * under an engine and it comes down with the tower, losing the height — and the
+ * range — that the tower was buying it.
+ */
 export function restand(match) {
   for (const side of ['player', 'enemy']) {
     const L = match.launchers[side];
-    L.y = standHeight(match.terrain, L.x);
+    const seat = gunSeat(match.castles[side], match.terrain);
+    const dropped = L.seat && seat.y > L.seat.y + 1;
+    L.seat = seat;
+    L.x = seat.x;
+    L.y = seat.y;
+    if (dropped) match.say('gunfell', { side, x: seat.x, y: seat.y });
   }
 }
 
@@ -180,8 +191,8 @@ export function spawnShot(L, w, side, power) {
   const a = L.angle * DEG;
   const dir = L.dir;
   const speed = (power / 100) * POWER_SPEED * w.speed;
-  const px = L.x + dir * Math.cos(a) * 34;
-  const py = L.y - 28 - Math.sin(a) * 34;
+  const px = L.x + dir * Math.cos(a) * 36;
+  const py = L.y - GUN_HEIGHT - Math.sin(a) * 36;
   return {
     side,
     w: w.id,

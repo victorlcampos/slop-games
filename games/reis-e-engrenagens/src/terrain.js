@@ -1,5 +1,5 @@
-// The ground: a heightmap of 320 columns, and a hole punched in it every time
-// something lands.
+// The ground: a heightmap of one column every four pixels across the whole
+// field, and a hole punched in it every time something lands.
 //
 // A heightmap cannot hold an overhang, which is the one thing it gives up
 // against a pixel field — and in exchange every question a shot asks ("what is
@@ -10,7 +10,7 @@
 // **The field is mirrored down the middle.** A shot from the left has exactly
 // the distance a shot from the right has, and neither side got the better hill.
 
-import { BASE_Y, CASTLE_X, CELL, COLS, COL_W, H, LAUNCH_X, NCOL, W, clamp, makeRng } from './config.js';
+import { BASE_Y, CASTLE_X, CELL, COLS, COL_W, H, NCOL, W, clamp, makeRng } from './config.js';
 import { terrainOf } from './materials.js';
 
 /** The lowest the ground is allowed to go — below this a shot is simply gone. */
@@ -24,14 +24,14 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
 
   // Three octaves of cosine-interpolated value noise. Written over the left
   // half only; the right half is a mirror, so the map is fair by construction.
-  // The two plateaus take most of the field, so the noise only has about 350px
-  // of open ground to say anything in. Long wavelengths simply do not fit in
-  // that window — with a 184px first octave the middle of the map came out as a
-  // flat line — hence steps short enough to put two or three humps in the gap.
+  // The wavelengths are chosen against the open ground between the two plots,
+  // and the mirror halves that: the distinct terrain is only the left half of
+  // the valley. A first octave long enough to look majestic fitted less than two
+  // nodes in there and came out as a straight line.
   const layers = [
-    { step: 24, amp: 34 },
-    { step: 11, amp: 15 },
-    { step: 5, amp: 6 },
+    { step: 33, amp: 46 },
+    { step: 15, amp: 22 },
+    { step: 7, amp: 9 },
   ].map(({ step, amp }) => {
     const nodes = [];
     for (let i = 0; i <= Math.ceil(half / step) + 1; i++) nodes.push(rng() * 2 - 1);
@@ -39,7 +39,10 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
   });
 
   for (let i = 0; i < half; i++) {
-    let y = BASE_Y;
+    // A guaranteed swell under the noise. Three octaves of value noise can roll
+    // a set of nodes that all land near zero, and when they do the valley comes
+    // out as a table — which happened, on the level the player sees first.
+    let y = BASE_Y - Math.cos(i / 17) * 28;
     for (const { step, amp, nodes } of layers) {
       const p = i / step;
       const a = nodes[Math.floor(p)];
@@ -51,18 +54,27 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
     h[i] = y;
   }
 
-  // The middle is the only piece of the map that is designed rather than
-  // rolled: a hill in the way forces a high arc, a pit swallows anything short.
-  if (middle !== 'flat') {
+  // The middle is the piece of the map that is designed rather than rolled: a
+  // hill in the way forces a high arc, a pit swallows anything short — and even
+  // "flat" is not flat, it is a pair of shallow rises either side of the centre.
+  // Noise alone could not be trusted with this: over the left half of the
+  // valley there is room for three or four nodes, and a roll of the dice that
+  // puts them all near zero produces a billiard table, which is what the first
+  // level came out as.
+  const bump = (centre, width, height) => {
     for (let i = 0; i < half; i++) {
-      const x = i * COL_W;
-      const d = Math.abs(x - W / 2) / 190;
+      const d = Math.abs(i * COL_W - centre) / width;
       if (d >= 1) continue;
-      const bell = Math.cos(d * Math.PI * 0.5) ** 2;
-      h[i] += middle === 'hill' ? -128 * bell : 96 * bell;
+      h[i] -= height * Math.cos(d * Math.PI * 0.5) ** 2;
     }
-  }
+  };
+  if (middle === 'hill') bump(W / 2, 330, 186);
+  else if (middle === 'pit') bump(W / 2, 330, -108);
+  else bump(W / 2 - 430, 250, 74);
 
+  // the world has a floor, and the map is not allowed to start below it —
+  // a pit level that began underneath it swallowed shells on turn one
+  for (let i = 0; i < half; i++) h[i] = Math.min(h[i], FLOOR_Y - 34);
   for (let i = 0; i < half; i++) h[NCOL - 1 - i] = h[i];
 
   const t = {
@@ -135,12 +147,11 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
     },
   };
 
-  // One plateau per side, from the back of the castle to in front of its siege
-  // engine. Levelling the two separately left a ramp between them whose blend
-  // reached back into the castle's footprint and put a 1px slope under a wall —
-  // enough for a support test to disagree with the picture on screen.
-  flatten(t, CASTLE_X.player - 16, LAUNCH_X.player + 30, BASE_Y);
-  flatten(t, LAUNCH_X.enemy - 30, CASTLE_X.enemy + COLS * CELL + 16, BASE_Y);
+  // Only the two plots are levelled now. The siege engines used to stand on
+  // pads of their own out in the open, which meant four flat regions and almost
+  // no map left in between; up on the castles they take their ground with them.
+  flatten(t, CASTLE_X.player - 20, CASTLE_X.player + COLS * CELL + 20, BASE_Y);
+  flatten(t, CASTLE_X.enemy - 20, CASTLE_X.enemy + COLS * CELL + 20, BASE_Y);
 
   return t;
 }
@@ -158,13 +169,4 @@ function flatten(t, x0, x1, y) {
     if (l >= 0) t.h[l] = t.h[l] * w + y * (1 - w);
     if (r < NCOL) t.h[r] = t.h[r] * w + y * (1 - w);
   }
-}
-
-/**
- * Where a launcher's feet are now. It is not fixed: dig the pad out from under
- * a trebuchet and it drops into its own crater, which changes every shot it
- * takes afterwards. That is the cheapest counter-battery fire in the game.
- */
-export function standHeight(terrain, x) {
-  return Math.min(terrain.minIn(x - 22, x + 22), FLOOR_Y);
 }

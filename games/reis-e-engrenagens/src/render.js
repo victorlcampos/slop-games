@@ -7,10 +7,10 @@
 // dropped, against the real viewport, so they hug the edges of the screen the
 // player actually has and stay the same size on a phone and a monitor.
 
-import { BASE_Y, CELL, COLS, ROWS } from './config.js';
+import { BASE_Y, CELL, COLS, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS } from './config.js';
 import { MATERIALS, material } from './materials.js';
 import { WEAPONS } from './weapons.js';
-import { drawBlock, drawLauncher, drawShot, drawShotIcon } from './art.js';
+import { drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
 import { button, dockLayout, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
 
@@ -24,19 +24,24 @@ const TAU = Math.PI * 2;
  * is written underneath them — which is exactly what happened to the coin
  * count, and it is invisible until you look at a screenshot.
  */
-const CORNER = 116;
+const CORNER = 134;
 
 export function drawField(ctx, view) {
-  const { match, scene, fx, faction, time } = view;
-  scene.drawSky(ctx);
-  scene.drawGround(ctx);
+  const { match, scene, fx, time, cam = { x: 0, y: 0 }, viewW = 1280 } = view;
+  scene.drawSky(ctx, cam, viewW);
+  scene.drawGround(ctx, cam, viewW);
+  scene.drawProps(ctx, cam, viewW);
 
   for (const side of ['player', 'enemy']) {
     drawCastle(ctx, match, side, match.faction[side], fx, time);
   }
 
-  drawLauncher(ctx, match.launchers.player, match.faction.player, { loaded: match.turn === 'player' && !match.flying() });
-  drawLauncher(ctx, match.launchers.enemy, match.faction.enemy, { loaded: match.turn === 'enemy' && !match.flying() });
+  for (const side of ['player', 'enemy']) {
+    drawLauncher(ctx, match.launchers[side], match.faction[side], {
+      loaded: match.turn === side && !match.flying(),
+      time,
+    });
+  }
 
   // the ghost of the last shot each side took: the only aiming aid in the game,
   // and the same one a real gunner gets
@@ -60,15 +65,19 @@ export function drawField(ctx, view) {
     drawShot(ctx, s, time * 6);
   }
 
-  scene.drawWeather(ctx);
-  drawOffscreen(ctx, match);
+  scene.drawWeather(ctx, cam, viewW);
+  drawOffscreen(ctx, match, cam);
 }
 
 function drawCastle(ctx, match, side, faction, fx, time) {
   const castle = match.castles[side];
   for (const b of castle.blocks()) {
     const rect = castle.rect(b.c, b.r);
-    drawBlock(ctx, b, rect, { faction });
+    // the top of a column gets the decorated lid — battlements, a shingle roof,
+    // a riveted cap. It is what turns a stack of squares into architecture.
+    const seat = match.launchers[side].seat;
+    const top = !castle.at(b.c, b.r + 1) && !(seat && seat.c === b.c && seat.r === b.r);
+    drawBlock(ctx, b, rect, { faction, top });
     if (b.fire > 0 && Math.random() < 0.5) fx.flame(rect.x + rect.w / 2, rect.y + 4);
     if (b.rust > 0 && Math.random() < 0.15) fx.rust(rect.x + rect.w / 2, rect.y + rect.h / 2);
     if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.03);
@@ -125,18 +134,17 @@ function drawParticles(ctx, fx) {
   }
 }
 
-/** A shell above the top of the field is still a shell: say where it is. */
-function drawOffscreen(ctx, match) {
+/** A shell above the top of the view is still a shell: say where it is. */
+function drawOffscreen(ctx, match, cam) {
   for (const s of match.shots) {
-    if (s.y > 6) continue;
+    if (s.y > cam.y + 8) continue;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,220,150,0.9)';
     ctx.beginPath();
-    ctx.moveTo(s.x, 6);
-    ctx.lineTo(s.x - 8, -8);
-    ctx.lineTo(s.x + 8, -8);
+    ctx.moveTo(s.x, cam.y + 8);
+    ctx.lineTo(s.x - 11, cam.y - 12);
+    ctx.lineTo(s.x + 11, cam.y - 12);
     ctx.closePath();
-    ctx.fill();
+    ink(ctx, '#ffd97a', 2.5);
     ctx.restore();
   }
 }
@@ -154,23 +162,23 @@ export function drawAim(ctx, match, side, angle, power) {
   const L = match.launchers[side];
   const w = WEAPONS[match.weapon[side]];
   const a = (angle * Math.PI) / 180;
-  const speed = (power / 100) * 690 * w.speed;
-  let x = L.x + L.dir * Math.cos(a) * 34;
-  let y = L.y - 28 - Math.sin(a) * 34;
+  const speed = (power / 100) * POWER_SPEED * w.speed;
+  let x = L.x + L.dir * Math.cos(a) * 36;
+  let y = L.y - GUN_HEIGHT - Math.sin(a) * 36;
   let vx = Math.cos(a) * speed * L.dir;
   let vy = -Math.sin(a) * speed;
 
   ctx.save();
   ctx.fillStyle = 'rgba(255,240,200,0.85)';
-  for (let i = 0; i < 22; i++) {
-    vy += 520 * 0.03;
-    vx += match.wind * w.wind * 0.03;
-    x += vx * 0.03;
-    y += vy * 0.03;
+  for (let i = 0; i < 26; i++) {
+    vy += GRAVITY * 0.026;
+    vx += match.wind * w.wind * 0.026;
+    x += vx * 0.026;
+    y += vy * 0.026;
     if (i % 2) continue;
-    ctx.globalAlpha = 0.9 - i / 26;
+    ctx.globalAlpha = 0.95 - i / 30;
     ctx.beginPath();
-    ctx.arc(x, y, 3.2 - i * 0.08, 0, TAU);
+    ctx.arc(x, y, 4 - i * 0.09, 0, TAU);
     ctx.fill();
   }
   ctx.restore();
@@ -181,8 +189,8 @@ export function drawAim(ctx, match, side, angle, power) {
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(L.x, L.y - 28);
-  ctx.lineTo(L.x + L.dir * Math.cos(a) * 120, L.y - 28 - Math.sin(a) * 120);
+  ctx.moveTo(L.x, L.y - GUN_HEIGHT);
+  ctx.lineTo(L.x + L.dir * Math.cos(a) * 140, L.y - GUN_HEIGHT - Math.sin(a) * 140);
   ctx.stroke();
   ctx.restore();
 }
@@ -323,12 +331,14 @@ function drawWind(ctx, cx, cy, wind) {
 export function drawShopGrid(ctx, shop, hover, faction) {
   const castle = shop.castle;
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.13)';
-  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(20,16,26,0.09)';
+  ctx.fillRect(castle.baseX, BASE_Y - ROWS * CELL, COLS * CELL, ROWS * CELL);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1.5;
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
       const rect = castle.rect(c, r);
-      ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+      ctx.strokeRect(rect.x + 0.75, rect.y + 0.75, rect.w - 1.5, rect.h - 1.5);
     }
   }
   ctx.restore();
@@ -409,6 +419,8 @@ export function drawShopHud(ctx, vp, shop, level, opts = {}) {
     rects.push({ ...r, kind: 'brush' });
   }
 
+  drawIntel(ctx, vp, opts.foe, opts.foeFaction);
+
   // buttons
   const texts = [
     { id: 'auto', text: t('shop.auto') },
@@ -432,6 +444,34 @@ export function drawShopHud(ctx, vp, shop, level, opts = {}) {
   }
 
   return rects;
+}
+
+/**
+ * What you are building against, in miniature.
+ *
+ * The enemy plot is most of a map away now, so from the workshop you cannot see
+ * it — and "how tall is their wall, and what is it made of" is the only question
+ * the workshop is really for. It is the same `drawBlock` the battle uses, at a
+ * third of the size, so a wall of iron looks like a wall of iron.
+ */
+function drawIntel(ctx, vp, foe, faction) {
+  if (!foe) return;
+  const scale = 0.42;
+  const w = COLS * CELL * scale + 20;
+  const h = ROWS * CELL * scale + 34;
+  const x = vp.W - w - 14;
+  const y = 66;
+  panel(ctx, x, y, w, h, { fill: 'rgba(16,14,22,0.88)', r: 10 });
+  label(ctx, t('shop.intel'), x + w / 2, y + 14, { size: 11, weight: 600, align: 'center', color: '#cdc3ae' });
+
+  ctx.save();
+  ctx.translate(x + 10, y + h - 10);
+  ctx.scale(scale, scale);
+  ctx.translate(-foe.baseX, -BASE_Y);
+  for (const b of foe.blocks()) {
+    drawBlock(ctx, b, foe.rect(b.c, b.r), { faction, top: !foe.at(b.c, b.r + 1) });
+  }
+  ctx.restore();
 }
 
 function brushNote(brush) {

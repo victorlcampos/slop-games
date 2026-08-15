@@ -10,13 +10,14 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { GAUGE_SPEED, H, LEVELS, STEP, W, clamp, toWorld, viewWidth, worldBox } from './config.js';
+import { CASTLE_X, CELL, COLS, GAUGE_SPEED, GUN_HEIGHT, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createMatch } from './battle.js';
 import { buildTerrain } from './terrain.js';
 import { createScene } from './scene.js';
 import { createFx } from './fx.js';
-import { createCastle } from './structure.js';
+import { createCamera, focusOf } from './camera.js';
+import { createCastle, gunSeat } from './structure.js';
 import { foeCastle } from './castles.js';
 import { createWorkshop, suggestBlueprint } from './workshop.js';
 import { planShot, skillNow } from './ai.js';
@@ -55,6 +56,7 @@ const vault = createSave({
 let run = vault.load();
 
 const fx = createFx();
+const cam = createCamera();
 
 let screen = 'menu';
 let level = levelOf(run);
@@ -106,10 +108,19 @@ function buildStage() {
 /** The menu is not a blank screen: it is the siege you are about to walk into. */
 function showcase() {
   buildStage();
+  cam.follow(menuFocus(), viewWidth(vp), 1, true);
   previewCastle = createCastle('player', run.blueprint || suggestBlueprint(run.coins));
   foePreview = createCastle('enemy', foeBlueprint());
   match = null;
   shop = null;
+}
+
+/** Behind the menu: your castle and a stretch of the valley it is defending. */
+const menuFocus = () => ({ x: CASTLE_X.player + COLS * CELL + 190, y: 380 });
+
+/** In the workshop the camera is parked over your own plot and stays there. */
+function shopFocus() {
+  return { x: CASTLE_X.player + (COLS * CELL) / 2 + 120, y: 400 };
 }
 
 function openShop() {
@@ -124,6 +135,7 @@ function openShop() {
   hover = null;
   message = '';
   fx.clear();
+  cam.follow(shopFocus(), viewWidth(vp), 1, true);
   setScreen('shop');
 }
 
@@ -145,6 +157,7 @@ function startBattle() {
   power = 0;
   overT = 0;
   enemy.stage = 'idle';
+  cam.follow(focusOf(match, 'player'), viewWidth(vp), 1, true);
   setScreen('battle');
 }
 
@@ -191,10 +204,7 @@ function say(text) {
 /** The viewport as the player can actually see it — see `viewWidth`. */
 const view = () => ({ W: viewWidth(vp), H: vp.H });
 
-function worldPoint(x, y) {
-  const v = view();
-  return toWorld(worldBox(v.W, v.H), x, y);
-}
+const worldPoint = (x, y) => cam.toWorld(x, y);
 
 function aimTowards(x, y) {
   const p = worldPoint(x, y);
@@ -368,6 +378,11 @@ function update(h) {
   if (scene) scene.update(h);
   fx.update(h, terrain);
 
+  const viewW = viewWidth(vp);
+  if (screen === 'battle' && match) cam.follow(focusOf(match), viewW, h);
+  else if (screen === 'shop') cam.follow(shopFocus(), viewW, h);
+  else cam.follow(menuFocus(), viewW, h);
+
   if (screen !== 'battle' || !match) return;
 
   if (phase === 'charging' && match.turn === 'player' && !match.flying()) {
@@ -466,56 +481,58 @@ function drain() {
 function draw() {
   vp.begin();
   const ctx = vp.ctx;
-  const spec = (terrain || { spec: { sky: ['#8fc4e8', '#d8e8f2'] } }).spec;
   const v = view();
-  const box = worldBox(v.W, v.H);
 
-  // the sky, painted over the whole screen first: on a narrow window the field
-  // is scaled down and does not reach the top of the viewport
-  ctx.fillStyle = spec.sky[0];
-  ctx.fillRect(0, 0, vp.W, vp.H);
-  const g = ctx.createLinearGradient(0, box.oy, 0, box.oy + H * box.s);
-  g.addColorStop(0, spec.sky[0]);
-  g.addColorStop(1, spec.sky[1]);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, box.oy, vp.W, H * box.s);
-
+  // The field is wider than the screen and exactly as tall, so there is no
+  // scaling left to do — only the camera's offset, and the shake on top of it.
   ctx.save();
-  const sx = shake ? (Math.random() - 0.5) * 16 * shake : 0;
-  const sy = shake ? (Math.random() - 0.5) * 16 * shake : 0;
-  ctx.translate(box.ox + sx, box.oy + sy);
-  ctx.scale(box.s, box.s);
+  const sx = shake ? (Math.random() - 0.5) * 18 * shake : 0;
+  const sy = shake ? (Math.random() - 0.5) * 18 * shake : 0;
+  ctx.translate(-Math.round(cam.x) + sx, -Math.round(cam.y) + sy);
 
   if (screen === 'battle' && match) {
-    drawField(ctx, { match, scene, fx, faction: run.faction, time });
+    drawField(ctx, { match, scene, fx, time, cam, viewW: v.W });
     if (!match.over && match.turn === 'player' && !match.flying()) {
       drawAim(ctx, match, 'player', match.launchers.player.angle, phase === 'charging' ? power : 55);
     }
   } else if (scene) {
-    scene.drawSky(ctx);
-    scene.drawGround(ctx);
+    scene.drawSky(ctx, cam, v.W);
+    scene.drawGround(ctx, cam, v.W);
+    scene.drawProps(ctx, cam, v.W);
     const castle = shop ? shop.castle : previewCastle;
-    if (foePreview) for (const b of foePreview.blocks()) drawBlockAt(ctx, foePreview, b, foeFaction());
+    if (foePreview) drawStill(ctx, foePreview, foeFaction());
     if (screen === 'shop') drawShopGrid(ctx, shop, hover, run.faction);
-    else if (castle) for (const b of castle.blocks()) drawBlockAt(ctx, castle, b, run.faction);
-    drawLauncher(ctx, { x: 402, y: terrain.yAt(402), angle: 46, dir: 1, recoil: 0 }, run.faction, { loaded: true });
-    drawLauncher(ctx, { x: W - 402, y: terrain.yAt(W - 402), angle: 46, dir: -1, recoil: 0 }, foeFaction(), { loaded: true });
-    scene.drawWeather(ctx);
+    else if (castle) drawStill(ctx, castle, run.faction);
+    scene.drawWeather(ctx, cam, v.W);
   }
   ctx.restore();
 
   if (screen === 'battle' && match) {
     hudRects = drawBattleHud(ctx, v, { match, level, phase, power });
   } else if (screen === 'shop') {
-    hudRects = drawShopHud(ctx, v, shop, level, { message });
+    hudRects = drawShopHud(ctx, v, shop, level, { message, foe: foePreview, foeFaction: foeFaction() });
   } else {
     hudRects = [];
   }
 }
 
-/** The preview screens draw the very same block the battle does. */
-function drawBlockAt(ctx, castle, b, faction) {
-  drawBlock(ctx, b, castle.rect(b.c, b.r), { faction });
+/**
+ * A castle nobody is shooting at yet — the menu's showcase and the enemy's plot
+ * seen from the workshop. The same blocks the battle draws, and the same siege
+ * engine on the same seat, so what you design is what you walk into.
+ */
+function drawStill(ctx, castle, faction) {
+  for (const b of castle.blocks()) {
+    const top = !castle.at(b.c, b.r + 1);
+    drawBlock(ctx, b, castle.rect(b.c, b.r), { faction, top });
+  }
+  const seat = gunSeat(castle, terrain);
+  drawLauncher(
+    ctx,
+    { x: seat.x, y: seat.y, angle: 46, dir: castle.side === 'player' ? 1 : -1, recoil: 0 },
+    faction,
+    { loaded: true, time }
+  );
 }
 
 // ----------------------------------------------------------------- the menu

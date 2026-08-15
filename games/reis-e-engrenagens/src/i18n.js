@@ -48,6 +48,7 @@ export const dict = {
   'shop.auto': { en: 'Draft one for me', pt: 'Monte para mim' },
   'shop.clear': { en: 'Tear it down', pt: 'Derrubar tudo' },
   'shop.fight': { en: 'To battle', pt: 'Para a batalha' },
+  'shop.intel': { en: 'against', pt: 'contra' },
   'shop.hint': {
     en: 'Tap a cell to build. The king has to end up somewhere that stands on its own.',
     pt: 'Toque numa célula para construir. O rei tem que acabar em algo que se sustente sozinho.',

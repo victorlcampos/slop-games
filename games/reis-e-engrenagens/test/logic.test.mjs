@@ -6,11 +6,12 @@ import { scenario, check, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit/i18n';
 
 import {
-  BASE_Y, CELL, COLS, FALL_DMG, LEVELS, NCOL, ROWS, START_COINS, W, worldBox, toWorld, makeRng,
+  BASE_Y, CASTLE_X, CELL, COLS, LEVELS, NCOL, ROWS, START_COINS, W,
 } from '../src/config.js';
+import { CAM_TOP, createCamera, focusOf } from '../src/camera.js';
 import { MATERIALS, PALETTE, TERRAINS, material } from '../src/materials.js';
 import { ARSENAL, WEAPONS, craterRadius, damageAgainst, loadout } from '../src/weapons.js';
-import { FLOOR_Y, buildTerrain, standHeight } from '../src/terrain.js';
+import { FLOOR_Y, buildTerrain } from '../src/terrain.js';
 import { canPlace, canRemove, createCastle, grounded, settle, supportOf, unsupported } from '../src/structure.js';
 import { blueprintCost, foeCastle, normalizeBlueprint } from '../src/castles.js';
 import { createWorkshop, suggestBlueprint } from '../src/workshop.js';
@@ -121,17 +122,21 @@ scenario('the valley is the same on both sides of the middle', () => {
   }
 });
 
-scenario('both castles stand on level ground, and the launchers on their own pad', () => {
+scenario('both plots are level, and there is real ground in between', () => {
   for (const level of LEVELS) {
     const t = buildTerrain({ kind: level.terrain, seed: 9, middle: level.middle });
-    for (const x of [88, 954]) {
+    for (const side of ['player', 'enemy']) {
+      const x = CASTLE_X[side];
       const lo = t.minIn(x, x + COLS * CELL);
       const hi = t.maxIn(x, x + COLS * CELL);
-      check(Math.abs(hi - lo) < 0.001, `${level.id}: the plot at x=${x} is not level (${(hi - lo).toFixed(1)}px of slope)`);
-      check(Math.abs(lo - BASE_Y) < 0.001, `${level.id}: the plot at x=${x} is ${lo.toFixed(0)}, not the base line`);
+      check(Math.abs(hi - lo) < 0.001, `${level.id}: the ${side} plot is not level (${(hi - lo).toFixed(1)}px of slope)`);
+      check(Math.abs(lo - BASE_Y) < 0.001, `${level.id}: the ${side} plot is at ${lo.toFixed(0)}, not the base line`);
     }
-    const stand = standHeight(t, 402);
-    check(stand < FLOOR_Y && stand > 200, `${level.id}: the trebuchet is standing at y=${stand.toFixed(0)}`);
+    // the valley is the map now, not the gap between two pads: it has to have
+    // something in it
+    const relief = t.maxIn(700, W - 700) - t.minIn(700, W - 700);
+    check(relief > 60, `${level.id}: ${relief.toFixed(0)}px of relief between the castles is a table, not a valley`);
+    check(t.maxIn(0, W) <= FLOOR_Y, `${level.id}: the ground starts below the floor of the world`);
   }
 });
 
@@ -362,17 +367,43 @@ scenario('winning pays more for a castle that survived', () => {
 
 // ------------------------------------------------------------- the screen
 
-scenario('the field fits the screen it is given, and a finger lands where it looks', () => {
-  for (const [vw, vh] of [[1280, 720], [1040, 720], [1900, 720]]) {
-    const box = worldBox(vw, vh);
-    check(box.s <= 1.0001, `at ${vw}x${vh} the field is blown up to ${box.s.toFixed(2)}`);
-    check(box.ox >= -0.001 && W * box.s <= vw + 0.001, `at ${vw}x${vh} the field spills off the side`);
-    check(Math.abs(box.oy + 720 * box.s - vh) < 0.001, `at ${vw}x${vh} the ground is not on the floor`);
-    // round trip: a point drawn at (x, y) is picked up at (x, y)
-    const back = toWorld(box, box.ox + 640 * box.s, box.oy + 300 * box.s);
-    check(Math.abs(back.x - 640) < 0.01 && Math.abs(back.y - 300) < 0.01,
-      `at ${vw}x${vh} a tap on the middle of the field came back as ${back.x.toFixed(0)},${back.y.toFixed(0)}`);
+scenario('the camera stays on the map, drifts rather than snaps, and only ever climbs', () => {
+  for (const viewW of [1040, 1280, 1900]) {
+    const cam = createCamera();
+    cam.follow({ x: 0, y: 500 }, viewW, 1, true);
+    check(cam.x === 0, `at ${viewW} wide the camera walked off the left edge to ${cam.x}`);
+    cam.follow({ x: W + 500, y: 500 }, viewW, 1, true);
+    check(Math.abs(cam.x - (W - viewW)) < 0.01, `at ${viewW} wide it walked past the right edge to ${cam.x}`);
+
+    // the ground never leaves the bottom of the screen: looking *down* would
+    // only ever show the floor of the world
+    cam.follow({ x: 1200, y: 700 }, viewW, 1, true);
+    check(cam.y === 0, `following something on the ground tilted the view to ${cam.y}`);
+    cam.follow({ x: 1200, y: -900 }, viewW, 1, true);
+    check(cam.y === CAM_TOP, `following a very high shell stopped at ${cam.y} instead of ${CAM_TOP}`);
+
+    // and a tap comes back where it was drawn
+    cam.follow({ x: 1200, y: 400 }, viewW, 1, true);
+    const back = cam.toWorld(300, 200);
+    check(Math.abs(back.x - (300 + cam.x)) < 0.01 && Math.abs(back.y - (200 + cam.y)) < 0.01,
+      `a tap came back as ${back.x.toFixed(0)},${back.y.toFixed(0)}`);
   }
+
+  // Drifting, not snapping: one frame covers a small fraction of the gap. A
+  // camera that snaps to the shell makes the shell look nailed to the middle of
+  // the screen and the world look like it is being yanked past it.
+  const cam = createCamera();
+  cam.follow({ x: 0, y: 400 }, 1280, 1, true);
+  const before = cam.x;
+  cam.follow({ x: W, y: 400 }, 1280, 1 / 60);
+  const gap = W - 1280 - before;
+  const moved = cam.x - before;
+  check(moved > 0, 'the camera did not move at all');
+  check(moved < gap * 0.2, `one frame covered ${((moved / gap) * 100).toFixed(0)}% of the pan — that is a cut, not a camera`);
+
+  // and it does catch up: half a second of frames gets most of the way there
+  for (let i = 0; i < 30; i++) cam.follow({ x: W, y: 400 }, 1280, 1 / 60);
+  check(cam.x > before + gap * 0.85, `half a second of drift only covered ${(((cam.x - before) / gap) * 100).toFixed(0)}%`);
 });
 
 scenario('the dock and the palette stay on the screen at every width', () => {
@@ -400,6 +431,24 @@ scenario('the power gauge sweeps up and back down, forever', () => {
     hi = Math.max(hi, v);
   }
   check(lo >= 0 && hi <= 100, `the gauge wandered to ${lo.toFixed(0)}..${hi.toFixed(0)}`);
+});
+
+scenario('the camera watches the shell, and the gunner when there is none', () => {
+  const castle = createCastle('player', suggestBlueprint(START_COINS));
+  const fake = {
+    shots: [],
+    turn: 'player',
+    launchers: { player: { x: 400, y: 300 }, enemy: { x: 2000, y: 300 } },
+  };
+  check(focusOf(fake).x === 400, 'with nothing in the air it is not looking at the gun about to fire');
+  fake.shots = [
+    { x: 700, y: 200, vx: 300, side: 'player' },
+    { x: 1100, y: 260, vx: 300, side: 'player' },
+    { x: 900, y: 240, vx: 300, side: 'player' },
+  ];
+  // a cluster's *average* is the empty middle of the spread; it follows the leader
+  check(focusOf(fake).x === 1100, `with three fragments up it is watching x=${focusOf(fake).x}`);
+  check(castle.blocks().length > 0, 'the fixture castle came out empty');
 });
 
 await run('kings & gears — the rules');
