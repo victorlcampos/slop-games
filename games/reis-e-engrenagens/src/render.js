@@ -7,9 +7,9 @@
 // dropped, against the real viewport, so they hug the edges of the screen the
 // player actually has and stay the same size on a phone and a monitor.
 
-import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS } from './config.js';
+import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS, WIND_MAX } from './config.js';
 import { MATERIALS, material } from './materials.js';
-import { WEAPONS } from './weapons.js';
+import { AMMO_CAP, WEAPONS, specials } from './weapons.js';
 import { INK, drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
 import { battleLayout, button, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
@@ -81,7 +81,49 @@ export function drawField(ctx, view) {
   }
 
   scene.drawWeather(ctx, cam, viewW);
+  drawGusts(ctx, cam, viewW, match.wind, time);
   drawOffscreen(ctx, match, cam);
+}
+
+/**
+ * The wind, made visible: little comet-streaks riding across the valley in the
+ * direction the gauge is pointing, more and faster the harder it blows. Before
+ * this the wind existed only as a number on a bar — the shell drifted and the
+ * world it drifted through stood perfectly still, which read as the physics
+ * being wrong rather than the weather being real.
+ *
+ * Stateless on purpose: everything is a function of (index, time), so it draws
+ * anywhere on the field with nothing to allocate or keep in step.
+ */
+function drawGusts(ctx, cam, viewW, wind, time) {
+  const strength = Math.min(1, Math.abs(wind) / WIND_MAX);
+  if (strength < 0.06) return;
+  const dir = wind >= 0 ? 1 : -1;
+  const n = Math.round(5 + strength * 11);
+  const span = viewW + 360;
+
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const seed = (i * 127.31) % 1;
+    const speed = (90 + (i % 5) * 45) * (0.35 + strength);
+    const travel = (seed * 6000 + time * speed) % span;
+    const x0 = cam.x - 180 + (dir > 0 ? travel : span - travel);
+    const y0 = cam.y + 34 + (((i * 197) % 23) / 23) * 500;
+    const len = (30 + (i % 4) * 16) * (0.5 + strength);
+    const bob = Math.sin(time * 2.2 + i * 1.9) * 5;
+
+    ctx.globalAlpha = (0.08 + strength * 0.22) * (0.55 + 0.45 * Math.sin(time * 3.1 + i * 2.3));
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + bob);
+    ctx.quadraticCurveTo(x0 + dir * len * 0.45, y0 + bob - 8, x0 + dir * len, y0 + bob - 2);
+    // a curl on the nose, so it reads as a gust and not as a scratch
+    ctx.quadraticCurveTo(x0 + dir * (len + 9), y0 + bob - 8, x0 + dir * (len + 4), y0 + bob - 12);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawCastle(ctx, match, side, faction, fx, time) {
@@ -99,7 +141,7 @@ function drawCastle(ctx, match, side, faction, fx, time) {
     if (b.rust > 0 && Math.random() < 0.15) fx.rust(rect.x + rect.w / 2, rect.y + rect.h / 2);
     if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.03);
   }
-  drawBanners(ctx, castle, faction, time, Math.floor((match.launchers[side].x - castle.baseX) / CELL));
+  drawBanners(ctx, castle, faction, time, Math.floor((match.launchers[side].x - castle.baseX) / CELL), match.wind);
 }
 
 /**
@@ -137,8 +179,12 @@ function drawFooting(ctx, castle, side) {
   }
 }
 
-/** A pennant on the highest tower, which is what says the castle is *held*. */
-function drawBanners(ctx, castle, faction, time, gunCol) {
+/**
+ * A pennant on the highest tower, which is what says the castle is *held* —
+ * and a weathervane now: it streams the way the wind blows, harder in a gale,
+ * so the two flags agree with the gauge in the top bar.
+ */
+function drawBanners(ctx, castle, faction, time, gunCol, wind = 0) {
   let best = -1;
   let bestTop = 2;
   for (let c = 0; c < COLS; c++) {
@@ -154,7 +200,10 @@ function drawBanners(ctx, castle, faction, time, gunCol) {
   if (best < 0) return;
   const x = castle.baseX + best * CELL + CELL / 2;
   const y = BASE_Y - (bestTop + 1) * CELL;
-  const dir = castle.side === 'player' ? 1 : -1;
+  // the flag is drawn pointing -x, so streaming with a rightward wind means
+  // flipping it; in a near-calm it falls back to facing away from the enemy
+  const gale = Math.abs(wind) > 6;
+  const dir = gale ? (wind > 0 ? -1 : 1) : castle.side === 'player' ? 1 : -1;
   ctx.save();
   ctx.translate(x, y - 12);
   ctx.scale(dir, 1);
@@ -165,7 +214,8 @@ function drawBanners(ctx, castle, faction, time, gunCol) {
   ctx.moveTo(0, 4);
   ctx.lineTo(0, -34);
   ctx.stroke();
-  const wave = Math.sin(time * 3.4 + best) * 3;
+  const flutter = 1 + Math.min(1, Math.abs(wind) / WIND_MAX) * 1.4;
+  const wave = Math.sin(time * (3.4 + flutter) + best) * 3 * flutter;
   ctx.beginPath();
   ctx.moveTo(1, -34);
   ctx.lineTo(-20 + wave, -29);
@@ -226,6 +276,16 @@ function drawParticles(ctx, fx) {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.spin);
       ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.8);
+    } else if (p.kind === 'num') {
+      // the number a hit was worth, floating off the block that paid it
+      ctx.font = `800 ${p.size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3.5;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(24,14,8,0.85)';
+      ctx.strokeText(p.text, p.x, p.y);
+      ctx.fillText(p.text, p.x, p.y);
     } else {
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (p.kind === 'smoke' ? 0.5 + (1 - a) * 1.2 : 1), 0, TAU);
@@ -448,7 +508,7 @@ function drawCrownBar(ctx, x, y, match, side) {
 }
 
 function drawWind(ctx, cx, cy, wind) {
-  const strength = Math.abs(wind) / 58;
+  const strength = Math.min(1, Math.abs(wind) / WIND_MAX);
   label(ctx, t('hud.wind'), cx - 74, cy, { size: 12, weight: 600, color: '#b9b0a0', align: 'right' });
   const w = 120;
   ctx.save();
@@ -564,6 +624,7 @@ export function drawShopHud(ctx, vp, shop, level, opts = {}) {
   }
 
   drawIntel(ctx, vp, opts.foe, opts.foeFaction);
+  rects.push(...drawArmory(ctx, shop));
 
   // buttons
   const texts = [
@@ -619,6 +680,62 @@ function drawIntel(ctx, vp, foe, faction) {
     drawBlock(ctx, b, foe.rect(b.c, b.r), { faction, top: !foe.at(b.c, b.r + 1) });
   }
   ctx.restore();
+}
+
+/**
+ * The armory: the same purse as the walls, spent on shells instead.
+ *
+ * One row per limited munition — icon, name, price, and the count between a −
+ * and a + the size of a thumb. It sits under the intel panel on the left,
+ * because the top-right corner belongs to the flags (see CORNER) and the plot
+ * itself starts further right at every width the game runs at.
+ */
+function drawArmory(ctx, shop) {
+  if (!shop.faction) return [];
+  const ids = specials(shop.faction);
+  const w = 224;
+  const rowH = 46;
+  const x = 10;
+  const y = 240;
+  const h = 30 + ids.length * rowH + 6;
+  const rects = [];
+
+  panel(ctx, x, y, w, h, { fill: 'rgba(16,14,22,0.88)', r: 10 });
+  label(ctx, t('shop.arsenal'), x + w / 2, y + 15, { size: 11, weight: 600, align: 'center', color: '#cdc3ae' });
+
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const ry = y + 28 + i * rowH;
+    const count = shop.ammo[id] || 0;
+    const price = WEAPONS[id].price;
+
+    ctx.save();
+    ctx.globalAlpha = count > 0 ? 1 : 0.45;
+    drawShotIcon(ctx, id, x + 20, ry + rowH / 2 - 2, 0.6);
+    ctx.restore();
+    label(ctx, fit(ctx, weaponName(id), 92, 11), x + 38, ry + 13, { size: 11, weight: 600, color: '#e5dcc6' });
+    label(ctx, t('shop.each', { n: price }), x + 38, ry + 29, { size: 11, color: '#b3a98f' });
+
+    const minus = { id, kind: 'ammo', delta: -1, x: x + w - 84, y: ry + 4, w: 30, h: 34 };
+    const plus = { id, kind: 'ammo', delta: 1, x: x + w - 36, y: ry + 4, w: 30, h: 34 };
+    const canSell = count > 0;
+    const canBuy = count < AMMO_CAP && price <= shop.left();
+    for (const [r2, glyph, live] of [[minus, '−', canSell], [plus, '+', canBuy]]) {
+      panel(ctx, r2.x, r2.y, r2.w, r2.h, {
+        fill: live ? 'rgba(38,34,44,0.95)' : 'rgba(24,22,28,0.55)',
+        stroke: 'rgba(255,255,255,0.16)',
+        r: 8,
+      });
+      label(ctx, glyph, r2.x + r2.w / 2, r2.y + r2.h / 2, {
+        size: 18, align: 'center', color: live ? '#f2e7d0' : 'rgba(240,232,214,0.3)',
+      });
+      rects.push(r2);
+    }
+    label(ctx, String(count), x + w - 61, ry + rowH / 2 - 2, {
+      size: 17, align: 'center', color: count > 0 ? '#ffe08a' : 'rgba(240,232,214,0.4)',
+    });
+  }
+  return rects;
 }
 
 function brushNote(brush) {

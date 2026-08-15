@@ -10,7 +10,8 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { BASE_Y, CASTLE_X, CELL, CHARGE_RATE, COLS, DRIVE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
+import { BASE_Y, CASTLE_X, CELL, CHARGE_RATE, COLS, DRIVE_SPEED, H, LEVELS, START_COINS, STEP, W, clamp, viewWidth } from './config.js';
+import { ammoCost, defaultLoadout, kitCost } from './weapons.js';
 import { i18n, t } from './i18n.js';
 import { createMatch } from './battle.js';
 import { buildTerrain } from './terrain.js';
@@ -77,14 +78,23 @@ let messageT = 0;
 let shake = 0;
 let time = 0;
 let overT = 0;
+/** Seconds of slow motion left — a hit on a crown is worth dwelling on. */
+let slowT = 0;
 /** -1, 0 or 1: which way the thumb is holding the engine. */
 let driving = 0;
 /** -1, 0 or 1: which way the thumb is holding the elevation. */
 let aiming = 0;
-const enemy = { stage: 'idle', t: 0, plan: null };
+const enemy = { stage: 'idle', t: 0, plan: null, wait: 0.55 };
 
 const seedOf = (r) => 101 + r.level * 13 + (r.faction === 'knights' ? 0 : 5);
 const foeFaction = () => (run.faction === 'knights' ? 'machines' : 'knights');
+/** What is left for walls after the rack of munitions is paid for. */
+const wallsBudget = (r) => Math.max(0, r.coins - ammoCost(r.faction, r.loadout || {}));
+/** The wake behind each munition, so a shell in flight drags its own colour. */
+const TRAILS = {
+  boulder: '#c9bfa4', firepot: '#ff9a3a', ballista: '#efe8d4', hail: '#cfc5b0',
+  railshot: '#8fe0ff', rustshell: '#b6c06a', tesla: '#aef4ff', drill: '#9fb0c4',
+};
 const foeBlueprint = () =>
   foeCastle({
     style: level.foe.style,
@@ -114,7 +124,7 @@ function showcase() {
   buildStage();
   cam.zoomTo(1, true);
   cam.follow(menuFocus(), viewWidth(vp), 1, true);
-  previewCastle = createCastle('player', run.blueprint || suggestBlueprint(run.coins));
+  previewCastle = createCastle('player', run.blueprint || suggestBlueprint(wallsBudget(run)));
   foePreview = createCastle('enemy', foeBlueprint());
   match = null;
   shop = null;
@@ -143,9 +153,11 @@ const shopZoom = () => clamp(Math.min(viewWidth(vp) / SHOP_SPAN, H / SHOP_TALL),
 function openShop() {
   buildStage();
   shop = createWorkshop({
-    blueprint: run.blueprint || suggestBlueprint(run.coins),
+    blueprint: run.blueprint || suggestBlueprint(wallsBudget(run)),
     coins: run.coins,
     terrain,
+    faction: run.faction,
+    loadout: run.loadout,
   });
   foePreview = createCastle('enemy', foeBlueprint());
   match = null;
@@ -159,12 +171,14 @@ function openShop() {
 
 function startBattle() {
   run.blueprint = shop ? shop.blueprint() : run.blueprint;
+  if (shop) run.loadout = { ...shop.ammo };
   vault.save(run);
   match = createMatch({
     level,
     faction: run.faction,
     blueprint: run.blueprint,
     foeBlueprint: foeBlueprint(),
+    loadout: run.loadout,
     seed: seedOf(run),
   });
   terrain = match.terrain;
@@ -376,9 +390,19 @@ function onShopButton(r) {
     sfx.place();
     return;
   }
+  if (r.kind === 'ammo') {
+    const why = shop.adjustAmmo(r.id, r.delta);
+    if (why) {
+      say(t(`why.${why}`));
+      sfx.deny();
+    } else {
+      sfx.place();
+    }
+    return;
+  }
   if (r.id === 'auto') {
     shop.clear();
-    const draft = suggestBlueprint(shop.coins);
+    const draft = suggestBlueprint(shop.coins - shop.ammoSpent());
     for (const c of draft.cells) shop.place(c.c, c.r, c.m);
     shop.placeKing(draft.king.c, draft.king.r);
     sfx.place();
@@ -410,8 +434,14 @@ function update(h) {
     messageT -= h;
     if (messageT <= 0) message = '';
   }
-  if (scene) scene.update(h);
-  fx.update(h, terrain);
+  // Slow motion: a crown getting hit is the whole point of the match, and at
+  // full speed it was over before the eye arrived. Only the *world* slows —
+  // the camera and the HUD keep real time, which is what makes it read as
+  // emphasis rather than lag.
+  slowT = Math.max(0, slowT - h);
+  const hw = slowT > 0 ? h * 0.3 : h;
+  if (scene) scene.update(hw, screen === 'battle' && match ? match.wind : 6);
+  fx.update(hw, terrain);
 
   const viewW = viewWidth(vp);
   if (screen === 'battle' && match) {
@@ -450,16 +480,24 @@ function update(h) {
     if (Math.floor(before / 8) !== Math.floor(power / 8)) sfx.tick(power);
   }
 
-  match.tick(h);
+  match.tick(hw);
+  // every shell in flight drags a wake in its own colour — with the camera
+  // chasing the shot, the trail is what keeps its speed and arc readable
+  for (const s of match.shots) {
+    if (!(s.burrow > 0)) fx.trail(s.x, s.y, TRAILS[s.w] || '#cfc5b0', s.w === 'boulder' ? 4 : 3);
+  }
   drain();
 
-  // the enemy's turn: a pause to think, an arm swinging round, then a shot
+  // the enemy's turn: a pause to think, an arm swinging round, then a shot —
+  // and the pause varies, because a metronome reads as a machine even when
+  // the gunnery underneath is good
   if (!match.over && match.turn === 'enemy' && !match.flying()) {
     enemy.t += h;
     if (enemy.stage === 'idle') {
       enemy.stage = 'wait';
       enemy.t = 0;
-    } else if (enemy.stage === 'wait' && enemy.t > 0.55) {
+      enemy.wait = 0.35 + Math.random() * 0.8;
+    } else if (enemy.stage === 'wait' && enemy.t > enemy.wait) {
       enemy.plan = planShot(match, 'enemy', skillNow(level, match.turnCount));
       match.pick('enemy', enemy.plan.weapon);
       enemy.stage = 'turn';
@@ -494,12 +532,17 @@ function drain() {
       case 'boom': {
         const big = Math.min(2, ev.radius / 44);
         fx.boom(ev.x, ev.y, ev.radius, terrain.spec.dust);
+        fx.impact(ev.x, ev.y, ev.vx || 0, ev.vy || 0, terrain.spec.dust);
         sfx.boom(big);
         shake = Math.max(shake, 0.6 * big);
         break;
       }
+      case 'hit':
+        fx.number(ev.x, ev.y - 14, `-${ev.dmg}`, { color: '#ffd27a', size: 12 + Math.min(9, ev.dmg / 9) });
+        break;
       case 'pierce':
         fx.shards(ev.x, ev.y, '#e8e2d0', 6);
+        if (ev.dmg) fx.number(ev.x, ev.y - 14, `-${ev.dmg}`, { color: '#cfe8ff', size: 14 });
         sfx.crack('crystal');
         break;
       case 'split':
@@ -526,7 +569,15 @@ function drain() {
         say(t('hud.missed'));
         sfx.tumble();
         break;
+      case 'gunfell':
+        fx.shards(ev.x, ev.y, '#8a6a45', 10);
+        sfx.tumble();
+        break;
       case 'kinghit':
+        if (ev.x !== undefined) {
+          fx.number(ev.x, ev.y - 26, `-${Math.min(999, Math.round(ev.damage))}`, { color: '#ff7a6a', size: 22 });
+        }
+        slowT = Math.max(slowT, 0.55);
         sfx.kinghit();
         shake = Math.max(shake, 1);
         break;
@@ -636,7 +687,10 @@ function flashMenu(text) {
 for (const el of document.querySelectorAll('[data-faction]')) {
   el.addEventListener('click', () => {
     run.faction = el.dataset.faction;
-    if (!run.blueprint) run.coins = vault.fresh().coins;
+    // a new crown means a new arsenal: the rack resets to that faction's kit,
+    // and a fresh run's purse is the wall budget plus the price of that kit
+    run.loadout = defaultLoadout(run.faction);
+    if (!run.blueprint) run.coins = START_COINS + kitCost(run.faction);
     vault.save(run);
     openShop();
   });

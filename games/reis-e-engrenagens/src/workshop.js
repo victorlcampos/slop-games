@@ -13,23 +13,50 @@
 
 import { COLS, ROWS } from './config.js';
 import { MATERIALS, PALETTE } from './materials.js';
+import { AMMO_CAP, WEAPONS, ammoCost, defaultLoadout } from './weapons.js';
 import { canPlace, canRemove, createCastle, unsupported } from './structure.js';
 
-export function createWorkshop({ blueprint, coins, terrain }) {
+export function createWorkshop({ blueprint, coins, terrain, faction = null, loadout = null }) {
   const castle = createCastle('player', blueprint);
 
   const shop = {
     castle,
     terrain,
     coins,
+    faction,
+    /** The rack of munitions being bought, by weapon id. One purse, two shelves. */
+    ammo: { ...(loadout || (faction ? defaultLoadout(faction) : {})) },
     /** The palette entry in hand: a material id, 'king', or 'erase'. */
     brush: 'stone',
 
     spent() {
       return castle.cost();
     },
+    ammoSpent() {
+      return shop.faction ? ammoCost(shop.faction, shop.ammo) : 0;
+    },
     left() {
-      return shop.coins - castle.cost();
+      return shop.coins - castle.cost() - shop.ammoSpent();
+    },
+
+    /**
+     * Buy or sell one shell. Walls and shells come out of the same purse, so
+     * selling the whole rack is a bigger castle and buying it back out again is
+     * a thinner one — that is the trade, and it is the player's to make.
+     */
+    adjustAmmo(id, delta) {
+      const w = WEAPONS[id];
+      if (!w || w.ammo === Infinity || !shop.faction) return 'unknown';
+      const now = shop.ammo[id] || 0;
+      if (delta > 0) {
+        if (now >= AMMO_CAP) return 'full';
+        if (w.price > shop.left()) return 'broke';
+        shop.ammo[id] = now + 1;
+      } else {
+        if (now <= 0) return 'empty';
+        shop.ammo[id] = now - 1;
+      }
+      return null;
     },
     affordable(id) {
       return id === 'king' || id === 'erase' || MATERIALS[id].cost <= shop.left();

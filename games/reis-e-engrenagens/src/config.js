@@ -41,15 +41,24 @@ export const other = (side) => (side === 'player' ? 'enemy' : 'player');
 // distance a shot from the right has, so a loss is never the map's fault.
 export const CASTLE_X = { player: 300, enemy: W - 300 - COLS * CELL };
 
-export const GRAVITY = 520;
-export const WIND_MAX = 46;
+/**
+ * Gravity and muzzle speed move together: range is v²/g, so these two numbers
+ * are one decision about *range* and one about *pace*. At 520/1040 a full-power
+ * lob hung in the air for nearly three seconds and read as a balloon, not a
+ * shell. Scaling both (v by k, g by k²) keeps every range identical — the same
+ * gauge reading still lands on the same cell — and cuts the hang time by 20%,
+ * which is the difference between "ballistic" and "floaty". The apex height
+ * (v²/2g) is also unchanged, so the camera ceiling still fits the highest lob.
+ */
+export const GRAVITY = 800;
+export const WIND_MAX = 62;
 /**
  * Muzzle speed at power 100, before the weapon's own multiplier. Set so that a
  * full-power 45° shot just carries the width of the valley — the last twenty
  * per cent of the gauge has to be worth something, and a range that overshoots
  * the map makes the whole top half of the gauge identical.
  */
-export const POWER_SPEED = 1040;
+export const POWER_SPEED = 1290;
 export const MIN_POWER = 12;
 
 /** How high above the block it stands on a siege engine's pivot sits. */

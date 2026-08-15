@@ -13,7 +13,7 @@
 // every turn, because a gunner who has watched two of his own shells land does
 // know where the third one goes.
 
-import { CELL, clamp, other } from './config.js';
+import { CELL, COLS, ROWS, clamp, other } from './config.js';
 import { ARSENAL, WEAPONS } from './weapons.js';
 import { gunSeat } from './structure.js';
 
@@ -42,8 +42,7 @@ export function skillNow(level, turnCount) {
  * @param {function} [rng] so a test can get the same plan twice
  */
 export function planShot(match, side, skill = 0.6, rng = match.rng) {
-  const foe = other(side);
-  const target = aimPoint(match, foe);
+  const target = pickTarget(match, side);
   const options = ARSENAL[match.faction[side]].filter((id) => match.ammo[side][id] > 0);
 
   let best = null;
@@ -106,6 +105,36 @@ export function aimPoint(match, foe) {
   const king = castle.king();
   if (king) return castle.centre(king.c, king.r);
   return { x: castle.baseX, y: 0 };
+}
+
+/**
+ * What this turn is *about* — and it is not always the king.
+ *
+ * A gunner that shells the same cell every turn is a metronome, and being shot
+ * by a metronome is boring even when it hits. Every third turn, if the other
+ * engine is perched on a tower worth the shell, the target is the block under
+ * *it* instead: knock the seat down and they spend a turn climbing back up —
+ * the same counter-battery play the player is invited to make. The schedule is
+ * deliberate rather than rolled, so a test can sit on either side of it.
+ */
+export function pickTarget(match, side) {
+  const foe = other(side);
+  const counter = counterTarget(match, foe);
+  if (counter && match.turnCount % 3 === 2) return counter;
+  return aimPoint(match, foe);
+}
+
+/** The block under the foe's engine, if it is riding anything worth felling. */
+function counterTarget(match, foe) {
+  const castle = match.castles[foe];
+  const c = Math.floor((match.launchers[foe].x - castle.baseX) / CELL);
+  if (c < 0 || c >= COLS) return null;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    const b = castle.at(c, r);
+    // one storey is not a tower — dropping the engine a single cell buys nothing
+    if (b) return r >= 1 && b.m !== 'king' ? { ...castle.centre(c, r), counter: true } : null;
+  }
+  return null;
 }
 
 /**

@@ -6,11 +6,13 @@ import { scenario, check, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit/i18n';
 
 import {
-  BASE_Y, CASTLE_X, CELL, COLS, LEVELS, NCOL, ROWS, START_COINS, W,
+  BASE_Y, CASTLE_X, CELL, COLS, FACTIONS, LEVELS, NCOL, ROWS, START_COINS, W,
 } from '../src/config.js';
 import { CAM_TOP, createCamera, focusOf } from '../src/camera.js';
 import { MATERIALS, PALETTE, TERRAINS, material } from '../src/materials.js';
-import { ARSENAL, WEAPONS, craterRadius, damageAgainst, loadout } from '../src/weapons.js';
+import {
+  AMMO_CAP, ARSENAL, WEAPONS, ammoCost, craterRadius, damageAgainst, defaultLoadout, kitCost, loadout, specials,
+} from '../src/weapons.js';
 import { FLOOR_Y, buildTerrain } from '../src/terrain.js';
 import { canPlace, canRemove, createCastle, grounded, settle, supportOf, unsupported } from '../src/structure.js';
 import { blueprintCost, foeCastle, normalizeBlueprint } from '../src/castles.js';
@@ -297,6 +299,63 @@ scenario('the draft castle is affordable at every budget, stands up, and keeps t
       `at ${coins} coins the draft leaves the crown without walls beside him`);
   }
   check(previous > START_COINS * 1.6, `the draft never spends more than ${previous} however rich you get`);
+});
+
+scenario('shells and walls come out of the same purse, and both directions of the trade work', () => {
+  const t = flatTerrain();
+  const shop = createWorkshop({
+    blueprint: null, coins: 300, terrain: t, faction: 'knights', loadout: defaultLoadout('knights'),
+  });
+  const start = shop.left();
+  check(start === 300 - kitCost('knights'), `an untouched rack left ${shop.left()} of 300 — the kit costs ${kitCost('knights')}`);
+
+  check(shop.adjustAmmo('ballista', 1) === null, 'could not buy a bolt with coins in hand');
+  check(shop.left() === start - WEAPONS.ballista.price, `one bolt moved the purse by ${start - shop.left()}`);
+  check(shop.adjustAmmo('ballista', -1) === null, 'could not sell the bolt back');
+  check(shop.left() === start, `selling it back refunded ${shop.left() - (start - WEAPONS.ballista.price)} instead of the full price`);
+
+  // the rack has a ceiling, and the workshop says so instead of ignoring the tap
+  let why = null;
+  for (let i = 0; i < AMMO_CAP + 2; i++) why = shop.adjustAmmo('firepot', 1);
+  check(why === 'full', `past the cap the workshop said "${why}"`);
+  check(shop.ammo.firepot === AMMO_CAP, `the rack holds ${shop.ammo.firepot} fire pots against a cap of ${AMMO_CAP}`);
+
+  // sell every shell and the whole kit price is walls again
+  for (const id of specials('knights')) while (shop.ammo[id] > 0) shop.adjustAmmo(id, -1);
+  check(shop.left() === 300, `an empty rack still holds ${300 - shop.left()} coins hostage`);
+
+  // and with nothing left over, buying is refused out loud
+  const poor = createWorkshop({
+    blueprint: null, coins: kitCost('machines'), terrain: t, faction: 'machines', loadout: defaultLoadout('machines'),
+  });
+  check(poor.adjustAmmo('tesla', 1) === 'broke', 'the armory sold a coil there was no money for');
+  check(poor.adjustAmmo('drill', -1) === null && poor.adjustAmmo('tesla', 1) === null,
+    'selling a drill did not free enough for a coil it should have covered');
+});
+
+scenario('a fresh run affords exactly the old wall budget once the default rack is paid for', () => {
+  for (const faction of FACTIONS) {
+    const run = freshRun(faction);
+    check(run.coins - ammoCost(faction, run.loadout) === START_COINS,
+      `${faction}: after the kit there are ${run.coins - ammoCost(faction, run.loadout)} coins for walls, not ${START_COINS}`);
+    for (const id of specials(faction)) {
+      check(run.loadout[id] === WEAPONS[id].ammo, `${faction} starts with ${run.loadout[id]} ${id} instead of the shipped ${WEAPONS[id].ammo}`);
+    }
+  }
+});
+
+scenario('a save from before the armory is handed the default kit, not a bill', () => {
+  const base = freshRun('knights');
+  const legacy = normalizeRun({ faction: 'machines', level: 2, coins: 300 }, base);
+  check(legacy.loadout && legacy.loadout.drill === WEAPONS.drill.ammo, 'an old save came back with no rack');
+  check(legacy.coins === 300 + kitCost('machines'),
+    `an old save with 300 coins opened with ${legacy.coins} — the kit it was handed costs ${kitCost('machines')}`);
+
+  const junk = normalizeRun({ faction: 'knights', coins: 300, loadout: { ballista: 99, firepot: -3, tesla: 5 } }, base);
+  check(junk.loadout.ballista === AMMO_CAP, `99 bolts came out as ${junk.loadout.ballista}`);
+  check(junk.loadout.firepot === 0, `-3 fire pots came out as ${junk.loadout.firepot}`);
+  check(!('tesla' in junk.loadout), "a knight's save smuggled a tesla coil in");
+  check(junk.coins >= ammoCost('knights', junk.loadout), 'the purse cannot cover the rack the save claims');
 });
 
 // --------------------------------------------------------- the enemy castle

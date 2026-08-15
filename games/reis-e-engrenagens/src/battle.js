@@ -25,6 +25,7 @@ const OFF_MAP = 280;
  * @param {string} cfg.faction      the side the player is on
  * @param {object} cfg.blueprint    the player's castle, from the workshop
  * @param {object} cfg.foeBlueprint the enemy's, from `castles.js`
+ * @param {object} [cfg.loadout]    the munitions the player bought, by id
  * @param {number} [cfg.seed]
  */
 export function createMatch(cfg) {
@@ -41,7 +42,12 @@ export function createMatch(cfg) {
       player: createCastle('player', blueprint),
       enemy: createCastle('enemy', foeBlueprint),
     },
-    ammo: { player: loadout(faction), enemy: loadout(other2(faction)) },
+    // the player's rack is whatever the workshop sold them; the enemy's grows
+    // with the campaign tier, because the forge gunner arrives better supplied
+    ammo: {
+      player: loadout(faction, cfg.loadout),
+      enemy: loadout(other2(faction), null, (level.foe && level.foe.tier) || 0),
+    },
     weapon: { player: ARSENAL[faction][0], enemy: ARSENAL[other2(faction)][0] },
     launchers: {
       player: { side: 'player', x: 0, y: 0, angle: 45, recoil: 0, dir: 1, fuel: DRIVE_FUEL, wheel: 0, blocked: 0 },
@@ -383,7 +389,7 @@ function resolveHit(match, s, hit) {
     const b = hit.block;
     const dmg = damageAgainst(w, b.m, material(b.m).blast) * groundBonus(w, match.terrain.kind);
     strike(match, hit.castle, b, dmg);
-    match.say('pierce', { x: hit.x, y: hit.y, weapon: w.id });
+    match.say('pierce', { x: hit.x, y: hit.y, weapon: w.id, dmg: Math.round(dmg) });
     s.pierce--;
     if (b.hp <= 0 && b.m !== 'king') {
       // straight through the hole it just made
@@ -396,15 +402,20 @@ function resolveHit(match, s, hit) {
     // is stuck in: that one already took the full hit a line above, and letting
     // the blast reach it too was quietly doing a bolt's damage twice, which
     // ended matches on turn one.
-    detonate(match, s.x, s.y, w, s.side, b);
+    detonate(match, s.x, s.y, w, s.side, b, s);
     return;
   }
 
-  detonate(match, s.x, s.y, w, s.side);
+  detonate(match, s.x, s.y, w, s.side, null, s);
 }
 
-/** Everything a blast does, in one place: earth, walls, king, fire and arcs. */
-export function detonate(match, x, y, w, side, exclude = null) {
+/**
+ * Everything a blast does, in one place: earth, walls, king, fire and arcs.
+ *
+ * @param {object} [vel] the shell's velocity on arrival, so the debris can fly
+ *                       *away* from where the shot came from instead of evenly
+ */
+export function detonate(match, x, y, w, side, exclude = null, vel = null) {
   const spec = match.terrain.spec;
   const gb = groundBonus(w, match.terrain.kind);
   const crater = craterRadius(w, match.terrain.kind, spec.dig);
@@ -412,6 +423,9 @@ export function detonate(match, x, y, w, side, exclude = null) {
   if (moved > 0 && crater > 26) match.terrain.raise(x, crater * 1.7, Math.min(6, crater * 0.08));
 
   const reach = w.radius * gb;
+  // the hardest-hit walls get their number said out loud — the renderer floats
+  // it off the block, which is what makes "did that even do anything" visible
+  const told = [];
   for (const castleSide of ['player', 'enemy']) {
     const castle = match.castles[castleSide];
     for (const b of castle.blocks()) {
@@ -422,10 +436,13 @@ export function detonate(match, x, y, w, side, exclude = null) {
       const falloff = (1 - d / reach) ** 0.75;
       const dmg = damageAgainst(w, b.m, material(b.m).blast) * falloff * gb;
       strike(match, castle, b, dmg);
+      if (dmg >= 5 && b.m !== 'king') told.push({ dmg, ...castle.centre(b.c, b.r) });
       if (w.fire && material(b.m).burns && falloff > 0.25) b.fire = Math.max(b.fire, w.fire);
       if (w.rust && material(b.m).rusts && falloff > 0.25) b.rust = Math.max(b.rust, w.rust);
     }
   }
+  told.sort((a, b) => b.dmg - a.dmg);
+  for (const h of told.slice(0, 3)) match.say('hit', { x: h.x, y: h.y, dmg: Math.round(h.dmg) });
 
   // The tesla coil looks for metal. On the scrapyard the whole field is metal,
   // which is exactly why the scrapyard is where you want to bring it.
@@ -440,7 +457,7 @@ export function detonate(match, x, y, w, side, exclude = null) {
     }
   }
 
-  match.say('boom', { x, y, weapon: w.id, radius: reach, crater });
+  match.say('boom', { x, y, weapon: w.id, radius: reach, crater, vx: vel ? vel.vx : 0, vy: vel ? vel.vy : 0 });
   sweep(match);
 }
 
@@ -449,7 +466,7 @@ function strike(match, castle, b, dmg) {
   b.hp -= dmg;
   b.shake = 1;
   if (b.m === 'king') {
-    match.say('kinghit', { side: castle.side, damage: dmg, hp: Math.max(0, b.hp) });
+    match.say('kinghit', { side: castle.side, damage: dmg, hp: Math.max(0, b.hp), ...castle.centre(b.c, b.r) });
   }
 }
 
@@ -486,7 +503,7 @@ export function sweep(match) {
       const c = castle.centre(ev.block.c, ev.block.r);
       match.say(ev.kind === 'fall' ? 'tumble' : 'break', { side, m: ev.block.m, x: c.x, y: c.y });
       if (ev.kind === 'pit' && ev.block.m === 'king') {
-        match.say('kinghit', { side, damage: 999, hp: 0 });
+        match.say('kinghit', { side, damage: 999, hp: 0, ...castle.centre(ev.block.c, ev.block.r) });
       }
     }
 
@@ -496,7 +513,7 @@ export function sweep(match) {
       king.sunk = true;
       king.hp -= 44;
       king.shake = 1;
-      match.say('kinghit', { side, damage: 44, hp: Math.max(0, king.hp) });
+      match.say('kinghit', { side, damage: 44, hp: Math.max(0, king.hp), ...castle.centre(king.c, king.r) });
     }
   }
   restand(match);

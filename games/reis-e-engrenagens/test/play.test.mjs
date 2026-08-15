@@ -11,12 +11,12 @@ import { headlessContext } from 'slopkit/testing';
 import {
   BASE_Y, CASTLE_X, CELL, COLS, DRIVE_FUEL, KING_HP, LEASH, LEVELS, ROWS, TURN_LIMIT, W,
 } from '../src/config.js';
-import { WEAPONS } from '../src/weapons.js';
+import { AMMO_CAP, WEAPONS } from '../src/weapons.js';
 import { MATERIALS } from '../src/materials.js';
 import { createMatch, detonate, restand, trace } from '../src/battle.js';
 import { foeCastle } from '../src/castles.js';
 import { suggestBlueprint } from '../src/workshop.js';
-import { planDrive, planShot, skillNow } from '../src/ai.js';
+import { pickTarget, planDrive, planShot, skillNow } from '../src/ai.js';
 import { createScene } from '../src/scene.js';
 import { createFx } from '../src/fx.js';
 import { drawBattleHud, drawField } from '../src/render.js';
@@ -172,6 +172,34 @@ scenario('the endless munition is endless and the rest run out and hand the dock
   fire(m, 'player', 'ballista', 45, 60);
   check(m.weapon.player === 'boulder', `the last bolt left the dock pointing at ${m.weapon.player}`);
   check(m.pick('player', 'ballista') === false, 'the dock let an empty slot be selected');
+});
+
+scenario('the battle is fought with the rack you paid for, not the shipped one', () => {
+  const m = createMatch({
+    level: LEVELS[0],
+    faction: 'knights',
+    blueprint: { cells: [], king: { c: 1, r: 0 } },
+    foeBlueprint: { cells: [], king: { c: 5, r: 0 } },
+    loadout: { firepot: 0, ballista: 7, hail: 1 },
+    seed: 4,
+  });
+  check(m.ammo.player.boulder === Infinity, 'buying a custom rack cost the endless shot');
+  check(m.ammo.player.firepot === 0, `a rack sold down to nothing still holds ${m.ammo.player.firepot} fire pots`);
+  check(m.ammo.player.ballista === 7, `seven bolts were bought and ${m.ammo.player.ballista} arrived`);
+  check(m.ammo.player.hail === 1, `one cluster was bought and ${m.ammo.player.hail} arrived`);
+  check(m.pick('player', 'firepot') === false, 'an empty slot in the rack could still be selected');
+});
+
+scenario('the forge gunner arrives with a deeper rack than the meadow one', () => {
+  const at = (level) => mk({ level }).ammo.enemy;
+  const meadow = at(LEVELS[0]);
+  const forge = at(LEVELS[5]);
+  for (const id of Object.keys(forge)) {
+    if (forge[id] === Infinity) continue;
+    check(forge[id] === Math.min(AMMO_CAP, WEAPONS[id].ammo + LEVELS[5].foe.tier),
+      `at the forge the enemy has ${forge[id]} ${id} — the tier is supposed to feed the rack`);
+    check(forge[id] > meadow[id], `the forge gunner has no more ${id} than the meadow one`);
+  }
 });
 
 scenario('a bolt goes through a crystal wall; a trebuchet stone does not even break the first pane', () => {
@@ -566,6 +594,28 @@ scenario('thinking about a turn changes nothing whatsoever about the world', () 
     'planning a shot moved or re-aimed an engine');
   check(JSON.stringify(m.ammo) === before.ammo, 'planning a shot spent ammunition');
   check(m.shots.length === before.shots, 'planning a shot left something in the air');
+});
+
+scenario('every third turn the gunner goes for the tower under your gun, not the crown', () => {
+  // the player's engine seats itself on the five-storey column at 5
+  const m = mk({ mine: { cells: stack(5, 5, 'stone'), king: { c: 0, r: 0 } } });
+  const king = m.castles.player.centre(0, 0);
+
+  m.turnCount = 2; // the counter-battery slot in the schedule
+  const counter = pickTarget(m, 'enemy');
+  check(counter.counter === true, 'with an engine perched on five storeys of stone, turn three still aimed at the crown');
+  check(Math.abs(counter.x - m.launchers.player.x) < CELL,
+    `the counter-battery shot aims at x=${counter.x.toFixed(0)} with the engine at ${m.launchers.player.x.toFixed(0)}`);
+
+  m.turnCount = 3; // off the schedule: back to the crown
+  const direct = pickTarget(m, 'enemy');
+  check(Math.hypot(direct.x - king.x, direct.y - king.y) < 1,
+    `off the counter-battery turn it aims at ${direct.x.toFixed(0)},${direct.y.toFixed(0)} instead of the crown`);
+
+  // an engine on bare ground offers nothing to knock down — the crown it is
+  const flat = mk();
+  flat.turnCount = 2;
+  check(!pickTarget(flat, 'enemy').counter, 'it tried to counter-batter an engine standing on the dirt');
 });
 
 scenario('the enemy climbs back onto its own tower after you shoot it off', () => {

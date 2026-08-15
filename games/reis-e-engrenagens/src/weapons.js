@@ -10,10 +10,15 @@
 // and scratches the quarry, so a level's terrain decides which of your four
 // specials is worth a turn.
 //
-// Ammunition is per match and does not carry over. The basic shot never runs
-// out — nobody should ever be unable to take a turn.
+// Ammunition is not a fixed handout any more: each limited weapon has a
+// `price`, and the workshop lets you trade shells for walls out of the same
+// purse. `ammo` is the count a rack ships with before anybody touches it. The
+// basic shot never runs out — nobody should ever be unable to take a turn.
 
 const INF = Infinity;
+
+/** No rack holds more than this many of one munition. */
+export const AMMO_CAP = 9;
 
 export const WEAPONS = {
   // ---------------------------------------------------------------- knights
@@ -33,6 +38,7 @@ export const WEAPONS = {
     id: 'firepot',
     faction: 'knights',
     ammo: 4,
+    price: 8,
     // Deliberately feeble. At 34 it *destroyed* the timber outright, which meant
     // the wall it set alight was already gone and the fire had nothing to eat —
     // the weapon's whole mechanic never once fired in a real match.
@@ -50,6 +56,7 @@ export const WEAPONS = {
     id: 'ballista',
     faction: 'knights',
     ammo: 5,
+    price: 10,
     damage: 98,
     radius: 20,
     speed: 1.45,
@@ -64,6 +71,7 @@ export const WEAPONS = {
     id: 'hail',
     faction: 'knights',
     ammo: 3,
+    price: 11,
     damage: 32,
     radius: 42,
     speed: 1,
@@ -92,6 +100,7 @@ export const WEAPONS = {
     id: 'rustshell',
     faction: 'machines',
     ammo: 4,
+    price: 8,
     damage: 38,
     radius: 58,
     speed: 0.9,
@@ -106,6 +115,7 @@ export const WEAPONS = {
     id: 'tesla',
     faction: 'machines',
     ammo: 4,
+    price: 10,
     damage: 46,
     radius: 46,
     speed: 1.1,
@@ -120,6 +130,7 @@ export const WEAPONS = {
     id: 'drill',
     faction: 'machines',
     ammo: 3,
+    price: 12,
     damage: 72,
     radius: 64,
     speed: 1,
@@ -144,11 +155,47 @@ export const ARSENAL = {
 
 export const weapon = (id) => WEAPONS[id];
 
-/** A fresh ammunition counter for a match. */
-export function loadout(faction) {
+/** The limited munitions of a faction — everything the armory sells. */
+export function specials(faction) {
+  return ARSENAL[faction].filter((id) => WEAPONS[id].ammo !== INF);
+}
+
+/**
+ * A fresh ammunition counter for a match.
+ *
+ * @param {object} [counts] what the player bought, by weapon id — anything the
+ *                          armory does not sell (the endless shot) is ignored
+ * @param {number} [bonus]  extra shells per limited slot — the campaign hands
+ *                          the later gunners a deeper rack
+ */
+export function loadout(faction, counts = null, bonus = 0) {
   const out = {};
-  for (const id of ARSENAL[faction]) out[id] = WEAPONS[id].ammo;
+  for (const id of ARSENAL[faction]) {
+    const w = WEAPONS[id];
+    if (w.ammo === INF) out[id] = INF;
+    else if (counts && Number.isFinite(counts[id])) out[id] = Math.max(0, Math.min(AMMO_CAP, Math.round(counts[id])));
+    else out[id] = Math.min(AMMO_CAP, w.ammo + bonus);
+  }
   return out;
+}
+
+/** The rack a run starts with: each limited weapon at its shipped count. */
+export function defaultLoadout(faction) {
+  const out = {};
+  for (const id of specials(faction)) out[id] = WEAPONS[id].ammo;
+  return out;
+}
+
+/** What a rack of munitions costs, in the same coins the walls cost. */
+export function ammoCost(faction, counts) {
+  let sum = 0;
+  for (const id of specials(faction)) sum += WEAPONS[id].price * Math.max(0, counts && counts[id] ? counts[id] : 0);
+  return sum;
+}
+
+/** The price of the default rack — what a fresh run is quietly handed. */
+export function kitCost(faction) {
+  return ammoCost(faction, defaultLoadout(faction));
 }
 
 /**

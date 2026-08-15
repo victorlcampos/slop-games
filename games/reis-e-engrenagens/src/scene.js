@@ -71,16 +71,20 @@ export function createScene(level, terrain, seed = 1) {
     spec,
     props,
 
-    update(h) {
+    /** `wind` is the match's own number, so the sky agrees with the gauge. */
+    update(h, wind = 0) {
       time += h;
       for (const c of clouds) {
-        c.x += c.v * h;
+        // clouds ride the wind at a fraction of its speed, on top of their own
+        // drift — and with the wind changing sign every turn they wrap both ways
+        c.x += (c.v + wind * 0.5) * h;
         if (c.x > W * 1.5) c.x = -200;
+        if (c.x < -260) c.x = W * 1.5 - 40;
       }
       for (const f of flakes) {
         f.d += h;
         f.y += (weather === 'ember' ? -f.v : f.v) * h;
-        f.x += Math.sin(f.d) * 14 * h;
+        f.x += (Math.sin(f.d) * 14 + wind * 1.1) * h;
         if (f.y > H + 10) f.y = -10;
         if (f.y < -10) f.y = H + 10;
       }

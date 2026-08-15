@@ -58,6 +58,8 @@ export const dict = {
   'shop.span': { en: 'bridges {n}', pt: 'vence {n}' },
   'shop.spanNone': { en: 'holds nothing up', pt: 'não sustenta nada' },
   'shop.hp': { en: '{n} hp', pt: '{n} de vida' },
+  'shop.arsenal': { en: 'Munitions', pt: 'Munições' },
+  'shop.each': { en: '{n} coins each', pt: '{n} moedas cada' },
 
   'why.noking': { en: 'Your king is not on the board yet.', pt: 'Seu rei ainda não está no tabuleiro.' },
   'why.floating': { en: 'That would be standing on nothing.', pt: 'Isso ficaria apoiado no nada.' },
@@ -68,6 +70,7 @@ export const dict = {
   'why.king': { en: 'The king moves, he does not get deleted.', pt: 'O rei se muda, não se apaga.' },
   'why.outside': { en: 'Outside the plot.', pt: 'Fora do terreno.' },
   'why.unknown': { en: 'Nothing in hand.', pt: 'Nada na mão.' },
+  'why.full': { en: 'The rack is full.', pt: 'O suporte está cheio.' },
 
   // ------------------------------------------------------------ the battle
   'turn.you': { en: 'Your shot', pt: 'Seu tiro' },

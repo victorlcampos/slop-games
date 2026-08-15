@@ -105,24 +105,33 @@ export function drawBlock(ctx, b, rect, opts = {}) {
 
   if (b.m === 'king') {
     drawKing(ctx, rect, opts.faction || 'knights', b);
-    ctx.restore();
-    return;
+  } else {
+    if (b.m === 'sand') drawSand(ctx, x, y, w, h, m, b, opts.top);
+    else if (b.m === 'wood') drawWood(ctx, x, y, w, h, m, b, opts.top);
+    else if (b.m === 'crystal') drawCrystal(ctx, x, y, w, h, m, b, opts.top);
+    else if (b.m === 'iron') drawIron(ctx, x, y, w, h, m, b, opts.top);
+    else drawStone(ctx, x, y, w, h, m, b, opts.top);
+
+    if (hurt > 0.12) drawCracks(ctx, x, y, w, h, hurt, b);
+    if (b.rust > 0) drawRust(ctx, x, y, w, h, b);
+    if (b.fire > 0) {
+      ctx.save();
+      rr(ctx, x + 1, y + 1, w - 2, h - 2, 5);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(70,18,8,0.5)';
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+    }
   }
 
-  if (b.m === 'sand') drawSand(ctx, x, y, w, h, m, b, opts.top);
-  else if (b.m === 'wood') drawWood(ctx, x, y, w, h, m, b, opts.top);
-  else if (b.m === 'crystal') drawCrystal(ctx, x, y, w, h, m, b, opts.top);
-  else if (b.m === 'iron') drawIron(ctx, x, y, w, h, m, b, opts.top);
-  else drawStone(ctx, x, y, w, h, m, b, opts.top);
-
-  if (hurt > 0.12) drawCracks(ctx, x, y, w, h, hurt, b);
-  if (b.rust > 0) drawRust(ctx, x, y, w, h, b);
-  if (b.fire > 0) {
+  // The first frames after a hit go white. The shake alone reads as "the screen
+  // moved"; the flash is what pins the hit to *this* block.
+  if (b.shake > 0.7) {
     ctx.save();
+    ctx.globalAlpha = (b.shake - 0.7) * 2.6;
     rr(ctx, x + 1, y + 1, w - 2, h - 2, 5);
-    ctx.clip();
-    ctx.fillStyle = 'rgba(70,18,8,0.5)';
-    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#fff2d8';
+    ctx.fill();
     ctx.restore();
   }
   ctx.restore();

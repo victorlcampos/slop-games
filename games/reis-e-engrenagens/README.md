@@ -34,6 +34,12 @@ let you erase one something else is resting on. The crown has to end up
 somewhere with a floor under it — but a floor is not a roof, and the difference
 is the whole game.
 
+**The armory shares the purse.** Every limited munition has a price, and the
+panel under the enemy intel buys and sells them one shell at a time. Sell the
+whole rack and it is all walls; sell walls and arrive with nine drill bombs.
+The default kit is priced in — a player who never touches the panel builds
+exactly the castle they always could.
+
 **The battle.** One shot each, alternating.
 
 1. **Drive** — hold ◀ ▶ on screen, or the left and right arrows. The fuel bar is
@@ -54,13 +60,27 @@ At full power a shot barely carries the width of the valley, so the top of the
 gauge is a real decision and not a default.
 
 Pick munitions from the dock (or keys 1–4). The basic shot never runs out; the
-other three are counted, and do not carry over between sieges. The wind changes
-every turn, and it moves a fire pot far more than it moves a rock.
+other three are whatever the armory sold you, restocked every siege. The wind
+changes every turn, and it moves a fire pot far more than it moves a rock — and
+you can *see* it now: gusts streak across the valley the way the gauge points,
+the clouds ride it, the flags on both castles stream with it.
 
 Whoever hits the other crown wins. It takes two clean hits — or one wall coming
 down on top of it.
 
 ## What is interesting in here
+
+**Range and pace are two separate dials.** Gravity and muzzle speed were scaled
+together (v by k, g by k²), which keeps every range and every apex identical —
+the same gauge reading lands on the same cell — while cutting hang time by a
+fifth. The shell reads as a shell instead of a balloon, and not one number of
+balance moved.
+
+**A hit answers back.** The struck block flashes white and floats the damage it
+paid; debris flies onward, away from where the shell came from; every shot in
+flight drags a wake in its own colour; and a hit on a crown drops the world
+into slow motion for half a second — the camera and the HUD keep real time,
+which is what makes it read as emphasis rather than lag.
 
 **The ground is a weapon modifier you do not choose.** Craters scale with the
 terrain: the same drill bomb opens a canyon in the dunes and scratches the
@@ -101,6 +121,12 @@ because nothing had landed there.
 What makes it beatable is a wobble on a good answer, not a worse answer — and
 the wobble shrinks every turn, because a gunner who has watched two of his own
 shells land does know where the third one goes.
+
+And it is not a metronome: every third turn, if your engine is perched on a
+tower worth the shell, it aims at the block under *you* instead of the king —
+the same counter-battery play you are invited to make against it. The later
+gunners also arrive better supplied: the campaign tier feeds their rack, so the
+forge opens with three more of everything.
 
 **Not one image.** Five kinds of wall, two kings, two siege engines, eight
 munitions, six skies and every crater — all drawn at runtime from rectangles and

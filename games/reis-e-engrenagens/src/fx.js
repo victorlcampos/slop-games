@@ -93,6 +93,38 @@ export function createFx() {
       }
     },
 
+    /**
+     * Debris that remembers where the shell came from: a cone of chips thrown
+     * *onward*, away from the approach. The radial burst in `boom` says "an
+     * explosion happened"; this is what says "something arrived from over there
+     * and hit", which is most of what makes an impact read as physical.
+     */
+    impact(x, y, vx, vy, color) {
+      const speed = Math.hypot(vx, vy);
+      if (speed < 40) return;
+      const a0 = Math.atan2(vy, vx);
+      const punch = 0.45 + Math.min(1, speed / 900);
+      for (let i = 0; i < 12; i++) {
+        const a = a0 + (Math.random() - 0.5) * 1.7;
+        const v = (70 + Math.random() * 240) * punch;
+        add({
+          x, y, vx: Math.cos(a) * v * 0.6, vy: Math.sin(a) * v * 0.6 - 60,
+          life: 0.45 + Math.random() * 0.5, max: 0.95, size: 2 + Math.random() * 3.5,
+          color, gravity: 0.9, drag: 0.4, spin: Math.random() * 6, spinRate: (Math.random() - 0.5) * 16,
+          kind: 'chip', bounce: true,
+        });
+      }
+    },
+
+    /** A number that floats off whatever just paid it. */
+    number(x, y, text, { color = '#ffd27a', size = 14 } = {}) {
+      add({
+        x: x + (Math.random() - 0.5) * 10, y, vx: (Math.random() - 0.5) * 12, vy: -52,
+        life: 0.95, max: 0.95, size, color,
+        gravity: -0.02, drag: 1.6, spin: 0, spinRate: 0, kind: 'num', text,
+      });
+    },
+
     /** A block coming apart: chips in the material's own colour. */
     shards(x, y, color, n = 12) {
       for (let i = 0; i < n; i++) {
