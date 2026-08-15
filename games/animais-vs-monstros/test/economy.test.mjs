@@ -9,7 +9,7 @@ import { missingKeys } from 'slopkit';
 import { calcReward } from '../src/data/economy.js';
 import {
   ANIMALS, BY_ID, STARTER_DECK, cardAtLevel, trainingCost, requiredCards, rollCards, MAX_LEVEL,
-  levelCap, toggleActive, buyCard, DECK_LIMIT, SQUAD_MIN,
+  levelCap, toggleActive, buyCard, DECK_LIMIT, SQUAD_MIN, LEVELS,
 } from '../src/data/animals.js';
 import { MONSTERS, MONSTER_BY_ID } from '../src/data/monsters.js';
 import { STAGES, CAMPAIGNS } from '../src/data/stages.js';
@@ -283,6 +283,62 @@ scenario("the campaign doesn't pay for everything — the player has to choose",
   );
 });
 
+// -------------------------------------------------------------- the difficulty
+
+/** Everything a stage sends at the fence, in hit points. */
+function stageWeight(stage) {
+  let hp = 0;
+  for (const wave of stage.waves) {
+    for (const [id, n] of wave.monsters) hp += MONSTER_BY_ID[id].hp * n;
+  }
+  return hp;
+}
+
+scenario('a campaign gets heavier stage by stage, and ends on its heaviest board', () => {
+  for (const campaign of CAMPAIGNS) {
+    const weights = campaign.stages.map(stageWeight);
+    const heaviest = Math.max(...weights);
+    check(
+      weights[weights.length - 1] === heaviest,
+      `${campaign.id}: the boss stage weighs ${weights[weights.length - 1]} and stage ` +
+        `${weights.indexOf(heaviest) + 1} weighs ${heaviest} — the finale is not the finale`
+    );
+    // Not every step has to be heavier than the one before — a water stage
+    // trades weight for a rule — but the halves must not tie. A campaign whose
+    // second half is its first half again is a campaign the player coasts.
+    const half = Math.ceil(weights.length / 2);
+    const opening = weights.slice(0, half).reduce((a, b) => a + b, 0);
+    const closing = weights.slice(half).reduce((a, b) => a + b, 0);
+    check(closing > opening * 1.4, `${campaign.id}: the second half (${closing}) barely tops the first (${opening})`);
+  }
+});
+
+scenario('Japan is weighed against the deck that crosses the ocean, not against Brazil', () => {
+  // The player docks with training up to III and leaves at V — 1.8x to 3x the
+  // animal that started on the farm. The first cut of the campaign missed
+  // that: the yōkai were ~1.5x the folklore's stats and the country played
+  // like a victory lap. Every step of that reasoning is a number here.
+  const [brazil, japan] = CAMPAIGNS;
+  const brazilCap = levelCap([]);
+  const japanCap = levelCap(['japan']);
+  const growth = LEVELS[japanCap - 1].power / LEVELS[brazilCap - 1].power;
+  check(growth > 1.5, `the deck only grows ${growth.toFixed(2)}x across Japan — this test is reading the wrong thing`);
+
+  // the trash mob of each campaign, which is what sets a stage's floor
+  const folklore = MONSTER_BY_ID.corposeco;
+  const yokai = MONSTER_BY_ID.karakasa;
+  check(
+    yokai.hp >= folklore.hp * 1.8,
+    `the Karakasa has ${yokai.hp} hp against the Corpo-seco's ${folklore.hp} — ` +
+      `the deck facing it is worth ${LEVELS[brazilCap - 1].power}x more`
+  );
+
+  // and the campaign as a whole has to outweigh Brazil by more than the deck grew
+  const weigh = (c) => c.stages.reduce((sum, s) => sum + stageWeight(s), 0);
+  const ratio = weigh(japan) / weigh(brazil);
+  check(ratio > growth, `Japan weighs ${ratio.toFixed(2)}x Brazil while the deck gained ${growth.toFixed(2)}x`);
+});
+
 // -------------------------------------------------------------------- i18n
 
 scenario('every card, monster and stage ships in both languages', () => {
@@ -314,10 +370,27 @@ scenario('every card, monster and stage ships in both languages', () => {
   checkEqual(holes, [], 'these fields exist in one language only');
 });
 
-scenario("the boss's lines are translated too", () => {
-  const cuca = MONSTER_BY_ID.cuca;
-  const holes = missingKeys(Object.fromEntries(cuca.phases.map((p, i) => [`cuca.phase${i}`, p.line])));
-  checkEqual(holes, [], 'a boss that speaks has to speak both languages');
+scenario("every boss's lines are translated, and each one owns them", () => {
+  const bosses = MONSTERS.filter((m) => m.boss);
+  check(bosses.length >= 2, `only ${bosses.length} boss in the whole atlas`);
+  for (const boss of bosses) {
+    const fields = Object.fromEntries([
+      ...boss.phases.map((p, i) => [`${boss.id}.phase${i}`, p.line]),
+      [`${boss.id}.backup`, boss.backup],
+      [`${boss.id}.victory`, boss.victory],
+    ]);
+    checkEqual(missingKeys(fields), [], `${boss.id}: a boss that speaks has to speak both languages`);
+
+    // and it has to be talking about itself. The Onryō spent a campaign
+    // announcing that the Cuca had called for backup, because the line was
+    // written once, in Brazil, and never made room for a second boss.
+    for (const [where, field] of Object.entries(fields)) {
+      for (const lang of ['pt', 'en']) {
+        const other = bosses.find((b) => b.id !== boss.id && field[lang].includes(b.name[lang]));
+        check(!other, `${where} (${lang}) names the ${other?.id}: "${field[lang]}"`);
+      }
+    }
+  }
 });
 
 await run('animals vs monsters economy');

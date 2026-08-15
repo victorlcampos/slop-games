@@ -217,6 +217,7 @@ export const MONSTERS = [
       { hp: 0.66, line: { pt: 'Durma, bichinho… durma…', en: 'Sleep, little one… sleep…' } },
       { hp: 0.33, line: { pt: 'SETE ANOS! SETE ANOS EU ESPEREI!', en: 'SEVEN YEARS! SEVEN YEARS I WAITED!' } },
     ],
+    backup: { pt: 'A Cuca chamou reforço!', en: 'The Cuca called for backup!' },
     victory: { pt: 'A Cuca caiu. O Brasil respira.', en: 'The Cuca is down. Brazil breathes.' },
     worth: 400,
   },
@@ -235,6 +236,14 @@ export const MONSTERS = [
   // blocks  piercing shots stop in it;  steady: immune to knockback
   // smash   the club also hits the cell behind the bitten animal
   // phase   goes intangible on a cycle and returns in another lane
+  //
+  // These numbers are not on Brazil's scale, and they are not meant to be: the
+  // squad that docks in Japan is already trained to level III and finishes the
+  // campaign at V — three times the animal that landed on the first farm. The
+  // first cut of the cast sat at ~1.5x the folklore's stats and the whole
+  // country played like a victory lap. A yōkai is roughly twice its Brazilian
+  // opposite number, and `worth` follows it only part of the way: more hp for
+  // the same seed is what makes a bad opening cost something here.
 
   {
     id: 'karakasa',
@@ -243,11 +252,11 @@ export const MONSTERS = [
       pt: 'Guarda-chuva que fez cem anos e ganhou olho, língua e uma perna. Ninguém o abriu de novo — agora é tarde.',
       en: 'An umbrella that turned one hundred and grew an eye, a tongue and a leg. Nobody ever opened it again — too late now.',
     },
-    hp: 340,
-    speed: 24,
-    damage: 20,
+    hp: 460,
+    speed: 26,
+    damage: 24,
     interval: 1,
-    worth: 14,
+    worth: 16,
   },
   {
     id: 'kappa',
@@ -256,13 +265,17 @@ export const MONSTERS = [
       pt: 'Mora no fundo do arrozal e desafia quem passa. A força mora na tigela d’água da cabeça — derramou, acabou.',
       en: 'Lives at the bottom of the rice paddy and challenges anyone who passes. His strength lives in the water bowl on his head — spill it and it is gone.',
     },
-    hp: 420,
+    // the one yōkai that did NOT take the full lift: he comes down a flooded
+    // lane, and a flooded lane only accepts the two or three aquatic cards a
+    // player owns. Weighed like the dry cast he beat a fully trained deck on
+    // the second stage of the campaign
+    hp: 500,
     speed: 30,
-    damage: 26,
+    damage: 30,
     interval: 1.2,
     aquatic: true,
     bowl: { at: 0.5, factor: 0.5 },
-    worth: 26,
+    worth: 30,
   },
   {
     id: 'kitsune',
@@ -271,12 +284,12 @@ export const MONSTERS = [
       pt: 'Raposa de nove caudas e mil rostos. Onde você vê três, veio uma — e a que morde é sempre a que você não olhou.',
       en: 'A fox of nine tails and a thousand faces. Where you see three, one arrived — and the one that bites is always the one you were not watching.',
     },
-    hp: 320,
-    speed: 40,
-    damage: 20,
+    hp: 430,
+    speed: 42,
+    damage: 26,
     interval: 1,
     illusions: { count: 2, life: 12 },
-    worth: 30,
+    worth: 34,
   },
   {
     id: 'tengu',
@@ -285,13 +298,13 @@ export const MONSTERS = [
       pt: 'Senhor da montanha, nariz comprido e asas de corvo. Não derruba a sua muralha: pousa depois dela.',
       en: 'Lord of the mountain, long nose and crow wings. He does not break your wall: he lands past it.',
     },
-    hp: 480,
-    speed: 34,
-    damage: 30,
+    hp: 640,
+    speed: 36,
+    damage: 38,
     interval: 1.1,
     flies: true,
     lands: true,
-    worth: 34,
+    worth: 39,
   },
   {
     id: 'rokurokubi',
@@ -300,12 +313,12 @@ export const MONSTERS = [
       pt: 'De dia, uma moça como outra qualquer. De noite, o pescoço sai passeando sozinho — e volta alimentado.',
       en: 'By day, a woman like any other. By night, her neck goes wandering on its own — and comes back fed.',
     },
-    hp: 380,
+    hp: 520,
     speed: 22,
-    damage: 24,
+    damage: 32,
     interval: 1.4,
     neck: 2.4,
-    worth: 30,
+    worth: 34,
   },
   {
     id: 'yukionna',
@@ -314,12 +327,12 @@ export const MONSTERS = [
       pt: 'Aparece na nevasca de quimono branco. Quem cruza o olhar dela para no lugar — e esquece de tremer.',
       en: 'She appears in the blizzard in a white kimono. Whoever meets her gaze stops where they stand — and forgets to shiver.',
     },
-    hp: 460,
+    hp: 620,
     speed: 18,
-    damage: 24,
+    damage: 30,
     interval: 1.5,
     chill: { radius: 2, duration: 2.6, interval: 6 },
-    worth: 36,
+    worth: 41,
   },
   {
     id: 'nurikabe',
@@ -328,15 +341,15 @@ export const MONSTERS = [
       pt: 'A parede que aparece no caminho de quem anda de noite. Agora resolveu que o caminho é o seu quintal.',
       en: 'The wall that blocks the road of anyone walking at night. It has decided the road is your yard now.',
     },
-    hp: 1600,
+    hp: 2100,
     speed: 9,
-    damage: 30,
+    damage: 38,
     interval: 1.6,
-    armor: 20,
+    armor: 22,
     blocks: true,
     steady: true,
     scale: 1.35,
-    worth: 60,
+    worth: 68,
   },
   {
     id: 'oni',
@@ -345,14 +358,14 @@ export const MONSTERS = [
       pt: 'Ogro de chifre, presa e tanga de pele de tigre. A clava kanabō não escolhe alvo: acerta a vizinhança.',
       en: 'A horned, tusked ogre in a tiger-skin loincloth. The kanabō club does not pick a target: it hits the neighbourhood.',
     },
-    hp: 950,
+    hp: 1250,
     speed: 16,
-    damage: 48,
+    damage: 56,
     interval: 1.5,
-    armor: 14,
+    armor: 16,
     smash: 0.6,
     scale: 1.25,
-    worth: 55,
+    worth: 63,
   },
   {
     id: 'onryo',
@@ -361,20 +374,21 @@ export const MONSTERS = [
       pt: 'Um rancor tão antigo que sobrou quando a pessoa acabou. Não corre, não desvia — atravessa.',
       en: 'A grudge so old it outlasted the person. It does not run, does not dodge — it passes through.',
     },
-    hp: 5600,
+    hp: 7200,
     speed: 10,
-    damage: 75,
+    damage: 85,
     interval: 1.6,
     scale: 2,
     boss: true,
     phase: { interval: 6.5, duration: 2.2 },
-    summons: { types: ['karakasa', 'kitsune', 'rokurokubi'], interval: 10, count: 2 },
+    summons: { types: ['karakasa', 'kitsune', 'rokurokubi'], interval: 8.5, count: 3 },
     phases: [
       { hp: 0.66, line: { pt: 'Você não devia ter atracado…', en: 'You should not have docked here…' } },
       { hp: 0.33, line: { pt: 'ESTA CASA É MINHA. SEMPRE FOI.', en: 'THIS HOUSE IS MINE. IT ALWAYS WAS.' } },
     ],
+    backup: { pt: 'O Onryō chamou reforço!', en: 'The Onryō called for backup!' },
     victory: { pt: 'O Onryō se desfez. O Japão amanhece.', en: 'The Onryō came apart. Japan sees the morning.' },
-    worth: 450,
+    worth: 500,
   },
 ];
 

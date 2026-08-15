@@ -210,15 +210,28 @@ const D = {
   map: { pt: 'MAPA', en: 'MAP' },
 };
 
-/** A useful hint, tied to what that stage has that is specific to it. */
-const TIPS = {
-  boss: {
+/**
+ * The boss tips, keyed by the boss's own id — never by "there is a boss here".
+ * A campaign that forgets to write one falls back to `TIPS.boss`, which names
+ * nobody; the alternative, and what used to happen, is the second campaign
+ * being told how to fight the first campaign's boss, by name.
+ */
+const BOSS_TIPS = {
+  cuca: {
     pt: 'A Cuca chama reforço enquanto anda. Segure as fileiras com paredes e concentre o dano nela — quem para de atirar na Cuca perde o campo.',
     en: 'The Cuca calls reinforcements as she walks. Hold the lanes with walls and focus damage on her — whoever stops shooting the Cuca loses the field.',
   },
   onryo: {
     pt: 'O Onryō fica intangível e volta em outra fileira. Espalhe atiradores por várias fileiras — quem empilhou tudo numa só atira no vazio metade do tempo.',
     en: 'The Onryō turns intangible and returns in another lane. Spread shooters across several lanes — stack everything in one and you shoot at nothing half the time.',
+  },
+};
+
+/** A useful hint, tied to what that stage has that is specific to it. */
+const TIPS = {
+  boss: {
+    pt: 'O chefe chama reforço enquanto anda. Segure as fileiras com paredes e concentre o dano nele — quem para de atirar no chefe perde o campo.',
+    en: 'The boss calls reinforcements as it walks. Hold the lanes with walls and focus damage on it — whoever stops shooting the boss loses the field.',
   },
   fog: {
     pt: 'A névoa esconde o meio do campo: uma Coruja em qualquer fileira levanta o véu do tabuleiro inteiro.',
@@ -243,8 +256,7 @@ const TIPS = {
 };
 
 function tipFor(stage) {
-  if (stage.boss === 'onryo') return pick(TIPS.onryo);
-  if (stage.boss) return pick(TIPS.boss);
+  if (stage.boss) return pick(BOSS_TIPS[stage.boss] || TIPS.boss);
   if (stage.fog) return pick(TIPS.fog);
   if (stage.night) return pick(TIPS.night);
   if (stage.water && stage.water.length) return pick(TIPS.water);
