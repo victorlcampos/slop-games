@@ -270,12 +270,17 @@ const SEEN = new WeakMap();
  */
 function sightOf(game, body, eyes) {
   const was = SEEN.get(body);
+  // A body that has not moved keeps its shape; one that has gets a new one the
+  // same frame. The threshold used to be two pixels and half a degree, which is
+  // where the shimmer people saw was coming from: the light lagged behind the
+  // walk and then jumped a step. It costs nothing to hold it this tight now,
+  // because the fan is rebuilt into the buffer it already owns.
   if (was && was.eyes === eyes
-    && (body.x - was.x) ** 2 + (body.y - was.y) ** 2 < 4
-    && Math.abs(body.facing - was.facing) < 0.008) {
+    && (body.x - was.x) ** 2 + (body.y - was.y) ** 2 < 0.01
+    && Math.abs(body.facing - was.facing) < 0.0005) {
     return was.sight;
   }
-  const sight = createSight(game.grid, body.x, body.y, body.facing || 0, eyes);
+  const sight = createSight(game.grid, body.x, body.y, body.facing || 0, eyes, was && was.sight);
   SEEN.set(body, { x: body.x, y: body.y, facing: body.facing || 0, eyes, sight });
   return sight;
 }
@@ -312,8 +317,10 @@ function clipTo(ctx, fans) {
 
 /** One fan as a closed loop. Both rings are wound the same way: the clip is their union. */
 function ring(ctx, fan, x, y) {
+  if (!fan || !fan.count) return;
+  const p = fan.points;
   ctx.moveTo(x, y);
-  for (const q of fan) ctx.lineTo(q.x, q.y);
+  for (let i = 0; i < fan.count; i++) ctx.lineTo(p[i * 2], p[i * 2 + 1]);
   ctx.closePath();
 }
 
@@ -518,12 +525,21 @@ function drawUnit(ctx, game, u, flag) {
   ctx.ellipse(u.x, u.y + 3, 15, 9, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  // The roll, drawn as a roll: he tucks and goes over once, along the line he
+  // threw himself down. The body turns a full circle in the 0.3s it lasts and
+  // squashes at the halfway point — the moment he is on his shoulder — and the
+  // head goes round with it instead of floating above a spinning body.
+  const rolling = u.roll > 0;
+  const over = rolling ? 1 - u.roll / ROLL.time : 0;          // 0 → 1 through the roll
+  const tuck = rolling ? 1 - 0.42 * Math.sin(over * Math.PI) : 1;
+  const bodyAngle = rolling ? u.rollA + over * Math.PI * 2 : u.facing;
+
   ctx.save();
   ctx.translate(u.x, u.y);
-  ctx.rotate(u.facing);
-  if (u.roll > 0) ctx.scale(1, 0.82);            // a body mid-roll is a body flattened
+  ctx.rotate(bodyAngle);
+  if (rolling) ctx.scale(tuck, tuck * 0.86);
 
-  const stride = Math.sin(u.stride * 0.09) * 3;
+  const stride = rolling ? 0 : Math.sin(u.stride * 0.09) * 3;
   ctx.fillStyle = kit.legs;
   ctx.fillRect(-13, -11 + stride, 9, 7);
   ctx.fillRect(-13, 4 - stride, 9, 7);
@@ -570,17 +586,21 @@ function drawUnit(ctx, game, u, flag) {
   }
   ctx.restore();
 
-  // the head, in screen space and a few pixels up: the whole third dimension
-  const hx = u.x + Math.cos(u.facing) * 3;
-  const hy = u.y + Math.sin(u.facing) * 3 - HEAD_LIFT;
+  // the head, in screen space and a few pixels up: the whole third dimension.
+  // Mid-roll it comes down to the deck with the rest of him — a head hovering
+  // over a body that is going over is the one thing that would give it away.
+  const lift = HEAD_LIFT * (rolling ? 1 - 0.8 * Math.sin(over * Math.PI) : 1);
+  const hx = u.x + Math.cos(bodyAngle) * 3 * tuck;
+  const hy = u.y + Math.sin(bodyAngle) * 3 * tuck - lift;
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
-  ctx.ellipse(u.x + Math.cos(u.facing) * 3, u.y + Math.sin(u.facing) * 3 + 1, 8, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(u.x + Math.cos(bodyAngle) * 3, u.y + Math.sin(bodyAngle) * 3 + 1, 8 * tuck, 6 * tuck, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
   ctx.translate(hx, hy);
-  ctx.rotate(u.facing);
+  ctx.rotate(bodyAngle);
+  if (rolling) ctx.scale(tuck, tuck);
   if (kit.hat === 'helmet') {
     ctx.fillStyle = kit.skin;
     ctx.beginPath();

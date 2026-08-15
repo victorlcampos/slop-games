@@ -12,7 +12,7 @@ One HTML file, no server, no install: open `dist/index.html` on a double click.
 | move | `WASD` or the arrow keys |
 | aim | the mouse — the gun finds the man near the cursor by itself |
 | fire | click, or `J` |
-| roll | `space` (or `shift`) — one shove, then a second of nothing |
+| roll | `space` (or `shift`) — one shove, a tumble, then a second of nothing |
 | mute | `M` |
 
 On a phone the left half of the screen walks and the stick is born wherever
@@ -53,6 +53,15 @@ What is different is the light:
   and the walls do all the hiding.
 - **The maze is at night.** There it is the Fortress's torch: 104° reaching
   470px, plus the small circle you feel rather than see.
+
+**The edge of the light is a wall, not a sampling artefact.** The rays go to the
+corners of the walls — a pair either side of every corner the light can reach —
+rather than to a fixed set of angles. A uniform fan puts a ray every couple of
+degrees, which is twenty pixels apart across a room, and each ray crosses a
+corner at its own moment: a tenth of a pixel of walking swung up to a tenth of
+the lit area, and the whole shadow boiled. Pinned to the corners it is under
+three tenths of a percent, and a test walks every open tile of two arenas to
+keep it there.
 
 Both settings are the same function, and both squads wear the same pair of eyes:
 a fog that only applied to the player would be a handicap dressed as atmosphere.
@@ -132,6 +141,6 @@ node test/logic.test.mjs    # the arenas, the ramp, the balance, the eyes, the d
 node test/play.test.mjs     # the match, played in Node at a fixed step
 ```
 
-Forty-three scenarios, about two seconds, no browser. Three of them play whole
+Forty-four scenarios, about two seconds, no browser. Three of them play whole
 matches between two squads of bots, because "does a match end", "do both sides
 score" and "does the field favour one end" cannot be answered any other way.

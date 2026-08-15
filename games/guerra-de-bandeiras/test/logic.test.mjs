@@ -10,6 +10,7 @@ import {
   botStats, difficulty, cameraFor, eyesOf, dps, ARENA_W, ARENA_H, HUD_H, H, makeRng, other,
 } from '../src/config.js';
 import { buildArena, auditArena, LAYOUTS } from '../src/arena.js';
+import { visibilityFan, wallCorners } from '../src/vision.js';
 import {
   createGrid, flowField, stepAlong, castRay, lineOfSight, cellOf, nearestOpen,
   WALL, FLOOR, PIT, BASE_H, BASE_A,
@@ -244,6 +245,58 @@ scenario('the two settings of the eyes: a room by day, a torch at night', () => 
   // only one arena is a night arena, and it is the maze
   const dark = PHASES.filter((p) => p.dark).map((p) => p.id);
   check(dark.length === 1 && dark[0] === 'maze', `the night arenas are ${dark.join(', ')}`);
+});
+
+scenario('the edge of the light is a wall, not a sampling artefact', () => {
+  // The shape is cast at the **corners** of the walls, so it is pinned to the
+  // geometry. The version this replaced put a ray every couple of degrees
+  // wherever they happened to land, and each one crossed a corner at its own
+  // moment: a tenth of a pixel of walking swung up to a tenth of the lit area,
+  // which is what "the shadow is shimmering" looks like from the outside.
+  const area = (fan, x, y) => {
+    const p = fan.points;
+    let a = 0;
+    let px = x;
+    let py = y;
+    for (let i = 0; i < fan.count; i++) {
+      const qx = p[i * 2];
+      const qy = p[i * 2 + 1];
+      a += px * qy - qx * py;
+      px = qx;
+      py = qy;
+    }
+    return Math.abs(a + px * y - x * py) / 2;
+  };
+
+  for (const index of [0, 5]) {
+    const arena = buildArena(index);
+    const eyes = VISION.day;
+    check(wallCorners(arena.grid).length > 40, `${arena.id}: only ${wallCorners(arena.grid).length} corners on the whole field`);
+    let worst = 0;
+    let sum = 0;
+    let n = 0;
+    for (let cy = 1; cy < ROWS - 1; cy += 2) {
+      for (let cx = 1; cx < COLS - 1; cx += 2) {
+        if (!arena.grid.walkable(cx, cy)) continue;
+        const y = cy * TILE + TILE / 2;
+        let last = null;
+        for (let i = -10; i <= 10; i++) {
+          const x = cx * TILE + TILE / 2 + i * 0.1;      // a tenth of a pixel a step
+          if (!arena.grid.walkableAt(x, y)) { last = null; continue; }
+          const a = area(visibilityFan(arena.grid, x, y, 0, eyes.fov, eyes.sight), x, y);
+          if (last) {
+            const jump = Math.abs(a - last) / last;
+            worst = Math.max(worst, jump);
+            sum += jump;
+            n++;
+          }
+          last = a;
+        }
+      }
+    }
+    check(worst < 0.03, `${arena.id}: a tenth of a pixel of walking moves ${(worst * 100).toFixed(1)}% of the lit area`);
+    check(sum / n < 0.001, `${arena.id}: the light boils by ${(sum / n * 100).toFixed(2)}% a step on average`);
+  }
 });
 
 scenario('a ray stops at a wall and a flow field walks round one', () => {

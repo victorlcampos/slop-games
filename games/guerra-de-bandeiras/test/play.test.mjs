@@ -409,6 +409,16 @@ scenario('the roll is a shove, a commitment and a wait', () => {
   tick(game, 0.1, IDLE);              // let the button up: the roll is an edge
   tick(game, ROLL.cool + ROLL.time + 0.2, (i) => ({ mx: 1, my: 0, roll: i === 0 || i === 90 }));
   check(me.x - before > held, 'holding the roll rolls as often as tapping it');
+
+  // and it is drawable: the tumble reads `roll` and `rollA`, so both have to be
+  // there and `roll` has to run down rather than sit at its full value
+  tick(game, 1.2, IDLE);
+  tick(game, 0.05, (i) => ({ mx: 1, my: 0, roll: i === 0 }));
+  check(me.roll > 0 && me.roll <= ROLL.time, `mid-roll the clock reads ${me.roll.toFixed(2)}`);
+  check(typeof me.rollA === 'number', 'nothing says which way he threw himself');
+  const at = me.roll;
+  tick(game, 0.1, { mx: 1, my: 0 });
+  check(me.roll < at, 'the roll clock does not run down, so the tumble would freeze');
 });
 
 scenario('by day you see the whole room, and never through a wall', () => {

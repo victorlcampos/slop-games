@@ -162,7 +162,13 @@ const hooks = {
   onShot: (u) => sfx.shot(u.team, u === (game && game.player)),
   onHurt: (u) => { if (u === (game && game.player)) { sfx.hurt(); fx.shake(3); } },
   onKill: (u) => sfx.kill(),
-  onRoll: () => sfx.roll(),
+  onRoll: (u) => {
+    sfx.roll();
+    // dust off the deck where he threw himself down: at ten pixels across, a
+    // body needs something around it for a roll to read as a roll
+    fx.ring(u.x, u.y, 46, 'rgba(200,214,240,0.8)');
+    fx.spark(u.x, u.y, '#9fb2c4', 7, 150);
+  },
   onGate: () => sfx.gate(),
   onRespawn: (u) => { if (u === (game && game.player)) sfx.spawn(); },
   onTurretShot: () => sfx.turret(),
