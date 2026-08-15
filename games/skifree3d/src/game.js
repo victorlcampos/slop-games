@@ -30,6 +30,8 @@ import { initInput, onCommand, releaseAll } from './input.js';
 import { initAudio, resumeAudio, updateAudio, sfx, toggleMute, silence } from './audio.js';
 import { GodRaysShader, LensShader, updateSunScreenPosition } from './render/postfx.js';
 import { installAerialPerspective } from './render/atmosphere.js';
+import { fovForAspect, readDevice } from './render/display.js';
+import { planSteps, MAX_STEP } from './loop.js';
 import * as hud from './hud.js';
 import { t, num } from './i18n.js';
 
@@ -68,16 +70,21 @@ export function createGame(container) {
     strength: 0.92,
   });
 
+  // What this machine gets before a frame has been measured (render/display.js).
+  const device = readDevice();
+
   // ------------------------------------------------------------ renderer
   const renderer = new THREE.WebGLRenderer({
     antialias: false,          // MSAA comes from the composer's render target
     powerPreference: 'high-performance',
     stencil: false,
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, device.maxPixelRatio));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // PCFSoft costs a multiple of PCF per shadow lookup, over four cascades, on a
+  // GPU that is already the bottleneck.
+  renderer.shadowMap.type = device.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   // Neutral (Khronos PBR Neutral) preserves the chroma of the highlights; ACES
   // washed the sky's blue to white at this exposure range.
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -89,6 +96,8 @@ export function createGame(container) {
   scene.fog = new THREE.FogExp2(COLORS.fog, FOG_DENSITY);
 
   const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.5, VIEW_FAR);
+  camera.fov = fovForAspect(58, camera.aspect);
+  camera.updateProjectionMatrix();
   camera.position.set(0, 6, -10);
 
   // ambient light coming from the sky itself
@@ -105,10 +114,10 @@ export function createGame(container) {
   const csm = new CSM({
     camera,
     parent: scene,
-    cascades: 4,
-    maxFar: 190,
+    cascades: device.cascades,
+    maxFar: device.shadowFar,
     mode: 'practical',
-    shadowMapSize: 2048,
+    shadowMapSize: device.shadowMapSize,
     shadowBias: -0.0008,
     lightDirection: SUN_DIR.clone().negate().normalize(),
     lightIntensity: 4.4,
@@ -169,48 +178,54 @@ export function createGame(container) {
 
   const spray = createSpray(worldGroup, 1000);
   const trail = createTrail(worldGroup);
-  const snowfall = createSnowfall(scene, { count: 2400 });
+  const snowfall = createSnowfall(scene, { count: device.snowflakes });
 
   // ------------------------------------------------------ post-processing
   const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
     type: THREE.HalfFloatType,
-    samples: 4,                 // MSAA: essential for the cables and thin branches
+    samples: device.samples,    // MSAA: essential for the cables and thin branches
     colorSpace: THREE.LinearSRGBColorSpace,
   });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
 
   // ambient occlusion: it is what gives volume to the tracks, the trunks and
-  // the folds of the terrain, which without it look "stuck on" the snow
-  const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
-  gtao.output = GTAOPass.OUTPUT.Default;
-  gtao.blendIntensity = 0.85;
-  gtao.updateGtaoMaterial({
-    radius: 0.55,
-    distanceExponent: 1.2,
-    thickness: 1.0,
-    scale: 1.1,
-    samples: 16,
-    distanceFallOff: 1.0,
-    screenSpaceRadius: false,
-  });
-  // GTAO's gbuffer only ignores Points and Lines. Without this filter,
-  // transparent decals (the ski trail, the clouds) come in as a solid wall and
-  // draw a dark band of occlusion behind the player.
-  gtao.overrideVisibility = function () {
-    const cache = this._visibilityCache;
-    this.scene.traverse((object) => {
-      cache.set(object, object.visible);
-      if (object.isPoints || object.isLine) {
-        object.visible = false;
-      } else if (object.userData.noAO) {
-        object.visible = false;
-      } else if (object.material && object.material.transparent && object.material.depthWrite === false) {
-        object.visible = false;
-      }
+  // the folds of the terrain, which without it look "stuck on" the snow.
+  // On a machine that will never be able to afford it the pass is not built at
+  // all: even switched off it holds a depth and a normal target the size of the
+  // screen, and compiles shaders nobody is going to see.
+  let gtao = null;
+  if (device.quality >= 2) {
+    gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+    gtao.output = GTAOPass.OUTPUT.Default;
+    gtao.blendIntensity = 0.85;
+    gtao.updateGtaoMaterial({
+      radius: 0.55,
+      distanceExponent: 1.2,
+      thickness: 1.0,
+      scale: 1.1,
+      samples: 16,
+      distanceFallOff: 1.0,
+      screenSpaceRadius: false,
     });
-  };
-  composer.addPass(gtao);
+    // GTAO's gbuffer only ignores Points and Lines. Without this filter,
+    // transparent decals (the ski trail, the clouds) come in as a solid wall and
+    // draw a dark band of occlusion behind the player.
+    gtao.overrideVisibility = function () {
+      const cache = this._visibilityCache;
+      this.scene.traverse((object) => {
+        cache.set(object, object.visible);
+        if (object.isPoints || object.isLine) {
+          object.visible = false;
+        } else if (object.userData.noAO) {
+          object.visible = false;
+        } else if (object.material && object.material.transparent && object.material.depthWrite === false) {
+          object.visible = false;
+        }
+      });
+    };
+    composer.addPass(gtao);
+  }
 
   // sun rays coming through the treetops
   const godRays = new ShaderPass(GodRaysShader);
@@ -324,6 +339,12 @@ export function createGame(container) {
     camLook.copy(playerScene);
     camera.position.copy(camPos);
     camera.lookAt(camLook);
+
+    // The menu flyover draws the same mountain but not the run: the skier, the
+    // NPCs, the Yeti and the spray only cost anything once the descent starts.
+    // So a verdict reached on the menu is provisional — the tracker gets one
+    // more look at the game as it is actually played.
+    if (perf.level > 0) { perf.settled = false; perf.frames = 0; perf.accum = 0; perf.grace = 1.2; perf.window = 1.2; }
 
     hud.clearToasts();
     hud.showOverlay(null);
@@ -528,9 +549,20 @@ export function createGame(container) {
 
     // the field of view pulls with speed
     const targetFov = state.cameraMode === 1 ? 46 : 57 + speedN * 15 + (p.airborne ? 3 : 0);
-    fov = damp(fov, targetFov, 4, dt);
-    if (Math.abs(camera.fov - fov) > 0.01) {
-      camera.fov = fov;
+    applyFov(damp(fov, targetFov, 4, dt));
+  }
+
+  /**
+   * `fov` is the angle the shot was framed with, on a wide screen; what the
+   * camera gets is that angle fitted to the window it is really in. Keeping the
+   * design value in a variable of its own is what stops a portrait phone from
+   * feeding its own widened fov back into the damping.
+   */
+  function applyFov(designFov) {
+    fov = designFov;
+    const v = fovForAspect(fov, camera.aspect);
+    if (Math.abs(camera.fov - v) > 0.01) {
+      camera.fov = v;
       camera.updateProjectionMatrix();
     }
   }
@@ -562,18 +594,22 @@ export function createGame(container) {
   // -------------------------------------------------- qualidade adaptativa
   // GTAO costs ~35% of the frame. Instead of pinning a preset, it measures the first
   // real seconds and turns off whatever is most expensive if the sum doesn't close.
-  const perf = { frames: 0, accum: 0, level: 2, settled: false, grace: 1.5 };
+  const perf = { frames: 0, accum: 0, level: 2, settled: false, grace: 1.2, window: 1.2, tier: device.name };
 
   function setQualityLevel(level) {
     if (level === perf.level) return;
     perf.level = level;
-    gtao.enabled = level >= 2;
+    if (gtao) gtao.enabled = level >= 2;
     bloom.enabled = level >= 1;
     godRays.enabled = level >= 1;
     if (level === 0) {
-      renderer.setPixelRatio(1);
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1));
       composer.setPixelRatio?.(1);
       snowfall.setVisible(false);
+      // the cascades are the last big cost left: pull them in until they only
+      // cover what is close enough to be looked at
+      csm.maxFar = Math.min(csm.maxFar, 90);
+      csm.updateFrustums();
     }
   }
 
@@ -582,14 +618,19 @@ export function createGame(container) {
     if (perf.grace > 0) { perf.grace -= dt; return; }
     perf.frames++;
     perf.accum += dt;
-    if (perf.accum < 2.5) return;
+    if (perf.accum < perf.window) return;
     const fps = perf.frames / perf.accum;
     perf.frames = 0; perf.accum = 0;
+    perf.window = 2.5;      // the first verdict comes fast; the rest can take their time
     if (fps < 24) setQualityLevel(0);
-    else if (fps < 38) setQualityLevel(1);
+    else if (fps < 38) setQualityLevel(Math.min(perf.level, 1));
     else { perf.settled = true; return; }
     if (perf.level === 0) perf.settled = true;
   }
+
+  // The tier's opening bid. Everything above was built at full quality, so this
+  // is what actually switches the expensive passes off on a phone.
+  setQualityLevel(device.quality);
 
   // ------------------------------------------------------------- loop
   const clock = new THREE.Clock();
@@ -597,12 +638,47 @@ export function createGame(container) {
 
   function frame() {
     rafId = requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 1 / 20);
+    // A window that changed without a `resize` — an iOS rotation fires one
+    // before the new measurements are in — leaves the projection stretched for
+    // the rest of the run. Comparing two numbers a frame is cheaper than
+    // trusting the event.
+    syncSize();
+
+    const real = clock.getDelta();
+    // What the frame is worth in simulation: as many steps of at most 1/20 s as
+    // the time that really passed, up to the ceiling (loop.js).
+    const { steps, h } = planSteps(real);
+    const dt = steps > 0 ? steps * h : Math.min(real, MAX_STEP);
     state.elapsed += dt;
 
     snowMat.userData.uniforms.uTime.value = state.elapsed;
     foliageMat.userData.uniforms.uTime.value = state.elapsed;
     lens.uniforms.uTime.value = state.elapsed;
+
+    if (state.phase === 'menu') {
+      // the camera drifts slowly over the mountain on the menu
+      menuIdle(dt);
+      updateShadows();
+    } else if (!state.paused) {
+      // The simulation catches up in steps; the camera, the shadows, the HUD
+      // and the audio are drawn once, from where it ended up. Exponential
+      // damping composes, so one call with the whole dt lands exactly where the
+      // per-step calls would have — for a fraction of the work.
+      for (let i = 0; i < steps; i++) {
+        step(h);
+        if (state.phase === 'over') break;   // the results card doesn't catch up
+      }
+      updateCamera(dt);
+      updateShadows();
+      paintHud();
+      updateAudio(dt, {
+        speed: player.state.speed,
+        maxSpeed: PLAYER.maxSpeed,
+        carve: Math.sin(player.state.heading),
+        airborne: player.state.airborne,
+        crashed: player.state.crashed > 0,
+      });
+    }
 
     // sun rays and speed blur follow the camera and the player
     updateSunScreenPosition(SUN_DIR, camera, godRays.uniforms);
@@ -611,16 +687,11 @@ export function createGame(container) {
       : 0;
     lens.uniforms.uSpeed.value = damp(lens.uniforms.uSpeed.value, speedNorm, 4, dt);
 
-    if (state.phase === 'menu') {
-      // the camera drifts slowly over the mountain on the menu
-      menuIdle(dt);
-    } else if (!state.paused) {
-      step(dt);
-    }
-
-    if (state.phase === 'menu') updateShadows();
     sky.update(camera, dt);
     snowfall.update(camera, state.elapsed);
+    // measured against the clock, not against the simulation: the point is
+    // exactly the gap between the two
+    trackPerformance(real);
     composer.render();
   }
 
@@ -645,10 +716,7 @@ export function createGame(container) {
     camLook.set(x * 0.5, sceneY - 9, 34);
     camera.position.lerp(camPos, 1 - Math.exp(-1.6 * dt));
     camera.lookAt(camLook);
-    if (Math.abs(camera.fov - 54) > 0.05) {
-      camera.fov = damp(camera.fov, 54, 2, dt);
-      camera.updateProjectionMatrix();
-    }
+    if (Math.abs(fov - 54) > 0.05) applyFov(damp(fov, 54, 2, dt));
   }
 
   function step(dt) {
@@ -735,11 +803,11 @@ export function createGame(container) {
     emitSkiSpray(dt);
     spray.update(dt);
     trail.push(p.x, p.z, p.heading, p.crashed <= 0 && !p.airborne && state.phase === 'playing');
+  }
 
-    updateShadows();
-    updateCamera(dt);
-
-    // ------------------------------------------------------------- HUD
+  // ------------------------------------------------------------------- HUD
+  function paintHud() {
+    const p = player.state;
     hud.setStats({
       dist: p.travel, time: state.time, score: state.score, style: state.style,
     });
@@ -750,16 +818,6 @@ export function createGame(container) {
       active: yetiActive,
       distance: yeti.state.distance,
       danger: yetiActive ? clamp(1 - (yeti.state.distance - YETI.catchRadius) / 70, 0, 1) : 0,
-    });
-
-    trackPerformance(dt);
-
-    updateAudio(dt, {
-      speed: p.speed,
-      maxSpeed: PLAYER.maxSpeed,
-      carve: Math.sin(p.heading),
-      airborne: p.airborne,
-      crashed: p.crashed > 0,
     });
   }
 
@@ -776,14 +834,23 @@ export function createGame(container) {
     hud.toast(t('camera.changed', { mode: t(`camera.${CAMERA_MODES[state.cameraMode]}`) }), 0, '#cfe8ff');
   }
 
-  function onResize() {
-    const w = innerWidth, h = innerHeight;
+  let sizeW = 0, sizeH = 0;
+
+  /** Re-fits everything to the window, and only when the window really moved. */
+  function syncSize() {
+    const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+    if (w === sizeW && h === sizeH) return;
+    sizeW = w; sizeH = h;
+
     camera.aspect = w / h;
+    // the aspect decides the vertical angle: a portrait window keeps the
+    // horizontal view instead of turning into a telephoto (render/display.js)
+    camera.fov = fovForAspect(fov, camera.aspect);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     composer.setSize(w, h);
     bloom.setSize(w, h);
-    gtao.setSize(w, h);
+    gtao?.setSize(w, h);
     lens.uniforms.uResolution.value.set(w, h);
     csm.updateFrustums();
   }
@@ -804,7 +871,8 @@ export function createGame(container) {
       if (state.phase === 'playing' || state.phase === 'dying' || state.phase === 'over') start(state.mode);
     });
 
-    addEventListener('resize', onResize);
+    addEventListener('resize', syncSize);
+    addEventListener('orientationchange', syncSize);
 
     // audio can only start after a user gesture
     const unlock = () => {
@@ -835,10 +903,11 @@ export function createGame(container) {
     state, renderer, scene, camera,
     // exposed for poking at in the console
     player, yeti, npcs, props, lift, worldGroup, spray, csm, composer,
-    bloom, godRays, lens, gtao, hemi, fill, snowMat, propMat, foliageMat, sky, perf, setQualityLevel,
+    bloom, godRays, lens, gtao, hemi, fill, snowMat, propMat, foliageMat, sky, perf, device, setQualityLevel,
     dispose() {
       cancelAnimationFrame(rafId);
-      removeEventListener('resize', onResize);
+      removeEventListener('resize', syncSize);
+      removeEventListener('orientationchange', syncSize);
       terrain.dispose(); props.dispose(); lift.dispose();
       npcs.dispose(); yeti.dispose(); spray.dispose();
       trail.dispose(); snowfall.dispose(); sky.dispose();

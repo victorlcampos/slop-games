@@ -165,7 +165,34 @@ measured by reading the pixels of the rendered frame, not eyeballed.
 ### Adaptive quality
 GTAO costs ~35% of the frame. Instead of pinning a preset, the game measures the
 first real seconds and turns off whatever is most expensive if the sum doesn't
-close (GTAO → bloom and rays → pixel ratio).
+close (GTAO → bloom and rays → pixel ratio → the shadow cascades' reach).
+
+That measurement is a safety net, not a plan: it needs seconds of a bad
+framerate to react, and those are the seconds a player spends deciding the game
+is broken. So the machine is classified before the first frame
+(`render/display.js`): a phone starts without ambient occlusion, at 1.25× pixel
+ratio instead of the DPR 3 its screen asks for — nine times the fill rate for a
+picture nobody can tell apart at arm's length — with hard shadow filtering,
+1024-pixel cascades and a third of the snowflakes.
+
+### One second of game per second of clock
+The loop takes as many steps of at most 1/20 s as the frame really took, up to
+four (`loop.js`). The cap on a single step is what keeps the skier from
+tunnelling through a tree; taking it only once was what made a slow phone into a
+**slow-motion** game — six seconds of holding the controls covered 168 m at
+60 fps and 52 m at 8. Subdividing costs no rebalancing (smaller steps are the
+more accurate end of the same integration) and at 60 fps it is exactly one step
+of 1/60, as before.
+
+### The window it is really in
+`PerspectiveCamera.fov` is the vertical angle, so a portrait phone would keep
+58° of height and lose two thirds of the width: an 89° view across becomes 28°,
+a telephoto that reads as the game having zoomed in by itself. `fovForAspect`
+widens the vertical angle until the horizontal one comes back, up to 82° — past
+that it is a fisheye and half the mountain is in the frustum. The size is
+re-read once a frame rather than waiting on `resize`, which iOS fires on
+rotation before the new measurements are in, and the browser's own pinch zoom is
+refused outright: a magnified page cannot un-magnify itself from inside.
 
 ### Objects
 Everything instanced (`InstancedMesh` with a slot pool and a free list). The world
@@ -192,7 +219,8 @@ src/
   main.js             bootstrap and the wiring to the UI
   game.js             scene, light, post-processing, main loop
   config.js           constants + groundHeight (the terrain's source of truth)
-  input.js            keyboard and touch
+  loop.js             how much simulation one drawn frame is worth
+  input.js            keyboard and touch (and refusing the browser's zoom)
   audio.js            WebAudio synthesis
   hud.js              all the DOM
   i18n.js             the runtime dictionary (the static copy is inline in the template)
@@ -212,6 +240,7 @@ src/
   render/
     postfx.js         god rays and the lens pass
     atmosphere.js     aerial perspective (a patch on three's fog)
+    display.js        the fov for the window, and what the machine can afford
   fx/
     particles.js      snow spray and bursts
     snowfall.js       snowfall (animated in the vertex shader)

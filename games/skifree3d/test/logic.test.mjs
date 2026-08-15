@@ -22,6 +22,8 @@ import { createPlayer } from '../src/entities/player.js';
 import { createYeti } from '../src/entities/yeti.js';
 import { createProps, BAND } from '../src/world/props.js';
 import { input, releaseAll, initInput, onCommand, consumeJump } from '../src/input.js';
+import { planSteps, MAX_STEP, MAX_STEPS } from '../src/loop.js';
+import { fovForAspect, deviceTier, TIERS, MAX_FOV } from '../src/render/display.js';
 
 const STEP = 1 / 60;
 
@@ -248,6 +250,107 @@ scenario('the world follows the skier and lets go of what is behind', () => {
   check(far.length > 0, 'the mountain ran out of bands');
   check(far.length <= atStart.length + 2, `${far.length} bands alive against ${atStart.length} at the start`);
   check(Math.min(...far) * BAND > 3000, 'the bands from the top of the mountain were never released');
+});
+
+// ------------------------------------------------------- the frame's budget
+
+scenario('a slow frame is subdivided, not thrown away', () => {
+  // The old loop clamped dt to 1/20 and dropped the rest, so a phone drawing
+  // 6 fps ran the mountain at a third of real time — which is what "1 second
+  // takes more than 1 second" was.
+  const at = (fps) => planSteps(1 / fps);
+
+  const smooth = at(60);
+  check(smooth.steps === 1 && Math.abs(smooth.h - 1 / 60) < 1e-9,
+    `at 60 fps the loop took ${smooth.steps} steps of ${smooth.h.toFixed(4)}s`);
+  check(smooth.dropped === 0, 'a 60 fps frame lost simulation time');
+
+  for (const fps of [60, 30, 20, 12, 8, 5]) {
+    const { steps, h, dropped } = at(fps);
+    check(h <= MAX_STEP + 1e-9, `at ${fps} fps a single step was ${h.toFixed(3)}s`);
+    check(steps <= MAX_STEPS, `at ${fps} fps the frame asked for ${steps} steps`);
+    check(dropped < 1e-9, `at ${fps} fps the game lost ${(dropped * 1000).toFixed(0)} ms of its own time`);
+  }
+
+  // and the ceiling is a ceiling: past it the game slows down instead of
+  // spiralling into ever longer frames
+  const stall = planSteps(3);
+  check(stall.steps === MAX_STEPS && stall.dropped > 0,
+    `a 3 s frame asked for ${stall.steps} steps and ${stall.dropped.toFixed(2)}s were left over`);
+  check(planSteps(0).steps === 0 && planSteps(-1).steps === 0, 'a frame with no time in it still ran a step');
+});
+
+scenario('the skier covers the same ground however slow the machine is', () => {
+  // the real guard behind the arithmetic above: two machines, same mountain
+  const run = (fps, seconds) => {
+    const p = createPlayer(stage());
+    p.reset(0);
+    for (let t = 0; t < seconds; t += 1 / fps) {
+      const { steps, h } = planSteps(1 / fps);
+      for (let i = 0; i < steps; i++) p.update(h, { ramps: [], colliders: [] });
+    }
+    return p.state.travel;
+  };
+
+  const fast = run(60, 6);
+  const slow = run(8, 6);              // a phone in trouble
+  check(fast > 60, `six seconds at 60 fps only covered ${fast.toFixed(0)} m`);
+  check(Math.abs(slow - fast) / fast < 0.05,
+    `at 8 fps the run covered ${slow.toFixed(0)} m against ${fast.toFixed(0)} m at 60`);
+});
+
+// ---------------------------------------------------------- the window fit
+
+scenario('a portrait window widens the lens instead of zooming in', () => {
+  const wide = fovForAspect(58, 16 / 9);
+  check(wide === 58, `the design window changed the fov to ${wide.toFixed(1)}°`);
+  check(fovForAspect(58, 21 / 9) === 58, 'an ultrawide window widened the vertical fov as well');
+
+  // what the horizontal angle actually is, which is what the player sees
+  const horizontal = (fov, aspect) =>
+    (Math.atan(Math.tan((fov * Math.PI) / 360) * aspect) * 360) / Math.PI;
+
+  const design = horizontal(58, 16 / 9);
+  const phone = 9 / 19.5;
+  const before = horizontal(58, phone);
+  const after = horizontal(fovForAspect(58, phone), phone);
+  check(before < design * 0.4, `the untouched portrait fov was already ${before.toFixed(0)}° wide`);
+  check(after > before * 1.4, `portrait went from ${before.toFixed(0)}° to ${after.toFixed(0)}° across`);
+  check(fovForAspect(58, phone) <= MAX_FOV, 'the vertical fov blew past the fisheye ceiling');
+
+  // and it never narrows: a narrower window can only ever see more vertically
+  let prev = 58;
+  for (const aspect of [16 / 9, 4 / 3, 1, 3 / 4, 9 / 16]) {
+    const v = fovForAspect(58, aspect);
+    check(v >= prev - 1e-9, `aspect ${aspect.toFixed(2)} pulled the fov back to ${v.toFixed(1)}°`);
+    prev = v;
+  }
+});
+
+scenario('a phone is not offered a desktop of post-processing', () => {
+  const phone = deviceTier({ coarse: true, minSide: 390, cores: 6 });
+  const tablet = deviceTier({ coarse: true, minSide: 834, cores: 8 });
+  const laptop = deviceTier({ coarse: false, minSide: 800, cores: 8 });
+  const quad = deviceTier({ coarse: false, minSide: 900, cores: 4 });
+  const netbook = deviceTier({ coarse: false, minSide: 768, cores: 2 });
+  check(phone === 0, `a 390 px touch screen landed on tier ${phone}`);
+  check(tablet === 1, `an iPad landed on tier ${tablet}`);
+  check(laptop === 2, `a laptop landed on tier ${laptop}`);
+  check(quad === 2, `a four-core desktop was demoted to tier ${quad} before a frame was measured`);
+  check(netbook === 1, `a two-core machine landed on tier ${netbook}`);
+
+  // ambient occlusion is ~35% of the frame: the phone must not start with it on
+  check(TIERS[phone].quality < 2, 'the phone starts with the ambient occlusion pass');
+  check(TIERS[laptop].quality === 2, 'the desktop lost the ambient occlusion pass');
+  for (let i = 1; i < TIERS.length; i++) {
+    check(TIERS[i].maxPixelRatio >= TIERS[i - 1].maxPixelRatio
+      && TIERS[i].snowflakes >= TIERS[i - 1].snowflakes
+      && TIERS[i].shadowMapSize >= TIERS[i - 1].shadowMapSize,
+      `tier ${i} (${TIERS[i].name}) asks for less than tier ${i - 1}`);
+  }
+  // DPR 3 on a phone is nine times the fill rate of DPR 1, for a picture nobody
+  // can tell apart at arm's length
+  check(TIERS[0].maxPixelRatio <= 1.5, `a phone still renders at ${TIERS[0].maxPixelRatio}x`);
 });
 
 // ----------------------------------------------------------------- controls

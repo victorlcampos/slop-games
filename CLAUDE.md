@@ -243,6 +243,31 @@ Both halves are pure functions with unit tests (`measure(..., { landscape: true 
 and `turnedPoint`), because "the game went deaf after a rotation" is not
 something you want to debug on a phone.
 
+### And in 3D, the same phone zooms the camera in
+
+A three game has no `slopkit/viewport` — three's renderer owns the canvas — but
+it meets the portrait phone all the same, and there the failure is quieter:
+**`PerspectiveCamera.fov` is the VERTICAL angle.** Keep the 58° the game was
+framed with and a 9:19.5 screen keeps 58° of *height* and throws away two thirds
+of the width — an 89° view across becomes 28°, which is a telephoto lens. On
+screen that is not "the window is narrow", it is **the game zoomed in by
+itself**, and it happens the instant the phone is rotated.
+
+The fit is to widen the vertical angle until the horizontal one comes back
+(`fovForAspect`, in SkiFree's `render/display.js`), with a ceiling: matching the
+design's 89° across in portrait would ask for a 130° vertical, which is a
+fisheye that also drags half the mountain into the frustum. 82° buys most of the
+view back at a price the phone can pay.
+
+Two more things a phone does that a monitor doesn't. **It pinches**, and a page
+that has been magnified by the browser cannot un-magnify itself — the canvas
+comes back blurry and the HUD is pushed off screen, with nothing inside the game
+to undo it; `maximum-scale=1` is ignored by iOS, so the gestures themselves have
+to be refused. And **it fires `resize` on rotation before the new measurements
+are in**, which leaves the projection stretched for the rest of the run: compare
+`innerWidth`/`innerHeight` against the last size once a frame and stop trusting
+the event.
+
 ### Who uses what
 
 The games share the build and the test scaffold. Beyond that, each adopted
@@ -293,6 +318,20 @@ design work, not style.
 (Careful with the easy guess: the exponential `damp` SkiFree uses everywhere —
 `lerp(a, b, 1 - exp(-λ·dt))` — **is** invariant to dt subdivision, on purpose.
 The problem is only in the velocity integration.)
+
+But the kit's loop does two things, and only one of them is the fixed step.
+**The other is catching up, and every game owes it that** — including the two
+that keep their own integration. A loop that writes `dt = min(elapsed, 1/20)`
+throws the rest of the frame away: on a phone drawing 8 frames a second the
+mountain lived a third of real time, which reads on screen as *the game is
+stuck*, not as *the phone is slow* — the clock limps, the skier crawls, and
+nothing looks broken enough to explain it. Six seconds of holding the controls
+covered 168 m at 60 fps and 52 m at 8. The cap is right (a single huge step
+tunnels the skier through a tree); what was missing was taking it more than
+once. Subdividing the frame instead of discarding it is invariant where the
+fixed step is not — smaller steps are the *more* accurate end of the same
+integration — so it costs no rebalancing, and at 60 fps it is exactly what the
+loop already did.
 
 ---
 
@@ -832,10 +871,10 @@ The suite used to drive real Chrome through puppeteer. It does not any more, and
 the reason is worth keeping: **CI has no graphics card.**
 
 With software WebGL (SwiftShader) SkiFree draws about **one frame every three
-seconds**, and because `dt` is capped at 1/20 s a frame so the physics cannot
-explode over a long one, the mountain simulates at roughly **2% of real time**.
-Two scenarios written on a laptop held the controls for two and a half seconds
-and then read the instruments:
+seconds**, and because a frame can only ever carry so much physics — four steps
+of 1/20 s, or the next frame is worse than the last one — the mountain simulates
+at under **7% of real time**. Two scenarios written on a laptop held the controls
+for two and a half seconds and then read the instruments:
 
 ```
 ✗ a run starts and the mountain actually moves

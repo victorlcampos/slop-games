@@ -48,7 +48,32 @@ export function initInput(target = window) {
     if (document.hidden) releaseAll();
   });
 
+  lockZoom();
   initTouch();
+}
+
+/**
+ * A game is not a document, and a phone browser does not know that: two fingers
+ * on the screen while turning, or a double tap on the jump zone, and Safari
+ * magnifies the page. The canvas comes back blurry and three times too close,
+ * the HUD is pushed off the visible area, and nothing the player can do inside
+ * the game undoes it — which is exactly what "it zoomed in by itself" is.
+ *
+ * `maximum-scale=1` in the meta is not enough (iOS has ignored it since iOS 10),
+ * so the gestures themselves are refused: `gesture*` is Safari's pinch, and a
+ * `touchstart` carrying a second finger is everybody else's.
+ */
+function lockZoom() {
+  const doc = typeof document !== 'undefined' ? document : null;
+  if (!doc || !doc.addEventListener) return;
+  const stop = (e) => e.preventDefault();
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    doc.addEventListener(type, stop, { passive: false });
+  }
+  doc.addEventListener('dblclick', stop, { passive: false });
+  doc.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
 }
 
 export function releaseAll() {
