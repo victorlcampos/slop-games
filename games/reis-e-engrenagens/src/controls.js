@@ -38,18 +38,31 @@ export function createInput(canvas, vp, on) {
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // Driving is a key you *hold*, not a key you press, so the set of what is
+  // currently down has to be kept — `keydown` repeats are the operating system's
+  // idea of a repeat rate, not the game's.
+  const held = new Set();
   const key = (e) => {
+    held.add(e.code);
     if (on.key && on.key(e.code, e)) e.preventDefault();
   };
+  const release = (e) => held.delete(e.code);
+  // a window that loses focus mid-drive would otherwise drive forever
+  const clear = () => held.clear();
   window.addEventListener('keydown', key);
+  window.addEventListener('keyup', release);
+  window.addEventListener('blur', clear);
 
   return {
+    held,
     dispose() {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key);
+      window.removeEventListener('keyup', release);
+      window.removeEventListener('blur', clear);
     },
   };
 }

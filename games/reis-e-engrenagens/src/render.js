@@ -7,11 +7,11 @@
 // dropped, against the real viewport, so they hug the edges of the screen the
 // player actually has and stay the same size on a phone and a monitor.
 
-import { BASE_Y, CELL, COLS, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS } from './config.js';
+import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS } from './config.js';
 import { MATERIALS, material } from './materials.js';
 import { WEAPONS } from './weapons.js';
 import { drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
-import { button, dockLayout, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
+import { button, dockLayout, driveLayout, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
 
 const TAU = Math.PI * 2;
@@ -41,6 +41,16 @@ export function drawField(ctx, view) {
       loaded: match.turn === side && !match.flying(),
       time,
     });
+    // a puff where it ran into something it could not climb
+    const L = match.launchers[side];
+    if (L.blocked > 0) {
+      ctx.save();
+      ctx.globalAlpha = L.blocked * 2;
+      ctx.beginPath();
+      ctx.arc(L.x + L.dir * 26, L.y - 14, 7, 0, TAU);
+      ink(ctx, '#e8dcc0', 2);
+      ctx.restore();
+    }
   }
 
   // the ghost of the last shot each side took: the only aiming aid in the game,
@@ -73,10 +83,11 @@ function drawCastle(ctx, match, side, faction, fx, time) {
   const castle = match.castles[side];
   for (const b of castle.blocks()) {
     const rect = castle.rect(b.c, b.r);
-    // the top of a column gets the decorated lid — battlements, a shingle roof,
-    // a riveted cap. It is what turns a stack of squares into architecture.
-    const seat = match.launchers[side].seat;
-    const top = !castle.at(b.c, b.r + 1) && !(seat && seat.c === b.c && seat.r === b.r);
+    // The top of a column gets the decorated lid — battlements, a shingle roof,
+    // a riveted cap. It is what turns a stack of squares into architecture, and
+    // it is skipped under the siege engine, which is already standing there.
+    const gunCol = Math.floor((match.launchers[side].x - castle.baseX) / CELL);
+    const top = !castle.at(b.c, b.r + 1) && b.c !== gunCol;
     drawBlock(ctx, b, rect, { faction, top });
     if (b.fire > 0 && Math.random() < 0.5) fx.flame(rect.x + rect.w / 2, rect.y + 4);
     if (b.rust > 0 && Math.random() < 0.15) fx.rust(rect.x + rect.w / 2, rect.y + rect.h / 2);
@@ -272,6 +283,28 @@ export function drawBattleHud(ctx, vp, state) {
     });
     rects.push({ ...r, kind: 'weapon' });
   }
+
+  // --- the drive pads and the tank they are spending
+  const L = match.launchers.player;
+  const canDrive = !match.over && match.turn === 'player' && !match.flying() && phase === 'aim';
+  const pads = driveLayout(vp.W, vp.H);
+  const fuel = L.fuel / DRIVE_FUEL;
+  for (const r of pads) {
+    const dead = !canDrive || L.fuel <= 0;
+    panel(ctx, r.x, r.y, r.w, r.h, {
+      fill: dead ? 'rgba(24,22,28,0.5)' : state.driving === r.dir ? 'rgba(232,187,74,0.92)' : 'rgba(30,27,36,0.86)',
+      stroke: state.driving === r.dir ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.14)',
+      r: 9,
+    });
+    label(ctx, r.dir < 0 ? '◀' : '▶', r.x + r.w / 2, r.y + r.h / 2 - 4, {
+      size: 22, align: 'center', color: dead ? 'rgba(240,232,214,0.35)' : state.driving === r.dir ? '#2a2210' : '#f2e7d0',
+    });
+    rects.push({ ...r, kind: 'drive' });
+  }
+  const fx = pads[0].x;
+  const fw = pads[1].x + pads[1].w - fx;
+  label(ctx, t('hud.fuel'), fx, pads[0].y - 16, { size: 11, weight: 600, color: '#b9b0a0' });
+  meter(ctx, fx, pads[0].y - 10, fw, 7, fuel, fuel > 0.35 ? '#6fd36a' : '#e8a24a');
 
   // --- the gauge and what to do next
   if (!match.over && match.turn === 'player' && !match.flying()) {

@@ -35,8 +35,8 @@ export const dict = {
     pt: 'Você recebe moedas e um terreno. Compre paredes, empilhe, ponha seu rei onde você acredita — e depois vocês se revezam jogando coisas um no outro até uma coroa ficar debaixo do entulho.',
   },
   'menu.controls': {
-    en: 'Drag to aim · click once to start the power gauge, again to fire · 1-4 pick a weapon · arrows nudge the angle',
-    pt: 'Arraste para mirar · clique uma vez para abrir a barra de força, de novo para disparar · 1-4 troca de arma · setas ajustam o ângulo',
+    en: 'Left and right drive · up and down aim · space opens the power gauge and fires · 1-4 pick a munition',
+    pt: 'Esquerda e direita andam · cima e baixo miram · espaço abre a barra de força e dispara · 1-4 troca de munição',
   },
 
   // ---------------------------------------------------------- the workshop
@@ -73,6 +73,8 @@ export const dict = {
   'turn.flying': { en: '…', pt: '…' },
   'hud.wind': { en: 'wind', pt: 'vento' },
   'hud.power': { en: 'power', pt: 'força' },
+  'hud.fuel': { en: 'fuel', pt: 'combustível' },
+  'hud.tapDrive': { en: 'hold ◀ ▶ to drive · drag to aim', pt: 'segure ◀ ▶ para andar · arraste para mirar' },
   'hud.angle': { en: 'angle', pt: 'ângulo' },
   'hud.turn': { en: 'turn {n}', pt: 'turno {n}' },
   'hud.tapAim': { en: 'drag to aim', pt: 'arraste para mirar' },

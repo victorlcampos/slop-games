@@ -32,10 +32,19 @@ function noise(dur, { gain = 0.3, freq = 900, q = 0.7, delay = 0, type = 'lowpas
   src.stop(t + dur + 0.05);
 }
 
+let rollGate = 0;
+
 export const sfx = {
   /** The gauge ticking up: a pitch that follows the bar. */
   tick(power) {
     sound.tone(320 + power * 6, 0.03, { type: 'square', gain: 0.05 });
+  },
+
+  /** The engine driving: a low grind that only fires every few frames. */
+  roll(fuel) {
+    if (rollGate-- > 0) return;
+    rollGate = 5;
+    sound.tone(70 + (fuel % 40), 0.06, { type: 'square', gain: 0.045 });
   },
 
   launch(weaponId) {

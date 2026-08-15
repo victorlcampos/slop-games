@@ -13,8 +13,9 @@
 // every turn, because a gunner who has watched two of his own shells land does
 // know where the third one goes.
 
-import { clamp, other } from './config.js';
+import { CELL, clamp, other } from './config.js';
 import { ARSENAL, WEAPONS } from './weapons.js';
+import { gunSeat } from './structure.js';
 
 // Coarse first, then one cell of the grid explored properly. A flat search fine
 // enough to land a shell would be about eight thousand ghost shots a turn; this
@@ -81,6 +82,22 @@ export function planShot(match, side, skill = 0.6, rng = match.rng) {
     angle: clamp(best.angle + (rng() * 2 - 1) * 8 * wobble, 8, 88),
     power: clamp(best.power + (rng() * 2 - 1) * 10 * wobble, 14, 100),
   };
+}
+
+/**
+ * Which way the enemy drives before it aims.
+ *
+ * It wants the high ground of its own castle, and it re-wants it every turn —
+ * so shoot the tower out from under its engine and you will watch it spend the
+ * next turn climbing back up whatever is left, which is a turn it did not spend
+ * shooting at you. That is the whole of its road sense, and it is enough: the
+ * seat is the only position from which its own battlements never eat a shot.
+ */
+export function planDrive(match, side) {
+  const L = match.launchers[side];
+  const seat = gunSeat(match.castles[side], match.terrain);
+  if (Math.abs(L.x - seat.x) < CELL * 0.45) return 0;
+  return Math.sign(seat.x - L.x);
 }
 
 /** The cell it is actually trying to hit: the king, wherever he ended up. */

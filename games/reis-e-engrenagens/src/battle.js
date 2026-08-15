@@ -7,13 +7,13 @@
 // with no canvas anywhere (CLAUDE.md, section 6).
 
 import {
-  GRAVITY, GUN_HEIGHT, MAX_SEG, MIN_POWER, POWER_SPEED,
-  TURN_LIMIT, W, WIND_MAX, clamp, makeRng, other,
+  CASTLE_X, CELL, CLIMB_COST, CLIMB_LIMIT, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, LEASH,
+  MAX_SEG, MIN_POWER, POWER_SPEED, TURN_LIMIT, W, WIND_MAX, clamp, makeRng, other,
 } from './config.js';
 import { material } from './materials.js';
 import { ARSENAL, WEAPONS, craterRadius, damageAgainst, groundBonus, loadout } from './weapons.js';
 import { FLOOR_Y, buildTerrain } from './terrain.js';
-import { createCastle, grounded, gunSeat, settle } from './structure.js';
+import { createCastle, grounded, gunSeat, settle, surfaceAt } from './structure.js';
 
 const DEG = Math.PI / 180;
 
@@ -42,8 +42,8 @@ export function createMatch(cfg) {
     ammo: { player: loadout(faction), enemy: loadout(other2(faction)) },
     weapon: { player: ARSENAL[faction][0], enemy: ARSENAL[other2(faction)][0] },
     launchers: {
-      player: { side: 'player', x: 0, y: 0, angle: 45, recoil: 0, dir: 1, seat: null },
-      enemy: { side: 'enemy', x: 0, y: 0, angle: 45, recoil: 0, dir: -1, seat: null },
+      player: { side: 'player', x: 0, y: 0, angle: 45, recoil: 0, dir: 1, fuel: DRIVE_FUEL, wheel: 0, blocked: 0 },
+      enemy: { side: 'enemy', x: 0, y: 0, angle: 45, recoil: 0, dir: -1, fuel: DRIVE_FUEL, wheel: 0, blocked: 0 },
     },
     turn: 'player',
     turnCount: 0,
@@ -56,6 +56,10 @@ export function createMatch(cfg) {
   };
 
   match.wind = rollWind(rng);
+  for (const side of ['player', 'enemy']) {
+    const seat = gunSeat(match.castles[side], terrain);
+    match.launchers[side].x = seat.x;
+  }
   restand(match);
 
   // ------------------------------------------------------------------ api
@@ -112,10 +116,60 @@ export function createMatch(cfg) {
 
   match.flying = () => match.shots.length > 0;
 
+  /** How far this engine may wander from its own plot. */
+  match.leash = (side) => ({
+    min: CASTLE_X[side] - LEASH,
+    max: CASTLE_X[side] + COLS * CELL + LEASH,
+  });
+
+  /**
+   * Drive, in the shape Gunbound gave it: hold a direction, watch the fuel go
+   * down, and stop when it runs out or the wall in front is too tall to climb.
+   *
+   * Returns how far it actually moved, which is not always what was asked —
+   * running out of fuel mid-step and running into a step are both normal.
+   */
+  match.drive = (side, dx) => {
+    const L = match.launchers[side];
+    if (match.over || match.flying() || !dx) return 0;
+    if (L.fuel <= 0) return 0;
+
+    const castle = match.castles[side];
+    const bounds = match.leash(side);
+    const want = clamp(L.x + dx, bounds.min, bounds.max);
+    const step = want - L.x;
+    if (!step) return 0;
+
+    const ny = surfaceAt(castle, match.terrain, want);
+    const climb = L.y - ny; // positive is uphill
+    if (climb > CLIMB_LIMIT) {
+      L.blocked = 0.4;
+      return 0;
+    }
+    const cost = Math.abs(step) + Math.max(0, climb) * CLIMB_COST;
+    if (cost > L.fuel) {
+      // spend what is left on a shorter step rather than refusing the whole thing
+      const fraction = L.fuel / cost;
+      L.fuel = 0;
+      L.x += step * fraction;
+      L.y = surfaceAt(castle, match.terrain, L.x);
+      L.wheel += step * fraction * 0.09;
+      return step * fraction;
+    }
+    L.fuel -= cost;
+    L.x = want;
+    L.y = ny;
+    L.wheel += step * 0.09;
+    return step;
+  };
+
   /** One physics step. Call it with the loop's fixed `h` and nothing else. */
   match.tick = (h) => {
     if (match.over) return;
-    for (const L of Object.values(match.launchers)) L.recoil = Math.max(0, L.recoil - h * 3);
+    for (const L of Object.values(match.launchers)) {
+      L.recoil = Math.max(0, L.recoil - h * 3);
+      L.blocked = Math.max(0, L.blocked - h);
+    }
 
     for (let i = match.shots.length - 1; i >= 0; i--) {
       const s = match.shots[i];
@@ -177,12 +231,11 @@ function rollWind(rng) {
 export function restand(match) {
   for (const side of ['player', 'enemy']) {
     const L = match.launchers[side];
-    const seat = gunSeat(match.castles[side], match.terrain);
-    const dropped = L.seat && seat.y > L.seat.y + 1;
-    L.seat = seat;
-    L.x = seat.x;
-    L.y = seat.y;
-    if (dropped) match.say('gunfell', { side, x: seat.x, y: seat.y });
+    // it keeps where it drove to; only the height under it is re-read
+    const y = surfaceAt(match.castles[side], match.terrain, L.x);
+    const dropped = L.y && y > L.y + 1;
+    L.y = y;
+    if (dropped) match.say('gunfell', { side, x: L.x, y });
   }
 }
 
@@ -457,6 +510,8 @@ function endTurn(match) {
 
   match.turn = other(match.turn);
   match.wind = rollWind(match.rng);
+  // a full tank every turn: fuel is a per-turn allowance, not a resource to hoard
+  match.launchers[match.turn].fuel = DRIVE_FUEL;
   match.say('turn', { side: match.turn, wind: match.wind });
 }
 

@@ -10,7 +10,7 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { CASTLE_X, CELL, COLS, GAUGE_SPEED, GUN_HEIGHT, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
+import { CASTLE_X, CELL, COLS, DRIVE_SPEED, GAUGE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createMatch } from './battle.js';
 import { buildTerrain } from './terrain.js';
@@ -20,7 +20,7 @@ import { createCamera, focusOf } from './camera.js';
 import { createCastle, gunSeat } from './structure.js';
 import { foeCastle } from './castles.js';
 import { createWorkshop, suggestBlueprint } from './workshop.js';
-import { planShot, skillNow } from './ai.js';
+import { planDrive, planShot, skillNow } from './ai.js';
 import { freshRun, levelOf, normalizeRun, reward } from './run.js';
 import { drawAim, drawBattleHud, drawField, drawShopGrid, drawShopHud } from './render.js';
 import { drawBlock, drawLauncher } from './art.js';
@@ -77,6 +77,8 @@ let messageT = 0;
 let shake = 0;
 let time = 0;
 let overT = 0;
+/** -1, 0 or 1: which way the thumb is holding the engine. */
+let driving = 0;
 const enemy = { stage: 'idle', t: 0, plan: null };
 
 const seedOf = (r) => 101 + r.level * 13 + (r.faction === 'knights' ? 0 : 5);
@@ -226,7 +228,7 @@ function shopCellAt(x, y) {
   return shop.castle.cellAt(p.x, p.y);
 }
 
-createInput(canvas, vp, {
+const input = createInput(canvas, vp, {
   down(x, y) {
     sound.resume();
     if (screen === 'shop') {
@@ -245,7 +247,11 @@ createInput(canvas, vp, {
       return;
     }
     if (screen !== 'battle' || !match) return;
-    if (hit(hudRects, x, y)) return;
+    const r = hit(hudRects, x, y);
+    if (r) {
+      if (r.kind === 'drive') driving = r.dir;
+      return;
+    }
     if (match.over || match.turn !== 'player' || match.flying()) return;
     if (phase === 'aim') aimTowards(x, y);
   },
@@ -262,6 +268,7 @@ createInput(canvas, vp, {
   },
 
   up(x, y) {
+    driving = 0;
     if (screen !== 'battle' || !match) return;
     if (hit(hudRects, x, y)) {
       const r = hit(hudRects, x, y);
@@ -292,14 +299,17 @@ createInput(canvas, vp, {
       }
       if (phase === 'aim' && match.turn === 'player') {
         const L = match.launchers.player;
-        if (code === 'ArrowUp' || code === 'ArrowLeft') {
+        if (code === 'ArrowUp' || code === 'KeyW') {
           match.aim('player', L.angle + 1);
           return true;
         }
-        if (code === 'ArrowDown' || code === 'ArrowRight') {
+        if (code === 'ArrowDown' || code === 'KeyS') {
           match.aim('player', L.angle - 1);
           return true;
         }
+        // left and right are the engine, not the angle — the layout every
+        // artillery game with a mobile has used since Gunbound
+        if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD') return true;
       }
       const n = /^Digit([1-4])$/.exec(code);
       if (n) {
@@ -384,6 +394,18 @@ function update(h) {
   else cam.follow(menuFocus(), viewW, h);
 
   if (screen !== 'battle' || !match) return;
+
+  // the engine drives while a pad or an arrow is held, and only before the
+  // gauge is open: once you have committed to a power you have committed
+  if (phase === 'aim' && match.turn === 'player' && !match.flying() && !match.over) {
+    const keys = (input.held.has('ArrowLeft') || input.held.has('KeyA') ? -1 : 0) +
+      (input.held.has('ArrowRight') || input.held.has('KeyD') ? 1 : 0);
+    const dir = keys || driving;
+    if (dir) {
+      const moved = match.drive('player', dir * DRIVE_SPEED * h);
+      if (moved) sfx.roll(match.launchers.player.fuel);
+    }
+  }
 
   if (phase === 'charging' && match.turn === 'player' && !match.flying()) {
     gaugeT += h;
@@ -508,7 +530,7 @@ function draw() {
   ctx.restore();
 
   if (screen === 'battle' && match) {
-    hudRects = drawBattleHud(ctx, v, { match, level, phase, power });
+    hudRects = drawBattleHud(ctx, v, { match, level, phase, power, driving });
   } else if (screen === 'shop') {
     hudRects = drawShopHud(ctx, v, shop, level, { message, foe: foePreview, foeFaction: foeFaction() });
   } else {
@@ -615,5 +637,9 @@ window.__game = {
   },
   get shop() {
     return shop;
+  },
+  /** which way the engine is being held, for when a drive pad stops answering */
+  get driving() {
+    return driving;
   },
 };

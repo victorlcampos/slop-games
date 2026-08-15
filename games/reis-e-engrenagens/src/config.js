@@ -55,6 +55,36 @@ export const MIN_POWER = 12;
 /** How high above the block it stands on a siege engine's pivot sits. */
 export const GUN_HEIGHT = 30;
 
+/**
+ * Driving, in the shape Gunbound gave it: a tank of fuel per turn, spent by the
+ * pixel, and more of it going uphill than along the flat.
+ *
+ * The numbers are chosen so that one turn's fuel is about a castle and a half of
+ * travel — enough to get out from behind your own wall or up onto a tower, and
+ * nowhere near enough to drive across the valley. `LEASH` is how far off its own
+ * plot an engine may wander; past that it is not defending a castle any more.
+ */
+export const DRIVE_FUEL = 260;
+export const DRIVE_SPEED = 86;
+export const CLIMB_COST = 1.8;
+/**
+ * A step up taller than this is a wall, not a slope.
+ *
+ * Three cells, and the number was found by getting it wrong twice. Descending
+ * has never been limited — it is a fall, and falls do not need permission — so
+ * any limit is asymmetric, and a strict one strands the engine wherever it
+ * rolled down to. At one cell the *default* castle was a trap: its chamber is a
+ * one-storey notch between two four-storey towers, and the first arrow key a new
+ * player presses drove the trebuchet into it for good.
+ *
+ * What stops a player abusing the generous limit is not the limit, it is
+ * `CLIMB_COST`: climbing three cells costs about four fifths of a full tank, so
+ * getting back up your own battlements is a whole turn's movement and a real
+ * decision. Four cells is still a wall.
+ */
+export const CLIMB_LIMIT = CELL * 3.15;
+export const LEASH = 180;
+
 export const KING_HP = 120;
 
 /**

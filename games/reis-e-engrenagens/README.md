@@ -8,11 +8,12 @@ turns lobbing things at each other until one of them is under the rubble.
 Half Gunbound, half Angry Birds: the aiming is an artillery duel with wind and a
 power gauge, and what you are aiming at is a structure that falls over.
 
-**The siege engine stands on your castle**, on top of its tallest column. Build
-higher and you shoot further — and the tower holding your gun up is the most
-obvious thing on the field for them to knock down. The valley between the two
-plots is nearly twice a screen wide, so the shell leaves the picture and the
-camera goes with it.
+**The siege engine stands on your castle**, on top of its tallest column, **and
+it drives** — a tank of fuel per turn, spent by the pixel, and more of it going
+uphill. Build higher and you shoot further; drive down behind your own wall and
+you are safe and blind. The tower holding your gun up is the most obvious thing
+on the field for them to knock down. The valley between the two plots is nearly
+twice a screen wide, so the shell leaves the picture and the camera goes with it.
 
 ## How to play
 
@@ -35,9 +36,12 @@ is the whole game.
 
 **The battle.** One shot each, alternating.
 
-1. **Aim** — drag on the field, or hover with a mouse. Arrow keys nudge a degree.
-2. **Tap** — the power gauge opens and starts sweeping.
-3. **Tap again** — it fires at whatever the gauge was reading.
+1. **Drive** — hold ◀ ▶ on screen, or the left and right arrows. The fuel bar is
+   the whole of your movement for this turn, and once the gauge is open you have
+   committed and cannot move again.
+2. **Aim** — drag on the field, or hover with a mouse. Up and down nudge a degree.
+3. **Tap** — the power gauge opens and starts sweeping.
+4. **Tap again** — it fires at whatever the gauge was reading.
 
 At full power a shot barely carries the width of the valley, so the top of the
 gauge is a real decision and not a default.
@@ -63,11 +67,15 @@ crater; do the same under an iron one and it hangs there like a bridge. What
 falls deals damage to what it lands on — which is how a tower you undermined
 kills the king it was built to protect.
 
-**Where the gun stands is a design decision.** It always takes the tallest
-column, which is the only seat from which even a four-degree shot clears your
-own battlements — so a tall thin tower buys range and hands them a target, and
-a low broad castle keeps the gun safe and short. Undermine theirs and the engine
-comes down with the tower it was riding.
+**Where the gun stands is a design decision, and then a driving decision.** It
+*starts* on the tallest column, which is the only seat from which even a
+four-degree shot clears your own battlements — so a tall thin tower buys range
+and hands them a target, and a low broad castle keeps the gun safe and short.
+From there it is yours to move. Descending is free (it is a fall); climbing is
+limited to three cells and costs nearly a whole tank, so getting back up your own
+battlements is a turn's movement and a real decision. Undermine theirs and the
+engine comes down with the tower it was riding, and spends its next turn
+climbing back onto whatever is left — a turn it did not spend shooting at you.
 
 **The king is a cell in the same grid as the walls.** Not a special case with
 its own code path: support, collapse, blast falloff and crushing all treat him

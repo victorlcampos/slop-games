@@ -258,17 +258,35 @@ export function settle(castle, terrain) {
 }
 
 /**
- * Where the siege engine stands: on top of the tallest column of its own castle.
+ * The height of whatever a siege engine would be standing on at a given x —
+ * the top of that column of the castle, or the ground if the column is empty.
  *
- * "Tallest" is not a preference, it is the thing that makes the shot legal. The
- * engine fires from a pivot a little above the block it stands on, so as long as
- * nothing in the castle is higher, even a four-degree shot clears its own walls.
- * Put it anywhere else and the player's own battlements eat every low shot.
+ * This is what makes driving legible: the engine is always on top of something,
+ * so a hole blown in the plot is a dip it can roll into and a tower is a step it
+ * has to climb.
+ */
+export function surfaceAt(castle, terrain, x) {
+  const c = Math.floor((x - castle.baseX) / CELL);
+  if (c >= 0 && c < COLS) {
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (castle.at(c, r)) return BASE_Y - (r + 1) * CELL;
+    }
+  }
+  return terrain ? terrain.minIn(x - 15, x + 15) : BASE_Y;
+}
+
+/**
+ * Where the siege engine starts: on top of the tallest column of its own castle.
  *
- * The consequence is the best part: **build higher and you shoot further**, and
- * the tower holding your gun up is the most obvious thing on the field to
- * knock down. Ties go to the column nearest the enemy, so a gun on a flat
- * castle still has a clear line rather than firing over its own roof.
+ * "Tallest" is not a preference, it is the only seat that is unconditionally
+ * safe: the engine fires from a pivot a little above the block it stands on, so
+ * with nothing in the castle higher, even a four-degree shot clears its own
+ * walls. Start it anywhere else and the player's own battlements eat the first
+ * shot before they have worked out why.
+ *
+ * From there it is the player's problem — they can drive it somewhere worse, and
+ * driving it somewhere better is most of what the fuel is for. Ties go to the
+ * column nearest the enemy.
  */
 export function gunSeat(castle, terrain) {
   const towardsFoe = castle.side === 'player' ? 1 : -1;
@@ -284,6 +302,11 @@ export function gunSeat(castle, terrain) {
       }
     }
     if (top < 0) continue;
+    // it will not be parked on the crown: a column whose highest cell is the
+    // king is not a seat, however tall it is. The player can still drive it over
+    // him — that is their business — but nobody starts a siege standing on him.
+    const highest = castle.at(c, top);
+    if (highest && highest.m === 'king') continue;
     const forward = towardsFoe > 0 ? c > bestCol : c < bestCol;
     if (top > bestTop || (top === bestTop && forward)) {
       bestTop = top;

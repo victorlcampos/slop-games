@@ -9,14 +9,14 @@ import { scenario, check, run } from 'slopkit/testing';
 import { headlessContext } from 'slopkit/testing';
 
 import {
-  BASE_Y, CELL, COLS, KING_HP, LEVELS, ROWS, TURN_LIMIT, W, clamp,
+  BASE_Y, CASTLE_X, CELL, COLS, DRIVE_FUEL, KING_HP, LEASH, LEVELS, ROWS, TURN_LIMIT, W,
 } from '../src/config.js';
 import { WEAPONS } from '../src/weapons.js';
 import { MATERIALS } from '../src/materials.js';
 import { createMatch, detonate, restand, trace } from '../src/battle.js';
 import { foeCastle } from '../src/castles.js';
 import { suggestBlueprint } from '../src/workshop.js';
-import { planShot, skillNow } from '../src/ai.js';
+import { planDrive, planShot, skillNow } from '../src/ai.js';
 import { createScene } from '../src/scene.js';
 import { createFx } from '../src/fx.js';
 import { drawBattleHud, drawField } from '../src/render.js';
@@ -305,21 +305,111 @@ scenario('undermine a tower and it comes down on what it was protecting', () => 
   check(king.hp < KING_HP, `the tower came down and the crown under it is still on ${king.hp}`);
 });
 
-scenario('the siege engine rides the tallest tower, and comes down with it', () => {
+scenario('the siege engine starts on the tallest tower and comes down with it', () => {
   const m = mk({ mine: { cells: [...stack(2, 2, 'stone'), ...stack(5, 5, 'stone')], king: { c: 0, r: 0 } } });
   const L = m.launchers.player;
-  check(L.seat.c === 5, `the trebuchet sat on column ${L.seat.c} instead of the five-storey one`);
   const high = L.y;
+  check(Math.abs(L.x - m.castles.player.centre(5, 0).x) < 1,
+    `the trebuchet started at x=${L.x.toFixed(0)} instead of over the five-storey column`);
   check(high < BASE_Y - CELL * 4, `standing on a five-storey tower it is at y=${high.toFixed(0)}`);
 
-  // and a shot into the tower drops the engine onto whatever is still standing
+  // and a shot into the tower drops it onto whatever is left underneath
   for (let r = 4; r >= 1; r--) m.castles.player.remove(5, r);
   restand(m);
-  check(m.launchers.player.seat.c === 2,
-    `with the tower gone the engine stayed on column ${m.launchers.player.seat.c}`);
   check(m.launchers.player.y >= high + CELL * 3,
     `the tower came down and the engine only fell ${(m.launchers.player.y - high).toFixed(0)}px`);
   check(m.events.some((e) => e.kind === 'gunfell'), 'nothing said the engine had dropped');
+});
+
+// -------------------------------------------------------------- driving
+
+scenario('the engine drives, and the tank empties as it goes', () => {
+  // a flat one-storey castle, so every step is a flat step and the arithmetic
+  // is the arithmetic and not the terrain
+  const m = mk({ mine: { cells: Array.from({ length: COLS }, (_, c) => ({ c, r: 0, m: 'stone' })), king: { c: 0, r: 1 } } });
+  const L = m.launchers.player;
+  check(L.fuel === DRIVE_FUEL, `it starts the turn with ${L.fuel} of ${DRIVE_FUEL}`);
+  check(L.y === BASE_Y - CELL, `it is at y=${L.y} rather than on top of a one-cell wall`);
+  const from = L.x;
+  const moved = m.drive('player', 60);
+  check(Math.abs(moved - 60) < 0.01, `asked for 60px and got ${moved.toFixed(1)}`);
+  check(Math.abs(L.x - (from + 60)) < 0.01, 'it did not actually move');
+  check(L.fuel === DRIVE_FUEL - 60, `60px of flat driving cost ${DRIVE_FUEL - L.fuel}`);
+
+  // it runs dry, and the last step is a short one rather than a refusal
+  let total = 60;
+  for (let i = 0; i < 40; i++) total += Math.abs(m.drive('player', 8));
+  check(L.fuel === 0, `after forty more steps there is still ${L.fuel.toFixed(0)} in the tank`);
+  check(total > DRIVE_FUEL * 0.4 && total <= DRIVE_FUEL + 0.01, `one tank covered ${total.toFixed(0)}px`);
+  check(m.drive('player', 8) === 0, 'it kept driving on an empty tank');
+});
+
+scenario('the engine will not start the siege standing on the crown', () => {
+  const m = mk({ mine: { cells: [...stack(1, 2, 'stone'), ...stack(4, 1, 'stone')], king: { c: 1, r: 2 } } });
+  const castle = m.castles.player;
+  const L = m.launchers.player;
+  check(castle.king().r === 2, 'the fixture did not put the crown on top of the tall column');
+  check(Math.abs(L.x - castle.centre(4, 0).x) < 1,
+    `the tallest column is the crown's own, and the engine parked on it at x=${L.x.toFixed(0)}`);
+});
+
+scenario('a tank of fuel is a reposition, not a journey across the map', () => {
+  const m = mk();
+  const L = m.launchers.player;
+  const from = L.x;
+  for (let i = 0; i < 60; i++) m.drive('player', 20);
+  const gone = L.x - from;
+  check(gone > CELL * 3, `a whole tank only moved it ${gone.toFixed(0)}px — that is not a reposition`);
+  check(gone < 400, `a whole tank moved it ${gone.toFixed(0)}px, which is halfway to the enemy`);
+});
+
+scenario('it climbs a step and refuses a wall', () => {
+  // a two-storey tower beside the engine, and a five-storey one beyond it
+  const m = mk({
+    mine: { cells: [...stack(3, 1, 'stone'), ...stack(4, 2, 'stone'), ...stack(5, 6, 'stone')], king: { c: 0, r: 0 } },
+  });
+  const castle = m.castles.player;
+  const L = m.launchers.player;
+  L.x = castle.centre(3, 0).x;
+  L.y = BASE_Y - CELL;
+  L.fuel = DRIVE_FUEL;
+
+  // one cell up is a step it takes
+  for (let i = 0; i < 6; i++) m.drive('player', 6);
+  check(L.x > castle.baseX + 4 * CELL, `it did not reach the two-storey column: x=${L.x.toFixed(0)}`);
+  check(L.y <= BASE_Y - CELL * 2 + 0.01, `it would not climb one step: it is at y=${L.y.toFixed(0)}`);
+
+  // four cells up is a wall it stops at
+  for (let i = 0; i < 30; i++) m.drive('player', 6);
+  check(L.x < castle.baseX + 5 * CELL,
+    `it drove straight up the face of a four-cell wall to x=${L.x.toFixed(0)}`);
+  check(L.blocked > 0, 'nothing recorded that it had run into something');
+});
+
+scenario('the engine may not leave its own ground, or drive while a shell is up', () => {
+  const m = mk();
+  const L = m.launchers.player;
+  const bounds = m.leash('player');
+  check(bounds.min === CASTLE_X.player - LEASH, 'the leash does not start where the plot does');
+  for (let i = 0; i < 200; i++) {
+    L.fuel = DRIVE_FUEL;
+    m.drive('player', 20);
+  }
+  check(Math.abs(L.x - bounds.max) < 0.01, `with unlimited fuel it stopped at ${L.x.toFixed(0)}, not ${bounds.max}`);
+
+  L.fuel = DRIVE_FUEL;
+  m.shots.push({ side: 'player', w: 'boulder', x: 900, y: 200, vx: 100, vy: 0, t: 0, trail: [] });
+  check(m.drive('player', -20) === 0, 'it drove itself out from under its own shell');
+});
+
+scenario('every turn hands the side that is up a full tank', () => {
+  const m = mk({ theirs: { cells: stack(2, 3, 'stone'), king: { c: 5, r: 0 } } });
+  for (let i = 0; i < 30; i++) m.drive('player', 20);
+  check(m.launchers.player.fuel === 0, 'the tank did not empty');
+  fire(m, 'player', 'boulder', 45, 60);
+  check(m.turn === 'enemy', 'the turn did not change hands');
+  check(m.launchers.enemy.fuel === DRIVE_FUEL, `the enemy took its turn with ${m.launchers.enemy.fuel} of fuel`);
+  check(m.launchers.player.fuel === 0, 'the player refuelled on somebody else\'s turn');
 });
 
 scenario('height is range: the same shot goes further from a taller castle', () => {
@@ -376,17 +466,55 @@ scenario('a shaky gunner is shaky, and steadies as the match goes on', () => {
 });
 
 scenario('the enemy brings the right ammunition to the wall in front of it', () => {
-  const timber = mk({ mine: { cells: [...stack(6, 5, 'wood'), ...stack(5, 5, 'wood')], king: { c: 1, r: 0 } } });
-  const iron = mk({ mine: { cells: [...stack(6, 5, 'iron'), ...stack(5, 5, 'iron')], king: { c: 1, r: 0 } }, faction: 'machines' });
-  timber.turn = 'enemy';
-  iron.turn = 'enemy';
-  timber.wind = 0;
-  iron.wind = 0;
-  // knights facing timber should reach for the fire pot; machines facing iron, the rust shell
-  const vsTimber = planShot(timber, 'enemy', 1).weapon;
-  const vsIron = planShot(iron, 'enemy', 1).weapon;
-  check(vsTimber !== 'railshot' || vsIron !== 'boulder',
-    'the enemy fired its default munition at both a timber wall and an iron one');
+  // The pairing matters and the first version of this got it backwards: the
+  // knights' answer to timber is the fire pot and the machines' answer to iron
+  // is the rust shell, and neither faction has an answer to the other's wall.
+  // Asking the machines to counter timber is asking for the default shot, which
+  // is exactly what they gave — correctly.
+  // and the crown has to be *roofed*, not merely behind the wall: with a clean
+  // lob onto an open crown available, the right answer is whatever hits crowns
+  // hardest, and the enemy correctly took it
+  const wall = (m) => ({
+    cells: [0, 1, 2, 3, 4, 5, 6].flatMap((c) => stack(c, 4, m)),
+    king: { c: 3, r: 0 },
+  });
+  const timber = mk({ mine: wall('wood'), faction: 'machines' }); // so the enemy is the knights
+  const iron = mk({ mine: wall('iron'), faction: 'knights' }); // so the enemy is the machines
+  for (const m of [timber, iron]) {
+    m.turn = 'enemy';
+    m.wind = 0;
+  }
+  check(planShot(timber, 'enemy', 1).weapon === 'firepot',
+    `facing a timber wall the knights reached for the ${planShot(timber, 'enemy', 1).weapon}`);
+  check(planShot(iron, 'enemy', 1).weapon === 'rustshell',
+    `facing an iron wall the machines reached for the ${planShot(iron, 'enemy', 1).weapon}`);
+
+  // and against a wall they have no answer to, they save the special and use
+  // the shot that never runs out
+  const stone = mk({ mine: wall('stone'), faction: 'machines' });
+  stone.turn = 'enemy';
+  stone.wind = 0;
+  check(planShot(stone, 'enemy', 1).weapon === 'boulder',
+    `with nothing that suits stone the knights still spent a special: ${planShot(stone, 'enemy', 1).weapon}`);
+});
+
+scenario('the enemy climbs back onto its own tower after you shoot it off', () => {
+  const m = mk({ theirs: { cells: [...stack(2, 1, 'stone'), ...stack(5, 5, 'stone')], king: { c: 6, r: 0 } } });
+  const L = m.launchers.enemy;
+  check(planDrive(m, 'enemy') === 0, 'it wants to drive away from the seat it started on');
+
+  // knock the tower down to one storey and put it on the far side of the castle
+  for (let r = 4; r >= 1; r--) m.castles.enemy.remove(5, r);
+  L.x = m.castles.enemy.centre(0, 0).x;
+  check(planDrive(m, 'enemy') !== 0, 'stranded at the wrong end of its castle it decided to stay there');
+  for (let i = 0; i < 80; i++) {
+    L.fuel = DRIVE_FUEL;
+    const dir = planDrive(m, 'enemy');
+    if (!dir) break;
+    m.drive('enemy', dir * 8);
+  }
+  check(Math.abs(L.x - m.castles.enemy.centre(2, 0).x) < CELL,
+    `it drove to x=${L.x.toFixed(0)} instead of the tallest column it has left`);
 });
 
 // ------------------------------------------------------------ whole matches
@@ -454,9 +582,10 @@ scenario('a whole frame draws — field, castles, shells, dirt and the dock', ()
   scene.update(1 / 60);
   fx.update(1 / 60, m.terrain);
   drawField(ctx, { match: m, scene, fx, faction: 'knights', time: 1.2 });
-  const rects = drawBattleHud(ctx, { W: 1280, H: 720 }, { match: m, level: LEVEL, phase: 'charging' });
-  check(rects.length === 4, `the dock came back with ${rects.length} slots`);
-  check(rects.every((r) => r.w > 0 && r.h > 0), 'a dock slot has no area to tap');
+  const rects = drawBattleHud(ctx, { W: 1280, H: 720 }, { match: m, level: LEVEL, phase: 'charging', power: 40, driving: 0 });
+  check(rects.filter((r) => r.kind === 'weapon').length === 4, `the dock came back with ${rects.length} slots`);
+  check(rects.filter((r) => r.kind === 'drive').length === 2, 'the drive pads are not on the screen');
+  check(rects.every((r) => r.w > 0 && r.h > 0), 'a control has no area to tap');
 });
 
 scenario('every munition and every material has something to draw', () => {

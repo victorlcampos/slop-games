@@ -118,6 +118,20 @@ export function shopButtons(ctx, vpW, vpH, texts) {
   });
 }
 
+/**
+ * The two drive pads, bottom right — the far side of the screen from the dock,
+ * so a phone held in two hands has one thumb on each.
+ */
+export function driveLayout(vpW, vpH) {
+  const w = 78;
+  const h = 58;
+  const y = vpH - h - PAD;
+  return [
+    { id: 'left', dir: -1, x: vpW - PAD - w * 2 - 6, y, w, h },
+    { id: 'right', dir: 1, x: vpW - PAD - w, y, w, h },
+  ];
+}
+
 /** A bar that fills left to right — king health, power, everything. */
 export function meter(ctx, x, y, w, h, frac, color, back = 'rgba(0,0,0,0.45)') {
   ctx.save();

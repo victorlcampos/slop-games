@@ -581,12 +581,13 @@ export function drawLauncher(ctx, L, faction, opts = {}) {
   ctx.ellipse(0, -2, 30, 6, 0, 0, TAU);
   ctx.fill();
 
-  if (faction === 'machines') drawMortar(ctx, a, recoil, opts);
-  else drawTrebuchet(ctx, a, recoil, opts);
+  const wheel = (L.wheel || 0) * L.dir;
+  if (faction === 'machines') drawMortar(ctx, a, recoil, wheel, opts);
+  else drawTrebuchet(ctx, a, recoil, wheel, opts);
   ctx.restore();
 }
 
-function drawTrebuchet(ctx, a, recoil, opts) {
+function drawTrebuchet(ctx, a, recoil, wheel, opts) {
   const P = -GUN_HEIGHT;
   // the A-frame
   ctx.beginPath();
@@ -600,9 +601,28 @@ function drawTrebuchet(ctx, a, recoil, opts) {
   ctx.moveTo(-13, -14);
   ctx.lineTo(13, -14);
   ink(ctx, null, 3);
-  // the sill it is bolted to
-  rr(ctx, -26, -7, 52, 8, 3);
+  // the sill and the wheels under it: it is a thing that drives now, and a
+  // carriage whose wheels do not turn reads as a building being dragged
+  rr(ctx, -26, -11, 52, 8, 3);
   ink(ctx, '#7a4520', 3);
+  for (const dx of [-16, 16]) {
+    ctx.beginPath();
+    ctx.arc(dx, -6, 7, 0, TAU);
+    ink(ctx, '#8a5a2e', 2.5);
+    ctx.save();
+    ctx.translate(dx, -6);
+    ctx.rotate(wheel);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const t = (i / 3) * Math.PI;
+      ctx.moveTo(Math.cos(t) * 6, Math.sin(t) * 6);
+      ctx.lineTo(-Math.cos(t) * 6, -Math.sin(t) * 6);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // the throwing arm — this is what the player is actually aiming
   ctx.save();
@@ -653,13 +673,14 @@ function drawTrebuchet(ctx, a, recoil, opts) {
   ctx.restore();
 }
 
-function drawMortar(ctx, a, recoil, opts) {
+function drawMortar(ctx, a, recoil, wheel, opts) {
   const P = -GUN_HEIGHT;
   // tracks
   rr(ctx, -28, -15, 56, 15, 7);
   ink(ctx, '#39434f', 3);
   ctx.fillStyle = '#5c6b7d';
-  for (let i = -23; i <= 18; i += 8) {
+  const roll = ((wheel * 7) % 8 + 8) % 8;
+  for (let i = -24 + roll; i <= 19; i += 8) {
     rr(ctx, i, -13, 5, 11, 2);
     ctx.fill();
   }
