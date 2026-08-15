@@ -1,0 +1,21 @@
+{
+  "slug": "reis-e-engrenagens",
+  "name": {
+    "en": "Kings & Gears",
+    "pt": "Reis e Engrenagens"
+  },
+  "emoji": "🏰",
+  "description": {
+    "en": "You get coins and a plot of ground: buy the walls, stack them how you like, and hide your crown somewhere you believe in. Then take turns lobbing rocks, fire and rust across the valley until one crown is under the rubble.",
+    "pt": "Você recebe moedas e um terreno: compre as paredes, empilhe como quiser e esconda a coroa onde você acredita. Depois vocês se revezam jogando pedra, fogo e ferrugem pelo vale até uma coroa ficar debaixo do entulho."
+  },
+  "tags": [
+    "2d",
+    "artillery",
+    "turn-based",
+    "strategy"
+  ],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

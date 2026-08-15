@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#141220">
+<title>Kings &amp; Gears</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #141220;
+    color: #f2e7d0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* the two flags and the mute, over everything, out of the way of the dock */
+  .topbar {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 6;
+  }
+  .icon {
+    font: inherit;
+    font-size: 17px;
+    line-height: 1;
+    padding: 7px 9px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(20,18,30,0.72);
+    color: #f2e7d0;
+    cursor: pointer;
+  }
+  .icon:hover { background: rgba(40,36,56,0.85); }
+
+  /* Upright on a phone the kit lays the canvas on its side, and the game's own
+     top-left corner ends up under this bar. The HUD keeps its top-right clear,
+     which turned is the bottom of the screen — so that is where these go. */
+  body.turned .topbar {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .card {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4vh 5vw;
+    background:
+      radial-gradient(ellipse 82% 74% at 50% 45%, rgba(20,17,30,0.74) 0%, rgba(10,9,16,0.95) 78%);
+    text-align: center;
+    z-index: 4;
+    overflow-y: auto;
+  }
+  .card[hidden] { display: none; }
+  .inner { max-width: 48rem; width: 100%; }
+
+  h1 {
+    font-size: clamp(2rem, 6.4vw, 3.5rem);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #ffd97a;
+    text-shadow: 0 3px 0 #6b4a1c, 0 0 34px rgba(255,190,90,0.22);
+  }
+
+  .tagline {
+    color: #cfc2a6;
+    margin: 0.5rem 0 1.3rem;
+    font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  }
+
+  .story {
+    text-align: left;
+    display: grid;
+    gap: 0.45rem;
+    margin: 0 auto 1.3rem;
+    max-width: 40rem;
+    color: #b9ae97;
+    font-size: clamp(0.85rem, 1.9vw, 1rem);
+    line-height: 1.5;
+  }
+  .story p::before { content: "▸ "; color: #8a6a3a; }
+
+  .btnrow { display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
+
+  .btn {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #1e1810;
+    background: linear-gradient(#ffd97a, #d9a445);
+    border: 0;
+    border-bottom: 4px solid #8a5f20;
+    border-radius: 11px;
+    padding: 0.72rem 1.4rem;
+    cursor: pointer;
+    font-size: clamp(0.85rem, 2vw, 1rem);
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+  /* never leave the exit without a colour: an <a> with none inherits the
+     browser's link blue, and the border goes with it (CLAUDE.md, section 5) */
+  .btn.ghost {
+    background: none;
+    color: #d6c8a8;
+    border: 1px solid rgba(214,200,168,0.4);
+    border-bottom-width: 1px;
+  }
+  .btn.ghost:hover { background: rgba(214,200,168,0.1); }
+
+  .back-to-games { align-items: center; gap: 8px; text-decoration: none; }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; margin: 1.2rem 0; }
+  .side {
+    text-align: left;
+    padding: 1rem 1.1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(28,25,40,0.7);
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .side:hover { border-color: #ffd97a; background: rgba(46,40,64,0.8); }
+  .side h2 { font-size: 1.25rem; color: #ffd97a; margin-bottom: 0.35rem; }
+  .side .emoji { font-size: 1.8rem; display: block; margin-bottom: 0.3rem; }
+  .side p { color: #b9ae97; font-size: 0.9rem; line-height: 1.45; }
+
+  .result { display: grid; gap: 0.35rem; margin-bottom: 1.2rem; }
+  .result .why { color: #b9ae97; font-size: 0.95rem; }
+  .result .reward { color: #8fe08a; font-weight: 700; }
+  .result .level { color: #cfc2a6; font-size: 0.9rem; }
+  #m-progress { color: #ffd97a; font-weight: 700; margin-bottom: 0.8rem; min-height: 1.2em; }
+
+  .foot { color: #9b917f; font-size: clamp(0.72rem, 1.6vw, 0.85rem); line-height: 1.6; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="topbar">
+    <span data-lang-picker></span>
+    <button class="icon" id="btn-sound" title="M">🔊</button>
+  </div>
+
+  <div class="card" id="menu">
+    <div class="inner">
+      <h1 data-pt="Reis e Engrenagens" data-en="Kings &amp; Gears">Kings &amp; Gears</h1>
+      <p class="tagline"
+         data-pt="Monte o castelo. Esconda o rei. Depois ache o deles."
+         data-en="Build the castle. Hide the king. Then find theirs.">Build the castle. Hide the king. Then find theirs.</p>
+
+      <div class="story">
+        <p data-pt="O Reino ainda constrói com pedra e madeira. As Máquinas fundem a própria blindagem. Os dois querem o mesmo vale, e nenhum dos dois vai embora."
+           data-en="The Kingdom still builds in stone and timber. The Machines cast their own armour. Both want the same valley, and neither is leaving.">The Kingdom still builds in stone and timber. The Machines cast their own armour.</p>
+        <p data-pt="Você recebe moedas e um terreno de sete por nove. Compre paredes, empilhe do jeito que quiser, e ponha a coroa onde você acredita que ela sobrevive."
+           data-en="You get coins and a plot seven by nine. Buy walls, stack them however you like, and put the crown wherever you believe it survives.">You get coins and a plot seven by nine.</p>
+        <p data-pt="Depois é um tiro de cada lado: mire, abra a barra de força, dispare. O vento muda todo turno e o chão some debaixo de quem cava."
+           data-en="After that it is one shot each: aim, open the power gauge, fire. The wind changes every turn and the ground disappears under whoever digs.">After that it is one shot each: aim, open the power gauge, fire.</p>
+        <p data-pt="Ganha quem enterrar a coroa do outro. Seis cercos, seis terrenos, e o castelo que sobreviver a todos é o que você desenhou."
+           data-en="Whoever buries the other crown wins. Six sieges, six kinds of ground, and the castle that survives all of them is the one you drew.">Whoever buries the other crown wins.</p>
+      </div>
+
+      <p id="m-progress"></p>
+
+      <div class="btnrow">
+        <button class="btn" id="btn-start" data-pt="Erguer um castelo" data-en="Raise a castle">Raise a castle</button>
+        <button class="btn" id="btn-resume" hidden data-pt="Voltar ao cerco" data-en="Back to the siege">Back to the siege</button>
+        <button class="btn ghost" id="btn-reset" data-pt="Recomeçar" data-en="Start over">Start over</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+
+      <p class="foot">
+        <span data-pt="Arraste (ou passe o mouse) para mirar · solte para abrir a barra de força · toque de novo para disparar"
+              data-en="Drag (or hover) to aim · release to open the power gauge · tap again to fire">Drag (or hover) to aim · release to open the power gauge · tap again to fire</span><br>
+        <span data-pt="Teclado: setas ajustam o ângulo · espaço abre a barra e dispara · 1-4 troca de munição · M liga e desliga o som"
+              data-en="Keyboard: arrows nudge the angle · space opens the gauge and fires · 1-4 switch munitions · M mutes">Keyboard: arrows nudge the angle · space opens the gauge and fires · 1-4 switch munitions · M mutes</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" id="pick" hidden>
+    <div class="inner">
+      <h1 data-pt="Qual coroa?" data-en="Which crown?">Which crown?</h1>
+      <p class="tagline"
+         data-pt="Você escolhe o arsenal. O outro lado fica com o que sobrou."
+         data-en="You pick the arsenal. The other side gets what is left.">You pick the arsenal. The other side gets what is left.</p>
+
+      <div class="sides">
+        <button class="side" data-faction="knights">
+          <span class="emoji">🏰</span>
+          <h2 data-pt="O Reino" data-en="The Kingdom">The Kingdom</h2>
+          <p data-pt="Trabucos, potes de fogo e uma balista. Lento, pesado, e queima tudo que um dia foi árvore."
+             data-en="Trebuchets, fire pots and a ballista. Slow, heavy, and it burns everything that was ever a tree.">Trebuchets, fire pots and a ballista.</p>
+        </button>
+        <button class="side" data-faction="machines">
+          <span class="emoji">🤖</span>
+          <h2 data-pt="As Máquinas" data-en="The Machines">The Machines</h2>
+          <p data-pt="Projéteis de trilho, obuses de ferrugem e uma bobina que caça metal. Rápido, reto, e come a blindagem mais cara que você comprou."
+             data-en="Rail slugs, rust shells and a coil that hunts metal. Fast, flat, and it eats the armour you paid most for.">Rail slugs, rust shells and a coil that hunts metal.</p>
+        </button>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn ghost" data-menu data-pt="Voltar" data-en="Back">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="over" hidden>
+    <div class="inner">
+      <h1 id="o-title">—</h1>
+      <div class="result">
+        <p class="why" id="o-why"></p>
+        <p class="reward" id="o-reward"></p>
+        <p class="level" id="o-level"></p>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="btn-next" data-pt="Próximo cerco" data-en="Next siege">Next siege</button>
+        <button class="btn" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <button class="btn ghost" id="btn-rebuild" data-pt="Voltar para a oficina" data-en="Back to the workshop">Back to the workshop</button>
+        <button class="btn ghost" data-menu data-pt="Menu" data-en="Menu">Menu</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>

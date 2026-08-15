@@ -41,7 +41,9 @@ changes — not the rule.
    one of them down the middle — and lights them with the Fortress's own cone,
    opened to 360° for the five daylit ones, and draws its two sides face on, at
    twenty times the size the match ever sees them, so that choosing a body is
-   choosing something with a face on it, and Infinite Fortress has no map at all — a ring is a seed, and the
+   choosing something with a face on it, Kings & Gears builds five kinds of wall
+   out of rounded rectangles — a sandbag is two of them and a line of stitches —
+   and carves every crater out of a heightmap as it lands, and Infinite Fortress has no map at all — a ring is a seed, and the
    rooms, corridors, sentinels and seal are laid out on the way in. Even the language
    picker's flags are drawn on a canvas — the 🇧🇷 emoji
    has no glyph on Windows, and there the picker would become the letters "BR" in
@@ -251,6 +253,7 @@ return:
 | Flag War | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | Infinite Fortress | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Iron Rain | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| Kings & Gears | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | SkiFree 3D | ✅ | ✅ | ✅ | — | — | — | ✅ | — |
 | World Drive | ✅ | ✅ | ✅ | — | — | — | ✅ | — |
 | Zoo Tycoon | ✅ | ✅ | — | — | — | — | ✅ | — |
@@ -393,8 +396,8 @@ animals.
 
 ### File weight
 
-Current reference: Iron Rain 91 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
-and Zoo Tycoon 311 KB (all five with no libraries), World Drive 600 KB and
+Current reference: Iron Rain 91 KB, Kings & Gears 90 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
+and Zoo Tycoon 311 KB (all six with no libraries), World Drive 600 KB and
 SkiFree 3D 704 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.
 
@@ -767,7 +770,8 @@ here" below.
    the skier accelerates and the Yeti eats him; World Drive turns a canned
    Overpass answer into a whole world and drives it; an animal is planted, a
    monster dies and the 46 creatures all draw; 219 species are well formed, all
-   of them draw, and the park's books balance. About 125 scenarios, three
+   of them draw, and the park's books balance; a castle is undermined and comes
+   down on the king it was built to protect. About 175 scenarios, four
    seconds.
 
 Everything a game keeps in `src/` is reachable from Node — that is worth

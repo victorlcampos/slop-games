@@ -33,6 +33,7 @@ const TAGS = {
   '2d': { pt: '2d', en: '2d' },
   '3d': { pt: '3d', en: '3d' },
   arcade: { pt: 'arcade', en: 'arcade' },
+  artillery: { pt: 'artilharia', en: 'artillery' },
   'capture-the-flag': { pt: 'captura a bandeira', en: 'capture the flag' },
   'open-world': { pt: 'mundo aberto', en: 'open world' },
   puzzle: { pt: 'quebra-cabeça', en: 'puzzle' },
@@ -44,6 +45,7 @@ const TAGS = {
   stealth: { pt: 'furtivo', en: 'stealth' },
   strategy: { pt: 'estratégia', en: 'strategy' },
   'tower-defense': { pt: 'tower defense', en: 'tower defense' },
+  'turn-based': { pt: 'por turnos', en: 'turn-based' },
   tycoon: { pt: 'tycoon', en: 'tycoon' },
 };
 

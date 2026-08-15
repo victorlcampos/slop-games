@@ -126,8 +126,12 @@ scenario('the index lists every game, and each card points at a file that exists
   for (const href of links) {
     check(existsSync(path.join(DIST, href)), `broken link on the index: ${href}`);
   }
+  // the same escaping the index build does — a name with an `&` in it reaches
+  // the page as `&amp;`, and searching for the raw string would say the card is
+  // missing when it is right there
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   for (const game of catalog) {
-    check(html.includes(game.name.en) && html.includes(game.name.pt),
+    check(html.includes(esc(game.name.en)) && html.includes(esc(game.name.pt)),
       `${game.slug}: the index does not carry both of its names`);
   }
 });
