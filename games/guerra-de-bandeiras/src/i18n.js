@@ -47,6 +47,10 @@ export const dict = {
     pt: 'No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 rola.',
     en: 'On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button rolls.',
   },
+  'menu.shop': {
+    pt: 'Cada baixa rende cristais — e mais ainda se o corpo estava com uma bandeira. Dentro da sua base os cristais compram arma: dispersor, repetidora, lança. Arma comprada tem munição contada, e quando ela acaba você volta para a sua. Se você morrer, a arma cai no chão com o que sobrou nela — de qualquer um que passar por cima.',
+    en: 'Every body you put down pays in shards, and one carrying a flag pays more. On your own ground the shards buy a gun: scattergun, repeater, lance. A bought gun has its rounds counted, and when they are gone you are back on your own. Die with it and it lands on the deck with whatever is left in it — for whoever walks over it.',
+  },
   'menu.tip': {
     pt: 'Se a sua bandeira sumiu, o ponto não entra — e ela não volta sozinha: alguém do seu time tem que pegar do chão e carregar até o pedestal, no aberto, de mãos ocupadas.',
     en: 'With your flag gone the point does not count — and it does not come back on its own: somebody has to pick it off the deck and walk it to the stand, in the open, with both hands full.',
@@ -84,6 +88,21 @@ export const dict = {
   },
 
   'hud.score': { pt: 'Placar', en: 'Score' },
+  'hud.shards': { pt: 'cristais', en: 'shards' },
+  'hud.ammo': { pt: 'munição', en: 'rounds' },
+
+  'gun.rifle': { pt: 'Fuzil', en: 'Rifle' },
+  'gun.blaster': { pt: 'Blaster', en: 'Blaster' },
+  'gun.scatter': { pt: 'Dispersor', en: 'Scattergun' },
+  'gun.repeater': { pt: 'Repetidora', en: 'Repeater' },
+  'gun.lance': { pt: 'Lança', en: 'Lance' },
+  'gun.scatter.note': { pt: 'tudo de uma vez, de perto', en: 'everything at once, up close' },
+  'gun.repeater.note': { pt: 'o dobro de tiros, metade da mira', en: 'twice the rounds, half the aim' },
+  'gun.lance.note': { pt: 'atravessa o primeiro e acha o segundo', en: 'through the first, into the second' },
+
+  'shop.title': { pt: 'ARMARIA — você está na sua base', en: 'ARMOURY — you are on your own ground' },
+  'shop.hint': { pt: 'aperte 1, 2 ou 3 · no celular, toque na arma', en: 'press 1, 2 or 3 · on a phone, tap the gun' },
+  'shop.short': { pt: 'faltam cristais', en: 'not enough shards' },
   'hud.respawn': { pt: 'volta em {n}', en: 'back in {n}' },
   'hud.flagHome': { pt: 'em casa', en: 'home' },
   'hud.flagOut': { pt: 'roubada', en: 'stolen' },
@@ -98,6 +117,7 @@ export const dict = {
   'log.recovered': { pt: 'Bandeira {team} recolhida', en: '{team} flag picked up' },
   'log.restored': { pt: 'Bandeira {team} no pedestal', en: '{team} flag back in its stand' },
   'log.captured': { pt: '{team} marcou!', en: '{team} scored!' },
+  'log.bought': { pt: '{team} comprou uma arma', en: '{team} bought a gun' },
 
   'end.won': { pt: 'Arena vencida', en: 'Arena taken' },
   'end.lost': { pt: 'Arena perdida', en: 'Arena lost' },

@@ -12,11 +12,12 @@ import {
   UNIT, ROLL, ASSIST, GUNS, TURRET, PAD, TARGET, REGEN, TILE, eyesOf,
   botStats, makeRng, clamp, dist, dist2, other, turnTowards, angleDelta, RAD,
 } from './config.js';
-import { cellOf, moveCircle, lineOfSight, castRay, flowField } from './grid.js';
+import { cellOf, centreOf, moveCircle, lineOfSight, castRay, flowField, nearestOpen, BASE_H, BASE_A } from './grid.js';
 import { buildArena } from './arena.js';
 import { createFlags, touchFlags, updateFlags, dropFlag, carriedBy, carrierOf, flagPoint, sendHome } from './match.js';
-import { botOrders, assignRoles } from './ai.js';
+import { botOrders, assignRoles, reconsider } from './ai.js';
 import { canSee } from './vision.js';
+import { ARMOURY, REWARD, STANDARD, byId, createLoadout, worth } from './weapons.js';
 
 const EVENT_LIFE = 3.6;
 
@@ -67,10 +68,14 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
         role: i === 0 ? 'attack' : 'defend',
         slot: i,                       // place among the bodies doing this job
         cool: 0,
+        weapon: createLoadout(),       // what is in his hands, and what is left in it
+        shards: 0,                     // what he has been paid for using it
         roll: 0, rollA: 0, rollCool: 0, rollWas: false,
         combat: 0,                     // seconds left of facing the fight
         aimTarget: null,               // what the assist has, for the brackets
         aimT: 0, holdT: 0, stuck: 0, orbit: (i * 1.7) % (Math.PI * 2),
+        lane: i,                       // which way across the field he likes
+        strafe: 0, strafeSide: i % 2 ? 1 : -1,
         target: null,
         kills: 0, caps: 0,
         hurt: 0,                       // seconds of the red flash left
@@ -86,7 +91,36 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
 
   // ------------------------------------------------------------- the basics
   game.unitById = (id) => game.units.find((u) => u.id === id) || null;
-  game.gun = (u) => GUNS[u.team];
+  /**
+   * The gun in this body's hands. Everything that fires, aims, or asks how far
+   * it can reach goes through here, so a bought gun changes all of them at once
+   * and nothing has to know whether it was bought.
+   */
+  game.gun = (u) => (u.weapon && u.weapon.id !== STANDARD ? byId(u.weapon.id) : GUNS[u.team]);
+
+  /** Is he standing on his own ground? Everything about buying asks this. */
+  game.inBase = (u) => {
+    const c = cellOf(u.x, u.y);
+    return game.grid.at(c.cx, c.cy) === (u.team === 'human' ? BASE_H : BASE_A);
+  };
+
+  /**
+   * Buy a gun. Only on your own ground, only with the shards for it, and buying
+   * one you are already holding fills it back up.
+   */
+  game.buy = (u, id) => {
+    const w = byId(id);
+    if (!w || u.dead || !game.inBase(u) || u.shards < w.cost) return false;
+    u.shards -= w.cost;
+    u.weapon = { id: w.id, ammo: w.ammo };
+    u.cool = Math.max(u.cool, 0.25);            // a swap is not instant
+    game.say({ kind: 'bought', team: u.team, gun: w.id, player: !u.bag });
+    game.onBuy?.(u, w);
+    return true;
+  };
+
+  /** What is lying on the deck: guns their owners are no longer holding. */
+  game.drops = [];
 
   game.say = (event) => {
     game.events.push({ ...event, t: EVENT_LIFE, at: game.time });
@@ -98,7 +132,11 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
 
   /** Book what a soldier just did — the end-of-match card is made of these. */
   game.credit = (u, what) => {
-    if (what === 'capture') u.caps++;
+    if (what === 'capture') {
+      u.caps++;
+      u.shards += REWARD.capture;
+    }
+    if (what === 'return') u.shards += REWARD.rescue;
     if (u.bot) return;
     if (what === 'capture') game.stats.captures++;
     if (what === 'return') game.stats.returns++;
@@ -259,6 +297,7 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
     }
 
     updateBullets(game, dt);
+    updateDrops(game, dt);
     updateTurrets(game, dt);
     updateFlags(game, dt);
 
@@ -279,6 +318,9 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
       alien: { state: game.flags.alien.state, carrier: game.flags.alien.carrier },
     },
     alive: game.units.filter((u) => !u.dead).length,
+    shards: game.player ? game.player.shards : 0,
+    weapon: game.player ? game.player.weapon.id : null,
+    onTheDeck: game.drops.map((d) => d.id),
   });
 
   return game;
@@ -455,22 +497,90 @@ function applyOrders(game, u, o, dt) {
 function shoot(game, u, stats) {
   const gun = game.gun(u);
   const spread = gun.spread * (stats ? stats.spread : 1);
-  const a = u.facing + (game.rng() - 0.5) * spread * 2;
+  const pellets = gun.pellets || 1;
   u.cool = gun.rate;
-  game.bullets.push({
-    x: u.x + Math.cos(u.facing) * (u.r + 6),
-    y: u.y + Math.sin(u.facing) * (u.r + 6),
-    vx: Math.cos(a) * gun.speed,
-    vy: Math.sin(a) * gun.speed,
-    team: u.team,
-    owner: u.id,
-    damage: gun.damage,
-    life: gun.range / gun.speed,
-    kind: gun.id,
-  });
+
+  for (let i = 0; i < pellets; i++) {
+    const a = u.facing + (game.rng() - 0.5) * spread * 2;
+    game.bullets.push({
+      x: u.x + Math.cos(u.facing) * (u.r + 6),
+      y: u.y + Math.sin(u.facing) * (u.r + 6),
+      vx: Math.cos(a) * gun.speed,
+      vy: Math.sin(a) * gun.speed,
+      team: u.team,
+      owner: u.id,
+      damage: gun.damage,
+      life: gun.range / gun.speed,
+      pierce: gun.pierce || 0,
+      hit: null,                       // whom this round has already gone through
+      kind: gun.id,
+    });
+  }
+
   u.vx -= Math.cos(u.facing) * gun.kick * 6;
   u.vy -= Math.sin(u.facing) * gun.kick * 6;
+
+  // A bought gun is a loan. When the last round is gone the gun is gone, and he
+  // is back on the one he never has to think about — which is what stops a good
+  // run turning into a permanent advantage.
+  if (Number.isFinite(u.weapon.ammo)) {
+    u.weapon.ammo -= 1;
+    if (u.weapon.ammo <= 0) {
+      u.weapon = createLoadout();
+      game.onDry?.(u);
+    }
+  }
   game.onShot?.(u);
+}
+
+/**
+ * A gun leaves a dead body where it fell, with what is left in it.
+ *
+ * It is anybody's: whoever walks over it takes it, either side. That is the
+ * point of it — the man who shot you is standing over four hundred shards of
+ * somebody else's decision.
+ */
+function dropWeapon(game, u) {
+  if (!u.weapon || u.weapon.id === STANDARD || !Number.isFinite(u.weapon.ammo)) return;
+  if (u.weapon.ammo <= 0) return;
+  const c = cellOf(u.x, u.y);
+  const open = game.grid.walkable(c.cx, c.cy) ? c : nearestOpen(game.grid, c.cx, c.cy, 4);
+  if (!open) return;
+  const spot = centreOf(open.cx, open.cy);
+  game.drops.push({
+    x: spot.x, y: spot.y,
+    id: u.weapon.id,
+    ammo: u.weapon.ammo,
+    life: DROP_LIFE,
+    team: u.team,                      // only for the colour it is drawn in
+  });
+  game.onDropGun?.(u);
+}
+
+const DROP_LIFE = 26;                  // seconds a gun lies there before it is scrap
+
+/** Guns on the deck: they run down, and anybody who walks over one takes it. */
+function updateDrops(game, dt) {
+  for (let i = game.drops.length - 1; i >= 0; i--) {
+    const d = game.drops[i];
+    d.life -= dt;
+    if (d.life <= 0) {
+      game.drops.splice(i, 1);
+      continue;
+    }
+    for (const u of game.units) {
+      if (u.dead) continue;
+      if (dist2(u.x, u.y, d.x, d.y) > (UNIT.r + 20) ** 2) continue;
+      // he swaps up and never down: without the test he picks up the gun he
+      // dropped two shells ago and puts down the full one he is holding
+      if (worth(d.id) <= worth(u.weapon.id)) continue;
+      dropWeapon(game, u);             // whatever he was holding goes on the deck
+      u.weapon = { id: d.id, ammo: d.ammo };
+      game.drops.splice(i, 1);
+      game.onPickGun?.(u);
+      break;
+    }
+  }
 }
 
 // -------------------------------------------------------------- the bullets
@@ -481,19 +591,31 @@ function updateBullets(game, dt) {
     const nx = b.x + b.vx * dt;
     const ny = b.y + b.vy * dt;
 
-    // A round that only checks where it lands walks through a body at 1000 px/s
-    // and a 60 Hz step. It is the segment that hits, never the point.
-    const hit = firstHit(game, b, nx, ny);
-    if (hit) {
+    // A round that only checks where it lands walks through a body at 1400 px/s
+    // and a 120 Hz step. It is the segment that hits, never the point — and a
+    // lance goes through the first man it meets, so the same segment is asked
+    // again from where he was standing.
+    let spent = false;
+    for (let pass = 0; pass < 4 && !spent; pass++) {
+      const hit = firstHit(game, b, nx, ny);
+      if (!hit) break;
       if (hit.unit) {
         damage(game, hit.unit, b.damage, b);
         game.fx?.blood(hit.x, hit.y, 6, hit.unit.team === 'human' ? '#8e2f3f' : '#3fae74');
+        if (b.pierce > 0) {
+          b.pierce -= 1;
+          (b.hit || (b.hit = [])).push(hit.unit.id);
+          continue;                    // through him, and on down the line
+        }
       } else if (hit.turret) {
         hurtTurret(game, hit.turret, b.damage);
         game.fx?.spark(hit.x, hit.y, '#ffd88a', 5, 200);
       } else {
         game.fx?.spark(hit.x, hit.y, '#cfe6ff', 4, 180);
       }
+      spent = true;
+    }
+    if (spent) {
       game.bullets.splice(i, 1);
       continue;
     }
@@ -510,7 +632,8 @@ function updateBullets(game, dt) {
  * turret. Friendly bodies are not in the list — a squad that shoots itself in
  * the back is a squad nobody wants standing behind them, and the alternative
  * (bots refusing to fire past a mate) is an enemy that stops shooting whenever
- * it is winning.
+ * it is winning. Anybody this round has already gone through is not in it
+ * either, or a piercing shot would spend its whole life inside the first man.
  */
 function firstHit(game, b, nx, ny) {
   const dx = nx - b.x;
@@ -527,6 +650,7 @@ function firstHit(game, b, nx, ny) {
 
   for (const u of game.units) {
     if (u.dead || u.team === b.team) continue;
+    if (b.hit && b.hit.includes(u.id)) continue;
     const t = segmentHit(b.x, b.y, dx, dy, u.x, u.y, UNIT.hitR);
     if (t !== null && t < bestT) {
       bestT = t;
@@ -573,7 +697,10 @@ function damage(game, u, amount, from) {
 }
 
 function kill(game, u, killer) {
+  const carried = !!carriedBy(game, u);
   dropFlag(game, u);
+  dropWeapon(game, u);
+  u.weapon = createLoadout();
   u.dead = true;
   u.hp = 0;
   u.vx = 0;
@@ -584,6 +711,9 @@ function kill(game, u, killer) {
   game.fx?.blood(u.x, u.y, 12, u.team === 'human' ? '#8e2f3f' : '#3fae74');
   if (killer && killer.team !== u.team) {
     killer.kills++;
+    // shards: what a body is paid for the work. Stopping a flag pays more,
+    // because it is the shot that was worth taking rather than the easy one.
+    killer.shards += REWARD.kill + (carried ? REWARD.carrierKill : 0);
     game.credit(killer, 'kill');
   }
   if (!u.bot) game.stats.deaths++;
@@ -619,11 +749,15 @@ function respawn(game, u) {
   u.y = best.y;
   u.hp = UNIT.hp;
   u.dead = false;
+  u.weapon = createLoadout();
   u.vx = 0;
   u.vy = 0;
   u.cool = 0;
   u.aimT = 0;
   u.calm = REGEN.delay;
+  // and he comes back having thought about it: the job and the lane are picked
+  // again from what the match looks like now
+  if (u.bot) reconsider(game, u, game.rng);
   u.rollCool = 0;
   u.combat = 0;
   u.autoTarget = null;

@@ -13,6 +13,7 @@ One HTML file, no server, no install: open `dist/index.html` on a double click.
 | aim | the mouse — the gun finds the man near the cursor by itself |
 | fire | click, or `J` |
 | roll | `space` (or `shift`) — one shove, a tumble, then a second of nothing |
+| buy | `1` `2` `3`, standing on your own ground (on a phone, tap the gun) |
 | mute | `M` |
 
 On a phone the left half of the screen walks and the stick is born wherever
@@ -27,6 +28,15 @@ not count. And **your own flag has to be carried back**: touching it does not
 send it home, you pick it up, and it is in the ground again when you are
 standing on the stand with it. A flag on the deck stays there until somebody
 makes that walk, in the open, with both hands full. Nobody carries two flags.
+
+**Every body you put down pays.** A kill is 100 shards and one carrying a flag
+is 180; a capture is 200 and walking your own flag home is 100. Standing on your
+own ground the shards buy a gun — a scattergun for 250, a repeater for 350, a
+lance for 450 — and none of them is a straight upgrade: each one beats your own
+gun at something, loses to it at something else, and **runs out**. When the last
+round is gone you are back on the gun you never have to think about. Die holding
+one and it lands on the deck with whatever is left in it, for whoever walks over
+it — either side.
 
 **And nobody is bullet-proof.** Four seconds in one gun's line of fire is a body
 on the deck, and a body left alone knits back together slowly, and only after
@@ -127,12 +137,43 @@ playing a few hundred matches between two squads of bots and counting:
   no ties to break. Same for the tile a goal inside a wall falls back to, which
   was "try +x first" and is now "the nearest one".
 
-**The bots have no squad brain.** Each one answers the same five questions in
-the same order — am I holding a flag, is somebody running off with ours, is ours
-on the deck, is one of mine walking one home, otherwise my job. The team play
-falls out of the order. The one rule that had to be written explicitly is
-the standoff: with both flags in hands nobody can score, and a squad that keeps
-politely raiding an empty stand will still be there ten minutes later.
+**The bots have no squad brain.** Each one answers the same short list in the
+same order — am I holding a flag, am I nearly dead, is somebody running off with
+ours, is ours on the deck, is there a better gun under my feet, is one of mine
+walking one home, otherwise my job. The team play falls out of the order. The
+one rule that had to be written explicitly is the standoff: with both flags in
+hands nobody can score, and a squad that keeps politely raiding an empty stand
+will still be there ten minutes later.
+
+**What stops that reading as one bot copied five times** is the layer on top: a
+raider comes at the enemy stand from his own side of it and the next side round
+after he dies; a body in a firefight slides around the man it is shooting at
+rather than walking into him; a body that has just been hit rolls; a body at a
+fifth of its health backs off and lets it knit; and a body standing on its own
+ground with shards in its pocket goes shopping — a defender for the shortest gun
+he can get, a raider for the longest.
+
+**Every one of those was measured before it was kept**, over thirty-two matches
+a configuration, because "more interesting" and "never arrives" look identical
+from inside the code:
+
+| | captures a minute |
+|---|---|
+| none of it | 2.23 |
+| approach angles | −0.33 |
+| picking guns off the deck | −0.26 |
+| backing off when nearly dead | −0.12 |
+| strafing in a fight | −0.09 |
+| all of it together | 1.65 |
+
+What did **not** survive that table is the one that sounds best written down:
+letting a bot re-pick its job when it respawns. Three versions of it are in the
+history of `ai.js` — weighted towards defence while a flag was out, balanced
+against the defenders still standing, promoting an attacker when nobody was
+minding the stand — and every one of them was a ratchet that walked the whole
+squad home, because a squad of four has one defender and loses him every twenty
+seconds. Each cost about half the match's captures for something a player cannot
+see. The lane rotates; the job does not.
 
 ## Tests
 
@@ -141,6 +182,6 @@ node test/logic.test.mjs    # the arenas, the ramp, the balance, the eyes, the d
 node test/play.test.mjs     # the match, played in Node at a fixed step
 ```
 
-Forty-four scenarios, about two seconds, no browser. Three of them play whole
+Fifty-two scenarios, about three seconds, no browser. Three of them play whole
 matches between two squads of bots, because "does a match end", "do both sides
 score" and "does the field favour one end" cannot be answered any other way.

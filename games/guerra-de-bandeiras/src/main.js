@@ -11,9 +11,10 @@ import { i18n, t, arenaName, arenaNote } from './i18n.js';
 import { buildArena } from './arena.js';
 import { createGame } from './game.js';
 import { createFx } from './fx.js';
-import { createRenderer, screenToWorld, clock } from './render.js';
+import { createRenderer, screenToWorld, shopCards, clock } from './render.js';
 import { createTouchControls } from './controls.js';
 import { sound, sfx } from './audio.js';
+import { ARMOURY } from './weapons.js';
 
 const canvas = document.getElementById('canvas');
 const menu = document.getElementById('menu');
@@ -69,6 +70,12 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') toggleSound();
+  // the armoury: one key a gun, and the game says no if he is not standing on
+  // his own ground or cannot afford it
+  if (phase === 'playing' && game && game.player) {
+    const slot = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
+    if (slot >= 0 && ARMOURY[slot]) game.buy(game.player, ARMOURY[slot].id);
+  }
   if (phase === 'menu' && (e.code === 'Enter' || e.code === 'Space')) start(chosen);
   if (phase === 'over' && e.code === 'Enter') start(chosen);
 });
@@ -106,6 +113,9 @@ for (const [type, handler] of [
     sound.resume();
     for (const f of e.changedTouches) {
       const p = vp.point(f.clientX, f.clientY);
+      // a tap on a gun in the armoury buys it and goes no further: the thumb
+      // hits the same rectangle the eye sees (`shopCards`)
+      if (buyByTouch(p)) continue;
       touch.start(f.identifier, p.x, p.y);
     }
   }],
@@ -119,6 +129,19 @@ for (const [type, handler] of [
   ['touchcancel', (e) => { for (const f of e.changedTouches) touch.end(f.identifier); }],
 ]) {
   canvas.addEventListener(type, (e) => { e.preventDefault(); handler(e); }, { passive: false });
+}
+
+/** Did that tap land on a gun in the armoury? */
+function buyByTouch(p) {
+  if (phase !== 'playing' || !game || !game.player || game.player.dead) return false;
+  if (!game.inBase(game.player)) return false;
+  for (const card of shopCards(viewWidth(vp), vp.H)) {
+    if (p.x >= card.x && p.x <= card.x + card.w && p.y >= card.y && p.y <= card.y + card.h) {
+      game.buy(game.player, card.gun.id);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------ screens
@@ -172,6 +195,9 @@ const hooks = {
   onGate: () => sfx.gate(),
   onRespawn: (u) => { if (u === (game && game.player)) sfx.spawn(); },
   onTurretShot: () => sfx.turret(),
+  onBuy: (u) => { if (u === (game && game.player)) { sfx.buy(); fx.ring(u.x, u.y, 60, '#5ce8cf'); } },
+  onPickGun: (u) => { if (u === (game && game.player)) sfx.buy(); },
+  onDry: (u) => { if (u === (game && game.player)) sfx.dry(); },
   onFlagTaken: (e) => sfx.taken(e.by === side),
   onFlagHome: (e) => sfx.home(e.team === side),
   onFlagDropped: () => sfx.click(),

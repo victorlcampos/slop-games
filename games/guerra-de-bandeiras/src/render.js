@@ -21,6 +21,7 @@ import {
 import { WALL, PIT, BASE_H, BASE_A } from './grid.js';
 import { createSight } from './vision.js';
 import { carriedBy } from './match.js';
+import { ARMOURY, STANDARD, byId } from './weapons.js';
 import { t, arenaName } from './i18n.js';
 import { STICK, fireButton, rollButton } from './controls.js';
 
@@ -88,6 +89,7 @@ export function createRenderer() {
     ctx.drawImage(r.litImg, 0, 0, ARENA_W, ARENA_H);
     paintStands(ctx, game);
     paintPads(ctx, game);
+    paintDrops(ctx, game);
     paintTurrets(ctx, game);
     paintFlags(ctx, game);
     paintUnits(ctx, game);
@@ -116,6 +118,7 @@ export function createRenderer() {
 
     paintHud(ctx, game, vp, W);
     paintMinimap(ctx, game, W);
+    paintShop(ctx, game, W, H);
     if (opts.touch) paintTouch(ctx, opts.touch, W, H);
   };
 
@@ -376,6 +379,61 @@ function paintPads(ctx, game) {
   }
 }
 
+/**
+ * A gun on the deck: its own silhouette, a ring that closes as it rots, and a
+ * shard-coloured glow so it reads as something worth walking over.
+ */
+function paintDrops(ctx, game) {
+  for (const d of game.drops) {
+    const k = clamp(d.life / 26, 0, 1);
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(game.time * 4 + d.x);
+    ctx.fillStyle = COLOURS.energy;
+    ctx.beginPath();
+    ctx.arc(0, 0, 17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = COLOURS.energy;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 17, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+    ctx.stroke();
+    ctx.rotate(-0.5);
+    drawGunShape(ctx, d.id, KIT[d.team]);
+    ctx.restore();
+  }
+}
+
+/**
+ * Each gun as an outline, drawn from the grip and pointing right.
+ *
+ * The body of it is `ink` on the field, where it sits on top of a lit floor,
+ * and `steel` on the armoury's cards, where ink on a black panel is a gun you
+ * cannot see you are being offered.
+ */
+function drawGunShape(ctx, id, kit, body = COLOURS.ink) {
+  ctx.fillStyle = body;
+  if (id === 'scatter') {
+    ctx.fillRect(-10, -4, 22, 8);
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(8, -5, 5, 10);
+  } else if (id === 'repeater') {
+    ctx.fillRect(-11, -3, 24, 6);
+    ctx.fillStyle = body;
+    ctx.fillRect(-4, 2, 7, 6);
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(11, -2, 3, 4);
+  } else if (id === 'lance') {
+    ctx.fillRect(-13, -2.5, 30, 5);
+    ctx.fillStyle = kit.trim;
+    ctx.fillRect(12, -4, 4, 8);
+    ctx.fillRect(-13, -1, 4, 2);
+  } else {
+    ctx.fillRect(-9, -2.5, 20, 5);
+  }
+}
+
 function paintTurrets(ctx, game) {
   for (const t2 of game.turrets) {
     const kit = KIT[t2.team];
@@ -566,8 +624,15 @@ function drawUnit(ctx, game, u, flag) {
     ctx.lineTo(15, side * 5);
     ctx.stroke();
   }
+  // the gun he is actually holding, so a bought one is visible from across the
+  // room — that is most of what tells you the fight you are walking into
   ctx.fillStyle = COLOURS.ink;
-  if (u.team === 'human') {
+  if (u.weapon && u.weapon.id !== STANDARD) {
+    ctx.save();
+    ctx.translate(20, 0);
+    drawGunShape(ctx, u.weapon.id, kit);
+    ctx.restore();
+  } else if (u.team === 'human') {
     ctx.fillRect(13, -2.4, 20, 4.8);
     ctx.fillStyle = kit.trim;
     ctx.fillRect(29, -1.6, 4, 3.2);
@@ -687,7 +752,25 @@ function bar(ctx, x, y, w, h, k, colour) {
 
 function paintBullets(ctx, game) {
   for (const b of game.bullets) {
-    const len = b.kind === 'blaster' ? 14 : 18;
+    if (b.kind === 'scatter') {
+      ctx.fillStyle = '#ffd9a0';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    if (b.kind === 'lance') {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(Math.atan2(b.vy, b.vx));
+      ctx.fillStyle = '#eaf6ff';
+      ctx.fillRect(-22, -1.6, 44, 3.2);
+      ctx.fillStyle = 'rgba(140,220,255,0.5)';
+      ctx.fillRect(-30, -0.8, 60, 1.6);
+      ctx.restore();
+      continue;
+    }
+    const len = b.kind === 'blaster' ? 14 : b.kind === 'repeater' ? 12 : 18;
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
@@ -809,6 +892,21 @@ function paintHud(ctx, game, vp, W) {
     player.hp > 35 ? KIT[player.team].tint : '#ff6a5a');
   const ready = clamp(1 - player.rollCool / (ROLL.cool + ROLL.time), 0, 1);
   bar(ctx, 14, vp.H - 34, 132, 4, ready, ready < 1 ? 'rgba(159,178,196,0.5)' : COLOURS.energy);
+
+  // what he has been paid, and what is in his hands: the two numbers the
+  // armoury is played with
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  ctx.fillStyle = COLOURS.energy;
+  ctx.fillText(`◆ ${player.shards}`, 14, vp.H - 44);
+  const gun = game.gun(player);
+  ctx.fillStyle = player.weapon.id === STANDARD ? COLOURS.dim : COLOURS.hud;
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillText(
+    player.weapon.id === STANDARD
+      ? t(`gun.${gun.id}`)
+      : `${t(`gun.${gun.id}`)} · ${player.weapon.ammo}`,
+    90, vp.H - 44
+  );
 }
 
 function scoreBlock(ctx, x, team, score, game, align) {
@@ -887,6 +985,90 @@ function paintMinimap(ctx, game, W) {
     if (u.team === game.playerTeam) dot(u.x, u.y, u === game.player ? '#ffffff' : KIT[u.team].tint, u === game.player ? 3.4 : 2.4);
     else if (game.teamSees(game.playerTeam, u.x, u.y)) dot(u.x, u.y, '#ff6a5a', 2.4);
   }
+  ctx.restore();
+}
+
+/** A line of text shrunk until it fits the space it was given. */
+function fitText(ctx, text, x, y, width, size, colour) {
+  let px = size;
+  ctx.fillStyle = colour;
+  do {
+    ctx.font = `${px}px system-ui, sans-serif`;
+    if (ctx.measureText(text).width <= width || px <= 8) break;
+    px -= 1;
+  } while (px > 8);
+  ctx.fillText(text, x, y);
+}
+
+/**
+ * Where the three cards of the armoury sit. Exported because the thumb has to
+ * hit the same rectangles the eye sees, and two copies of a layout are two
+ * layouts.
+ */
+export function shopCards(W, H) {
+  const w = 196;
+  const gap = 10;
+  const total = ARMOURY.length * w + (ARMOURY.length - 1) * gap;
+  const x0 = W / 2 - total / 2;
+  const y = H - 92;
+  return ARMOURY.map((gun, i) => ({ gun, x: x0 + i * (w + gap), y, w, h: 62 }));
+}
+
+/**
+ * The armoury, which only exists while you are standing on your own ground.
+ *
+ * It is drawn where a menu would be in the way of nothing: along the bottom,
+ * over your own end zone, in the seconds you are already spending walking back
+ * to your stand.
+ */
+function paintShop(ctx, game, W, H) {
+  const p = game.player;
+  if (!p || p.dead || !game.inBase(p)) return;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillStyle = COLOURS.energy;
+  ctx.fillText(t('shop.title'), W / 2, H - 106);
+
+  for (const card of shopCards(W, H)) {
+    const afford = p.shards >= card.gun.cost;
+    const held = p.weapon.id === card.gun.id;
+    ctx.globalAlpha = afford ? 1 : 0.45;
+    ctx.fillStyle = 'rgba(8,11,16,0.82)';
+    ctx.fillRect(card.x, card.y, card.w, card.h);
+    ctx.strokeStyle = held ? COLOURS.energy : afford ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = held ? 2 : 1;
+    ctx.strokeRect(card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1);
+
+    ctx.save();
+    ctx.translate(card.x + 30, card.y + 26);
+    ctx.scale(1.5, 1.5);
+    drawGunShape(ctx, card.gun.id, KIT[p.team], COLOURS.steel);
+    ctx.restore();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = COLOURS.hud;
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.fillText(`${ARMOURY.indexOf(card.gun) + 1}. ${t(`gun.${card.gun.id}`)}`, card.x + 56, card.y + 20);
+    // the note is measured, never assumed: "everything at once, up close" and
+    // "tudo de uma vez, de perto" are not the same width, and a card that fits
+    // one paints the other over its neighbour
+    fitText(ctx, t(`gun.${card.gun.id}.note`), card.x + 56, card.y + 36, card.w - 66, 11, COLOURS.dim);
+    ctx.fillStyle = afford ? COLOURS.energy : '#ff9d9d';
+    ctx.font = 'bold 12px system-ui, sans-serif';
+    ctx.fillText(`◆ ${card.gun.cost}`, card.x + 56, card.y + 53);
+    ctx.fillStyle = COLOURS.dim;
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText(`${card.gun.ammo} ${t('hud.ammo')}`, card.x + 112, card.y + 53);
+    ctx.textAlign = 'center';
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = COLOURS.dim;
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillText(t('shop.hint'), W / 2, H - 18);
+  ctx.textAlign = 'left';
   ctx.restore();
 }
 

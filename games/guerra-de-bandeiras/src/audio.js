@@ -108,4 +108,14 @@ export const sfx = {
   click() {
     tone('square', 520, 0.05, 0.05, 360);
   },
+  // the shards changing hands: two notes up, and one flat one when the gun
+  // you were relying on gives up mid-fight
+  buy() {
+    tone('sine', 640, 0.1, 0.09, 880);
+    setTimeout(() => tone('sine', 880, 0.14, 0.07, 1180), 70);
+  },
+  dry() {
+    tone('square', 220, 0.12, 0.07, 90);
+    noise(0.1, 0.1, 700);
+  },
 };

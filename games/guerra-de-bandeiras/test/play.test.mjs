@@ -20,6 +20,8 @@ const {
 } = await import('../src/config.js');
 const { buildArena } = await import('../src/arena.js');
 const { createGame, assistedAim, nearestThreat, segmentHit } = await import('../src/game.js');
+const { ARMOURY, REWARD, STANDARD, byId, worth } = await import('../src/weapons.js');
+const { AI_FLAGS, lanesOf, reconsider } = await import('../src/ai.js');
 const { carrierOf, flagPoint } = await import('../src/match.js');
 const { createRenderer, screenToWorld } = await import('../src/render.js');
 const { createTouchControls, moveInput, aimAngle, fireButton, rollButton } = await import('../src/controls.js');
@@ -488,6 +490,147 @@ scenario('a soldier comes back where his squad is, at full health', () => {
   check(spots.some((s) => dist(s.x, s.y, me.x, me.y) < 2), 'he came back somewhere that is not a spawn');
 });
 
+// ------------------------------------------------------------- the armoury
+
+scenario('a body down pays in shards, and one carrying a flag pays more', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const foe = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+  foe.dead = false;
+  foe.hp = 1;
+  check(me.shards === 0, 'he started with shards in his pocket');
+
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  foe.x = lane.x + 120;
+  foe.y = lane.y;
+  foe.bot = false;
+  tick(game, 0.6, { fire: true, aim: { x: foe.x, y: foe.y } });
+  check(foe.dead, 'the shot did not land');
+  check(me.shards === REWARD.kill, `a body down paid ${me.shards}`);
+
+  // and again with our flag on his back
+  tick(game, game.arena.respawn + 0.2);
+  foe.x = game.flags.human.x;
+  foe.y = game.flags.human.y;
+  tick(game, 0.1);
+  check(game.flags.human.carrier === foe.id, 'he did not take the flag');
+  foe.hp = 1;
+  me.x = foe.x - 120;
+  me.y = foe.y;
+  tick(game, 0.6, { fire: true, aim: { x: foe.x, y: foe.y } });
+  check(me.shards === REWARD.kill * 2 + REWARD.carrierKill,
+    `stopping a flag paid ${me.shards - REWARD.kill}, not ${REWARD.kill + REWARD.carrierKill}`);
+});
+
+scenario('the armoury opens on your own ground and nowhere else', () => {
+  const game = open();
+  const me = game.player;
+  const gun = ARMOURY[0];
+  me.shards = gun.cost;
+
+  // out in the field: no
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  check(!game.inBase(me), 'the test stood him in his own base');
+  check(!game.buy(me, gun.id), 'he bought a gun standing in the middle of the field');
+  check(me.weapon.id === STANDARD, 'he is holding something he could not have');
+
+  // on his own ground: yes
+  me.x = game.flags.human.home.x;
+  me.y = game.flags.human.home.y;
+  check(game.inBase(me), 'his own stand is not his own ground');
+  check(game.buy(me, gun.id), 'he could not buy on his own ground');
+  check(me.weapon.id === gun.id && me.weapon.ammo === gun.ammo, 'the gun arrived empty');
+  check(me.shards === 0, `he was charged ${gun.cost - me.shards}`);
+
+  // and not twice on one purse
+  check(!game.buy(me, gun.id), 'he bought a second one with an empty pocket');
+});
+
+scenario('a bought gun runs out, and hands you back your own', () => {
+  const game = open();
+  const me = game.player;
+  const gun = byId('repeater');
+  me.shards = gun.cost;
+  me.x = game.flags.human.home.x;
+  me.y = game.flags.human.home.y;
+  game.buy(me, gun.id);
+  check(me.weapon.ammo === gun.ammo, 'it did not come full');
+
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  let dry = false;
+  game.onDry = () => { dry = true; };
+  // fire until it gives up rather than for a computed number of seconds: the
+  // cooldown is counted in whole steps, so the real rate is a shade slower than
+  // the one on the card and the arithmetic comes up short
+  const emptied = tick(game, 30, { fire: true, aimAngle: 0 }, () => dry);
+  check(dry, 'nobody was told the gun had run out');
+  check(emptied > gun.rate * gun.ammo * 0.8, `it emptied in ${emptied && emptied.toFixed(1)}s, which is faster than it can fire`);
+  check(me.weapon.id === STANDARD, `he is still holding the ${me.weapon.id}`);
+  check(game.gun(me).id === GUNS.human.id, 'the gun in his hands is not his own side\'s');
+});
+
+scenario('die with a gun and it lands on the deck, for anybody', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const foe = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+
+  me.shards = 1000;
+  me.x = game.flags.human.home.x;
+  me.y = game.flags.human.home.y;
+  game.buy(me, 'lance');
+  tick(game, 0.4, { fire: true, aimAngle: 0 });          // spend a round, so it is not full
+  const left = me.weapon.ammo;
+  check(left < byId('lance').ammo, 'the test did not fire it');
+
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  me.hp = 0;
+  tick(game, 0.05);
+  check(game.drops.length === 1, `${game.drops.length} guns on the deck`);
+  check(game.drops[0].id === 'lance' && game.drops[0].ammo === left,
+    'it landed with a different gun or a different magazine');
+  check(dist(game.drops[0].x, game.drops[0].y, lane.x, lane.y) < TILE, 'it landed somewhere else entirely');
+
+  // the sentinel who was standing there walks over it, and it is his
+  foe.dead = false;
+  foe.bot = false;
+  foe.x = game.drops[0].x;
+  foe.y = game.drops[0].y;
+  tick(game, 0.1);
+  check(foe.weapon.id === 'lance' && foe.weapon.ammo === left, 'the enemy could not pick it up');
+  check(game.drops.length === 0, 'it is still lying there as well');
+
+  // and he swaps up, never down
+  game.drops.push({ x: foe.x, y: foe.y, id: 'scatter', ammo: 20, life: 20, team: 'human' });
+  tick(game, 0.1);
+  check(foe.weapon.id === 'lance', 'he put down a lance for a scattergun');
+});
+
+scenario('the two sides shop from the same shelf', () => {
+  // the starting guns are the one place the sides differ, and they are tuned
+  // against each other; an armoury with a per-side table would have to be tuned
+  // twice and would drift on the first edit
+  for (const gun of ARMOURY) {
+    check(gun.cost > 0 && gun.ammo > 0, `${gun.id} is free or bottomless`);
+    check(worth(gun.id) === gun.cost, `${gun.id} is not worth what it costs`);
+    const perShot = gun.damage * (gun.pellets || 1);
+    check(perShot < UNIT.hp, `${gun.id} puts a body down in one shot`);
+    check(gun.range >= 400, `${gun.id} reaches ${gun.range}px, which is not a gun`);
+  }
+  const ids = ARMOURY.map((g) => g.id);
+  check(new Set(ids).size === ids.length, 'two guns share an id');
+  check(!ids.includes(STANDARD), 'the gun you already have is on sale');
+});
+
 // ------------------------------------------------------- the arenas' own toys
 
 scenario('a turret guards its stand, can be shot down, and comes back', () => {
@@ -598,6 +741,69 @@ scenario('a bot walks round a wall instead of standing against it', () => {
     return false;
   });
   check(best > ARENA_W * 0.82, `the raid stalled ${(ARENA_W - best).toFixed(0)}px short of the enemy stand`);
+});
+
+// ------------------------------------------------------------------ the brain
+
+scenario('a squad does not arrive in single file', () => {
+  const game = createGame({ arena: buildArena(5), team: 'human', seed: 9 });
+  for (const u of game.units) u.bot = true;
+  const lanes = lanesOf(game.arena);
+  check(lanes.length >= 2, `${lanes.length} way(s) across the field`);
+
+  // the raiders of one squad, an hour into a fight, should not all be crossing
+  // at the same height
+  tick(game, 25);
+  const raiders = game.units.filter((u) => u.team === 'human' && u.role === 'attack' && !u.dead);
+  check(raiders.length >= 2, `only ${raiders.length} raiders to look at`);
+  const lanesUsed = new Set(raiders.map((u) => u.lane % lanes.length));
+  check(lanesUsed.size >= 2 || raiders.length < 3,
+    `${raiders.length} raiders and ${lanesUsed.size} lane(s) between them`);
+
+  // and a body that dies comes back on the next one round, never the same
+  const one = raiders[0];
+  const before = one.lane;
+  reconsider(game, one, () => 0.5);
+  check(one.lane !== before, 'he came back down the lane he died in');
+  check(one.role === 'attack', 'his job changed while nothing about the squad did');
+});
+
+scenario('a bot backs off when it is nearly dead, and shops when it is home', () => {
+  const game = createGame({ arena: buildArena(0), team: 'human', seed: 4 });
+  for (const u of game.units) u.bot = true;
+  const raider = game.units.find((u) => u.team === 'human' && u.role === 'attack');
+  const foe = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== raider && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+
+  // nearly dead, deep in their half, with a gun on him: he goes the other way
+  raider.x = ARENA_W * 0.75;
+  raider.y = game.flags.alien.home.y;
+  raider.hp = 20;
+  foe.x = raider.x + 160;
+  foe.y = raider.y;
+  foe.dead = false;
+  const startX = raider.x;
+  tick(game, 1.6);
+  check(raider.dead || raider.x < startX, `at twenty health he walked on to ${raider.x.toFixed(0)} from ${startX.toFixed(0)}`);
+
+  // and standing on his own ground with shards in his pocket, he buys
+  const shopper = game.units.find((u) => u.team === 'human' && !u.dead) || raider;
+  shopper.dead = false;
+  shopper.hp = 100;
+  shopper.shards = 1000;
+  shopper.x = game.flags.human.home.x;
+  shopper.y = game.flags.human.home.y;
+  tick(game, 0.3);
+  check(shopper.weapon.id !== STANDARD, 'he stood in the armoury with a thousand shards and bought nothing');
+  check(shopper.shards < 1000, 'he was not charged for it');
+});
+
+scenario('the brain\'s dials are all on, and each one is a decision that was measured', () => {
+  // They are a measuring harness, not a config: every one of them is on in the
+  // game, and the tests above and the notes in ai.js are what they were for.
+  for (const [name, on] of Object.entries(AI_FLAGS)) {
+    check(on === true, `the ${name} behaviour is switched off in the shipped game`);
+  }
 });
 
 // ------------------------------------------------------------- what is drawn

@@ -11,22 +11,33 @@
 // The list, from the top:
 //
 //   1. Am I holding a flag?               → my own stand, and nothing else matters
-//   2. Is somebody running off with ours?  → after them
-//   3. Is ours lying on the deck?          → fetch it, and carry it home
-//   4. Is one of mine carrying one?        → get between him and the field
-//   5. Otherwise → my job: their flag, or the ground around ours
+//   2. Am I nearly dead with a gun on me?  → back off and let it knit
+//   3. Is somebody running off with ours?  → after them
+//   4. Is ours lying on the deck?          → fetch it, and carry it home
+//   5. Is there a gun on the deck worth more than mine, and is it on my way?
+//   6. Is one of mine carrying one?        → get between him and the field
+//   7. Otherwise → my job: their flag by my own lane, or the ground around ours
+//
+// What stops all that reading as one bot copied five times is the last line and
+// the three below it: **a raider crosses by his own lane**, a body under fire
+// strafes rather than walking into it, a body that has just been hit rolls, and
+// a body standing on its own ground with shards in its pocket goes shopping.
+// None of that changes what a bot wants; all of it changes what watching one
+// looks like.
 
-import { BOT_RANGE, botStats, dist, dist2, other, clamp } from './config.js';
+import { ARENA_W, BOT_RANGE, HALF, ROWS, TILE, UNIT, botStats, dist, dist2, other, clamp } from './config.js';
 import { cellOf, centreOf, stepAlong } from './grid.js';
 import { carrierOf, carriedBy, flagPoint } from './match.js';
+import { ARMOURY, STANDARD, worth } from './weapons.js';
 
 export function botOrders(game, u, dt) {
   const stats = botStats(game.arena.skill);
   const enemyTeam = other(u.team);
+  shop(game, u);
   const goal = chooseGoal(game, u, stats, dt);
   const target = pickTarget(game, u, stats, dt);
 
-  const move = steer(game, u, goal, stats, dt);
+  const move = steer(game, u, goal, stats, dt, target);
   const orders = {
     mx: move.x,
     my: move.y,
@@ -48,11 +59,14 @@ export function botOrders(game, u, dt) {
     u.aimT = 0;
   }
 
-  // The roll is spent on the two moments it was built for: getting a stolen
-  // flag out of a hot end zone, and closing on the man carrying yours.
+  // The roll is spent on three moments: getting a stolen flag out of a hot end
+  // zone, closing on the man carrying yours, and **the second after being hit**
+  // — which is the one that reads as somebody reacting rather than walking.
   const carrying = !!carriedBy(game, u);
   const hunting = goal.kind === 'chase';
-  if ((carrying || hunting) && u.rollCool <= 0 && (move.x || move.y) && game.rng() < dt * 1.6) {
+  const stung = u.hurt > 0 && u.hp < UNIT.hp * 0.75;
+  const wants = (carrying || hunting ? dt * 1.6 : 0) + (stung ? dt * 2.4 * stats.lead : 0);
+  if (u.rollCool <= 0 && (move.x || move.y) && game.rng() < wants) {
     // a press, not a hold: the roll is edge-triggered, so it has to fall again
     orders.roll = !u.rollWas;
   }
@@ -102,6 +116,13 @@ function chooseGoal(game, u, stats, dt) {
     return { kind: 'home', ...mine.home };
   }
 
+  // Nearly dead, with somebody shooting at him: he backs off towards his own
+  // ground and lets the bleeding stop. It is the same body five seconds later
+  // instead of a respawn timer, and it is why REGEN exists.
+  if (AI_FLAGS.retreat && u.hp < UNIT.hp * 0.34 && u.target && !atHome(u)) {
+    return { kind: 'retreat', x: mine.home.x, y: mine.home.y };
+  }
+
   const holder = carrierOf(game, u.team);        // whoever has ours, whichever side
   if (holder && holder.team !== u.team) {
     // The standoff, and the reason this clause is not just "defenders chase".
@@ -129,6 +150,25 @@ function chooseGoal(game, u, stats, dt) {
     }
   }
 
+  // a better gun lying on the deck, near enough to be worth the detour
+  // …but only one that is nearly under his feet **and on his way**. A soldier
+  // who turns round for a gun is a soldier not crossing the field for the flag,
+  // and measured against a squad that ignores them entirely, detouring cost a
+  // tenth of the captures on its own.
+  let bestGun = null;
+  let bestGunD = 220;
+  const ahead = u.team === 'human' ? 1 : -1;
+  for (const d of game.drops) {
+    if (worth(d.id) <= worth(u.weapon.id)) continue;
+    if (u.role === 'attack' && (d.x - u.x) * ahead < -TILE) continue;
+    const far = dist(u.x, u.y, d.x, d.y);
+    if (far < bestGunD) {
+      bestGunD = far;
+      bestGun = d;
+    }
+  }
+  if (bestGun && AI_FLAGS.loot) return { kind: 'loot', x: bestGun.x, y: bestGun.y };
+
   // one of ours walking a flag home — either one — is worth walking with
   const friend = carrierOf(game, enemyTeam) || (holder && holder.team === u.team ? holder : null);
   if (friend && friend.id !== u.id && u.role === 'attack'
@@ -138,6 +178,20 @@ function chooseGoal(game, u, stats, dt) {
 
   if (u.role === 'attack') {
     const p = flagPoint(game, theirs);
+    // **Each raider comes at the stand from his own side of it.** The first
+    // draft sent them to a gap on the centre line and then to the flag, which
+    // looked right and cost the match a third of its captures: a dogleg in the
+    // middle of a run is a second and a half of walking away from where you are
+    // going. The variety that is worth paying for is at the other end — three
+    // bodies arriving from three directions rather than in single file — and it
+    // costs nothing, because the detour only exists while they are still far
+    // enough out for it to be free.
+    const far = dist(u.x, u.y, p.x, p.y);
+    if (AI_FLAGS.lanes && far > 260) {
+      const lanes = lanesOf(game.arena).length;
+      const a = ((u.lane % lanes) / lanes) * Math.PI * 2;
+      return { kind: 'raid', x: p.x + Math.cos(a) * 150, y: p.y + Math.sin(a) * 150 };
+    }
     return { kind: 'raid', x: p.x, y: p.y };
   }
 
@@ -160,6 +214,105 @@ function chooseGoal(game, u, stats, dt) {
   };
 }
 
+/**
+ * Standing on his own ground with shards in his pocket: he buys.
+ *
+ * Which gun is not the same answer for every body, and that is on purpose —
+ * a squad that all bought the lance is a squad that fights the same way at
+ * every range. A defender takes the shortest gun he can get, a raider the
+ * longest, and everybody tops up the one they already like rather than
+ * hoarding for the next one up.
+ */
+function shop(game, u) {
+  if (!game.inBase(u) || u.dead) return;
+  const held = worth(u.weapon.id);
+  const wants = u.role === 'defend' ? ['scatter', 'repeater', 'lance'] : ['lance', 'repeater', 'scatter'];
+  // top the current one up before trading up: a gun with two rounds in it is a
+  // starting gun that is about to surprise him
+  const low = u.weapon.id !== STANDARD && u.weapon.ammo <= ARMOURY.find((w) => w.id === u.weapon.id).ammo * 0.25;
+  const order = low ? [u.weapon.id, ...wants] : wants;
+  for (const id of order) {
+    const w = ARMOURY.find((g) => g.id === id);
+    if (!w || u.shards < w.cost) continue;
+    if (!low && worth(id) <= held) continue;
+    game.buy(u, id);
+    return;
+  }
+}
+
+/**
+ * The three ways across, worked out from the field itself: the open stretches
+ * of the centre line, top to bottom.
+ *
+ * Raiders pick one each and keep it until they die. It is the cheapest variety
+ * there is — the same five bots with the same list of wants stop arriving in
+ * single file down the same corridor, which is what "the bots are repetitive"
+ * looks like from the outside.
+ */
+export const AI_FLAGS = { lanes: true, loot: true, retreat: true, strafe: true, rethink: true };
+
+const LANES = new WeakMap();
+
+export function lanesOf(arena) {
+  const kept = LANES.get(arena);
+  if (kept) return kept;
+  const out = [];
+  let run = [];
+  // A long open stretch is not one way across, it is three. Splitting it is
+  // what makes the lanes mean anything on the arenas whose middle is a hall:
+  // measured by the gaps alone, Twin Corridors has exactly one, and five
+  // raiders given "the gap" arrive in single file.
+  const flush = () => {
+    if (!run.length) return;
+    const n = Math.max(1, Math.min(3, Math.round(run.length / 4)));
+    for (let i = 0; i < n; i++) {
+      out.push(centreOf(HALF, run[Math.floor(((i + 0.5) / n) * run.length)]));
+    }
+    run = [];
+  };
+  for (let cy = 1; cy < ROWS - 1; cy++) {
+    if (arena.grid.walkable(HALF - 1, cy) && arena.grid.walkable(HALF, cy)) run.push(cy);
+    else flush();
+  }
+  flush();
+  LANES.set(arena, out.length ? out : [centreOf(HALF, Math.floor(ROWS / 2))]);
+  return LANES.get(arena);
+}
+
+/** Which half of the field is this body's own. */
+const atHome = (u) => (u.team === 'human' ? u.x < ARENA_W / 2 : u.x > ARENA_W / 2);
+
+/**
+ * What a body decides to be, each time it comes back.
+ *
+ * The jobs were handed out once at the start, and a squad whose shape never
+ * changes plays the same match from 0-0 to 9-9. This is the cheapest way to
+ * make it answer what is happening: with our flag out somebody usually turns
+ * round, two goals behind somebody usually goes forward, and the rest keep the
+ * split the arena asked for. It also re-rolls his lane, so a raider who died
+ * coming through the middle comes back down the side.
+ */
+export function reconsider(game, u, rng = Math.random) {
+  if (!AI_FLAGS.rethink) return u.role;
+  // The lane **rotates**: he comes back at the enemy stand from the next side
+  // round rather than the one he died on. It is deliberately not drawn from a
+  // hat — a squad picking lanes at random clumps two or three onto the same one
+  // and they die together.
+  u.lane = (u.lane + 1) % lanesOf(game.arena).length;
+  return u.role;
+}
+
+// And the job he comes back to is the job he had. Three versions of "let him
+// answer what is happening" are in the history of this file and every one of
+// them cost the match half its captures, because every one of them was a
+// ratchet: weighted towards defence while a flag was out, counting only the
+// defenders still standing, or promoting an attacker whenever the one defender
+// was on the respawn clock. A squad of four has one defender and loses him
+// every twenty seconds, so "nobody is minding the stand" is true most of the
+// time and the whole squad walks home to mind it. The split is set once, by
+// `assignRoles`, from the arena's own dial — and a bot that cannot decide what
+// it is is not a more interesting bot, it is a bot that never arrives.
+
 /** The closest body on this squad with its hands free — the one who fetches. */
 function nearestFree(game, u, flag) {
   let best = null;
@@ -181,7 +334,7 @@ function nearestFree(game, u, flag) {
  * standing on top of you, which is what stops four bots becoming one bot with
  * four guns.
  */
-function steer(game, u, goal, stats, dt) {
+function steer(game, u, goal, stats, dt, target) {
   let dx = goal.x - u.x;
   let dy = goal.y - u.y;
   const far = Math.hypot(dx, dy);
@@ -219,6 +372,23 @@ function steer(game, u, goal, stats, dt) {
     const push = 0.5 * (1 - d / reach);
     vx += ((u.x - mate.x) / d) * push;
     vy += ((u.y - mate.y) / d) * push;
+  }
+
+  // A body in a firefight does not walk into it in a straight line. Close in,
+  // he slides around the man he is shooting at, and the side he slides to flips
+  // every second or so — which is both harder to hit and the thing that makes
+  // two bots meeting look like a fight rather than a collision.
+  if (AI_FLAGS.strafe && target && dist2(u.x, u.y, target.x, target.y) < 210 * 210) {
+    u.strafe -= dt;
+    if (u.strafe <= 0) {
+      u.strafe = 0.8 + game.rng() * 0.9;
+      u.strafeSide = -u.strafeSide;
+    }
+    const ax = target.x - u.x;
+    const ay = target.y - u.y;
+    const al = Math.hypot(ax, ay) || 1;
+    vx += (-ay / al) * u.strafeSide * 0.55;
+    vy += (ax / al) * u.strafeSide * 0.55;
   }
 
   len = Math.hypot(vx, vy) || 1;
