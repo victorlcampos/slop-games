@@ -297,30 +297,46 @@ export function drawAim(ctx, match, side, angle, power) {
 }
 
 /**
- * The gauge, at the bottom of the screen where the thumb and the dock already
- * are. It lived over the trebuchet for a while, which reads beautifully on an
- * empty field and lands on top of your own castle the moment you build one.
+ * The fire button: a round pad with the charge running round its rim.
+ *
+ * The bar used to be a separate strip in the middle of the screen, which meant
+ * the thing you were watching and the thing you were pressing were in two
+ * different places. Round the button, the charge is under the thumb that is
+ * making it.
  */
-export function drawGauge(ctx, vp, power, charging) {
-  const w = 260;
-  const h = 16;
-  const x = (vp.W - w) / 2;
-  const y = vp.H - 156;
-  panel(ctx, x - 10, y - 10, w + 20, h + 20, { fill: 'rgba(12,10,16,0.72)', r: 10 });
-  const g = ctx.createLinearGradient(x, 0, x + w, 0);
-  g.addColorStop(0, '#5fd16a');
-  g.addColorStop(0.55, '#e8d24a');
-  g.addColorStop(1, '#e8563a');
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, (power / 100) * w, h);
-  if (charging) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(x + (power / 100) * w - 1.5, y - 5, 3, h + 10);
+export function drawFireButton(ctx, fire, power, charging, live) {
+  const { cx, cy, r } = fire;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, TAU);
+  ctx.fillStyle = !live ? 'rgba(24,22,28,0.55)' : charging ? 'rgba(232,187,74,0.94)' : 'rgba(38,34,44,0.92)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // the rim: empty when you are not holding it, and it is the only readout
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 7, 0, TAU);
+  ctx.stroke();
+  if (power > 0) {
+    ctx.strokeStyle = power > 82 ? '#e8563a' : power > 52 ? '#e8d24a' : '#5fd16a';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 7, -Math.PI / 2, -Math.PI / 2 + (power / 100) * TAU);
+    ctx.stroke();
   }
-  label(ctx, t('hud.power'), x - 18, y + h / 2, { size: 12, weight: 600, color: '#b9b0a0', align: 'right' });
-  label(ctx, String(Math.round(power)), x + w + 18, y + h / 2, { size: 15, color: '#ffe9b8' });
+  ctx.restore();
+
+  const ink = !live ? 'rgba(240,232,214,0.4)' : charging ? '#2a2210' : '#f2e7d0';
+  if (charging) {
+    label(ctx, String(Math.round(power)), cx, cy - 4, { size: 24, align: 'center', color: ink });
+    label(ctx, t('hud.release'), cx, cy + 16, { size: 10, weight: 600, align: 'center', color: ink });
+  } else {
+    label(ctx, t('hud.fire'), cx, cy, { size: 16, align: 'center', color: ink });
+  }
 }
 
 // -------------------------------------------------------------------- HUD
@@ -401,10 +417,14 @@ export function drawBattleHud(ctx, vp, state) {
 
   // --- the one button that ends the turn
   const firing = phase === 'charging';
-  button(ctx, bay.fire, firing ? t('hud.fire') : t('hud.power'), { on: firing, off: !mine, size: 17 });
+  drawFireButton(ctx, bay.fire, power, firing, mine);
   rects.push({ ...bay.fire, kind: 'fire' });
 
-  if (mine) drawGauge(ctx, vp, power, firing);
+  if (state.message) {
+    label(ctx, state.message, vp.W / 2, bay.fire.cy - bay.fire.r - 34, {
+      size: 16, align: 'center', color: '#ffb27a', shadow: true,
+    });
+  }
 
   return rects;
 }

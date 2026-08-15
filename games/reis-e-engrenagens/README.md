@@ -41,8 +41,9 @@ is the whole game.
    committed and cannot move again.
 2. **Aim** — hold ▲ ▼, the up and down arrows, or drag the field up and down. The
    angle is next to the fuel bar.
-3. **POWER** — the gauge opens and starts sweeping.
-4. **FIRE** — it goes at whatever the gauge was reading.
+3. **Hold FIRE** — the charge climbs round the rim of the button.
+4. **Let go** — it leaves at whatever the ring was reading. Holding too long is a
+   full-power shot, not a wasted turn.
 
 Nothing aims by being tapped. Pointing at the spot you wanted to hit reads well
 with a mouse and is unusable with a thumb — the tap that opened the gauge also
@@ -89,8 +90,14 @@ as a block with a crown on it. The one thing he does differently is brace when
 the floor goes, because losing on turn one to a shell you never saw is not a
 lesson.
 
-**The opponent has no extra information.** It aims by firing ghost shots through
-the same integrator, the same wind and the same walls your shell goes through.
+**The opponent has no extra information, and leaves no fingerprints.** It aims by
+firing ghost shots through the same integrator, the same wind and the same walls
+your shell goes through — but through a read-only twin of the match, because a
+trace that can write to the world is a trace that will. The drill's collision
+used to announce itself with an event, so every ghost drill the opponent
+*considered* threw a spray of dirt onto the real battlefield: a hundred and forty
+of them a turn, along trajectories nobody fired, at spots that never got a crater
+because nothing had landed there.
 What makes it beatable is a wobble on a good answer, not a worse answer — and
 the wobble shrinks every turn, because a gunner who has watched two of his own
 shells land does know where the third one goes.

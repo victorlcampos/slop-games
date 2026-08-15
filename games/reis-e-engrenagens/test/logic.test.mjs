@@ -16,7 +16,7 @@ import { canPlace, canRemove, createCastle, grounded, settle, supportOf, unsuppo
 import { blueprintCost, foeCastle, normalizeBlueprint } from '../src/castles.js';
 import { createWorkshop, suggestBlueprint } from '../src/workshop.js';
 import { freshRun, normalizeRun, reward } from '../src/run.js';
-import { gaugeAt } from '../src/controls.js';
+import { chargeAt } from '../src/controls.js';
 import { battleLayout, hit, paletteLayout } from '../src/ui.js';
 import { dict } from '../src/i18n.js';
 
@@ -454,20 +454,26 @@ scenario('no two controls ever land on each other, at any width', () => {
   }
 });
 
-scenario('the power gauge sweeps up and back down, forever', () => {
-  check(Math.abs(gaugeAt(0, 1) - 0) < 0.001, 'the gauge does not start at nothing');
-  check(Math.abs(gaugeAt(0.5, 1) - 50) < 0.001, `halfway up it reads ${gaugeAt(0.5, 1).toFixed(0)}`);
-  check(Math.abs(gaugeAt(1, 1) - 100) < 0.001, `at the top it reads ${gaugeAt(1, 1).toFixed(0)}`);
-  check(Math.abs(gaugeAt(1.5, 1) - 50) < 0.001, 'the gauge does not come back down');
-  check(Math.abs(gaugeAt(2, 1) - 0) < 0.001, 'the gauge does not start again');
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (let i = 0; i < 400; i++) {
-    const v = gaugeAt(i * 0.037, 0.82);
-    lo = Math.min(lo, v);
-    hi = Math.max(hi, v);
+scenario('the charge climbs while you hold it and stops at full', () => {
+  // Hold-and-release, not tap-and-tap: the same decision with the timing already
+  // in your hand, one button instead of two taps, and on a phone the difference
+  // between a control and a lottery.
+  check(chargeAt(0, 118) === 0, 'the charge does not start at nothing');
+  check(Math.abs(chargeAt(0.5, 118) - 59) < 0.001, `half a second in it reads ${chargeAt(0.5, 118).toFixed(0)}`);
+  check(chargeAt(1, 118) === 100, `a second in it reads ${chargeAt(1, 118).toFixed(0)}`);
+
+  // and it caps rather than wrapping — holding too long is a full-power shot,
+  // not a wasted turn
+  check(chargeAt(9, 118) === 100, `held for nine seconds it reads ${chargeAt(9, 118).toFixed(0)}`);
+  let last = -1;
+  for (let i = 0; i <= 200; i++) {
+    const v = chargeAt(i / 60, 118);
+    check(v >= last, `the charge went backwards at ${(i / 60).toFixed(2)}s`);
+    check(v >= 0 && v <= 100, `the charge wandered to ${v.toFixed(0)}`);
+    last = v;
   }
-  check(lo >= 0 && hi <= 100, `the gauge wandered to ${lo.toFixed(0)}..${hi.toFixed(0)}`);
+  // a full charge is quick enough that nobody waits for it
+  check(chargeAt(1.2, 118) === 100, 'a full charge takes longer than a beat and a bit');
 });
 
 scenario('the camera watches the shell, and the gunner when there is none', () => {

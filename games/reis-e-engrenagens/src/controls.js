@@ -46,7 +46,10 @@ export function createInput(canvas, vp, on) {
     held.add(e.code);
     if (on.key && on.key(e.code, e)) e.preventDefault();
   };
-  const release = (e) => held.delete(e.code);
+  const release = (e) => {
+    held.delete(e.code);
+    if (on.keyUp) on.keyUp(e.code, e);
+  };
   // a window that loses focus mid-drive would otherwise drive forever
   const clear = () => held.clear();
   window.addEventListener('keydown', key);
@@ -68,13 +71,17 @@ export function createInput(canvas, vp, on) {
 }
 
 /**
- * The gauge: 0 to 100 and back, forever, until somebody taps.
+ * The gauge: hold the button and it climbs, let go and that is your power.
  *
- * Pure on purpose — "how long does a sweep take" is the kind of number that
- * gets tuned twice a week, and a test that reads it is a test that keeps
- * working afterwards.
+ * It used to sweep up and down forever and you tapped twice — once to start it,
+ * once to stop it. Hold-and-release is the same decision with the timing you
+ * already have in your hand, it needs one button instead of two taps, and on a
+ * phone it is the difference between a control and a lottery. It caps rather
+ * than wrapping: holding too long is a full-power shot, not a wasted turn.
+ *
+ * Pure on purpose — "how long does a full charge take" is the kind of number
+ * that gets tuned twice a week, and a test that reads it keeps working.
  */
-export function gaugeAt(elapsed, speed) {
-  const p = (elapsed * speed) % 2;
-  return (p < 1 ? p : 2 - p) * 100;
+export function chargeAt(elapsed, rate) {
+  return Math.min(100, Math.max(0, elapsed * rate));
 }

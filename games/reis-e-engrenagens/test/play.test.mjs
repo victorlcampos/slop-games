@@ -532,6 +532,42 @@ scenario('the enemy brings the right ammunition to the wall in front of it', () 
     `with nothing that suits stone the knights still spent a special: ${planShot(stone, 'enemy', 1).weapon}`);
 });
 
+scenario('thinking about a turn changes nothing whatsoever about the world', () => {
+  // This is the bug that made the opponent look broken: the drill's collision
+  // announced itself with an event, so every ghost drill the AI *considered*
+  // threw a spray of dirt onto the real battlefield — a hundred and forty of
+  // them per turn, along trajectories nobody fired, at spots that never got a
+  // crater because nothing had actually landed there. It reads exactly like
+  // "the bot's shots pass through the ground and do nothing".
+  const m = mk({
+    mine: suggestBlueprint(400),
+    theirs: foeCastle({ ...LEVELS[0].foe, faction: 'machines', seed: 3 }),
+  });
+  m.turn = 'enemy';
+  m.take();
+
+  const before = {
+    ground: m.terrain.snapshot(),
+    hp: [...m.castles.player.blocks(), ...m.castles.enemy.blocks()].map((b) => b.hp),
+    where: Object.values(m.launchers).map((L) => `${L.x.toFixed(2)},${L.y.toFixed(2)},${L.angle.toFixed(2)},${L.fuel}`),
+    ammo: JSON.stringify(m.ammo),
+    shots: m.shots.length,
+  };
+
+  planShot(m, 'enemy', 0.6);
+
+  const said = m.take();
+  check(said.length === 0, `planning a shot announced ${said.length} things to the world: ${said.map((e) => e.kind).join(', ')}`);
+  check(m.terrain.snapshot().every((y, i) => y === before.ground[i]), 'planning a shot moved the ground');
+  const hp = [...m.castles.player.blocks(), ...m.castles.enemy.blocks()].map((b) => b.hp);
+  check(hp.length === before.hp.length && hp.every((v, i) => v === before.hp[i]), 'planning a shot damaged a wall');
+  check(Object.values(m.launchers).every((L, i) =>
+    `${L.x.toFixed(2)},${L.y.toFixed(2)},${L.angle.toFixed(2)},${L.fuel}` === before.where[i]),
+    'planning a shot moved or re-aimed an engine');
+  check(JSON.stringify(m.ammo) === before.ammo, 'planning a shot spent ammunition');
+  check(m.shots.length === before.shots, 'planning a shot left something in the air');
+});
+
 scenario('the enemy climbs back onto its own tower after you shoot it off', () => {
   const m = mk({ theirs: { cells: [...stack(2, 1, 'stone'), ...stack(5, 5, 'stone')], king: { c: 6, r: 0 } } });
   const L = m.launchers.enemy;

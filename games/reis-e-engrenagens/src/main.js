@@ -10,7 +10,7 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { mountLangPicker, bindText } from 'slopkit/langpicker';
 
-import { BASE_Y, CASTLE_X, CELL, COLS, DRIVE_SPEED, GAUGE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
+import { BASE_Y, CASTLE_X, CELL, CHARGE_RATE, COLS, DRIVE_SPEED, H, LEVELS, STEP, W, clamp, viewWidth } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createMatch } from './battle.js';
 import { buildTerrain } from './terrain.js';
@@ -25,7 +25,7 @@ import { freshRun, levelOf, normalizeRun, reward } from './run.js';
 import { drawAim, drawBattleHud, drawField, drawShopGrid, drawShopHud } from './render.js';
 import { drawBlock, drawLauncher } from './art.js';
 import { hit } from './ui.js';
-import { createInput, gaugeAt } from './controls.js';
+import { chargeAt, createInput } from './controls.js';
 import { MATERIALS, material } from './materials.js';
 import { sfx, sound } from './audio.js';
 
@@ -247,15 +247,18 @@ function fireNow() {
   phase = 'flight';
 }
 
-/** The one button that ends a turn: once to open the gauge, again to let go. */
-function onFire() {
+/** Press and the charge climbs; let go and it leaves. One button, one gesture. */
+function startCharge() {
   if (!match || match.over || match.turn !== 'player' || match.flying()) return;
-  if (phase === 'aim') {
-    phase = 'charging';
-    gaugeT = 0;
-  } else if (phase === 'charging') {
-    fireNow();
-  }
+  if (phase !== 'aim') return;
+  phase = 'charging';
+  gaugeT = 0;
+  power = 0;
+}
+
+function releaseCharge() {
+  if (!match || phase !== 'charging') return;
+  fireNow();
 }
 
 function shopCellAt(x, y) {
@@ -286,7 +289,7 @@ const input = createInput(canvas, vp, {
     if (r) {
       if (r.kind === 'drive') driving = r.dir;
       else if (r.kind === 'aim') aiming = r.dir;
-      else if (r.kind === 'fire') onFire();
+      else if (r.kind === 'fire') startCharge();
       else if (r.kind === 'weapon') {
         if (!match.pick('player', r.id)) sfx.deny();
         else sfx.place();
@@ -310,15 +313,23 @@ const input = createInput(canvas, vp, {
   },
 
   up() {
+    // released anywhere, not just over the button: a thumb that slides off the
+    // pad while charging still means "let go", and holding the shot hostage
+    // because the finger moved four pixels is the worst kind of unfair
+    releaseCharge();
     driving = 0;
     aiming = 0;
     dragY = null;
   },
 
+  keyUp(code) {
+    if (code === 'Space' || code === 'Enter') releaseCharge();
+  },
+
   key(code) {
     if (screen === 'battle' && match && !match.over) {
       if (code === 'Space' || code === 'Enter') {
-        onFire();
+        startCharge();
         return true;
       }
       // all four arrows are *held*, and the update loop reads them: left and
@@ -435,8 +446,8 @@ function update(h) {
   if (phase === 'charging' && match.turn === 'player' && !match.flying()) {
     gaugeT += h;
     const before = power;
-    power = gaugeAt(gaugeT, GAUGE_SPEED);
-    if (Math.floor(before / 10) !== Math.floor(power / 10)) sfx.tick(power);
+    power = chargeAt(gaugeT, CHARGE_RATE);
+    if (Math.floor(before / 8) !== Math.floor(power / 8)) sfx.tick(power);
   }
 
   match.tick(h);
@@ -511,6 +522,10 @@ function drain() {
         fx.arc(ev.x, ev.y, ev.tx, ev.ty);
         sfx.arc();
         break;
+      case 'miss':
+        say(t('hud.missed'));
+        sfx.tumble();
+        break;
       case 'kinghit':
         sfx.kinghit();
         shake = Math.max(shake, 1);
@@ -562,7 +577,7 @@ function draw() {
   ctx.restore();
 
   if (screen === 'battle' && match) {
-    hudRects = drawBattleHud(ctx, v, { match, level, phase, power, driving, aiming });
+    hudRects = drawBattleHud(ctx, v, { match, level, phase, power, driving, aiming, message });
   } else if (screen === 'shop') {
     hudRects = drawShopHud(ctx, v, shop, level, { message, foe: foePreview, foeFaction: foeFaction() });
   } else {

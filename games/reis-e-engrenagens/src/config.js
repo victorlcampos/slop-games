@@ -99,8 +99,8 @@ export const KING_HP = 120;
 export const FALL_DMG = 15;
 export const CRUSH_CAP = 85;
 
-/** A full sweep of the power gauge, up and down, per second. */
-export const GAUGE_SPEED = 0.82;
+/** Power per second while the fire button is held: a full charge in a beat. */
+export const CHARGE_RATE = 118;
 
 /**
  * A match that never ends is a match a test can hang on. Past this many turns

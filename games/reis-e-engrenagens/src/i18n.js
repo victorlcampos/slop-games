@@ -77,6 +77,8 @@ export const dict = {
   'hud.power': { en: 'power', pt: 'força' },
   'hud.fuel': { en: 'fuel', pt: 'combustível' },
   'hud.fire': { en: 'FIRE', pt: 'FOGO' },
+  'hud.release': { en: 'let go', pt: 'solte' },
+  'hud.missed': { en: 'Out of the valley — nothing hit.', pt: 'Saiu do vale — não acertou nada.' },
   'hud.angle': { en: 'angle', pt: 'ângulo' },
   'hud.turn': { en: 'turn {n}', pt: 'turno {n}' },
   'hud.infinite': { en: '∞', pt: '∞' },

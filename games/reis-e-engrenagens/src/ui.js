@@ -120,8 +120,18 @@ export function battleLayout(vpW, vpH, weaponIds) {
   const dock = weaponIds.map((id, i) => ({ id, x: PAD + i * (dw + 6), y, w: dw, h }));
   const dockRight = PAD + n * (dw + 6) - 6;
 
-  const fw = Math.max(96, Math.min(190, driveX - dockRight - 28));
-  const fire = { id: 'fire', x: (dockRight + driveX) / 2 - fw / 2, y, w: fw, h };
+  // The fire button is round and it is the biggest thing down here, because it
+  // is the one control you hold rather than tap — Flag War's gun button, doing
+  // the same job for the same reason.
+  const fr = Math.max(38, Math.min(52, (driveX - dockRight - 28) / 2));
+  // anchored to the bottom of the screen rather than to the middle of the dock's
+  // row: it is taller than the dock, and centred on that row it hung off the
+  // bottom edge at 4:3
+  const fcy = vpH - PAD - fr;
+  const fire = {
+    id: 'fire', r: fr, cx: (dockRight + driveX) / 2, cy: fcy,
+    x: (dockRight + driveX) / 2 - fr, y: fcy - fr, w: fr * 2, h: fr * 2,
+  };
 
   return { dock, drive, aim, fire, fuel: { x: driveX, y: aim[0].y - 16, w: pw * 2 + 6, h: 7 } };
 }

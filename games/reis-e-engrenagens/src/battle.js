@@ -16,6 +16,8 @@ import { FLOOR_Y, buildTerrain } from './terrain.js';
 import { createCastle, grounded, gunSeat, settle, surfaceAt } from './structure.js';
 
 const DEG = Math.PI / 180;
+/** How far past the edge of the map a shell may still be coming down. */
+const OFF_MAP = 280;
 
 /**
  * @param {object} cfg
@@ -53,6 +55,31 @@ export function createMatch(cfg) {
     over: null,
     pending: false,
     lastShot: { player: null, enemy: null },
+  };
+
+  /**
+   * A read-only twin of the match, for firing ghosts through.
+   *
+   * The AI plans a turn by tracing several hundred shots, and a trace is only
+   * allowed to *read* the world. It was not: the drill's collision announced
+   * itself with `world.say('burrow')`, so every ghost drill the opponent
+   * considered threw a spray of dirt onto the real battlefield — a hundred and
+   * forty-one of them per turn, appearing along trajectories nobody fired, at
+   * spots that never got a crater because nothing had actually landed there.
+   *
+   * The flag-and-check version of this fix works until the next person adds an
+   * event to the collision path. A world whose `say` goes nowhere cannot be got
+   * wrong that way.
+   */
+  match.ghost = {
+    terrain,
+    get castles() {
+      return match.castles;
+    },
+    get wind() {
+      return match.wind;
+    },
+    say() {},
   };
 
   match.wind = rollWind(rng);
@@ -191,7 +218,11 @@ export function createMatch(cfg) {
       // the ghost trail stops at the surface: a dotted line carrying on *into*
       // a hill is the single most convincing way to look like a collision bug
       const path = match.lastShot[s.side];
-      if (path && !s.child && !s.dug) path.path.push({ x: s.x, y: s.y });
+      // and the trail stops at the edge of the world as well as at the crust,
+      // rather than dangling out over the void where nobody can see it end
+      if (path && !s.child && !s.dug && s.x > -20 && s.x < W + 20) {
+        path.path.push({ x: s.x, y: s.y });
+      }
       if (!hit) continue;
       match.shots.splice(i, 1);
       resolveHit(match, s, hit);
@@ -300,7 +331,12 @@ export function advance(s, world, h) {
 }
 
 function probe(world, s) {
-  if (s.x < -60 || s.x > W + 60) return { kind: 'out', x: s.x, y: s.y };
+  // Generous walls. The ground carries on past both edges of the map (see
+  // `terrain.solid`), so the only shells that reach these are the ones still in
+  // the air — and giving them a few hundred pixels of run-off turns a fair
+  // number of "it vanished" into "it landed over there", which is a much better
+  // answer to what just happened to your turn.
+  if (s.x < -OFF_MAP || s.x > W + OFF_MAP) return { kind: 'out', x: s.x, y: s.y };
   if (s.y > FLOOR_Y + 40) return { kind: 'out', x: s.x, y: s.y };
   // above the sky is not a wall: it comes back down
   if (s.y < -400) return null;
@@ -333,7 +369,11 @@ function resolveHit(match, s, hit) {
   const w = WEAPONS[s.w];
 
   if (hit.kind === 'out') {
-    match.say('miss', { x: hit.x, y: hit.y, side: s.side });
+    // A shell that leaves the valley used to do nothing at all: no crater, no
+    // noise, no word — the trail just stopped in mid-air and the turn changed
+    // hands. Nine per cent of shots end this way and every one of them looked
+    // like the game had dropped it.
+    match.say('miss', { x: hit.x, y: hit.y, side: s.side, over: s.y < 0 });
     return;
   }
 
@@ -550,8 +590,10 @@ export function trace(match, side, id, angle, power, step = 1 / 45) {
   const L = match.launchers[side];
   const ghostLauncher = { ...L, angle: clamp(angle, 4, 89) };
   const s = spawnShot(ghostLauncher, w, side, clamp(power, MIN_POWER, 100));
+  // through the twin, never through the match itself
+  const world = match.ghost || match;
   for (let i = 0; i < 900; i++) {
-    const hit = advance(s, match, step);
+    const hit = advance(s, world, step);
     if (hit) {
       return {
         x: hit.x,
