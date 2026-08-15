@@ -75,7 +75,7 @@ const playing = () => flow.screen === 'playing';
 // ------------------------------------------------------------------- input
 
 const keys = new Set();
-const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, roll: false, autoAim: false };
+const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, roll: false };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -511,8 +511,8 @@ createLoop({
     }
     // A trigger with no direction on it — a tap on a phone, or the fire key
     // with the mouse off the canvas — asks the game for a target instead of
-    // firing wherever the body happens to face.
-    input.autoAim = input.fire && !input.aim && typeof input.aimAngle !== 'number';
+    // firing wherever the body happens to face. The game works that out from
+    // the orders themselves (`playerOrders`); there is nothing to flag here.
     game.update(h, input);
     fx.update(h);
   },

@@ -16,7 +16,7 @@ installHeadlessDom();      // render.js reaches i18n, which reads localStorage o
 
 const {
   UNIT, GUNS, FLAG, TURRET, PAD, REGEN, TARGET, PHASES, ARENA_W, ARENA_H, ROLL, TILE, VISION,
-  dist, other, viewWidth, cameraFor,
+  dist, other, viewWidth, cameraFor, angleDelta, RAD,
 } = await import('../src/config.js');
 const { buildArena } = await import('../src/arena.js');
 const { createGame, assistedAim, nearestThreat, segmentHit } = await import('../src/game.js');
@@ -324,6 +324,113 @@ scenario('the gun finds the man you pointed at, and never one behind a wall', ()
   const blind = assistedAim(game, me, raw(foe.x, foe.y));
   check(!blind.target, 'the assist locked onto a body through a wall');
   check(!nearestThreat(game, me), 'a bare trigger found a man through a wall');
+});
+
+/**
+ * Where a body is looking, in degrees off where it should be — the number every
+ * scenario about the barrel reports when it fails.
+ */
+const offBy = (facing, want) => Math.abs(angleDelta(facing, want)) / RAD;
+const at = (u, x, y) => Math.atan2(y - u.y, x - u.x);
+
+scenario('with nobody on the trigger he watches the man, not his own feet', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const foe = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  me.facing = Math.PI;                       // starting off looking the other way
+  foe.dead = false;
+  foe.hp = UNIT.hp;
+  foe.bot = false;                           // no brain: he stands where he is put
+  const spot = { x: lane.x + 300, y: lane.y };
+  const stand = (o) => () => { foe.x = spot.x; foe.y = spot.y; foe.vx = 0; foe.vy = 0; return o; };
+
+  // walking away from him with both hands off the gun
+  tick(game, 1, stand({ mx: -1, my: 0 }));
+  check(offBy(me.facing, at(me, spot.x, spot.y)) < 4,
+    `backing away from a man in plain sight he ended up looking ${offBy(me.facing, at(me, spot.x, spot.y)).toFixed(0)}° off him`);
+
+  // and with the field empty he looks where his feet are going — the second
+  // half of the rule, and the one that stops him staring at a ghost
+  foe.dead = true;
+  foe.respawnT = 1e6;
+  tick(game, 2.4, { mx: -1, my: 0 });
+  check(offBy(me.facing, Math.PI) < 6,
+    `with nobody in sight, walking west, he faces ${offBy(me.facing, Math.PI).toFixed(0)}° off it`);
+});
+
+scenario('a burst that loses its man keeps pouring rounds where he was', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const aliens = game.units.filter((u) => u.team === 'alien');
+  const foe = aliens[0];
+  const second = aliens[1];
+  for (const u of game.units) if (u !== me && u !== foe && u !== second) { u.dead = true; u.respawnT = 1e6; }
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  const spot = { x: lane.x + 300, y: lane.y };
+  const back = { x: lane.x - 300, y: lane.y };   // a second man, the other way
+  const wall = behind_wall(game, me);
+  for (const u of [foe, second]) { u.dead = false; u.hp = 1e6; u.bot = false; }
+  // A body with no brain is driven by the orders under test, so it shoots back
+  // the moment the scenario holds the trigger. A cooldown that never runs out
+  // is what makes it furniture: what is being measured is one barrel.
+  const stand = (o, where) => () => {
+    foe.x = where.x;
+    foe.y = where.y;
+    second.x = back.x;
+    second.y = back.y;
+    foe.vx = foe.vy = second.vx = second.vy = 0;
+    foe.cool = second.cool = 1e6;
+    return o;
+  };
+
+  tick(game, 0.4, stand({ fire: true }, spot));
+  check(me.aimTarget === foe, 'a bare trigger did not take the man standing in front of it');
+  const held = me.facing;
+
+  // he steps behind a wall and the finger stays down
+  tick(game, 0.9, stand({ fire: true }, wall));
+  check(offBy(me.facing, held) < 3,
+    `the man went out of sight and the barrel swung ${offBy(me.facing, held).toFixed(0)}° off the doorway he went through`);
+  check(me.aimTarget !== second, 'a burst that lost its man handed the barrel to somebody behind you');
+
+  // a new press is what asks for a new man
+  tick(game, 0.3, stand({}, wall));
+  tick(game, 0.5, stand({ fire: true }, wall));
+  check(me.aimTarget === second, 'a fresh press did not go looking for a man of its own');
+});
+
+scenario('the barrel keeps a man the gun in your hands cannot reach', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const foe = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  me.weapon = { id: 'scatter', ammo: 24 };   // 420 px of reach, against 900 of eyes
+  foe.dead = false;
+  foe.hp = 1e6;
+  foe.bot = false;
+  const spot = { x: lane.x + 300, y: lane.y };
+  const stand = (o) => () => { foe.x = spot.x; foe.y = spot.y; foe.vx = 0; foe.vy = 0; return o; };
+
+  tick(game, 0.3, stand({ fire: true }));
+  check(me.aimTarget === foe, 'the trigger did not take a man well inside the scatter');
+
+  // now he backs out past what the shells reach, and the finger stays down
+  spot.x = lane.x + 700;
+  tick(game, 0.6, stand({ fire: true }));
+  check(byId('scatter').range < 700 && game.eyes.sight > 700, 'the scenario is no longer between the two ranges');
+  check(me.aimTarget === foe,
+    'backing away past the gun\'s reach dropped the lock on a man still in plain sight');
+  check(offBy(me.facing, at(me, spot.x, spot.y)) < 3,
+    `the barrel ended up ${offBy(me.facing, at(me, spot.x, spot.y)).toFixed(0)}° off a man it can see`);
 });
 
 /**
@@ -879,6 +986,20 @@ scenario('the thumbs walk, aim and roll', () => {
   touch.start(2, roll.x, roll.y);
   check(touch.read().roll, 'the roll button does nothing');
   check(!touch.read().roll, 'the roll button repeats itself while held — the roll is a press');
+
+  // Everywhere on the right half that is not the roll button is the trigger, so
+  // a thumb that lands just outside the ring does not miss a button: it fires
+  // the shot you were rolling away from. The finger's circle is bigger than the
+  // drawn one for exactly that.
+  touch.start(4, roll.x + roll.r + 14, roll.y);
+  const nearMiss = touch.read();
+  check(nearMiss.roll, 'a thumb fourteen pixels off the ring did not roll');
+  check(!nearMiss.fire, 'a near-miss on the roll button fired a round');
+  touch.end(4);
+  // and it takes nothing from the trigger next door
+  touch.start(5, gun.x - gun.r + 2, gun.y);
+  check(touch.read().fire, 'the roll button ate the near edge of the trigger');
+  touch.end(5);
   touch.start(3, 200, 400);
   const walked = touch.read();
   check(walked.mx === 0 && walked.my === 0, 'the stick moved before the thumb did');
