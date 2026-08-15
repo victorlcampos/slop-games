@@ -30,21 +30,24 @@ import { CASTLE_X, CELL, COLS, ROWS, W, clamp, other } from './config.js';
  *
  * `unlock` is the campaign level (0-based) where the kind first musters.
  * `climb` is the steepest slope (dy/dx) it will walk, judged after STEP_FREE
- * forgives a ledge: natural hillsides are for everybody, real cliffs and
- * fresh crater walls are for spiders and diggers.
+ * forgives a ledge — and the rule of thumb is **everyone climbs**: any hill a
+ * player would call a hill is walkable by every kind. What stops a walker is
+ * a genuinely bad angle — a fresh crater wall, a sheer cliff face — and even
+ * those only sort the army: spiders walk them, diggers go through them, and
+ * only the ordinary infantry stands flashing `!` until a shell reshapes it.
  * `dig` is a tunnelling speed in px/s: when the slope says no, a digger goes
  * *into* the hill at its own level and comes out where the ground is back
  * down to it — a mound of moving earth is all the surface sees of it.
  */
 export const MINIONS = {
   // ------------------------------------------------------------- knights
-  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 1.5, dig: 0, bite: 8, mdps: 9, reach: 22 },
-  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 1.15, dig: 24, bite: 11, mdps: 7, reach: 22 },
-  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 0.95, dig: 0, bite: 20, mdps: 4, reach: 26 },
+  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 2.2, dig: 0, bite: 8, mdps: 9, reach: 22 },
+  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 1.9, dig: 24, bite: 11, mdps: 7, reach: 22 },
+  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 1.6, dig: 0, bite: 20, mdps: 4, reach: 26 },
   // ------------------------------------------------------------ machines
-  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 1.5, dig: 0, bite: 7, mdps: 10, reach: 22 },
+  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 2.2, dig: 0, bite: 7, mdps: 10, reach: 22 },
   spider: { id: 'spider', faction: 'machines', unlock: 1, hp: 40, speed: 46, climb: 8, dig: 0, bite: 9, mdps: 8, reach: 22 },
-  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 1.05, dig: 28, bite: 16, mdps: 5, reach: 26 },
+  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 1.8, dig: 28, bite: 16, mdps: 5, reach: 26 },
 };
 
 /** Turns between waves — three of each side's own turns. */

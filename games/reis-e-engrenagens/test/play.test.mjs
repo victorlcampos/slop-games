@@ -721,46 +721,46 @@ scenario('an enemy walker blocks the column, and a shell into it frees the march
   check(mine.x > held + 40, `freed, it advanced ${(mine.x - held).toFixed(0)}px in two seconds`);
 });
 
-scenario('a steep face stops a walker, a spider climbs it, and a sapper digs through', () => {
+scenario('a sheer face stops a walker, a spider climbs it, and a sapper digs through', () => {
   const m = mk({ level: LEVELS[1] });
   m.minions.length = 0;
-  // a designed ramp: 200px of height gained over 80px is a slope of 2.5 —
-  // over anything's walking limit except the spider's
+  // a genuinely bad angle: 200px of height gained over 40px is a slope of 5 —
+  // a cliff, not a hill. Anything gentler than this is supposed to be a walk.
   const face = (x) => {
-    if (x < 1200 || x > 1440) return BASE_Y;
-    if (x < 1280) return BASE_Y - ((x - 1200) / 80) * 200;
+    if (x < 1200 || x > 1400) return BASE_Y;
+    if (x < 1240) return BASE_Y - ((x - 1200) / 40) * 200;
     if (x <= 1360) return BASE_Y - 200;
-    return BASE_Y - ((1440 - x) / 80) * 200;
+    return BASE_Y - ((1400 - x) / 40) * 200;
   };
   for (let i = 0; i < NCOL; i++) m.terrain.h[i] = face(i * COL_W);
 
   const walker = summon(m, 'squire', 'player', 1100);
   march(m, 6);
-  check(walker.stuck && walker.x < 1220, `the squire is at x=${walker.x.toFixed(0)}, stuck=${walker.stuck} — a 2.5 slope should stop it`);
+  check(walker.stuck && walker.x < 1220, `the squire is at x=${walker.x.toFixed(0)}, stuck=${walker.stuck} — a sheer cliff should stop it`);
 
-  // a moderate hillside is for everybody — the phone screenshot of a column
-  // refusing a walkable slope is the bug this check keeps dead
+  // everyone climbs ordinary hills — even a steep one. The rule is "always
+  // climbable unless the angle is truly bad", and this pins the generous half.
   const mild = mk({ level: LEVELS[1] });
   mild.minions.length = 0;
   const gentle = (x) => {
     if (x < 1200 || x > 1440) return BASE_Y;
-    if (x < 1300) return BASE_Y - ((x - 1200) / 100) * 120; // slope 1.2
-    if (x <= 1340) return BASE_Y - 120;
-    return BASE_Y - ((1440 - x) / 100) * 120;
+    if (x < 1280) return BASE_Y - ((x - 1200) / 80) * 160; // slope 2.0
+    if (x <= 1340) return BASE_Y - 160;
+    return BASE_Y - ((1440 - x) / 100) * 160;
   };
   for (let i = 0; i < NCOL; i++) mild.terrain.h[i] = gentle(i * COL_W);
   const hiker = summon(mild, 'squire', 'player', 1100);
   march(mild, 12);
-  check(!hiker.stuck && hiker.x > 1360,
-    `twelve seconds in the squire is at x=${hiker.x.toFixed(0)}, stuck=${hiker.stuck} — a 1.2 hillside should be a walk`);
+  check(!hiker.stuck && hiker.x > 1340,
+    `twelve seconds in the squire is at x=${hiker.x.toFixed(0)}, stuck=${hiker.stuck} — a 2.0 hillside should be a climb, not a wall`);
 
-  // the spider gets the hill to itself, or it would stop to fight the squire
+  // the spider gets the cliff to itself, or it would stop to fight the squire
   const m1 = mk({ level: LEVELS[1] });
   m1.minions.length = 0;
   for (let i = 0; i < NCOL; i++) m1.terrain.h[i] = face(i * COL_W);
   const spider = summon(m1, 'spider', 'enemy', 1560);
   march(m1, 14);
-  check(spider.x < 1180, `the spider should be over the hill by now; it is at x=${spider.x.toFixed(0)}`);
+  check(spider.x < 1180, `the spider should be over the cliff by now; it is at x=${spider.x.toFixed(0)}`);
 
   // the sapper answers the same hill by going through it
   const m2 = mk({ level: LEVELS[1] });
