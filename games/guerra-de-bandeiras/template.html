@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070b">
+<title>Flag War</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚩</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #05070b;
+    color: #e8eef8;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* every card sits over the canvas, which keeps painting the field behind it */
+  .card {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 3vh 5vw;
+    background: radial-gradient(ellipse 80% 70% at 50% 45%, rgba(7,11,15,0.86) 0%, rgba(4,6,9,0.97) 78%);
+    text-align: center;
+    z-index: 3;
+    overflow-y: auto;
+  }
+  .card[hidden] { display: none; }
+
+  .inner { max-width: 50rem; width: 100%; }
+
+  h1 {
+    font-size: clamp(1.7rem, 5vw, 3rem);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ff9a4d;
+    text-shadow: 0 3px 0 #3a1e08, 0 0 34px rgba(255,154,77,0.2);
+  }
+
+  .tagline { color: #a9b4c8; margin: 0.4rem 0 1.1rem; font-size: clamp(0.9rem, 2.2vw, 1.1rem); }
+
+  .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #7f8a9f;
+    margin-bottom: 0.45rem;
+  }
+
+  .sides { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.1rem; }
+
+  /* A side is picked by pressing its own colour — the button is the uniform.
+     Text wraps: "Sentinelas" and "Sentinels" are not the same width, and a
+     fixed one clips whichever language you are not reading. */
+  .side {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 3px solid #0a0b10;
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #0a0b10;
+    min-width: 11rem;
+    max-width: 16rem;
+    opacity: 0.45;
+    filter: saturate(0.5);
+  }
+  .side small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 0.72rem; margin-top: 0.3rem; line-height: 1.35; }
+  .side[aria-pressed="true"] { opacity: 1; filter: none; }
+  .side.human { color: #2a1305; background: linear-gradient(#ffb877, #e07a2e); }
+  .side.alien { color: #06231c; background: linear-gradient(#7ff0cd, #2fae8b); }
+
+  .arenas { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+
+  .arena {
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #cdd7e8;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid #47506a;
+    border-radius: 9px;
+    padding: 0.45rem 0.7rem;
+    cursor: pointer;
+    max-width: 14rem;
+  }
+  .arena b { display: block; font-size: 0.66rem; color: #7f8a9f; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .arena[aria-pressed="true"] { border-color: #ff9a4d; color: #fff; background: rgba(255,154,77,0.14); }
+  .arena[disabled] { opacity: 0.35; cursor: not-allowed; }
+
+  .note { color: #9aa6bd; font-size: clamp(0.8rem, 1.9vw, 0.95rem); line-height: 1.5; margin: 0 auto 1rem; max-width: 40rem; }
+
+  .btnrow { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
+
+  .btn {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #2a1305;
+    background: linear-gradient(#ffb877, #e07a2e);
+    border: 3px solid #0a0b10;
+    border-radius: 10px;
+    padding: 0.7rem 1.3rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #0a0b10;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: none; }
+
+  .btn.ghost {
+    background: transparent;
+    color: #cdd7e8;
+    border-color: #47506a;
+    box-shadow: none;
+  }
+
+  /* The exit only exists inside the catalog — the build switches it on. It
+     inherits .btn.ghost's colour on purpose: an <a> with no colour of its own
+     falls back to the browser's link blue, unreadable on this background. */
+  .back-to-games {
+    display: none;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+  }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .foot { color: #7f8a9f; font-size: clamp(0.72rem, 1.7vw, 0.84rem); line-height: 1.6; }
+
+  .stats { display: flex; gap: 1.3rem; justify-content: center; margin: 0 0 1rem; flex-wrap: wrap; }
+  .stat { min-width: 5.4rem; }
+  .stat b { display: block; font-size: clamp(1.1rem, 3.2vw, 1.7rem); color: #ff9a4d; }
+  .stat span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: #7f8a9f; }
+
+  .unlocked { color: #8fd07a; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.7rem; }
+
+  .corner {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
+    z-index: 4;
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    align-items: center;
+  }
+  .icon {
+    font-size: 1.1rem;
+    background: rgba(9,12,16,0.6);
+    border: 2px solid #47506a;
+    border-radius: 8px;
+    color: #e8eef8;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+  }
+
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #7f8a9f; z-index: 5; }
+  /* `hidden` loses to `display: grid` — without this the line stays on screen
+     for the whole match, in the middle of the field */
+  #boot[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="boot" data-pt="hasteando as bandeiras…" data-en="raising the flags…">raising the flags…</div>
+
+  <div class="corner">
+    <span data-lang-picker></span>
+    <button class="icon" id="btn-sound" title="M">🔊</button>
+  </div>
+
+  <div class="card" id="menu">
+    <div class="inner">
+      <h1 data-pt="Guerra de Bandeiras" data-en="Flag War">Flag War</h1>
+      <p class="tagline"
+         data-pt="Pegue a bandeira deles. Traga para o seu campo. Dez vezes."
+         data-en="Take their flag. Bring it to your ground. Ten times.">Take their flag. Bring it to your ground. Ten times.</p>
+
+      <p class="label" data-pt="De que lado você joga?" data-en="Which side are you on?">Which side are you on?</p>
+      <div class="sides">
+        <button class="side human" id="side-human" aria-pressed="true">
+          <span data-pt="Humanos" data-en="Humans">Humans</span>
+          <small data-pt="Fuzil rápido e leve. Você atira mais vezes e erra menos quando está correndo."
+                 data-en="A fast, light rifle. More rounds in the air, and it forgives running.">A fast, light rifle. More rounds in the air, and it forgives running.</small>
+        </button>
+        <button class="side alien" id="side-alien" aria-pressed="false">
+          <span data-pt="Sentinelas" data-en="Sentinels">Sentinels</span>
+          <small data-pt="Blaster pesado. Cada tiro dói o dobro, e você paga esperando o próximo."
+                 data-en="A heavy blaster. Each bolt hurts twice as much, and you pay for it waiting.">A heavy blaster. Each bolt hurts twice as much, and you pay for it waiting.</small>
+        </button>
+      </div>
+
+      <p class="label" data-pt="Arena" data-en="Arena">Arena</p>
+      <div class="arenas" id="arenas"></div>
+      <p class="note" id="arena-note"></p>
+
+      <div class="btnrow">
+        <button class="btn" id="btn-start" data-pt="Entrar em campo" data-en="Take the field">Take the field</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+
+      <p class="foot">
+        <span data-pt="A bandeira deles vale um ponto quando encosta no pedestal do seu time — e só se a sua bandeira estiver em casa. Primeiro esquadrão a dez leva a arena."
+              data-en="Their flag scores when it touches your stand — and only while your own flag is home. First squad to ten takes the arena.">Their flag scores when it touches your stand — and only while your own flag is home.</span><br>
+        <span data-pt="WASD ou setas andam · o mouse mira · clique atira · espaço avança · M liga e desliga o som"
+              data-en="WASD or arrows to move · the mouse aims · click to fire · space dashes · M mutes">WASD or arrows to move · the mouse aims · click to fire · space dashes · M mutes</span><br>
+        <span data-pt="No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 avança."
+              data-en="On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button dashes.">On a phone the left half walks; the right half is the trigger. The 🌀 button dashes.</span><br>
+        <span data-pt="Ninguém defende o seu pedestal sozinho. Se a sua bandeira sumiu, o ponto não entra: alguém tem que voltar."
+              data-en="Nobody holds your stand on their own. With your flag gone the point does not count: somebody has to turn round.">Nobody holds your stand on their own.</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" id="over" hidden>
+    <div class="inner">
+      <h1 id="o-title">Arena taken</h1>
+      <p class="unlocked" id="o-unlocked" hidden data-pt="Nova arena liberada!" data-en="New arena unlocked!">New arena unlocked!</p>
+      <p class="note" id="o-note"></p>
+      <div class="stats">
+        <div class="stat"><b id="o-score">0 — 0</b><span data-pt="placar" data-en="score">score</span></div>
+        <div class="stat"><b id="o-caps">0</b><span data-pt="suas capturas" data-en="your captures">your captures</span></div>
+        <div class="stat"><b id="o-returns">0</b><span data-pt="bandeiras salvas" data-en="flags saved">flags saved</span></div>
+        <div class="stat"><b id="o-kills">0</b><span data-pt="baixas" data-en="downed">downed</span></div>
+        <div class="stat"><b id="o-time">00:00</b><span data-pt="tempo" data-en="time">time</span></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="btn-next" data-pt="Próxima arena" data-en="Next arena" hidden>Next arena</button>
+        <button class="btn ghost" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <button class="btn ghost" id="btn-menu" data-pt="Escolher arena" data-en="Pick an arena">Pick an arena</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>

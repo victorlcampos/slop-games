@@ -33,6 +33,7 @@ const TAGS = {
   '2d': { pt: '2d', en: '2d' },
   '3d': { pt: '3d', en: '3d' },
   arcade: { pt: 'arcade', en: 'arcade' },
+  'capture-the-flag': { pt: 'captura a bandeira', en: 'capture the flag' },
   'open-world': { pt: 'mundo aberto', en: 'open world' },
   puzzle: { pt: 'quebra-cabeça', en: 'puzzle' },
   racing: { pt: 'corrida', en: 'racing' },

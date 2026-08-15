@@ -1,0 +1,20 @@
+{
+  "slug": "guerra-de-bandeiras",
+  "name": {
+    "en": "Flag War",
+    "pt": "Guerra de Bandeiras"
+  },
+  "emoji": "🚩",
+  "description": {
+    "en": "Pick a side — the humans or the sentinels — and take the enemy flag home. Six arenas, each with its own trap: bridges over a pit, a maze in the dark, turrets guarding the base, gates that throw you across the field. First squad to ten captures wins.",
+    "pt": "Escolha um lado — os humanos ou os sentinelas — e leve a bandeira inimiga para o seu campo. Seis arenas, cada uma com a sua armadilha: pontes sobre o abismo, um labirinto no escuro, torres guardando a base, portais que te jogam do outro lado. O primeiro esquadrão a dez capturas ganha."
+  },
+  "tags": [
+    "2d",
+    "capture-the-flag",
+    "arcade"
+  ],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

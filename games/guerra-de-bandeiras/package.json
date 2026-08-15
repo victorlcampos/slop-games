@@ -1,0 +1,15 @@
+{
+  "name": "guerra-de-bandeiras",
+  "version": "1.0.0",
+  "description": "Capture the flag between the humans and the sentinels, across six arenas, first side to ten.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/logic.test.mjs && node test/play.test.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "slopkit": "*"
+  }
+}
