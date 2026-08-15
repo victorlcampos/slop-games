@@ -556,6 +556,28 @@ scenario('no two controls ever land on each other, at any width', () => {
   }
 });
 
+scenario('a thumb near a munition slot still lands it, and between two slots the nearer wins', () => {
+  const bay = battleLayout(1280, 720, ARSENAL.knights);
+  const [s0, s1] = bay.dock;
+
+  // a tap a few pixels off a slot is the slot, not a miss — on a phone the
+  // dock is two thirds of this size and pixel accuracy reads as "broken"
+  const off = hit([...bay.dock, ...bay.drive, ...bay.aim, bay.fire], s0.x - 8, s0.y + s0.h / 2);
+  check(off && off.id === s0.id, 'a tap 8px left of the first slot missed it');
+  const above = hit(bay.dock, s1.x + s1.w / 2, s1.y - 9);
+  check(above && above.id === s1.id, 'a tap 9px above the second slot missed it');
+
+  // the gap between two slots goes to the nearer one
+  const gapLeft = hit(bay.dock, s0.x + s0.w + 1, s0.y + 10);
+  check(gapLeft && gapLeft.id === s0.id, `the gap next to slot one resolved to ${gapLeft && gapLeft.id}`);
+  const gapRight = hit(bay.dock, s1.x - 1, s1.y + 10);
+  check(gapRight && gapRight.id === s1.id, `the gap next to slot two resolved to ${gapRight && gapRight.id}`);
+
+  // and a direct hit always beats a neighbour's padding
+  const direct = hit(bay.dock, s1.x + 3, s1.y + 3);
+  check(direct && direct.id === s1.id, 'a tap inside slot two was stolen by slot one\'s padding');
+});
+
 scenario('the charge climbs while you hold it and stops at full', () => {
   // Hold-and-release, not tap-and-tap: the same decision with the timing already
   // in your hand, one button instead of two taps, and on a phone the difference

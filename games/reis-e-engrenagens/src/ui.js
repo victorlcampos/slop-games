@@ -77,11 +77,33 @@ export function button(ctx, rect, text, opts = {}) {
   });
 }
 
-/** Which rectangle a point landed in — last one wins, so overlays are on top. */
+/**
+ * Which control a tap landed on — with the tolerance a thumb needs.
+ *
+ * Two rules, both born from a phone screenshot of a missed munition:
+ *
+ *   · a rect may carry `pad`, and a tap that many pixels outside it still
+ *     counts — on a phone the whole dock is two thirds the size it is on a
+ *     monitor, and demanding pixel accuracy there reads as "the button is
+ *     broken", not as "I missed";
+ *   · when a tap lands in more than one zone (two padded slots share the gap
+ *     between them), the one whose centre is nearest wins — with a direct hit
+ *     always beating a neighbour's padding.
+ */
 export function hit(rects, x, y) {
   let found = null;
+  let best = Infinity;
   for (const r of rects) {
-    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) found = r;
+    const p = r.pad || 0;
+    if (x < r.x - p || x > r.x + r.w + p || y < r.y - p || y > r.y + r.h + p) continue;
+    const inside = x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    const dx = x - (r.x + r.w / 2);
+    const dy = y - (r.y + r.h / 2);
+    const d = dx * dx + dy * dy - (inside ? 1e9 : 0);
+    if (d < best) {
+      best = d;
+      found = r;
+    }
   }
   return found;
 }
@@ -100,24 +122,27 @@ export function hit(rects, x, y) {
  * them where neither thumb rests by accident.
  */
 export function battleLayout(vpW, vpH, weaponIds) {
-  const h = 58;
+  const h = 64;
   const y = vpH - h - PAD;
   const pw = 74;
   const ah = 40;
 
   const driveX = vpW - PAD - pw * 2 - 6;
   const drive = [
-    { id: 'left', dir: -1, x: driveX, y, w: pw, h },
-    { id: 'right', dir: 1, x: driveX + pw + 6, y, w: pw, h },
+    { id: 'left', dir: -1, x: driveX, y, w: pw, h, pad: 8 },
+    { id: 'right', dir: 1, x: driveX + pw + 6, y, w: pw, h, pad: 8 },
   ];
   const aim = [
-    { id: 'up', dir: 1, x: driveX, y: y - ah - 6, w: pw, h: ah },
-    { id: 'down', dir: -1, x: driveX + pw + 6, y: y - ah - 6, w: pw, h: ah },
+    { id: 'up', dir: 1, x: driveX, y: y - ah - 6, w: pw, h: ah, pad: 8 },
+    { id: 'down', dir: -1, x: driveX + pw + 6, y: y - ah - 6, w: pw, h: ah, pad: 8 },
   ];
 
+  // The munition slots carry the most generous padding on the screen: they are
+  // the smallest things a thumb has to hit mid-match, and a missed switch costs
+  // a whole turn of firing the wrong shell.
   const n = weaponIds.length;
   const dw = Math.max(74, Math.min(118, (driveX - PAD * 2 - 180 - (n - 1) * 6) / n));
-  const dock = weaponIds.map((id, i) => ({ id, x: PAD + i * (dw + 6), y, w: dw, h }));
+  const dock = weaponIds.map((id, i) => ({ id, x: PAD + i * (dw + 6), y, w: dw, h, pad: 12 }));
   const dockRight = PAD + n * (dw + 6) - 6;
 
   // The fire button is round and it is the biggest thing down here, because it
@@ -130,7 +155,7 @@ export function battleLayout(vpW, vpH, weaponIds) {
   const fcy = vpH - PAD - fr;
   const fire = {
     id: 'fire', r: fr, cx: (dockRight + driveX) / 2, cy: fcy,
-    x: (dockRight + driveX) / 2 - fr, y: fcy - fr, w: fr * 2, h: fr * 2,
+    x: (dockRight + driveX) / 2 - fr, y: fcy - fr, w: fr * 2, h: fr * 2, pad: 10,
   };
 
   return { dock, drive, aim, fire, fuel: { x: driveX, y: aim[0].y - 16, w: pw * 2 + 6, h: 7 } };
@@ -143,7 +168,7 @@ export function paletteLayout(vpW, vpH, ids) {
   const total = ids.length * w + (ids.length - 1) * 6;
   const x0 = (vpW - total) / 2;
   const y = vpH - h - PAD;
-  return ids.map((id, i) => ({ id, x: x0 + i * (w + 6), y, w, h }));
+  return ids.map((id, i) => ({ id, x: x0 + i * (w + 6), y, w, h, pad: 6 }));
 }
 
 /** The buttons above the palette: draft, clear, fight. */

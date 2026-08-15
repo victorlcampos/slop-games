@@ -721,8 +721,8 @@ function drawArmory(ctx, shop) {
     label(ctx, fit(ctx, weaponName(id), 92, 11), x + 38, ry + 13, { size: 11, weight: 600, color: '#e5dcc6' });
     label(ctx, t('shop.each', { n: price }), x + 38, ry + 29, { size: 11, color: '#b3a98f' });
 
-    const minus = { id, kind: 'ammo', delta: -1, x: x + w - 84, y: ry + 4, w: 30, h: 34 };
-    const plus = { id, kind: 'ammo', delta: 1, x: x + w - 36, y: ry + 4, w: 30, h: 34 };
+    const minus = { id, kind: 'ammo', delta: -1, x: x + w - 84, y: ry + 4, w: 30, h: 34, pad: 8 };
+    const plus = { id, kind: 'ammo', delta: 1, x: x + w - 36, y: ry + 4, w: 30, h: 34, pad: 8 };
     const canSell = count > 0;
     const canBuy = count < AMMO_CAP && price <= shop.left();
     for (const [r2, glyph, live] of [[minus, '−', canSell], [plus, '+', canBuy]]) {

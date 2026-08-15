@@ -29,21 +29,22 @@ import { CASTLE_X, CELL, COLS, ROWS, W, clamp, other } from './config.js';
  * the spider climbs), so no map is open to one army and shut to the other.
  *
  * `unlock` is the campaign level (0-based) where the kind first musters.
- * `climb` is the steepest slope (dy/dx) it will walk; natural hills stay
- * mostly under 1, fresh crater walls and the designed middle hills go over it.
+ * `climb` is the steepest slope (dy/dx) it will walk, judged after STEP_FREE
+ * forgives a ledge: natural hillsides are for everybody, real cliffs and
+ * fresh crater walls are for spiders and diggers.
  * `dig` is a tunnelling speed in px/s: when the slope says no, a digger goes
  * *into* the hill at its own level and comes out where the ground is back
  * down to it — a mound of moving earth is all the surface sees of it.
  */
 export const MINIONS = {
   // ------------------------------------------------------------- knights
-  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 1.15, dig: 0, bite: 8, mdps: 9, reach: 22 },
-  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 0.9, dig: 24, bite: 11, mdps: 7, reach: 22 },
-  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 0.75, dig: 0, bite: 20, mdps: 4, reach: 26 },
+  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 1.5, dig: 0, bite: 8, mdps: 9, reach: 22 },
+  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 1.15, dig: 24, bite: 11, mdps: 7, reach: 22 },
+  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 0.95, dig: 0, bite: 20, mdps: 4, reach: 26 },
   // ------------------------------------------------------------ machines
-  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 1.15, dig: 0, bite: 7, mdps: 10, reach: 22 },
+  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 1.5, dig: 0, bite: 7, mdps: 10, reach: 22 },
   spider: { id: 'spider', faction: 'machines', unlock: 1, hp: 40, speed: 46, climb: 8, dig: 0, bite: 9, mdps: 8, reach: 22 },
-  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 0.8, dig: 28, bite: 16, mdps: 5, reach: 26 },
+  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 1.05, dig: 28, bite: 16, mdps: 5, reach: 26 },
 };
 
 /** Turns between waves — three of each side's own turns. */
@@ -56,6 +57,14 @@ export const DIG_EVERY = 0.5;
 /** How far ahead a walker reads the ground, and the slow it takes uphill. */
 const LOOK = 14;
 const UPHILL_SLOW = 0.55;
+/**
+ * A ledge this tall is a step, not a wall — it comes off the rise before the
+ * slope is judged. Without it the 14px lookahead turned every lump of terrain
+ * noise into a spike of "slope", and columns stood refusing hillsides a player
+ * can see are perfectly walkable (a phone screenshot of exactly that is why
+ * this constant exists). Real cliffs and fresh crater walls still say no.
+ */
+const STEP_FREE = 10;
 
 /** Everything a faction can muster at this point of the campaign. */
 export function unlockedMinions(faction, stage) {
@@ -222,7 +231,8 @@ export function tickMinions(match, h) {
 
     // 4. the ground has a say
     const ahead = match.terrain.yAt(m.x + dir * LOOK);
-    const slope = ahead < m.y ? (m.y - ahead) / LOOK : 0;
+    const rise = m.y - ahead;
+    const slope = rise > STEP_FREE ? (rise - STEP_FREE) / LOOK : 0;
     if (slope > spec.climb) {
       if (spec.dig > 0) {
         // into the hill, then: it keeps its level and lets the mountain pass

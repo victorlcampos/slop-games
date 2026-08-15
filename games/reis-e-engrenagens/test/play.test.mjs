@@ -736,6 +736,22 @@ scenario('a steep face stops a walker, a spider climbs it, and a sapper digs thr
   march(m, 6);
   check(walker.stuck && walker.x < 1220, `the squire is at x=${walker.x.toFixed(0)}, stuck=${walker.stuck} — a 2.5 slope should stop it`);
 
+  // a moderate hillside is for everybody — the phone screenshot of a column
+  // refusing a walkable slope is the bug this check keeps dead
+  const mild = mk({ level: LEVELS[1] });
+  mild.minions.length = 0;
+  const gentle = (x) => {
+    if (x < 1200 || x > 1440) return BASE_Y;
+    if (x < 1300) return BASE_Y - ((x - 1200) / 100) * 120; // slope 1.2
+    if (x <= 1340) return BASE_Y - 120;
+    return BASE_Y - ((1440 - x) / 100) * 120;
+  };
+  for (let i = 0; i < NCOL; i++) mild.terrain.h[i] = gentle(i * COL_W);
+  const hiker = summon(mild, 'squire', 'player', 1100);
+  march(mild, 12);
+  check(!hiker.stuck && hiker.x > 1360,
+    `twelve seconds in the squire is at x=${hiker.x.toFixed(0)}, stuck=${hiker.stuck} — a 1.2 hillside should be a walk`);
+
   // the spider gets the hill to itself, or it would stop to fight the squire
   const m1 = mk({ level: LEVELS[1] });
   m1.minions.length = 0;
