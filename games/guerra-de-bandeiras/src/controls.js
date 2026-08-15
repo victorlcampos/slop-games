@@ -3,7 +3,7 @@
 //
 // It is Infinite Fortress's pad with one thing taken out. There is no sneak
 // here, so how far you push the left stick means nothing beyond a direction:
-// in a match everybody already knows where everybody is, and a slow walk buys
+// in a match there is nothing to hide from a patrol route, and a slow walk buys
 // you nothing you would not rather spend on being somewhere else.
 
 export const STICK = { dead: 12, max: 76 };
@@ -26,11 +26,11 @@ export function aimAngle(dx, dy) {
 }
 
 /**
- * The dash, beside the trigger rather than under it: it is the rarer press, and
- * pressing it by accident costs a second and a half of the only thing that gets
- * a flag out of a hot end zone.
+ * The roll, beside the trigger rather than under it: it is the rarer press, and
+ * pressing it by accident costs the second of cooldown that was the only thing
+ * left to get a stolen flag out of a hot end zone.
  */
-export function dashButton(W, H) {
+export function rollButton(W, H) {
   return { x: W - 232, y: H - 92, r: 44 };
 }
 
@@ -42,12 +42,12 @@ export function fireButton(W, H) {
 export function createTouchControls(width = () => 1280, height = () => 720) {
   const stick = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
   const trigger = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0, angle: null, onIcon: false };
-  let dashPressed = false;
+  let rollPressed = false;
 
   function start(id, x, y) {
     const hit = (b) => (x - b.x) ** 2 + (y - b.y) ** 2 <= b.r * b.r;
-    if (hit(dashButton(width(), height()))) {
-      dashPressed = true;
+    if (hit(rollButton(width(), height()))) {
+      rollPressed = true;
       return;
     }
     if (x < width() / 2) {
@@ -86,13 +86,13 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
   function clear() {
     Object.assign(stick, { on: false, id: null });
     Object.assign(trigger, { on: false, id: null, angle: null, onIcon: false });
-    dashPressed = false;
+    rollPressed = false;
   }
 
   function read() {
     const walk = stick.on ? moveInput(stick.x - stick.ox, stick.y - stick.oy) : { x: 0, y: 0 };
-    const dashed = dashPressed;
-    dashPressed = false;                 // a press, not a hold: read once and gone
+    const rolled = rollPressed;
+    rollPressed = false;                 // a press, not a hold: read once and gone
     return {
       mx: walk.x,
       my: walk.y,
@@ -100,7 +100,7 @@ export function createTouchControls(width = () => 1280, height = () => 720) {
       // the thumb on the gun *is* the shot; the deadzone only decides whether it
       // has been given a new direction
       fire: trigger.on,
-      dash: dashed,
+      roll: rolled,
     };
   }
 

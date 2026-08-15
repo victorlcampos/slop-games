@@ -6,8 +6,8 @@ import { scenario, check, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit/i18n';
 
 import {
-  PHASES, COLS, ROWS, HALF, TILE, TARGET, GUNS, UNIT, FLAG, BOT_RANGE, REGEN,
-  botStats, difficulty, boardTransform, dps, ARENA_W, ARENA_H, HUD_H, H, makeRng, other,
+  PHASES, COLS, ROWS, HALF, TILE, TARGET, GUNS, UNIT, FLAG, BOT_RANGE, REGEN, ROLL, ASSIST, VISION,
+  botStats, difficulty, cameraFor, eyesOf, dps, ARENA_W, ARENA_H, HUD_H, H, makeRng, other,
 } from '../src/config.js';
 import { buildArena, auditArena, LAYOUTS } from '../src/arena.js';
 import {
@@ -50,7 +50,10 @@ scenario('a flag is far enough from home to be worth taking', () => {
     const arena = buildArena(i);
     const steps = flowField(arena.grid, [cellOf(arena.spawns.human[0].x, arena.spawns.human[0].y)])
       .at(arena.flags.alien.cx, arena.flags.alien.cy);
-    check(steps >= 28, `${arena.id}: the enemy stand is ${steps} tiles from the spawn — that is not a raid, it is a walk`);
+    // in metres rather than tiles: the tile doubled when the camera arrived,
+    // and a threshold written in tiles quietly halved with it
+    check(steps * TILE >= 1400,
+      `${arena.id}: the enemy stand is ${steps} tiles (${steps * TILE}px) from the spawn — that is not a raid, it is a walk`);
   }
 });
 
@@ -67,7 +70,21 @@ scenario('the maze is a maze: corridors, junctions and no room to hide a squad i
   let open = 0;
   for (const c of arena.grid.cells) if (c !== WALL) open++;
   const share = open / arena.grid.cells.length;
-  check(share > 0.3 && share < 0.62, `${(share * 100).toFixed(0)}% of the maze is floor — that is a room, not a maze`);
+  check(share > 0.3 && share < 0.72, `${(share * 100).toFixed(0)}% of the maze is floor — that is a room, not a maze`);
+  // and it is corridors rather than a hall: most of the open ground has walls
+  // on at least two sides of it
+  let tight = 0;
+  for (let cy = 1; cy < ROWS - 1; cy++) {
+    for (let cx = 1; cx < COLS - 1; cx++) {
+      if (arena.grid.at(cx, cy) === WALL) continue;
+      let walls = 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (arena.grid.at(cx + dx, cy + dy) === WALL) walls++;
+      }
+      if (walls >= 2) tight++;
+    }
+  }
+  check(tight / open > 0.25, `only ${(tight / open * 100).toFixed(0)}% of the maze has walls on two sides — that is a field`);
   check(arena.dark, 'the maze is not the dark arena any more, and its whole point was the dark');
 });
 
@@ -177,7 +194,13 @@ scenario('the two guns are two guns, not a better one and a worse one', () => {
 
 scenario('the numbers a match is paced by are all in reach of each other', () => {
   const cross = ARENA_W / UNIT.speed;
-  check(cross > 4 && cross < 9, `crossing the field takes ${cross.toFixed(1)}s`);
+  check(cross > 6 && cross < 12, `crossing the field takes ${cross.toFixed(1)}s`);
+  check(UNIT.r * 2 < TILE * 0.6, `a body is ${UNIT.r * 2}px across a ${TILE}px corridor`);
+  check(ROLL.speed * ROLL.time * UNIT.speed > TILE * 2,
+    'the roll does not cross two tiles, which is less than the corridor it is for');
+  check(ROLL.cool > ROLL.time, 'the roll costs less than it lasts, which makes it a speed button');
+  check(ASSIST.settle < ASSIST.cone && ASSIST.cone < ASSIST.limit,
+    'the assist gates are out of order: it would fire before it has finished turning');
   for (const p of PHASES) {
     check(p.respawn > 2 && p.respawn < 6, `${p.id}: ${p.respawn}s to respawn`);
     check(p.squad >= 3 && p.squad <= 5, `${p.id}: ${p.squad} a side`);
@@ -191,15 +214,33 @@ scenario('the numbers a match is paced by are all in reach of each other', () =>
 
 // ------------------------------------------------------------------- the map
 
-scenario('the field fits the screen it is drawn on, at any shape of window', () => {
-  check(ARENA_H + HUD_H === H, `the field and the scoreboard are ${ARENA_H + HUD_H} tall against a logical height of ${H}`);
-  for (const W of [1040, 1280, 1440, 1900]) {
-    const b = boardTransform(W);
-    check(b.scale > 0 && b.scale <= 1, `scale ${b.scale} at ${W} wide`);
-    check(b.ox >= 0, `the field starts off the left edge at ${W} wide`);
-    check(b.ox + ARENA_W * b.scale <= W + 0.5, `the field runs off the right edge at ${W} wide`);
-    check(b.oy >= HUD_H - 0.5, `the field is drawn over the scoreboard at ${W} wide`);
+scenario('the camera sits on the soldier, and the field is bigger than the screen', () => {
+  check(ARENA_W > 1900 * 0.9, `the field is ${ARENA_W} wide — the widest screen would see all of it`);
+  check(ARENA_H > H, `the field is ${ARENA_H} tall against a screen of ${H}`);
+  for (const W of [1040, 1280, 1900]) {
+    const cam = cameraFor(600, 500, W, H);
+    check(Math.abs(600 - (cam.x + W / 2)) < 0.001, `the man is not in the middle of a ${W}-wide screen`);
+    const midY = cam.y + HUD_H + (H - HUD_H) / 2;
+    check(Math.abs(500 - midY) < 0.001, 'the man is not in the middle of what is left under the scoreboard');
   }
+  // and it does not clamp: a soldier in the corner is still in the middle
+  const corner = cameraFor(40, 40, 1280, H);
+  check(corner.x < 0 && corner.y < 0, 'the camera clamps at the edge of the field, so the cursor and the gun drift apart');
+});
+
+scenario('the two settings of the eyes: a room by day, a torch at night', () => {
+  const day = eyesOf({ dark: false });
+  const night = eyesOf({ dark: true });
+  check(day === VISION.day && night === VISION.night, 'an arena picks its eyes from somewhere else');
+  check(day.fov >= 360, `by day the cone is ${day.fov}° — the room is not all of it`);
+  check(day.sight > TILE * 12, `by day you see ${day.sight}px, which is not across a room`);
+  check(night.fov < 180, `at night the cone is ${night.fov}° wide, which is not a torch`);
+  check(night.sight < day.sight, 'the torch reaches further than daylight');
+  check(night.near > 0 && night.near < night.sight,
+    'the torch has no near circle — the doorway you are leaning against would be invisible');
+  // only one arena is a night arena, and it is the maze
+  const dark = PHASES.filter((p) => p.dark).map((p) => p.id);
+  check(dark.length === 1 && dark[0] === 'maze', `the night arenas are ${dark.join(', ')}`);
 });
 
 scenario('a ray stops at a wall and a flow field walks round one', () => {

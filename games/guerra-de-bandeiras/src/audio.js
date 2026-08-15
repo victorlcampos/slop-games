@@ -75,7 +75,7 @@ export const sfx = {
     noise(0.24, 0.24, 1500);
     tone('triangle', 260, 0.2, 0.09, 60);
   },
-  dash() {
+  roll() {
     noise(0.16, 0.14, 1200, 'bandpass');
   },
   gate() {

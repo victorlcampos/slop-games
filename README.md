@@ -12,7 +12,7 @@ server, no install, no account.
 | | Game | What it is | Libs | Network |
 |---|---|---|---|---|
 | 🐆 | **[Animals vs Monsters](games/animais-vs-monstros)** | Lane defence. The legends took flesh and froze humanity with fear; the animals never heard those stories, so they are immune. 10 stages across Brazil against its folklore. | none | offline |
-| 🚩 | **[Flag War](games/guerra-de-bandeiras)** | Capture the flag between the humans and the sentinels, over six arenas: bridges over a pit, a maze in the dark, turrets guarding the stand, gates that throw you across the field. Ten captures takes the arena. | none | offline |
+| 🚩 | **[Flag War](games/guerra-de-bandeiras)** | Capture the flag between the humans and the sentinels, over six arenas: bridges over a pit, a maze in the dark, turrets guarding the stand, gates that throw you across the field. Infinite Fortress's walk, roll and gun, with the camera on your shoulder — and by day you see the whole room, never through a wall. Ten captures takes the arena. | none | offline |
 | 🛸 | **[Infinite Fortress](games/fortaleza-infinita)** | A top-down escape through an alien fortress built of rings with no top — every ring born the moment you step into it, and wider than the last. You see what your torch reaches; so do the sentinels, and the one that spots you runs for the alarm node. | none | offline |
 | 🪖 | **[Iron Rain](games/chuva-de-ferro)** | A run-and-gun on an endless desert road: an alien freighter split open overhead and its cargo will not stop falling. Shoot it down and fight the invasion with what it drops. | none | offline |
 | ⛷️ | **[SkiFree 3D](games/skifree3d)** | A 3D take on SkiFree from 1991. Race down the mountain dodging trees until the Abominable shows up. | three.js | offline |

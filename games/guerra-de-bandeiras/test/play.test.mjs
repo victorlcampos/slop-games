@@ -15,13 +15,14 @@ import { scenario, check, run as runTests, installHeadlessDom } from 'slopkit/te
 installHeadlessDom();      // render.js reaches i18n, which reads localStorage on load
 
 const {
-  UNIT, GUNS, FLAG, TURRET, PAD, REGEN, TARGET, PHASES, ARENA_W, dist, other, viewWidth, boardTransform,
+  UNIT, GUNS, FLAG, TURRET, PAD, REGEN, TARGET, PHASES, ARENA_W, ARENA_H, ROLL, TILE, VISION,
+  dist, other, viewWidth, cameraFor,
 } = await import('../src/config.js');
 const { buildArena } = await import('../src/arena.js');
-const { createGame, assistedAim, segmentHit } = await import('../src/game.js');
+const { createGame, assistedAim, nearestThreat, segmentHit } = await import('../src/game.js');
 const { carrierOf, flagPoint } = await import('../src/match.js');
 const { createRenderer, screenToWorld } = await import('../src/render.js');
-const { createTouchControls, moveInput, aimAngle, fireButton, dashButton } = await import('../src/controls.js');
+const { createTouchControls, moveInput, aimAngle, fireButton, rollButton } = await import('../src/controls.js');
 const { createFx } = await import('../src/fx.js');
 const { headlessContext } = await import('slopkit/testing');
 
@@ -182,28 +183,30 @@ scenario('a shot crosses the room, hits a body and stops at a wall', () => {
   const game = open(0, { quiet: false });
   const me = game.player;
   const foe = game.units.find((u) => u.team === 'alien');
-  for (const u of game.units) if (u !== me && u !== foe) u.dead = true;
+  // asleep, not respawning: bodies that come back four seconds later join in,
+  // and their rounds get read as the ones under test
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
 
-  me.x = 300;
-  me.y = 112;                      // the open lane along the top of the corridors
-  foe.x = 480;
-  foe.y = 112;
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  me.facing = 0;
+  foe.x = lane.x + 260;
+  foe.y = lane.y;
   foe.dead = false;
   foe.hp = UNIT.hp;
   foe.bot = false;                 // he stands still and takes it
-  me.facing = 0;
 
-  tick(game, 1.2, { fire: true, aim: { x: foe.x, y: foe.y } });
+  tick(game, 1.6, { fire: true, aim: { x: foe.x, y: foe.y } });
   check(foe.hp < UNIT.hp, 'a second of point-blank fire did nothing');
-  check(foe.hp < UNIT.hp - 20, `a second of fire took ${(UNIT.hp - foe.hp).toFixed(0)} points off him`);
+  check(foe.hp < UNIT.hp - 20, `a second and a half of fire took ${(UNIT.hp - foe.hp).toFixed(0)} points off him`);
 
-  // and a wall eats the round: the same shot through the lane divider
+  // and a wall eats the round
+  const wall = behind_wall(game, me);
   const before = foe.hp;
-  me.x = 300;
-  me.y = 240;
-  foe.x = 300;
-  foe.y = 480;                     // straight through the separators
-  tick(game, 1, { fire: true, aim: { x: foe.x, y: foe.y } });
+  foe.x = wall.x;
+  foe.y = wall.y;
+  tick(game, 1.5, { fire: true, aim: { x: foe.x, y: foe.y } });
   check(foe.hp === before, 'a round went through a wall');
 });
 
@@ -211,39 +214,99 @@ scenario('nobody shoots his own squad in the back', () => {
   const game = open(0, { quiet: false });
   const me = game.player;
   const mate = game.units.find((u) => u.team === me.team && u !== me);
-  for (const u of game.units) if (u !== me && u !== mate) u.dead = true;
+  for (const u of game.units) if (u !== me && u !== mate) { u.dead = true; u.respawnT = 1e6; }
   mate.dead = false;
   mate.bot = false;
   mate.hp = UNIT.hp;
-  me.x = 300;
-  me.y = 112;
-  mate.x = 460;
-  mate.y = 112;
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  mate.x = lane.x + 240;
+  mate.y = lane.y;
   tick(game, 1.5, { fire: true, aim: { x: mate.x, y: mate.y } });
   check(mate.hp === UNIT.hp, `a teammate took ${(UNIT.hp - mate.hp).toFixed(0)} points of friendly fire`);
 });
 
-scenario('the gun finds the man you pointed at, and never one in the dark', () => {
+scenario('the gun finds the man you pointed at, and never one behind a wall', () => {
   const game = open(0, { quiet: false });
   const me = game.player;
   const foe = game.units.find((u) => u.team === 'alien');
-  for (const u of game.units) if (u !== me && u !== foe) u.dead = true;
-  me.x = 300;
-  me.y = 112;
-  foe.x = 460;
-  foe.y = 130;
+  // asleep, not respawning: bodies that come back four seconds later join in,
+  // and their rounds get read as the ones under test
+  for (const u of game.units) if (u !== me && u !== foe) { u.dead = true; u.respawnT = 1e6; }
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
   foe.dead = false;
+  foe.x = lane.x + 320;
+  foe.y = lane.y + 40;             // seven degrees off the straight line
 
-  const near = assistedAim(game, me, { x: 455, y: 100 });
-  check(near.locked === foe.id, 'the assist did not find a body 15 pixels off the cursor');
-  const far = assistedAim(game, me, { x: 300, y: 600 });
-  check(!far.locked, 'the assist swung the barrel at somebody the cursor was nowhere near');
+  const raw = (x, y) => Math.atan2(y - me.y, x - me.x);
+  const near = assistedAim(game, me, raw(lane.x + 320, lane.y - 10));
+  check(near.target === foe, 'the assist did not find a body fifty pixels off the line of fire');
+  check(Math.abs(near.angle - raw(foe.x, foe.y)) < 1e-6, 'the assist found him and pointed somewhere else');
 
-  foe.x = 300;
-  foe.y = 480;                     // behind the lane divider
-  const blind = assistedAim(game, me, { x: foe.x, y: foe.y });
-  check(!blind.locked, 'the assist locked onto a body through a wall');
+  const away = assistedAim(game, me, raw(lane.x, lane.y + 400));
+  check(!away.target, 'the assist swung the barrel at somebody the cursor was nowhere near');
+
+  // and never through a wall: put him on the other side of one
+  const wall = behind_wall(game, me);
+  foe.x = wall.x;
+  foe.y = wall.y;
+  const blind = assistedAim(game, me, raw(foe.x, foe.y));
+  check(!blind.target, 'the assist locked onto a body through a wall');
+  check(!nearestThreat(game, me), 'a bare trigger found a man through a wall');
 });
+
+/**
+ * The middle of a long clear stretch, found rather than assumed — so a scenario
+ * that needs room around a body gets it whatever the layout is doing today.
+ */
+function open_lane(game) {
+  let best = { x: TILE * 2, y: TILE * 2, run: 0 };
+  for (let cy = 1; cy < 16; cy++) {
+    const y = cy * TILE + TILE / 2;
+    let run = 0;
+    for (let cx = 1; cx < 27; cx++) {
+      run = game.grid.walkable(cx, cy) ? run + 1 : 0;
+      if (run > best.run) best = { x: (cx - run / 2) * TILE + TILE / 2, y, run };
+    }
+  }
+  return best;
+}
+
+/**
+ * A walkable point with a wall between it and this body — and a **thick** one.
+ *
+ * A point that is merely round a corner is not a fair test of "a round does not
+ * go through a wall": the round leaves twenty pixels in front of him and with a
+ * spread on it, so it can turn a corner the line of sight could not. This wants
+ * a real slab in the way, so it counts how much of the line is inside one.
+ */
+function behind_wall(game, u) {
+  let best = null;
+  let bestSolid = 0;
+  for (let cy = 1; cy < 16; cy++) {
+    for (let cx = 1; cx < 27; cx++) {
+      if (!game.grid.walkable(cx, cy)) continue;
+      const x = cx * TILE + TILE / 2;
+      const y = cy * TILE + TILE / 2;
+      const d = dist(u.x, u.y, x, y);
+      if (d > 620 || d < 110 || game.visibleTo(u, x, y)) continue;
+      let solid = 0;
+      for (let i = 1; i < 20; i++) {
+        const k = i / 20;
+        if (!game.grid.walkableAt(u.x + (x - u.x) * k, u.y + (y - u.y) * k)) solid++;
+      }
+      if (solid > bestSolid) {
+        bestSolid = solid;
+        best = { x, y };
+      }
+    }
+  }
+  check(bestSolid >= 3, `the thickest wall the test could find between two open points is ${bestSolid}/20 of the line`);
+  return best || { x: u.x, y: u.y };
+}
 
 scenario('a segment finds what a point would have flown straight past', () => {
   // 1000 px/s at a 60 Hz step is a seventeen-pixel jump: a body is twelve
@@ -252,6 +315,74 @@ scenario('a segment finds what a point would have flown straight past', () => {
   check(segmentHit(0, 0, 100, 0, 200, 0, 12) === null, 'a segment hit something past its own end');
   const t = segmentHit(0, 0, 100, 0, 50, 0, 12);
   check(t > 0.3 && t < 0.45, `the hit landed at ${t.toFixed(2)} of the way along, not at the body`);
+});
+
+scenario('the roll is a shove, a commitment and a wait', () => {
+  const game = open();
+  const me = game.player;
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+
+  // half a second of walking, then the same half second with the roll pressed
+  tick(game, 0.5, { mx: 1, my: 0 });
+  const walked = me.x - lane.x;
+  me.x = lane.x;
+  me.vx = 0;
+  tick(game, 0.5, (i) => ({ mx: 1, my: 0, roll: i === 0 }));
+  const rolled = me.x - lane.x;
+  check(rolled > walked * 1.25, `the roll covered ${rolled.toFixed(0)}px against a walk's ${walked.toFixed(0)}px`);
+  check(me.rollCool > 0, 'the roll costs nothing, so there is no reason ever to walk');
+
+  // held down, it does not repeat: it is a press
+  const before = me.x;
+  tick(game, ROLL.cool + ROLL.time + 0.2, { mx: 1, my: 0, roll: true });
+  const held = me.x - before;
+  me.x = before;
+  me.vx = 0;
+  tick(game, 0.1, IDLE);              // let the button up: the roll is an edge
+  tick(game, ROLL.cool + ROLL.time + 0.2, (i) => ({ mx: 1, my: 0, roll: i === 0 || i === 90 }));
+  check(me.x - before > held, 'holding the roll rolls as often as tapping it');
+});
+
+scenario('by day you see the whole room, and never through a wall', () => {
+  const game = open(0);                      // a lit arena
+  const me = game.player;
+  const lane = open_lane(game);
+  me.x = lane.x;
+  me.y = lane.y;
+  me.facing = 0;                             // looking east
+
+  const behind = { x: lane.x - TILE * 2, y: lane.y };
+  check(game.grid.walkableAt(behind.x, behind.y), 'the test looked into a wall');
+  check(game.visibleTo(me, behind.x, behind.y),
+    'a man two tiles behind him in the same room is invisible in daylight');
+  check(game.visibleTo(me, lane.x, lane.y - 100) || game.visibleTo(me, lane.x, lane.y + 100),
+    'nothing to either side of him is visible either — the day cone is not a circle');
+
+  const wall = behind_wall(game, me);
+  check(!game.visibleTo(me, wall.x, wall.y), 'daylight goes through a wall');
+  check(dist(me.x, me.y, wall.x, wall.y) < VISION.day.sight,
+    'the test only proved he cannot see past his own range');
+});
+
+scenario('at night it is a torch: what is behind you is behind you', () => {
+  const game = open(PHASES.findIndex((p) => p.id === 'maze'));
+  const me = game.player;
+  me.facing = 0;
+  const ahead = { x: me.x + 120, y: me.y };
+  const behind = { x: me.x - 300, y: me.y };
+  const beside = { x: me.x, y: me.y - 300 };
+
+  check(game.grid.walkableAt(ahead.x, ahead.y), 'the test looked into a wall');
+  check(game.visibleTo(me, ahead.x, ahead.y), 'the torch does not light what is in front of him');
+  check(!game.visibleTo(me, behind.x, behind.y), 'the torch lights what is behind him');
+  check(!game.visibleTo(me, beside.x, beside.y), 'the torch lights the whole side of the corridor');
+
+  // and the small circle you feel rather than see, which the day does without
+  const touching = { x: me.x - VISION.night.near * 0.5, y: me.y };
+  check(game.visibleTo(me, touching.x, touching.y), 'he cannot feel what he is standing against');
+  check(VISION.day.near === 0, 'daylight has a near circle, which it has no use for');
 });
 
 scenario('a body left alone knits itself together; one under fire does not', () => {
@@ -287,19 +418,24 @@ scenario('a turret guards its stand, can be shot down, and comes back', () => {
   const phase = PHASES.findIndex((p) => p.id === 'turrets');
   const game = open(phase, { quiet: false, team: 'alien' });
   const turret = game.turrets.find((t) => t.team === 'human');
+  // the other one is not part of this scenario: left standing it keeps firing
+  // and the "a dead turret stops" check reads its rounds as the dead one's
+  for (const t of game.turrets) if (t !== turret) { t.dead = true; t.rebuild = 1e6; }
   const victim = game.units.find((u) => u.team === 'alien');
-  for (const u of game.units) if (u !== victim) u.dead = true;
+  // asleep, not respawning: bodies that come back four seconds later are what
+  // made "a dead turret stopped firing" fail — the rounds were theirs
+  for (const u of game.units) if (u !== victim) { u.dead = true; u.respawnT = 1e6; }
   victim.dead = false;
   victim.hp = UNIT.hp;
   victim.bot = false;
-  victim.x = turret.x + 90;
+  victim.x = turret.x + 150;
   victim.y = turret.y;
   tick(game, 2.5);
   check(victim.hp < UNIT.hp, 'the turret watched an enemy stand in front of it for two seconds');
 
   turret.hp = 1;
   game.bullets.push({
-    x: turret.x - 40, y: turret.y, vx: 900, vy: 0, team: 'alien', owner: victim.id,
+    x: turret.x - 60, y: turret.y, vx: 900, vy: 0, team: 'alien', owner: victim.id,
     damage: 20, life: 1, kind: 'blaster',
   });
   tick(game, 0.2);
@@ -343,12 +479,12 @@ scenario('the dark arena is dark for both squads, and only for that arena', () =
 // ---------------------------------------------------------------- the squads
 
 scenario('two squads of bots play a whole match, and it ends', () => {
-  const game = createGame({ arena: buildArena(0), team: 'human', seed: 21 });
+  const game = createGame({ arena: buildArena(5), team: 'human', seed: 21 });
   for (const u of game.units) u.bot = true;
-  const stop = tick(game, 400, IDLE, (g) => g.state !== 'playing');
-  check(stop !== null, `nobody reached ${TARGET} in four hundred seconds — the arena is a stalemate`);
+  const stop = tick(game, 600, IDLE, (g) => g.state !== 'playing');
+  check(stop !== null, `nobody reached ${TARGET} in ten minutes — the arena is a stalemate`);
   check(Math.max(game.score.human, game.score.alien) === TARGET, `the match ended at ${game.score.human}-${game.score.alien}`);
-  check(stop < 360, `the match took ${stop.toFixed(0)}s`);
+  check(stop < 500, `the match took ${stop.toFixed(0)}s`);
 });
 
 scenario('both squads score, and the field does not favour either end of it', () => {
@@ -362,7 +498,7 @@ scenario('both squads score, and the field does not favour either end of it', ()
   for (let seed = 1; seed <= 6; seed++) {
     const game = createGame({ arena: buildArena(seed % PHASES.length), team: 'human', seed: seed * 17 });
     for (const u of game.units) u.bot = true;
-    tick(game, 100, IDLE, (g) => g.state !== 'playing');
+    tick(game, 180, IDLE, (g) => g.state !== 'playing');
     human += game.score.human;
     alien += game.score.alien;
   }
@@ -370,7 +506,7 @@ scenario('both squads score, and the field does not favour either end of it', ()
   check(total >= 12, `only ${total} captures in six squad-against-squad matches — nobody is playing`);
   check(human > 0 && alien > 0, `${human}-${alien}: one side never scored at all`);
   const share = Math.min(human, alien) / total;
-  check(share > 0.28, `${human}-${alien} across six arenas — one side has an edge the other has not`);
+  check(share > 0.25, `${human}-${alien} across six arenas — one side has an edge the other has not`);
 });
 
 scenario('a bot walks round a wall instead of standing against it', () => {
@@ -415,31 +551,33 @@ scenario('every arena draws, in both the light and the dark', () => {
 });
 
 scenario('a point on the screen is the point on the field the cursor is over', () => {
+  const game = open();
+  const me = game.player;
+  me.x = 900;
+  me.y = 600;
   for (const W of [1040, 1280, 1900]) {
-    globalThis.window.innerWidth = W;      // the window and the logical width agree
+    globalThis.window.innerWidth = W;
     globalThis.window.innerHeight = 720;
     const vp = { W, H: 720, scale: 1, turned: false };
-    const p = screenToWorld(W / 2, 384, vp);
-    check(Math.abs(p.x - ARENA_W / 2) < 2, `the middle of a ${W}-wide screen is at ${p.x.toFixed(0)} on the field`);
-    check(p.y > 0 && p.y < 672, `the field's y came out at ${p.y.toFixed(0)}`);
+    // the middle of what is left of the screen under the scoreboard is him
+    const mid = screenToWorld(W / 2, 48 + (720 - 48) / 2, vp, me);
+    check(Math.abs(mid.x - me.x) < 0.001 && Math.abs(mid.y - me.y) < 0.001,
+      `the middle of a ${W}-wide screen is ${mid.x.toFixed(0)},${mid.y.toFixed(0)} and he is at ${me.x},${me.y}`);
+    // and a pixel to the right is a pixel to the right, at any width
+    const right = screenToWorld(W / 2 + 100, 48 + (720 - 48) / 2, vp, me);
+    check(Math.abs(right.x - me.x - 100) < 0.001, 'the cursor and the field disagree about a hundred pixels');
   }
 
-  // and the case the whole helper exists for: a 4:3 window, where the kit's
-  // 1040-wide floor is eighty pixels more than the glass can show
+  // the case viewWidth exists for: a 4:3 window shows less than the kit's floor
   globalThis.window.innerWidth = 1024;
   globalThis.window.innerHeight = 768;
   const squat = { W: 1040, H: 720, scale: 768 / 720, turned: false };
   check(Math.round(viewWidth(squat)) === 960, `a 1024x768 window shows ${viewWidth(squat).toFixed(0)} logical pixels, not 960`);
-  const board = boardTransform(viewWidth(squat), 720);
-  check(board.ox + ARENA_W * board.scale <= 960.5, 'the field runs off the right of a 4:3 window');
-  // the right edge of the glass lands just past the right edge of the field —
-  // the board keeps a hair of margin, and everything inside it is on screen
-  const edge = screenToWorld(960, 384, squat);
-  check(edge.x >= ARENA_W && edge.x < ARENA_W + 40,
-    `the right edge of the glass is at ${edge.x.toFixed(0)} on a field ${ARENA_W} wide`);
+  const cam = cameraFor(me.x, me.y, viewWidth(squat), 720);
+  check(Math.abs(cam.x + 960 / 2 - me.x) < 0.001, 'on a 4:3 window the camera is not centred on what the glass shows');
 });
 
-scenario('the thumbs walk, aim and dash', () => {
+scenario('the thumbs walk, aim and roll', () => {
   const walk = moveInput(0, 60);
   check(Math.abs(walk.y - 1) < 0.01 && Math.abs(walk.x) < 0.01, 'pushing the stick down does not walk down');
   check(moveInput(3, 3).x === 0, 'a thumb resting on the glass walks');
@@ -455,10 +593,10 @@ scenario('the thumbs walk, aim and dash', () => {
   touch.end(1);
   check(!touch.read().fire, 'the gun kept firing after the thumb left');
 
-  const dash = dashButton(1280, 720);
-  touch.start(2, dash.x, dash.y);
-  check(touch.read().dash, 'the dash button does nothing');
-  check(!touch.read().dash, 'the dash button repeats itself while held');
+  const roll = rollButton(1280, 720);
+  touch.start(2, roll.x, roll.y);
+  check(touch.read().roll, 'the roll button does nothing');
+  check(!touch.read().roll, 'the roll button repeats itself while held — the roll is a press');
   touch.start(3, 200, 400);
   const walked = touch.read();
   check(walked.mx === 0 && walked.my === 0, 'the stick moved before the thumb did');

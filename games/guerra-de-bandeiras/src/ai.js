@@ -30,9 +30,12 @@ export function botOrders(game, u, dt) {
   const orders = {
     mx: move.x,
     my: move.y,
-    aimAt: target ? aimPoint(game, u, target, stats) : null,
+    // the same shape the player's thumbs write: an angle and, when there is
+    // one, the man it belongs to — which is what makes the trigger wait for the
+    // shoulders for a bot exactly as it does for you
+    aim: target ? aimAt(game, u, target, stats) : null,
     fire: false,
-    dash: false,
+    roll: false,
   };
 
   if (target) {
@@ -45,12 +48,13 @@ export function botOrders(game, u, dt) {
     u.aimT = 0;
   }
 
-  // The dash is spent on the two moments it was built for: getting a stolen
+  // The roll is spent on the two moments it was built for: getting a stolen
   // flag out of a hot end zone, and closing on the man carrying yours.
   const carrying = game.flags[enemyTeam].carrier === u.id;
   const hunting = goal.kind === 'chase';
-  if ((carrying || hunting) && u.dashCool <= 0 && (move.x || move.y) && game.rng() < dt * 1.6) {
-    orders.dash = true;
+  if ((carrying || hunting) && u.rollCool <= 0 && (move.x || move.y) && game.rng() < dt * 1.6) {
+    // a press, not a hold: the roll is edge-triggered, so it has to fall again
+    orders.roll = !u.rollWas;
   }
 
   return orders;
@@ -68,12 +72,21 @@ export function botOrders(game, u, dt) {
  */
 export function assignRoles(units, skill) {
   const stats = botStats(skill);
-  // the player is always the raider, so he goes to the back of the queue and
-  // the defending jobs are handed out to the bots first
-  const squad = [...units].sort((a, b) => Number(b.bot) - Number(a.bot));
+  const squad = [...units].sort((a, b) => a.spawnIndex - b.spawnIndex);
   const guards = Math.round(squad.length * stats.guard);
+  // The defending jobs go to the **back of the squad by spawn**, never to
+  // whoever happens to be a bot. Handing them out bots-first looks equivalent
+  // and is not: the player is one body on his side, so his squad's defenders
+  // came from one set of spawns and the enemy's from another — the enemy always
+  // had a body starting on its stand and yours never did. On a field that
+  // mirrors cell for cell, the two squads have to start as each other's
+  // reflection, and body number one is the raider on both sides.
   squad.forEach((u, i) => {
-    u.role = i < guards ? 'defend' : 'attack';
+    const from = squad.length - guards;
+    u.role = i >= from ? 'defend' : 'attack';
+    // its place among the bodies doing that job, 0 upwards — the orbit and the
+    // sidestep read this and never an id or a spawn
+    u.slot = i >= from ? i - from : i;
   });
   return squad;
 }
@@ -122,11 +135,18 @@ function chooseGoal(game, u, stats, dt) {
   // also what puts him in the doorways rather than in the middle. The loop
   // advances with the clock and not with the frame: on a 144 Hz screen he
   // would otherwise pace his own base almost three times as fast.
-  u.orbit += dt * (0.5 + (u.id % 3) * 0.2);
-  const r = 96 + ((u.id * 37) % 60);
+  // The lap is timed off `u.slot` — his place among his own squad's defenders —
+  // and never off an id or a spawn: see `assignRoles` for what that cost.
+  u.orbit += dt * (0.5 + (u.slot % 3) * 0.2);
+  const r = 92 + (u.slot % 3) * 58;
+  // and the lap is walked **towards the field**, which is a different direction
+  // for each side: an orbit that ran east for both squads put one defender in
+  // front of his stand and the other behind his at every moment of the match.
+  // The arena is a mirror; anything that walks on it has to be one too.
+  const forward = u.team === 'human' ? 1 : -1;
   return {
     kind: 'hold',
-    x: mine.home.x + Math.cos(u.orbit) * r,
+    x: mine.home.x + Math.cos(u.orbit) * r * forward,
     y: mine.home.y + Math.sin(u.orbit) * r * 0.8,
   };
 }
@@ -187,7 +207,10 @@ function steer(game, u, goal, stats, dt) {
   if (Math.hypot(u.vx, u.vy) < 40) u.stuck += dt;
   else u.stuck = 0;
   if (u.stuck > 0.5) {
-    const side = u.id % 2 ? 1 : -1;
+    // which way he steps out is his own, but the *handedness* is his side's:
+    // a quarter turn one way on the left half is a quarter turn the other way
+    // on the right, or the two squads stop being each other's reflection
+    const side = (u.slot % 2 ? 1 : -1) * (u.team === 'human' ? 1 : -1);
     out = { x: -out.y * side, y: out.x * side };
     if (u.stuck > 0.9) u.stuck = 0;
   }
@@ -223,9 +246,11 @@ function pickTarget(game, u, stats, dt) {
  * is the difference between a rifle you can walk sideways out of and one you
  * cannot.
  */
-function aimPoint(game, u, target, stats) {
+function aimAt(game, u, target, stats) {
   const gun = game.gun(u);
   const travel = dist(u.x, u.y, target.x, target.y) / gun.speed;
   const k = clamp(stats.lead, 0, 1) * travel;
-  return { x: target.x + target.vx * k, y: target.y + target.vy * k };
+  const x = target.x + target.vx * k;
+  const y = target.y + target.vy * k;
+  return { angle: Math.atan2(y - u.y, x - u.x), target };
 }

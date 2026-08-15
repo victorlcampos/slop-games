@@ -14,12 +14,12 @@ export const dict = {
   'side.alien': { pt: 'Sentinelas', en: 'Sentinels' },
   'side.pick': { pt: 'De que lado você joga?', en: 'Which side are you on?' },
   'side.humanNote': {
-    pt: 'Fuzil rápido e leve. Você atira mais vezes e erra menos quando está correndo.',
-    en: 'A fast, light rifle. More rounds in the air, and it forgives running.',
+    pt: 'Fuzil rápido e leve: treze tiros derrubam um corpo, seis por segundo.',
+    en: 'A fast, light rifle: thirteen rounds put a body down, six a second.',
   },
   'side.alienNote': {
-    pt: 'Blaster pesado. Cada tiro dói o dobro, e você paga esperando o próximo.',
-    en: 'A heavy blaster. Each bolt hurts twice as much, and you pay for it waiting.',
+    pt: 'Blaster pesado: oito bolas derrubam um corpo, e você paga esperando a próxima.',
+    en: 'A heavy blaster: eight bolts put a body down, and you pay for it waiting.',
   },
 
   'menu.start': { pt: 'Entrar em campo', en: 'Take the field' },
@@ -32,12 +32,20 @@ export const dict = {
     en: 'Their flag scores when it touches your stand — and only while your own flag is home. First squad to ten takes the arena.',
   },
   'menu.controls': {
-    pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço avança · M liga e desliga o som',
-    en: 'WASD or arrows to move · the mouse aims · click to fire · space dashes · M mutes',
+    pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço rola · M liga e desliga o som',
+    en: 'WASD or arrows to move · the mouse aims · click to fire · space rolls · M mutes',
+  },
+  'menu.aim': {
+    pt: 'A arma mira sozinha: você aponta para o lado e, dentro de um limite razoável, ela acha o soldado. O colchete mostra em quem travou e fecha quando o corpo termina o giro; o tiro sai quando ele fecha.',
+    en: 'The gun aims itself: you point roughly and inside a fair margin it finds the man. The brackets show what it has and close as the body finishes its turn; the round leaves when they shut.',
+  },
+  'menu.sight': {
+    pt: 'A câmera fica em cima de você e o campo é maior que a tela. De dia você enxerga a sala inteira em volta — mas nada através de parede. O labirinto é de noite: ali só existe o que a lanterna alcança. O mapa no canto mostra o seu esquadrão e quem ele está vendo.',
+    en: 'The camera sits on you and the field is bigger than the screen. By day you see the whole room around you — and nothing through a wall. The maze is at night: there, only what the torch reaches exists. The map in the corner shows your squad and whoever it can see.',
   },
   'menu.touch': {
-    pt: 'No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 avança.',
-    en: 'On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button dashes.',
+    pt: 'No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 rola.',
+    en: 'On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button rolls.',
   },
   'menu.tip': {
     pt: 'Ninguém defende o seu pedestal sozinho. Se a sua bandeira sumiu, o ponto não entra: alguém tem que voltar.',
@@ -56,8 +64,8 @@ export const dict = {
   },
   'arena.maze': { pt: 'O Labirinto', en: 'The Maze' },
   'arena.maze.note': {
-    pt: 'Escuro. Você vê o que está perto — e o que o seu time está vendo. Quem carrega bandeira brilha para todo mundo.',
-    en: 'Dark. You see what is near you, and what your squad can see. Whoever carries a flag glows for everybody.',
+    pt: 'Escuro: a única arena de noite. Você lê o corredor pela lanterna, e eles também. Quem carrega bandeira aparece para todo mundo.',
+    en: 'Dark: the one night arena. You read the corridor through a torch, and so do they. Whoever carries a flag shows up for everybody.',
   },
   'arena.turrets': { pt: 'Ninho de Torres', en: 'Turret Nest' },
   'arena.turrets.note': {

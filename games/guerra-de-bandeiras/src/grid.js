@@ -108,6 +108,7 @@ export function lineOfSight(grid, ax, ay, bx, by) {
  * be needed to avoid recomputing it.
  */
 export function flowField(grid, goals) {
+  goals = Array.from(goals);
   const { cols, rows } = grid;
   const dist = new Int32Array(cols * rows).fill(-1);
   const queue = new Int32Array(cols * rows);
@@ -145,6 +146,9 @@ export function flowField(grid, goals) {
     cols,
     rows,
     dist,
+    // where it was computed towards, so `stepAlong` can break its ties on the
+    // straight line rather than on the order of a loop
+    goal: goals.length ? { cx: goals[0].cx | 0, cy: goals[0].cy | 0 } : null,
     at(cx, cy) {
       if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return -1;
       return dist[cy * cols + cx];
@@ -158,12 +162,21 @@ export function flowField(grid, goals) {
  * Diagonals only where both orthogonals are open: a soldier that cuts a corner
  * walks through the corner, and on a field with one-tile corridors that reads
  * as walking through the wall.
+ *
+ * **Ties are broken by the straight line to the goal, not by the loop order**,
+ * and that is not a nicety. The first version took the first strictly-better
+ * neighbour it found, which on open ground means up-left wins every tie — so a
+ * squad walking left routed a shade more directly than a squad walking right.
+ * On a field that mirrors cell for cell it was worth six points a match to
+ * whoever defended the right-hand half, and it only showed up in the open
+ * arena, because a corridor has no ties to break.
  */
 export function stepAlong(field, grid, cx, cy) {
   const here = field.at(cx, cy);
   if (here <= 0) return null;
   let best = null;
-  let bestD = here;
+  let bestScore = Infinity;
+  let bestPull = Infinity;
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
@@ -172,10 +185,15 @@ export function stepAlong(field, grid, cx, cy) {
       if (!grid.walkable(nx, ny)) continue;
       if (dx && dy && (!grid.walkable(cx + dx, cy) || !grid.walkable(cx, cy + dy))) continue;
       const d = field.at(nx, ny);
-      if (d === -1) continue;
+      // never a step that does not close the gap: with the straight-line
+      // tie-break below, a sideways step that merely points more at the goal
+      // would be taken for ever and the body would pace on the spot
+      if (d === -1 || d >= here) continue;
       const score = d + (dx && dy ? -0.25 : 0);   // the tie-break that stops a zig-zag
-      if (score < bestD) {
-        bestD = score;
+      const pull = field.goal ? (nx - field.goal.cx) ** 2 + (ny - field.goal.cy) ** 2 : 0;
+      if (score < bestScore - 1e-6 || (Math.abs(score - bestScore) < 1e-6 && pull < bestPull)) {
+        bestScore = score;
+        bestPull = pull;
         best = { cx: nx, cy: ny };
       }
     }

@@ -1,26 +1,30 @@
-// The whole field, all the time.
+// The field seen from almost directly above, through the eyes of the soldier
+// you are driving.
 //
-// There is no camera in this game and that is the drawing's first constraint:
-// the arena is 1216 by 672 logical pixels and it is painted at once, so a
-// soldier is ten pixels across and has to be readable at that size against
-// four other bodies and a wall. Everything below serves that — the two squads
-// are opposite ends of the palette, a flag is the only thing on the field with
-// a banner, and the man you are driving is the only one standing in a ring of
-// light.
+// **The camera is Infinite Fortress's**: it sits on him, the field is bigger
+// than the screen, and there is no clamp at the edges. And so is the darkness —
+// the polygon `vision.js` builds is the clip path, and it is the same maths
+// that answers "can that sentinel see you". There is no second system deciding
+// what is visible, which is the only way a fog can be fair.
 //
-// The static half of the field (tiles, walls, pits, stands) is baked once per
-// arena into an offscreen canvas and blitted. What used to be some eight
-// hundred little fills a frame is one drawImage.
+// The one difference from the Fortress is how wide the eyes open. On a lit
+// arena the cone is the full circle, so what you get is the room you are
+// standing in — the walls do all the hiding. On the night arena it is a torch.
+// Either way, the field you are not looking at is still drawn, cold and flat:
+// this is your own arena and you know its shape. What you do not get is who is
+// standing in it.
 
 import {
-  COLOURS, KIT, TILE, COLS, ROWS, ARENA_W, ARENA_H, HUD_H, TARGET, SIGHT, UNIT, TURRET, PAD,
-  boardTransform, viewWidth, clamp, other,
+  COLOURS, KIT, TILE, COLS, ROWS, ARENA_W, ARENA_H, HUD_H, TARGET, UNIT, TURRET, PAD, ROLL, ASSIST,
+  cameraFor, viewWidth, clamp, other, dist, RAD,
 } from './config.js';
-import { WALL, PIT, BASE_H, BASE_A, castRay } from './grid.js';
+import { WALL, PIT, BASE_H, BASE_A } from './grid.js';
+import { createSight } from './vision.js';
 import { t, arenaName } from './i18n.js';
-import { STICK, fireButton, dashButton } from './controls.js';
+import { STICK, fireButton, rollButton } from './controls.js';
 
-const LIP = 7;                          // how far a wall's top sits above its face
+const LIP = 13;                         // how far a wall's top sits above its face
+const HEAD_LIFT = 7;                    // how far a head floats over its shoulders
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -32,92 +36,120 @@ function makeCanvas(w, h) {
 export function createRenderer() {
   const r = {
     arena: null,
-    floorImg: null,
+    litImg: null,                       // the field as it looks with the light on it
+    coldImg: null,                      // and as your squad remembers it
     scale: 1,
+    camX: 0,
+    camY: 0,
     reset() {
       r.arena = null;
-      r.floorImg = null;
+      r.litImg = null;
+      r.coldImg = null;
     },
   };
 
   r.draw = (ctx, game, vp, opts = {}) => {
     const H = vp.H;
-    const W = viewWidth(vp);            // what the window can really show, not vp.W
+    const W = viewWidth(vp);             // what the window can really show, not vp.W
     const fx = opts.fx || null;
-    const board = boardTransform(W, H);
+    const eye = game.player && !game.player.dead ? game.player : anchor(game);
+
+    const cam = cameraFor(eye.x, eye.y, W, H);
+    r.camX = cam.x;
+    r.camY = cam.y;
 
     ctx.fillStyle = COLOURS.void;
     ctx.fillRect(0, 0, W, H);
 
     if (r.arena !== game.arena) {
       r.arena = game.arena;
-      r.scale = (vp.scale || 1) * (vp.dpr || 1) > 1.25 ? 2 : 1;
-      r.floorImg = bakeField(game, r.scale);
+      r.scale = (vp.scale || 1) * (vp.dpr || 1) > 1.25 && ARENA_W * ARENA_H < 4e6 ? 2 : 1;
+      r.litImg = bakeField(game, r.scale, false);
+      r.coldImg = bakeField(game, r.scale, true);
     }
 
     const shake = fx ? fx.state.shake : 0;
     ctx.save();
+    // not rounded: the camera has to be *exactly* the one `screenToWorld` uses,
+    // or the cursor and the man it is pointing at drift apart by the rounding
     ctx.translate(
-      board.ox + (shake ? (Math.random() - 0.5) * shake : 0),
-      board.oy + (shake ? (Math.random() - 0.5) * shake : 0)
+      -r.camX + (shake ? (Math.random() - 0.5) * shake : 0),
+      -r.camY + (shake ? (Math.random() - 0.5) * shake : 0)
     );
-    ctx.scale(board.scale, board.scale);
 
-    const dark = game.arena.dark;
-    // In the dark arena the field is drawn twice: once flat and cold, which is
-    // what your squad remembers, and once inside the shape it can actually see.
-    ctx.drawImage(r.floorImg, 0, 0, ARENA_W, ARENA_H);
-    if (dark) {
-      ctx.fillStyle = 'rgba(5,7,11,0.74)';
-      ctx.fillRect(0, 0, ARENA_W, ARENA_H);
-    }
+    // the whole field, cold: the map your squad carries in its head
+    ctx.drawImage(r.coldImg, 0, 0, ARENA_W, ARENA_H);
 
+    // and inside the shape it can see, the same field with the light on
+    const fans = squadSight(game);
     ctx.save();
-    if (dark) clipToSquadSight(ctx, game);
-    if (dark) ctx.drawImage(r.floorImg, 0, 0, ARENA_W, ARENA_H);
+    clipTo(ctx, fans);
+    ctx.drawImage(r.litImg, 0, 0, ARENA_W, ARENA_H);
     paintStands(ctx, game);
     paintPads(ctx, game);
-    paintTurrets(ctx, game, dark);
+    paintTurrets(ctx, game);
     paintFlags(ctx, game);
-    paintUnits(ctx, game, dark);
-    paintBullets(ctx, game, dark);
+    paintUnits(ctx, game);
+    paintBullets(ctx, game);
     ctx.restore();
 
-    // Outside the light, two things are still drawn: your own squad, which you
-    // are in radio contact with, and whoever is running off with your flag —
-    // a carrier nobody can find is a match that stops being playable.
-    if (dark) {
-      paintStands(ctx, game);
-      for (const u of game.units) {
-        if (u.dead) continue;
-        const carrying = game.flags[other(u.team)].carrier === u.id;
-        if (u.team === game.playerTeam) drawUnit(ctx, game, u, carrying);
-        else if (carrying) drawGhostCarrier(ctx, game, u);
-      }
+    // Outside the light, three things are still drawn: the stands, which do not
+    // move; your own squad, which you are in radio contact with; and whoever is
+    // running off with your flag — a carrier nobody can find is a match that
+    // stops being playable.
+    paintStands(ctx, game, true);
+    for (const u of game.units) {
+      if (u.dead) continue;
+      const carrying = game.flags[other(u.team)].carrier === u.id;
+      if (u.team === game.playerTeam) drawUnit(ctx, game, u, carrying);
+      else if (carrying && !game.teamSees(game.playerTeam, u.x, u.y)) drawGhostCarrier(ctx, game, u);
     }
+    if (game.player && !game.player.dead) paintReticle(ctx, game.player);
 
     if (fx) paintFx(ctx, fx);
     ctx.restore();
 
-    paintHud(ctx, game, vp, board, W);
+    paintHud(ctx, game, vp, W);
+    paintMinimap(ctx, game, W);
     if (opts.touch) paintTouch(ctx, opts.touch, W, H);
   };
 
   return r;
 }
 
+/** Whose eyes the camera borrows while you are waiting to come back. */
+function anchor(game) {
+  const mates = game.units.filter((u) => !u.dead && u.team === game.playerTeam);
+  const carrier = mates.find((u) => game.flags[other(u.team)].carrier === u.id);
+  return carrier || mates[0] || game.player || { x: ARENA_W / 2, y: ARENA_H / 2 };
+}
+
 // ------------------------------------------------------------------- baking
 
-function bakeField(game, scale) {
+function bakeField(game, scale, cold) {
   const img = makeCanvas(ARENA_W * scale, ARENA_H * scale);
   const g = img.getContext('2d');
   g.scale(scale, scale);
-  paintGround(g, game);
-  paintWalls(g, game);
+  paintGround(g, game, cold ? COLD : null);
+  paintWalls(g, game, cold ? COLD : null);
   return img;
 }
 
-function paintGround(ctx, game) {
+/**
+ * The palette of a floor you are remembering rather than looking at.
+ *
+ * It is a **second bake with its own colours**, not the lit one under a black
+ * wash. A wash keeps the ratio between the floor and the wall tops, and those
+ * two are close to begin with: dimmed to a quarter they became the same grey,
+ * and the maze — the one arena where knowing where the walls are is the whole
+ * game — read as an empty black room.
+ */
+const COLD = {
+  floor: '#141a21', floorAlt: '#171d25', grout: '#0d1116',
+  wallFace: '#1a222c', wallTop: '#374757',
+};
+
+function paintGround(ctx, game, cold) {
   const grid = game.grid;
   for (let cy = 0; cy < ROWS; cy++) {
     for (let cx = 0; cx < COLS; cx++) {
@@ -129,46 +161,60 @@ function paintGround(ctx, game) {
       if (kind === PIT) {
         ctx.fillStyle = COLOURS.pit;
         ctx.fillRect(x, y, TILE, TILE);
-        // the lip of the hole, only where there is floor above it: what makes
-        // a pit read as depth instead of as a black tile
+        // the lip of the hole, only where there is floor above it: what makes a
+        // pit read as depth instead of as a black tile
         if (grid.at(cx, cy - 1) !== PIT) {
           ctx.fillStyle = COLOURS.pitEdge;
-          ctx.fillRect(x, y, TILE, 5);
+          ctx.fillRect(x, y, TILE, 7);
         }
         const h = ((cx * 73856093) ^ (cy * 19349663)) >>> 0;
-        if (h % 7 === 0) {
-          ctx.fillStyle = 'rgba(92,232,207,0.07)';
-          ctx.fillRect(x + (h % 20), y + ((h >> 4) % 24), 3, 3);
+        if (!cold && h % 5 === 0) {
+          ctx.fillStyle = 'rgba(92,232,207,0.08)';
+          ctx.fillRect(x + (h % 40), y + ((h >> 4) % 48), 4, 4);
         }
         continue;
       }
 
-      ctx.fillStyle = (cx + cy) % 2 ? COLOURS.floor : COLOURS.floorAlt;
+      ctx.fillStyle = (cx + cy) % 2
+        ? (cold ? cold.floor : COLOURS.floor)
+        : (cold ? cold.floorAlt : COLOURS.floorAlt);
       ctx.fillRect(x, y, TILE, TILE);
 
       if (kind === BASE_H || kind === BASE_A) {
         const kit = KIT[kind === BASE_H ? 'human' : 'alien'];
-        ctx.fillStyle = kit.base;
+        ctx.fillStyle = cold ? shade(kit.base, 0.5) : kit.base;
         ctx.fillRect(x, y, TILE, TILE);
-        ctx.fillStyle = 'rgba(255,255,255,0.045)';
-        ctx.fillRect(x + 3, y + 3, TILE - 6, TILE - 6);
+        if (!cold) {
+          ctx.fillStyle = 'rgba(255,255,255,0.05)';
+          ctx.fillRect(x + 5, y + 5, TILE - 10, TILE - 10);
+        }
       }
 
       // wear, seeded by the cell, so the same arena is scuffed the same way
       const h = ((cx * 374761393) ^ (cy * 668265263)) >>> 0;
-      if (h % 5 === 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.07)';
-        ctx.fillRect(x + (h % 18), y + ((h >> 5) % 22), 9, 2);
+      if (!cold) {
+        const j = (h % 9) - 4;
+        if (j > 0) {
+          ctx.fillStyle = `rgba(255,255,255,${j * 0.011})`;
+          ctx.fillRect(x, y, TILE, TILE);
+        } else if (j < 0) {
+          ctx.fillStyle = `rgba(0,0,0,${-j * 0.013})`;
+          ctx.fillRect(x, y, TILE, TILE);
+        }
+        if (h % 7 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.08)';
+          ctx.fillRect(x + ((h >> 5) % 38), y + ((h >> 9) % 52) + 6, 22, 3);
+        }
       }
 
-      ctx.fillStyle = COLOURS.grout;
+      ctx.fillStyle = cold ? cold.grout : COLOURS.grout;
       ctx.fillRect(x, y, TILE, 1);
       ctx.fillRect(x, y, 1, TILE);
     }
   }
 }
 
-function paintWalls(ctx, game) {
+function paintWalls(ctx, game, cold) {
   const grid = game.grid;
   // rows down the screen, so a lip covers the block behind it
   for (let cy = 0; cy < ROWS; cy++) {
@@ -177,13 +223,13 @@ function paintWalls(ctx, game) {
       const x = cx * TILE;
       const y = cy * TILE;
       if (grid.at(cx, cy + 1) !== WALL) {
-        ctx.fillStyle = COLOURS.wallFace;
-        ctx.fillRect(x, y + TILE - LIP, TILE, LIP + 2);
+        ctx.fillStyle = cold ? cold.wallFace : COLOURS.wallFace;
+        ctx.fillRect(x, y + TILE - LIP, TILE, LIP + 3);
       }
-      ctx.fillStyle = COLOURS.wallTop;
+      ctx.fillStyle = cold ? cold.wallTop : COLOURS.wallTop;
       ctx.fillRect(x, y - LIP, TILE, TILE);
       ctx.fillStyle = 'rgba(0,0,0,0.22)';
-      ctx.fillRect(x, y - LIP, TILE, 2);
+      ctx.fillRect(x, y - LIP, TILE, 3);
       ctx.strokeStyle = COLOURS.wallEdge;
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y - LIP + 0.5, TILE - 1, TILE - 1);
@@ -191,69 +237,106 @@ function paintWalls(ctx, game) {
   }
 }
 
+const shade = (hex, k) => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * k));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+};
+
 // -------------------------------------------------------------------- sight
 
 /**
- * The shape the player's squad can see, as one clip path: a fan per living
- * body, each one stopped by walls. Teammates share their eyes — a match where
- * only your own torch counted would be four people you never see again.
+ * The shape the player's squad can see: one fan per living body, each one
+ * stopped by walls, plus the turrets that are still standing.
+ *
+ * Teammates share their eyes. In the Fortress there was one man and one torch;
+ * a match where only your own counted would be four people you never see again,
+ * and the minimap would be a lie.
  */
-function clipToSquadSight(ctx, game) {
-  ctx.beginPath();
+const SEEN = new WeakMap();
+
+/**
+ * A fan is a hundred and forty fresh objects, and there are five of them: at
+ * sixty frames a second that is enough allocation to give a phone a
+ * garbage-collector hitch every few seconds, felt as a stutter while standing
+ * still. So a body's fan is kept until the body has actually moved or turned
+ * enough to change it — under two pixels and half a degree change nothing the
+ * eye could catch. (The Fortress learned this the same way.)
+ */
+function sightOf(game, body, eyes) {
+  const was = SEEN.get(body);
+  if (was && was.eyes === eyes
+    && (body.x - was.x) ** 2 + (body.y - was.y) ** 2 < 4
+    && Math.abs(body.facing - was.facing) < 0.008) {
+    return was.sight;
+  }
+  const sight = createSight(game.grid, body.x, body.y, body.facing || 0, eyes);
+  SEEN.set(body, { x: body.x, y: body.y, facing: body.facing || 0, eyes, sight });
+  return sight;
+}
+
+const TURRET_EYES = { fov: 360, sight: TURRET.range, near: 0 };
+
+function squadSight(game) {
+  const fans = [];
   for (const u of game.units) {
     if (u.dead || u.team !== game.playerTeam) continue;
-    fanPath(ctx, game, u.x, u.y, SIGHT);
+    fans.push(sightOf(game, u, game.eyes));
   }
   for (const t2 of game.turrets) {
     if (t2.dead || t2.team !== game.playerTeam) continue;
-    fanPath(ctx, game, t2.x, t2.y, SIGHT * 0.8);
+    fans.push(sightOf(game, t2, TURRET_EYES));
+  }
+  return fans;
+}
+
+function clipTo(ctx, fans) {
+  if (!fans.length) {
+    ctx.beginPath();
+    ctx.rect(0, 0, 0, 0);
+    ctx.clip();
+    return;
+  }
+  ctx.beginPath();
+  for (const s of fans) {
+    ring(ctx, s.fan, s.x, s.y);
+    if (s.nearFan) ring(ctx, s.nearFan, s.x, s.y);
   }
   ctx.clip();
 }
 
-// Seventy-two rays, not forty. A fan drawn with too few of them does not read
-// as a soft edge: every pair of rays that lands on different walls becomes a
-// long thin triangle, and the light around a body in the maze looked like a
-// starfish. This is the one place in the game that is worth a few hundred
-// raycasts a frame.
-function fanPath(ctx, game, x, y, range, rays = 72) {
-  for (let i = 0; i <= rays; i++) {
-    const a = (i / rays) * Math.PI * 2;
-    const dx = Math.cos(a);
-    const dy = Math.sin(a);
-    const d = castRay(game.grid, x, y, dx, dy, range);
-    const px = x + dx * d;
-    const py = y + dy * d;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
+/** One fan as a closed loop. Both rings are wound the same way: the clip is their union. */
+function ring(ctx, fan, x, y) {
+  ctx.moveTo(x, y);
+  for (const q of fan) ctx.lineTo(q.x, q.y);
   ctx.closePath();
 }
 
 // ------------------------------------------------------------- the fittings
 
-function paintStands(ctx, game) {
+function paintStands(ctx, game, faint = false) {
   const pulse = 0.5 + 0.5 * Math.sin(game.time * 2.2);
   for (const team of ['human', 'alien']) {
     const stand = game.flags[team].home;
     const kit = KIT[team];
     ctx.save();
+    ctx.globalAlpha = faint ? 0.4 : 1;
     ctx.translate(stand.x, stand.y);
     ctx.strokeStyle = kit.tint;
-    ctx.globalAlpha = 0.35 + pulse * 0.25;
-    ctx.lineWidth = 2;
+    ctx.globalAlpha *= 0.35 + pulse * 0.25;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.arc(0, 0, 34, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.globalAlpha = 0.12 + pulse * 0.08;
+    ctx.globalAlpha = faint ? 0.08 : 0.14 + pulse * 0.08;
     ctx.fillStyle = kit.tint;
     ctx.beginPath();
-    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = faint ? 0.5 : 1;
     ctx.fillStyle = COLOURS.ink;
     ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -266,13 +349,13 @@ function paintPads(ctx, game) {
     ctx.translate(p.x, p.y);
     ctx.strokeStyle = COLOURS.energy;
     ctx.globalAlpha = 0.35 + k * 0.35;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.arc(0, 0, PAD.r - i * 7 + k * 3, 0, Math.PI * 2);
+      ctx.arc(0, 0, PAD.r - i * 12 + k * 5, 0, Math.PI * 2);
       ctx.stroke();
     }
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 0.14;
     ctx.fillStyle = COLOURS.energy;
     ctx.beginPath();
     ctx.arc(0, 0, PAD.r, 0, Math.PI * 2);
@@ -281,16 +364,15 @@ function paintPads(ctx, game) {
   }
 }
 
-function paintTurrets(ctx, game, dark) {
+function paintTurrets(ctx, game) {
   for (const t2 of game.turrets) {
     const kit = KIT[t2.team];
     ctx.save();
     ctx.translate(t2.x, t2.y);
 
     if (t2.dead) {
-      // the mount, empty, with the rebuild filling it back up
       ctx.strokeStyle = 'rgba(150,165,185,0.5)';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, TURRET.r, 0, Math.PI * 2);
       ctx.stroke();
@@ -305,28 +387,26 @@ function paintTurrets(ctx, game, dark) {
 
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(1, 3, TURRET.r, TURRET.r * 0.7, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, 5, TURRET.r, TURRET.r * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.fillStyle = COLOURS.steel;
     ctx.beginPath();
     ctx.arc(0, 0, TURRET.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = kit.dark;
     ctx.beginPath();
-    ctx.arc(0, 0, TURRET.r - 4, 0, Math.PI * 2);
+    ctx.arc(0, 0, TURRET.r - 6, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.rotate(t2.facing);
     ctx.fillStyle = COLOURS.ink;
-    ctx.fillRect(2, -3, 18, 6);
+    ctx.fillRect(4, -5, 26, 10);
     ctx.fillStyle = kit.tint;
-    ctx.fillRect(16, -2, 4, 4);
+    ctx.fillRect(24, -3, 6, 6);
     ctx.restore();
 
-    // what is left of it, over the barrel
     const k = clamp(t2.hp / TURRET.hp, 0, 1);
-    if (k < 1) bar(ctx, t2.x - 12, t2.y - TURRET.r - 8, 24, 3, k, kit.tint);
+    if (k < 1) bar(ctx, t2.x - 18, t2.y - TURRET.r - 12, 36, 4, k, kit.tint);
   }
 }
 
@@ -334,9 +414,8 @@ function paintFlags(ctx, game) {
   for (const team of ['human', 'alien']) {
     const flag = game.flags[team];
     if (flag.state === 'carried') continue;      // it is drawn on the back that carries it
-    const kit = KIT[team];
-    const lift = flag.state === 'home' ? 0 : 2 + Math.sin(game.time * 5) * 1.5;
-    drawBanner(ctx, flag.x, flag.y - lift, kit, game.time, flag.state === 'dropped');
+    const lift = flag.state === 'home' ? 0 : 3 + Math.sin(game.time * 5) * 2;
+    drawBanner(ctx, flag.x, flag.y - lift, KIT[team], game.time, flag.state === 'dropped');
   }
 }
 
@@ -349,35 +428,35 @@ function drawBanner(ctx, x, y, kit, time, urgent) {
   ctx.translate(x, y);
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.ellipse(1, 6, 8, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, 9, 11, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (urgent) {
     // a flag on the deck is on a clock, and the clock has to be visible from
-    // across the field
+    // across the room
     ctx.globalAlpha = 0.25 + 0.25 * Math.sin(time * 8);
     ctx.fillStyle = kit.tint;
     ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
 
   ctx.fillStyle = COLOURS.steel;
-  ctx.fillRect(-1.5, -18, 3, 24);
-  const wave = Math.sin(time * 4) * 2;
+  ctx.fillRect(-2, -28, 4, 36);
+  const wave = Math.sin(time * 4) * 3;
   ctx.fillStyle = kit.tint;
   ctx.beginPath();
-  ctx.moveTo(1.5, -17);
-  ctx.lineTo(14 + wave, -12);
-  ctx.lineTo(1.5, -6);
+  ctx.moveTo(2, -27);
+  ctx.lineTo(21 + wave, -19);
+  ctx.lineTo(2, -10);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
-  ctx.moveTo(1.5, -11);
-  ctx.lineTo(8 + wave * 0.5, -9);
-  ctx.lineTo(1.5, -6);
+  ctx.moveTo(2, -17);
+  ctx.lineTo(12 + wave * 0.5, -14);
+  ctx.lineTo(2, -10);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -385,105 +464,113 @@ function drawBanner(ctx, x, y, kit, time, urgent) {
 
 // -------------------------------------------------------------- the soldiers
 
-function paintUnits(ctx, game, dark) {
+function paintUnits(ctx, game) {
   const order = game.units.filter((u) => !u.dead).sort((a, b) => a.y - b.y);
   for (const u of order) {
-    if (dark && u.team !== game.playerTeam && !game.teamSees(game.playerTeam, u.x, u.y)) continue;
+    if (u.team !== game.playerTeam && !game.teamSees(game.playerTeam, u.x, u.y)) continue;
     drawUnit(ctx, game, u, game.flags[other(u.team)].carrier === u.id);
   }
 }
 
+/**
+ * A soldier, seen from almost directly above and fitting inside their own tile.
+ *
+ * The shoulders, the arms and the gun are drawn in the body's own frame, so
+ * they turn with it — which from up here is what a man turning looks like. The
+ * one thing that does *not* turn is the head: it is lifted a few pixels up the
+ * screen and given its own shadow, and that little parallax is the whole of the
+ * third dimension. It is enough to stop him being a disc, and small enough that
+ * where he is drawn and where he is standing are the same place — which is what
+ * makes aiming at him and hitting him the same act.
+ */
 function drawUnit(ctx, game, u, carrying) {
   const kit = KIT[u.team];
   const mine = u.team === game.playerTeam;
   const you = u === game.player;
 
-  // the ring under your own body: with ten identical soldiers on screen, this
-  // is the only thing that answers "which one am I"
   if (you) {
     ctx.save();
     ctx.strokeStyle = '#ffffff';
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.5;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(u.x, u.y, 16, 0, Math.PI * 2);
+    ctx.arc(u.x, u.y, 24, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   } else if (mine) {
     ctx.save();
     ctx.strokeStyle = kit.tint;
-    ctx.globalAlpha = 0.3;
-    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.28;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(u.x, u.y, 14, 0, Math.PI * 2);
+    ctx.arc(u.x, u.y, 21, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
 
-  ctx.fillStyle = 'rgba(0,0,0,0.36)';
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
   ctx.beginPath();
-  ctx.ellipse(u.x + 1, u.y + 3, 10, 6.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(u.x, u.y + 3, 15, 9, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
   ctx.translate(u.x, u.y);
   ctx.rotate(u.facing);
+  if (u.roll > 0) ctx.scale(1, 0.82);            // a body mid-roll is a body flattened
 
-  const stride = Math.sin(u.stride * 6) * 2;
+  const stride = Math.sin(u.stride * 0.09) * 3;
   ctx.fillStyle = kit.legs;
-  ctx.fillRect(-9, -7 + stride, 6, 5);
-  ctx.fillRect(-9, 2 - stride, 6, 5);
+  ctx.fillRect(-13, -11 + stride, 9, 7);
+  ctx.fillRect(-13, 4 - stride, 9, 7);
 
+  // Shoulders: wider across than deep. That one proportion is what makes a
+  // figure seen from above read as facing somewhere.
   ctx.fillStyle = u.hurt > 0 ? '#ff9d9d' : kit.coat;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 12, 16, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = u.hurt > 0 ? '#e07070' : kit.coatDark;
   ctx.beginPath();
-  ctx.ellipse(-3.5, 0, 5.5, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(-5, 0, 8, 15, 0, 0, Math.PI * 2);   // the back, in its own shade
   ctx.fill();
-
-  // the collar in the team's colour, at the front: from above it is the first
-  // thing you see of somebody coming round a corner
   ctx.fillStyle = kit.tint;
-  ctx.fillRect(3, -2.4, 4, 4.8);
+  ctx.fillRect(5, -4, 5, 8);                      // the collar, in the team's colour
 
-  // arms and gun
   ctx.strokeStyle = kit.skin;
-  ctx.lineWidth = 3.6;
+  ctx.lineWidth = 5.5;
   ctx.lineCap = 'round';
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(2, side * 7);
-    ctx.lineTo(10, side * 3.5);
+    ctx.moveTo(3, side * 11);
+    ctx.lineTo(15, side * 5);
     ctx.stroke();
   }
   ctx.fillStyle = COLOURS.ink;
   if (u.team === 'human') {
-    ctx.fillRect(9, -1.6, 13, 3.2);
+    ctx.fillRect(13, -2.4, 20, 4.8);
     ctx.fillStyle = kit.trim;
-    ctx.fillRect(19, -1, 3, 2);
+    ctx.fillRect(29, -1.6, 4, 3.2);
   } else {
     ctx.beginPath();
-    ctx.moveTo(9, -3);
-    ctx.lineTo(20, -1.2);
-    ctx.lineTo(20, 1.2);
-    ctx.lineTo(9, 3);
+    ctx.moveTo(13, -4.5);
+    ctx.lineTo(31, -1.8);
+    ctx.lineTo(31, 1.8);
+    ctx.lineTo(13, 4.5);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = kit.trim;
     ctx.beginPath();
-    ctx.arc(17, 0, 2, 0, Math.PI * 2);
+    ctx.arc(26, 0, 3, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 
   // the head, in screen space and a few pixels up: the whole third dimension
-  const hx = u.x + Math.cos(u.facing) * 2;
-  const hy = u.y + Math.sin(u.facing) * 2 - 4;
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  const hx = u.x + Math.cos(u.facing) * 3;
+  const hy = u.y + Math.sin(u.facing) * 3 - HEAD_LIFT;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
-  ctx.ellipse(u.x + Math.cos(u.facing) * 2, u.y + Math.sin(u.facing) * 2 + 1, 5, 3.6, 0, 0, Math.PI * 2);
+  ctx.ellipse(u.x + Math.cos(u.facing) * 3, u.y + Math.sin(u.facing) * 3 + 1, 8, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
@@ -492,57 +579,78 @@ function drawUnit(ctx, game, u, carrying) {
   if (kit.hat === 'helmet') {
     ctx.fillStyle = kit.skin;
     ctx.beginPath();
-    ctx.arc(0, 0, 4.8, 0, Math.PI * 2);
+    ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = kit.head;
     ctx.beginPath();
-    ctx.arc(0, 0, 4.8, Math.PI * 0.4, Math.PI * 1.6);
+    ctx.arc(0, 0, 7.5, Math.PI * 0.42, Math.PI * 1.58);
     ctx.fill();
     ctx.fillStyle = kit.trim;
-    ctx.fillRect(-1, -4.8, 2, 9.6);
+    ctx.fillRect(-2, -7.5, 3.5, 15);
   } else {
     // a sentinel's head: one smooth cranium, longer than it is wide, and the
     // two black eyes that do all the seeing on that side
     ctx.fillStyle = kit.head;
     ctx.beginPath();
-    ctx.ellipse(-0.6, 0, 5.4, 4.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(-1, 0, 8.5, 7, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = COLOURS.ink;
     ctx.beginPath();
-    ctx.ellipse(2.8, -2, 1.6, 1, 0.5, 0, Math.PI * 2);
-    ctx.ellipse(2.8, 2, 1.6, 1, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(4.5, -3.4, 2.6, 1.7, 0.5, 0, Math.PI * 2);
+    ctx.ellipse(4.5, 3.4, 2.6, 1.7, -0.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 
-  if (carrying) {
-    const enemyKit = KIT[other(u.team)];
-    drawBanner(ctx, u.x - 6, u.y - 8, enemyKit, game.time, false);
-  }
+  if (carrying) drawBanner(ctx, u.x - 9, u.y - 10, KIT[other(u.team)], game.time, false);
 
   // health, only once it means something: a bar over everybody all the time is
   // ten bars, and ten bars is a HUD sitting on top of the game
   const k = clamp(u.hp / UNIT.hp, 0, 1);
-  if (k < 1) bar(ctx, u.x - 11, u.y - 20, 22, 3, k, mine ? kit.tint : '#ff6a5a');
+  if (k < 1) bar(ctx, u.x - 16, u.y - 30, 32, 4, k, mine ? kit.tint : '#ff6a5a');
 }
 
-/** Whoever has your flag, seen through the wall: the one cheat the dark allows. */
+/** Whoever has your flag, seen through the wall: the one thing the fog gives away. */
 function drawGhostCarrier(ctx, game, u) {
-  const kit = KIT[u.team];
   ctx.save();
-  ctx.globalAlpha = 0.55 + 0.25 * Math.sin(game.time * 6);
+  ctx.globalAlpha = 0.5 + 0.25 * Math.sin(game.time * 6);
   ctx.strokeStyle = KIT[other(u.team)].tint;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(u.x, u.y, 15, 0, Math.PI * 2);
+  ctx.arc(u.x, u.y, 22, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.globalAlpha = 0.75;
-  ctx.fillStyle = kit.coatDark;
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = KIT[u.team].coatDark;
   ctx.beginPath();
-  ctx.arc(u.x, u.y, 8, 0, Math.PI * 2);
+  ctx.arc(u.x, u.y, 11, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
-  drawBanner(ctx, u.x - 6, u.y - 8, KIT[other(u.team)], game.time, false);
+  drawBanner(ctx, u.x - 9, u.y - 10, KIT[other(u.team)], game.time, false);
+}
+
+/**
+ * The brackets: what the gun has, and how far it still has to turn.
+ *
+ * They close as the shoulders come round, and the round leaves when they shut —
+ * which is the same gate the trigger obeys, drawn rather than explained.
+ */
+function paintReticle(ctx, p) {
+  const t2 = p.aimTarget;
+  if (!t2 || t2.dead) return;
+  const off = Math.abs(((Math.atan2(t2.y - p.y, t2.x - p.x) - p.facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+  const k = clamp(off / (ASSIST.settle * RAD), 0, 1);
+  const r = 20 + k * 14;
+  ctx.save();
+  ctx.strokeStyle = k > 0.02 ? 'rgba(255,217,160,0.75)' : 'rgba(92,232,207,0.95)';
+  ctx.lineWidth = 2;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    ctx.beginPath();
+    ctx.moveTo(t2.x + sx * r, t2.y + sy * r - sy * 8);
+    ctx.lineTo(t2.x + sx * r, t2.y + sy * r);
+    ctx.lineTo(t2.x + sx * r - sx * 8, t2.y + sy * r);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function bar(ctx, x, y, w, h, k, colour) {
@@ -552,25 +660,23 @@ function bar(ctx, x, y, w, h, k, colour) {
   ctx.fillRect(x, y, w * k, h);
 }
 
-function paintBullets(ctx, game, dark) {
+function paintBullets(ctx, game) {
   for (const b of game.bullets) {
-    if (dark && !game.teamSees(game.playerTeam, b.x, b.y)) continue;
-    const len = b.kind === 'blaster' ? 10 : 14;
-    const a = Math.atan2(b.vy, b.vx);
+    const len = b.kind === 'blaster' ? 14 : 18;
     ctx.save();
     ctx.translate(b.x, b.y);
-    ctx.rotate(a);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
     if (b.kind === 'blaster') {
       ctx.fillStyle = '#8ff0dc';
       ctx.beginPath();
-      ctx.ellipse(0, 0, len * 0.5, 3, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, len * 0.5, 4, 0, 0, Math.PI * 2);
       ctx.fill();
     } else if (b.kind === 'turret') {
       ctx.fillStyle = '#ffd9a0';
-      ctx.fillRect(-6, -1, 12, 2);
+      ctx.fillRect(-8, -1.5, 16, 3);
     } else {
       ctx.fillStyle = '#ffe9b0';
-      ctx.fillRect(-len / 2, -1.2, len, 2.4);
+      ctx.fillRect(-len / 2, -1.6, len, 3.2);
     }
     ctx.restore();
   }
@@ -585,7 +691,7 @@ function paintFx(ctx, fx) {
   for (const r of fx.rings) {
     ctx.globalAlpha = clamp(r.t / r.life, 0, 1) * 0.7;
     ctx.strokeStyle = r.colour;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
     ctx.stroke();
@@ -594,7 +700,7 @@ function paintFx(ctx, fx) {
   for (const f of fx.floats) {
     ctx.globalAlpha = clamp(f.t / f.life, 0, 1);
     ctx.fillStyle = f.colour;
-    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(f.text, f.x, f.y);
   }
@@ -604,7 +710,7 @@ function paintFx(ctx, fx) {
 
 // ----------------------------------------------------------------- the HUD
 
-function paintHud(ctx, game, vp, board, W) {
+function paintHud(ctx, game, vp, W) {
   const mid = W / 2;
 
   ctx.fillStyle = 'rgba(8,11,16,0.9)';
@@ -628,16 +734,17 @@ function paintHud(ctx, game, vp, board, W) {
   ctx.fillStyle = COLOURS.dim;
   ctx.fillText(`${arenaName(game.arena.id)} · ${t('menu.arena')} ${game.arena.index + 1}/6 · ${TARGET}`, mid, 38);
 
-  // the event ticker, newest at the bottom, over the board's own top-left
+  // the ticker, newest at the bottom. A kill has no line: with ten bodies on
+  // the field a feed of them is a wall of text over the only thing worth
+  // watching.
   ctx.textAlign = 'left';
   ctx.font = 'bold 13px system-ui, sans-serif';
-  // a kill has no line: with ten bodies on the field a feed of them is a wall
-  // of text over the only thing worth watching
   const lines = game.events.filter((e) => e.kind !== 'killed').slice(-4);
   lines.forEach((e, i) => {
     ctx.globalAlpha = clamp(e.t / 1.2, 0, 1);
-    ctx.fillStyle = eventColour(e, game);
-    ctx.fillText(eventText(e), board.ox + 12, HUD_H + 22 + i * 18);
+    ctx.fillStyle = e.kind === 'captured' ? KIT[e.team].tint
+      : e.team === game.playerTeam ? '#ff9d9d' : COLOURS.hud;
+    ctx.fillText(t(`log.${e.kind}`, { team: t(`side.${e.team}`) }), 14, HUD_H + 22 + i * 18);
   });
   ctx.globalAlpha = 1;
 
@@ -646,7 +753,7 @@ function paintHud(ctx, game, vp, board, W) {
 
   if (player.dead) {
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(6,8,12,0.6)';
+    ctx.fillStyle = 'rgba(6,8,12,0.55)';
     ctx.fillRect(0, HUD_H, W, vp.H - HUD_H);
     ctx.fillStyle = COLOURS.hud;
     ctx.font = 'bold 30px system-ui, sans-serif';
@@ -670,19 +777,21 @@ function paintHud(ctx, game, vp, board, W) {
     ctx.textAlign = 'left';
   }
 
-  // your own health, bottom left, where a glance costs nothing
-  bar(ctx, board.ox + 12, vp.H - 20, 132, 8, clamp(player.hp / UNIT.hp, 0, 1),
+  // your own health, bottom left, where a glance costs nothing — and under it
+  // the roll, which is the only thing you have that is ever on a clock
+  bar(ctx, 14, vp.H - 24, 132, 8, clamp(player.hp / UNIT.hp, 0, 1),
     player.hp > 35 ? KIT[player.team].tint : '#ff6a5a');
+  const ready = clamp(1 - player.rollCool / (ROLL.cool + ROLL.time), 0, 1);
+  bar(ctx, 14, vp.H - 34, 132, 4, ready, ready < 1 ? 'rgba(159,178,196,0.5)' : COLOURS.energy);
 }
 
 function scoreBlock(ctx, x, team, score, game, align) {
   const kit = KIT[team];
   const flag = game.flags[team];
-  const label = t(`side.${team}`);
   ctx.textAlign = align;
   ctx.fillStyle = kit.tint;
   ctx.font = 'bold 14px system-ui, sans-serif';
-  ctx.fillText(label, x, 20);
+  ctx.fillText(t(`side.${team}`), x, 20);
   ctx.font = '11px system-ui, sans-serif';
   ctx.fillStyle = flag.state === 'home' ? COLOURS.dim : '#ff9d9d';
   ctx.fillText(
@@ -694,20 +803,65 @@ function scoreBlock(ctx, x, team, score, game, align) {
   // is a shape and not a number to be read
   const dir = align === 'right' ? -1 : 1;
   for (let i = 0; i < TARGET; i++) {
-    const px = x + dir * (14 + i * 11) - (align === 'right' ? 0 : 0);
+    const px = x + dir * (14 + i * 11);
     ctx.fillStyle = i < score ? kit.tint : 'rgba(255,255,255,0.13)';
     ctx.fillRect(px + (dir < 0 ? -8 : 0), 42, 8, 4);
   }
   ctx.textAlign = 'left';
 }
 
-function eventText(e) {
-  return t(`log.${e.kind}`, { team: t(`side.${e.team}`) });
-}
+/**
+ * The map in the corner, which the camera made necessary: with the field bigger
+ * than the screen, "where is everybody" has to be answerable without it.
+ *
+ * It shows what you are entitled to know — the walls, both stands, your own
+ * squad — plus every enemy your squad can actually see, and the one it cannot:
+ * whoever is carrying your flag.
+ */
+function paintMinimap(ctx, game, W) {
+  const size = Math.max(3, Math.round(196 / COLS));
+  const w = COLS * size;
+  const h = ROWS * size;
+  const x = W - w - 16;
+  const y = HUD_H + 14;
 
-function eventColour(e, game) {
-  if (e.kind === 'captured') return KIT[e.team].tint;
-  return e.team === game.playerTeam ? '#ff9d9d' : COLOURS.hud;
+  ctx.save();
+  ctx.fillStyle = 'rgba(8,11,16,0.72)';
+  ctx.fillRect(x - 6, y - 6, w + 12, h + 12);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 6.5, y - 6.5, w + 13, h + 13);
+
+  for (let cy = 0; cy < ROWS; cy++) {
+    for (let cx = 0; cx < COLS; cx++) {
+      const kind = game.grid.at(cx, cy);
+      if (kind === WALL) ctx.fillStyle = 'rgba(120,133,160,0.45)';
+      else if (kind === PIT) ctx.fillStyle = 'rgba(4,6,10,0.8)';
+      else if (kind === BASE_H) ctx.fillStyle = 'rgba(255,154,77,0.16)';
+      else if (kind === BASE_A) ctx.fillStyle = 'rgba(79,224,176,0.16)';
+      else continue;
+      ctx.fillRect(x + cx * size, y + cy * size, size, size);
+    }
+  }
+
+  const dot = (wx, wy, colour, r = 2.5) => {
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.arc(x + (wx / TILE) * size, y + (wy / TILE) * size, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  for (const team of ['human', 'alien']) {
+    const f = game.flags[team];
+    const p = f.state === 'carried' ? game.unitById(f.carrier) : f;
+    if (p) dot(p.x, p.y, KIT[team].tint, f.state === 'home' ? 3.5 : 4.5);
+  }
+  for (const u of game.units) {
+    if (u.dead) continue;
+    if (u.team === game.playerTeam) dot(u.x, u.y, u === game.player ? '#ffffff' : KIT[u.team].tint, u === game.player ? 3.4 : 2.4);
+    else if (game.teamSees(game.playerTeam, u.x, u.y)) dot(u.x, u.y, '#ff6a5a', 2.4);
+  }
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------- the thumbs
@@ -718,11 +872,11 @@ function paintTouch(ctx, touch, W, H) {
     const dy = touch.stick.y - touch.stick.oy;
     const len = Math.min(STICK.max, Math.hypot(dx, dy));
     const a = Math.atan2(dy, dx);
-    ring(ctx, touch.stick.ox, touch.stick.oy, STICK.max, 0.16);
-    ring(ctx, touch.stick.ox + Math.cos(a) * len, touch.stick.oy + Math.sin(a) * len, 26, 0.34);
+    ring2(ctx, touch.stick.ox, touch.stick.oy, STICK.max, 0.16);
+    ring2(ctx, touch.stick.ox + Math.cos(a) * len, touch.stick.oy + Math.sin(a) * len, 26, 0.34);
   }
   const gun = fireButton(W, H);
-  const dash = dashButton(W, H);
+  const roll = rollButton(W, H);
   ctx.save();
   ctx.globalAlpha = touch.trigger.on ? 0.5 : 0.24;
   ctx.strokeStyle = COLOURS.hud;
@@ -738,18 +892,18 @@ function paintTouch(ctx, touch, W, H) {
   ctx.stroke();
   ctx.globalAlpha = 0.24;
   ctx.beginPath();
-  ctx.arc(dash.x, dash.y, dash.r, 0, Math.PI * 2);
+  ctx.arc(roll.x, roll.y, roll.r, 0, Math.PI * 2);
   ctx.stroke();
   ctx.globalAlpha = 0.6;
   ctx.font = '22px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = COLOURS.hud;
-  ctx.fillText('🌀', dash.x, dash.y + 8);
+  ctx.fillText('🌀', roll.x, roll.y + 8);
   ctx.textAlign = 'left';
   ctx.restore();
 }
 
-function ring(ctx, x, y, r, alpha) {
+function ring2(ctx, x, y, r, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = COLOURS.hud;
@@ -760,10 +914,17 @@ function ring(ctx, x, y, r, alpha) {
   ctx.restore();
 }
 
-/** A point on the screen, in the field — the exact inverse of the transform. */
-export function screenToWorld(sx, sy, vp) {
-  const board = boardTransform(viewWidth(vp), vp.H);
-  return { x: (sx - board.ox) / board.scale, y: (sy - board.oy) / board.scale };
+/**
+ * A point on the screen, in the field — the exact inverse of the camera.
+ *
+ * Computed from where the player is *now*, not from the camera the last frame
+ * was drawn with. Reading the renderer's copy costs one frame of lag, which is
+ * small — and is the same lag, in the same direction, that made aiming while
+ * running feel like dragging the cursor along behind him.
+ */
+export function screenToWorld(sx, sy, vp, player) {
+  const cam = cameraFor(player ? player.x : ARENA_W / 2, player ? player.y : ARENA_H / 2, viewWidth(vp), vp.H);
+  return { x: sx + cam.x, y: sy + cam.y };
 }
 
 export function clock(seconds) {

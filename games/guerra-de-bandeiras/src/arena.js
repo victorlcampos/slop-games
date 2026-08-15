@@ -23,45 +23,49 @@ import { createGrid, centreOf, flowField, cellOf, WALL, FLOOR, PIT, BASE_H, BASE
 export const LAYOUTS = {
   /**
    * Twin Corridors — the field everything else is a variation of. Three lanes,
-   * two ways between them, and nothing in the way that is not a wall.
+   * three ways between them, and nothing in the way that is not a wall.
    */
   corridors: {
     walls: [
-      [5, 4, 1, 5], [5, 12, 1, 5],       // the bay the flag sits in, open at the middle
-      [8, 7, 7, 1], [8, 13, 7, 1],       // the two lane separators, with the gaps at both ends
-      [11, 2, 2, 1], [11, 18, 2, 1],     // cover in the top and bottom lanes
-      [15, 9, 1, 3],                     // the pillar the mid lane splits around
+      [5, 2, 1, 3], [5, 12, 1, 3],       // the bay the flag sits in, wide open at the middle
+      [7, 4, 6, 1], [7, 12, 6, 1],       // the lane separators, with the gaps at both ends
+      [10, 7, 1, 3],                     // the pillar the mid lane splits around
     ],
-    flag: [3, 10],
-    spawns: [[2, 10], [2, 7], [2, 13], [3, 5], [3, 15]],
+    flag: [3, 8],
+    spawns: [[2, 8], [2, 5], [2, 11], [4, 6], [4, 10]],
   },
 
   /**
-   * The Bridge — twelve tiles of nothing down the middle of the field, crossed
+   * The Bridge — eight tiles of nothing down the middle of the field, crossed
    * at two places. A pit stops a body and lets a bullet through, so both sides
    * spend the whole match looking at each other across it.
    */
   bridge: {
     walls: [
-      [6, 6, 1, 4], [6, 11, 1, 4],
-      [10, 1, 1, 4], [10, 16, 1, 4],
-      [10, 9, 2, 3],
+      [5, 5, 1, 3], [5, 9, 1, 3],
+      [8, 1, 1, 3], [8, 13, 1, 3],
+      [8, 7, 1, 3],
     ],
-    pits: [[13, 1, 6, 5], [13, 8, 6, 5], [13, 15, 6, 5]],
-    flag: [3, 10],
-    spawns: [[2, 10], [2, 6], [2, 14], [4, 8], [4, 12]],
+    pits: [[10, 1, 4, 4], [10, 6, 4, 5], [10, 12, 4, 4]],
+    flag: [3, 8],
+    spawns: [[2, 8], [2, 4], [2, 12], [4, 6], [4, 10]],
   },
 
   /**
-   * The Maze — grown rather than drawn, from a fixed seed, then braided: a
-   * third of the dead ends are knocked through, because a perfect maze is a
-   * corridor with one answer and a fight needs two.
+   * The Maze — grown rather than drawn, from a fixed seed, then braided hard:
+   * **half** the walls between neighbouring cells are knocked through, because
+   * a perfect maze is a corridor with one answer, and in the dark a corridor
+   * with one answer is a killing floor. At a third, two squads spent a hundred
+   * and fifty seconds shooting each other in doorways and took the flag three
+   * times between them, for nought a side.
+   *
+   * The one night arena: you read it through a torch, and so do they.
    */
   maze: {
-    maze: { seed: 20260814, braid: 0.34 },
+    maze: { seed: 20260815, braid: 0.52 },
     walls: [],
-    flag: [3, 10],
-    spawns: [[2, 10], [2, 9], [2, 11], [4, 9], [4, 11]],
+    flag: [3, 8],
+    spawns: [[2, 8], [2, 7], [2, 9], [4, 7], [4, 9]],
   },
 
   /**
@@ -72,55 +76,51 @@ export const LAYOUTS = {
    */
   turrets: {
     walls: [
-      [7, 6, 1, 3], [7, 12, 1, 3],
-      [11, 3, 2, 2], [11, 16, 2, 2],
-      [14, 8, 2, 5],
-      [10, 9, 1, 3],
+      [6, 5, 1, 3], [6, 10, 1, 3],
+      [9, 2, 2, 2], [9, 13, 2, 2],
+      [11, 6, 1, 5],
     ],
-    flag: [3, 10],
-    turrets: [[7, 4], [7, 16]],
-    spawns: [[2, 10], [2, 7], [2, 13], [4, 6], [4, 14]],
+    flag: [3, 8],
+    turrets: [[6, 3], [6, 13]],
+    spawns: [[2, 8], [2, 5], [2, 11], [4, 4], [4, 12]],
   },
 
   /**
    * The Gates — four pads, and each one throws you at its mirror on the far
    * side of the field. A carrier who reaches one is home in a second; so is
-   * whoever was waiting by the other end of it.
+   * whoever was waiting at the other end of it.
    */
   gates: {
     walls: [
-      [6, 7, 1, 7],
-      [9, 1, 1, 5], [9, 16, 1, 5],
-      [12, 6, 5, 1], [12, 14, 5, 1],
-      [15, 9, 1, 3],
+      [5, 5, 1, 7],
+      [8, 1, 1, 4], [8, 12, 1, 4],
+      [10, 5, 3, 1], [10, 11, 3, 1],
+      [12, 7, 1, 3],
     ],
-    flag: [3, 10],
-    pads: [[8, 3], [8, 17]],
-    spawns: [[2, 10], [2, 7], [2, 13], [4, 8], [4, 12]],
+    pads: [[5, 2], [5, 14]],
+    flag: [3, 8],
+    spawns: [[2, 8], [2, 5], [2, 11], [4, 6], [4, 10]],
   },
 
   /**
    * Open Field — no lanes, no corridors, nowhere to hide but behind a block.
    * Five a side and the fastest squad in the game: the arena where knowing
    * where everybody is stops being enough.
+   *
+   * The blocks are not decoration. Without them ten soldiers who can all see
+   * each other fought fifty times a minute and captured once in ten; cover is
+   * what a runner needs, and this is the arena with the least of it.
    */
   open: {
     walls: [
-      [6, 8, 1, 5],
-      [9, 4, 2, 2], [9, 15, 2, 2],
-      [13, 2, 2, 2], [13, 17, 2, 2],
-      [13, 9, 2, 3],
-      [16, 5, 1, 2], [16, 14, 1, 2],
-      // The blocks below were not in the first draft, and the arena was
-      // unplayable without them: ten soldiers who can all see each other across
-      // a bare field fought fifty times a minute and captured once in ten.
-      // Cover is what a runner needs, and this is the arena with the least of it.
-      [10, 9, 1, 3], [17, 9, 1, 3],
-      [11, 1, 1, 2], [11, 18, 1, 2],
-      [8, 6, 1, 1], [8, 14, 1, 1],
+      [5, 6, 1, 5],
+      [8, 3, 1, 2], [8, 12, 1, 2],
+      [10, 7, 2, 3],
+      [11, 1, 1, 2], [11, 14, 1, 2],
+      [8, 8, 1, 1],
     ],
-    flag: [4, 10],
-    spawns: [[2, 10], [2, 6], [2, 14], [3, 8], [3, 12]],
+    flag: [3, 8],
+    spawns: [[2, 8], [2, 4], [2, 12], [4, 6], [4, 10]],
   },
 };
 
@@ -145,12 +145,12 @@ function mirrorRect(grid, [x, y, w, h], value) {
  */
 function carveMaze(grid, { seed, braid }) {
   const rng = makeRng(seed);
-  const cells = { cols: 9, rows: 10 };                 // odd tiles from 1..17 and 1..19
+  const cells = { cols: 7, rows: 8 };                   // odd tiles from 1..13 and 1..15
   const at = (cx, cy) => ({ x: 1 + cx * 2, y: 1 + cy * 2 });
   const seen = new Set();
-  const stack = [{ cx: 0, cy: 4 }];
-  seen.add('0,4');
-  const p0 = at(0, 4);
+  const stack = [{ cx: 0, cy: 3 }];
+  seen.add('0,3');
+  const p0 = at(0, 3);
   grid.set(p0.x, p0.y, FLOOR);
 
   while (stack.length) {
@@ -205,7 +205,7 @@ export function buildArena(index) {
 
   if (layout.maze) {
     carveMaze(grid, layout.maze);
-    rect(grid, 1, 8, 6, 5, FLOOR);              // the base cavern, whatever the maze decided
+    rect(grid, 1, 5, 5, 7, FLOOR);              // the base cavern, whatever the maze decided
     // the maze is grown on the left half only and then reflected, exactly like
     // a wall rectangle — a maze generated twice from the same seed would be two
     // mazes, because the second run starts on a grid the first one left behind
@@ -231,8 +231,8 @@ export function buildArena(index) {
   // than something you have to remember
   for (const [team, value] of [['human', BASE_H], ['alien', BASE_A]]) {
     const c = flagCell[team];
-    for (let cy = c.cy - 3; cy <= c.cy + 3; cy++) {
-      for (let cx = c.cx - 3; cx <= c.cx + 3; cx++) {
+    for (let cy = c.cy - 2; cy <= c.cy + 2; cy++) {
+      for (let cx = c.cx - 2; cx <= c.cx + 2; cx++) {
         if (grid.at(cx, cy) === FLOOR) grid.set(cx, cy, value);
       }
     }

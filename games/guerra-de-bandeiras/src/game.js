@@ -9,16 +9,14 @@
 // of hard that is worth playing against.
 
 import {
-  UNIT, DASH, GUNS, TURRET, PAD, SIGHT, TARGET, REGEN,
+  UNIT, ROLL, ASSIST, GUNS, TURRET, PAD, TARGET, REGEN, TILE, eyesOf,
   botStats, makeRng, clamp, dist, dist2, other, turnTowards, angleDelta, RAD,
 } from './config.js';
 import { cellOf, moveCircle, lineOfSight, castRay, flowField } from './grid.js';
 import { buildArena } from './arena.js';
 import { createFlags, touchFlags, updateFlags, dropFlag, carrierOf, flagPoint, sendHome } from './match.js';
 import { botOrders, assignRoles } from './ai.js';
-
-/** How far off the line of fire a body can be and still be picked up by the assist. */
-export const ASSIST = { cone: 15 * RAD, range: 1.02 };
+import { canSee } from './vision.js';
 
 const EVENT_LIFE = 3.6;
 
@@ -67,8 +65,11 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
         respawnT: 0,
         spawnIndex: i,
         role: i === 0 ? 'attack' : 'defend',
+        slot: i,                       // place among the bodies doing this job
         cool: 0,
-        dashT: 0, dashCool: 0, dashX: 0, dashY: 0,
+        roll: 0, rollA: 0, rollCool: 0, rollWas: false,
+        combat: 0,                     // seconds left of facing the fight
+        aimTarget: null,               // what the assist has, for the brackets
         aimT: 0, holdT: 0, stuck: 0, orbit: (i * 1.7) % (Math.PI * 2),
         target: null,
         kills: 0, caps: 0,
@@ -112,13 +113,21 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
   };
 
   /**
-   * Who can see what. A clear line, always — plus a range, but only where the
-   * arena is dark. Both squads read this same function: a fog that only applied
-   * to the player would be a handicap dressed as atmosphere.
+   * Who can see what: the cone, the reach, and nothing through a wall.
+   *
+   * The arena picks the eyes (`eyesOf`) and everybody on the field wears the
+   * same pair. In a lit arena that is 360° and the walls do all the hiding —
+   * you see the room you are standing in, whichever way you are facing, and not
+   * a pixel of the next one. At night it is the Fortress's torch, and what is
+   * behind you is behind you.
    */
+  game.eyes = eyesOf(field);
   game.visibleTo = (u, x, y) => {
-    if (field.dark && dist2(u.x, u.y, x, y) > SIGHT * SIGHT) return false;
-    return lineOfSight(game.grid, u.x, u.y, x, y);
+    const e = game.eyes;
+    if (e.near > 0 && dist2(u.x, u.y, x, y) <= e.near * e.near) {
+      return lineOfSight(game.grid, u.x, u.y, x, y);
+    }
+    return canSee(game.grid, u.x, u.y, u.facing, e.fov, e.sight, x, y);
   };
 
   game.teamSees = (team, x, y) => {
@@ -126,11 +135,11 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
       if (u.dead || u.team !== team) continue;
       if (game.visibleTo(u, x, y)) return true;
     }
+    // a turret is an eye too, and it never blinks: it watches all the way round
     for (const t of game.turrets) {
       if (t.dead || t.team !== team) continue;
-      if (!field.dark || dist2(t.x, t.y, x, y) <= SIGHT * SIGHT) {
-        if (lineOfSight(game.grid, t.x, t.y, x, y)) return true;
-      }
+      if (dist2(t.x, t.y, x, y) <= TURRET.range * TURRET.range
+        && lineOfSight(game.grid, t.x, t.y, x, y)) return true;
     }
     return false;
   };
@@ -168,15 +177,32 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
   game.fieldTo = (x, y) => {
     const c = cellOf(x, y);
     if (!game.grid.walkable(c.cx, c.cy)) {
-      // a goal inside a wall (a flag knocked against one, a pad in a pillar)
-      // still has to produce a route: aim at the tile the body can stand on
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        if (game.grid.walkable(c.cx + dx, c.cy + dy)) {
-          c.cx += dx;
-          c.cy += dy;
-          break;
+      // A goal inside a wall — a defender's lap clipping the bay, a flag
+      // knocked against a corner — still has to produce a route: aim at the
+      // nearest tile a body can stand on. **Nearest by distance, never by the
+      // order of a list.** Trying [+x, -x, +y, -y] and taking the first hit
+      // sends the left-hand base's defenders towards the field and the
+      // right-hand base's into the wall behind them, and a mirrored arena stops
+      // being a mirror.
+      let bestD = Infinity;
+      let bx = c.cx;
+      let by = c.cy;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = c.cx + dx;
+          const ny = c.cy + dy;
+          if (!game.grid.walkable(nx, ny)) continue;
+          const d = (nx * TILE + TILE / 2 - x) ** 2 + (ny * TILE + TILE / 2 - y) ** 2;
+          if (d < bestD - 1e-6) {
+            bestD = d;
+            bx = nx;
+            by = ny;
+          }
         }
       }
+      c.cx = bx;
+      c.cy = by;
     }
     const key = c.cy * game.grid.cols + c.cx;
     let f = fields.get(key);
@@ -218,7 +244,6 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
         continue;
       }
       u.cool = Math.max(0, u.cool - dt);
-      u.dashCool = Math.max(0, u.dashCool - dt);
       u.hurt = Math.max(0, u.hurt - dt);
       u.calm += dt;
       if (u.calm >= REGEN.delay) u.hp = Math.min(UNIT.hp, u.hp + REGEN.rate * dt);
@@ -264,59 +289,96 @@ export function createGame({ arena, phase = 0, team = 'human', fx = null, seed =
 /**
  * The player's thumbs, in the same shape a bot's brain writes.
  *
- * `autoAim` is the phone: a trigger with no direction on it asks the game for a
- * target instead of firing wherever the body happens to be pointing.
+ * Three ways to point, and they are the Fortress's three. The mouse gives an
+ * angle and the assist finds the man inside it. A thumb dragged on the right
+ * half gives an angle directly. And a **bare trigger** — a tap with no drag, or
+ * the fire key with the cursor off the canvas — does not fire wherever the body
+ * happens to face: it turns him onto the nearest enemy he can see, all the way
+ * round, and holds that lock while the man stays alive and in sight. That is
+ * the whole of walking backwards and shooting.
  */
 function playerOrders(game, u, input) {
-  const orders = { mx: input.mx || 0, my: input.my || 0, aimAt: null, fire: !!input.fire, dash: !!input.dash };
-  if (input.aim) orders.aimAt = assistedAim(game, u, input.aim);
-  else if (typeof input.aimAngle === 'number') {
-    orders.aimAt = { x: u.x + Math.cos(input.aimAngle) * 200, y: u.y + Math.sin(input.aimAngle) * 200 };
-  } else if (input.autoAim) {
-    const t = nearestVisible(game, u);
-    if (t) orders.aimAt = { x: t.x, y: t.y };
+  const orders = {
+    mx: input.mx || 0,
+    my: input.my || 0,
+    aim: null,
+    fire: !!input.fire,
+    roll: !!input.roll,
+  };
+
+  if (input.autoAim && !input.aim && typeof input.aimAngle !== 'number') {
+    if (!stillThere(game, u, u.autoTarget)) u.autoTarget = nearestThreat(game, u);
+    const lock = u.autoTarget;
+    orders.aim = lock
+      ? { angle: Math.atan2(lock.y - u.y, lock.x - u.x), target: lock }
+      : { angle: u.facing, target: null };
+    return orders;
   }
+
+  u.autoTarget = null;
+  const raw = input.aim
+    ? Math.atan2(input.aim.y - u.y, input.aim.x - u.x)
+    : (typeof input.aimAngle === 'number' ? input.aimAngle : null);
+  if (raw !== null) orders.aim = assistedAim(game, u, raw);
   return orders;
 }
 
-/**
- * The gun helps. You point at a man, not at a pixel.
- *
- * Inside a cone around where the cursor is, the barrel finds the nearest enemy
- * it could actually see — and only one it could see, because a gun that swings
- * onto somebody invisible in the dark reads as a cheat rather than as help.
- */
-export function assistedAim(game, u, aim) {
-  const want = Math.atan2(aim.y - u.y, aim.x - u.x);
-  const reach = game.gun(u).range * ASSIST.range;
-  let best = null;
-  let bestOff = ASSIST.cone;
-  for (const e of game.units) {
-    if (e.dead || e.team === u.team) continue;
-    const d = dist(u.x, u.y, e.x, e.y);
-    if (d > reach) continue;
-    if (!game.visibleTo(u, e.x, e.y)) continue;
-    const off = Math.abs(angleDelta(want, Math.atan2(e.y - u.y, e.x - u.x)));
-    if (off < bestOff) {
-      bestOff = off;
-      best = e;
-    }
-  }
-  return best ? { x: best.x, y: best.y, locked: best.id } : aim;
+/** Alive, inside the eyes, with a clear line — the bar every lock obeys. */
+export function stillThere(game, u, t) {
+  if (!t || t.dead) return false;
+  if (dist(u.x, u.y, t.x, t.y) > Math.min(game.gun(u).range, game.eyes.sight)) return false;
+  return lineOfSight(game.grid, u.x, u.y, t.x, t.y);
 }
 
-function nearestVisible(game, u) {
+/**
+ * What a bare trigger should mean, searched all the way round.
+ *
+ * It ignores the cone the eyes have — you know where the man shooting at you
+ * is — but never the wall and never the range. A tap in an empty room still
+ * fires straight ahead: the gun helps, it does not refuse.
+ */
+export function nearestThreat(game, u) {
+  const reach = Math.min(game.gun(u).range, game.eyes.sight);
+  const close = game.units
+    .filter((e) => !e.dead && e.team !== u.team && dist(u.x, u.y, e.x, e.y) <= reach)
+    .sort((a, b) => dist2(u.x, u.y, a.x, a.y) - dist2(u.x, u.y, b.x, b.y));
+  // sorted first, line of sight after: the ray is the expensive half
+  return close.find((e) => lineOfSight(game.grid, u.x, u.y, e.x, e.y)) || null;
+}
+
+/**
+ * The man you are pointing at, if you are pointing near one. The Fortress's
+ * assist, whole.
+ *
+ * A lateral tolerance *and* an angular one, because either alone is wrong at
+ * one end of the range: sixty pixels off the line of fire is generous at arm's
+ * length and invisible across a hall, and seventeen degrees is the reverse.
+ * Whichever forgives more wins, and among those, the one closest to where you
+ * actually pointed.
+ *
+ * Never further than you can see and never through a wall — a gun that swings
+ * onto somebody invisible reads as a cheat rather than as help, and in the
+ * night arena it would hand away the dark.
+ */
+export function assistedAim(game, u, raw) {
+  const reach = Math.min(game.gun(u).range, game.eyes.sight);
+  const limit = ASSIST.limit * RAD;
   let best = null;
-  let bestD = game.gun(u).range;
+  let bestOff = Infinity;
   for (const e of game.units) {
     if (e.dead || e.team === u.team) continue;
     const d = dist(u.x, u.y, e.x, e.y);
-    if (d < bestD && game.visibleTo(u, e.x, e.y)) {
-      best = e;
-      bestD = d;
-    }
+    if (d > reach || d < 1) continue;
+    const off = Math.abs(angleDelta(raw, Math.atan2(e.y - u.y, e.x - u.x)));
+    if (off > limit || off >= bestOff) continue;
+    if (off > ASSIST.cone * RAD && d * Math.sin(off) > ASSIST.radius) continue;
+    if (!game.visibleTo(u, e.x, e.y)) continue;
+    bestOff = off;
+    best = e;
   }
-  return best;
+  return best
+    ? { angle: Math.atan2(best.y - u.y, best.x - u.x), target: best }
+    : { angle: raw, target: null };
 }
 
 /** The only thing in the game that moves a body, whoever is asking. */
@@ -325,52 +387,69 @@ function applyOrders(game, u, o, dt) {
   const carrying = game.flags[other(u.team)].carrier === u.id;
   const top = UNIT.speed * (carrying ? UNIT.carry : 1) * (stats ? stats.speed : 1);
 
-  if (o.dash && u.dashCool <= 0 && (o.mx || o.my)) {
-    const len = Math.hypot(o.mx, o.my) || 1;
-    u.dashT = DASH.time;
-    u.dashCool = DASH.cool;
-    u.dashX = o.mx / len;
-    u.dashY = o.my / len;
-    game.onDash?.(u);
+  const len = Math.hypot(o.mx, o.my);
+  const want = len > 0.001 ? { x: o.mx / len, y: o.my / len } : { x: 0, y: 0 };
+
+  // ---- the roll: faster than anybody can walk, and a decision while it lasts
+  u.rollCool = Math.max(0, u.rollCool - dt);
+  const rollPressed = !!o.roll && !u.rollWas;
+  u.rollWas = !!o.roll;
+  if (rollPressed && u.roll <= 0 && u.rollCool <= 0) {
+    u.roll = ROLL.time;
+    u.rollCool = ROLL.cool + ROLL.time;
+    u.rollA = want.x || want.y ? Math.atan2(want.y, want.x) : u.facing;
+    game.onRoll?.(u);
   }
 
-  let wantX = 0;
-  let wantY = 0;
-  if (u.dashT > 0) {
-    u.dashT -= dt;
-    wantX = u.dashX * top * DASH.speed;
-    wantY = u.dashY * top * DASH.speed;
+  if (u.roll > 0) {
+    u.roll -= dt;
+    // the roll owns the movement: steering out of it would make it a speed
+    // button rather than a commitment
+    u.vx = Math.cos(u.rollA) * UNIT.speed * ROLL.speed;
+    u.vy = Math.sin(u.rollA) * UNIT.speed * ROLL.speed;
   } else {
-    const len = Math.hypot(o.mx, o.my);
-    if (len > 0.001) {
-      wantX = (o.mx / len) * top;
-      wantY = (o.my / len) * top;
-    }
+    const rate = (want.x || want.y ? UNIT.accel : UNIT.friction) * dt;
+    u.vx += clamp(want.x * top - u.vx, -rate, rate);
+    u.vy += clamp(want.y * top - u.vy, -rate, rate);
   }
-
-  const rate = (wantX || wantY ? UNIT.accel : UNIT.friction) * dt;
-  u.vx += clamp(wantX - u.vx, -rate, rate);
-  u.vy += clamp(wantY - u.vy, -rate, rate);
 
   const moved = moveCircle(game.grid, u.x, u.y, u.r, u.vx * dt, u.vy * dt);
+  const realDx = moved.x - u.x;
+  const realDy = moved.y - u.y;
   if (moved.x === u.x) u.vx = 0;
   if (moved.y === u.y) u.vy = 0;
   u.x = moved.x;
   u.y = moved.y;
-  u.stride += Math.hypot(u.vx, u.vy) * dt * 0.05;
+  const travelled = Math.hypot(realDx, realDy);
+  u.stride += travelled;
 
-  const face = o.aimAt
-    ? Math.atan2(o.aimAt.y - u.y, o.aimAt.x - u.x)
-    : (u.vx || u.vy ? Math.atan2(u.vy, u.vx) : u.facing);
-  u.facing = turnTowards(u.facing, face, UNIT.turn * dt);
+  // Where he is looking: the aim if there is one, the direction of travel if
+  // not — and for a second after the last aim, still the fight. Without that
+  // hold, backing away from a man swings the shoulders (and the torch) round to
+  // face where the feet are pointing, and the next tap fires into the corridor
+  // ahead instead of at him.
+  const pointed = !!o.aim;
+  let face = null;
+  if (pointed) face = o.aim.angle;
+  else if (travelled > 0.2 && u.combat <= 0) face = Math.atan2(realDy, realDx);
+  u.combat = pointed ? UNIT.combatHold : Math.max(0, u.combat - dt);
+  u.aimTarget = pointed && u.roll <= 0 ? o.aim.target || null : null;
+  if (face !== null) u.facing = turnTowards(u.facing, face, UNIT.turn * dt);
 
-  // The shot leaves once the body has finished its turn. Without the gate the
-  // first round of every burst goes off mid-swing and misses — which on a phone,
-  // where the trigger is a tap, means the tap that should have saved you did
-  // nothing at all.
+  // With a man on the gun the trigger waits for the shoulders to come round: a
+  // burst that starts before he is lined up sprays the wall behind him. The
+  // test is lateral error, not degrees — thirteen degrees is nothing at arm's
+  // length and half a corridor across a hall — so the gate is "would this round
+  // actually land". With nobody on the gun it fires where he faces.
   if (o.fire && u.cool <= 0) {
-    const aligned = !o.aimAt || Math.abs(angleDelta(u.facing, face)) < 8 * RAD;
-    if (aligned) shoot(game, u, stats);
+    const t = u.aimTarget;
+    let lined = true;
+    if (t) {
+      const off = Math.abs(angleDelta(u.facing, Math.atan2(t.y - u.y, t.x - u.x)));
+      lined = off <= ASSIST.settle * RAD
+        && Math.sin(off) * dist(u.x, u.y, t.x, t.y) <= UNIT.hitR * 0.85;
+    }
+    if (lined) shoot(game, u, stats);
   }
 }
 
@@ -500,7 +579,7 @@ function kill(game, u, killer) {
   u.hp = 0;
   u.vx = 0;
   u.vy = 0;
-  u.dashT = 0;
+  u.roll = 0;
   u.respawnT = game.arena.respawn;
   u.target = null;
   game.fx?.blood(u.x, u.y, 12, u.team === 'human' ? '#8e2f3f' : '#3fae74');
@@ -546,7 +625,10 @@ function respawn(game, u) {
   u.cool = 0;
   u.aimT = 0;
   u.calm = REGEN.delay;
-  u.dashCool = 0;
+  u.rollCool = 0;
+  u.combat = 0;
+  u.autoTarget = null;
+  u.aimTarget = null;
   u.facing = u.team === 'human' ? 0 : Math.PI;
   game.onRespawn?.(u);
 }

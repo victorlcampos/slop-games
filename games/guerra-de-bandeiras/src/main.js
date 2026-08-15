@@ -62,7 +62,7 @@ let side = save.team;
 // ------------------------------------------------------------------- input
 
 const keys = new Set();
-const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, dash: false, autoAim: false };
+const input = { mx: 0, my: 0, aim: null, aimAngle: null, fire: false, roll: false, autoAim: false };
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -83,7 +83,7 @@ function readKeys() {
   input.mx = (right ? 1 : 0) - (left ? 1 : 0);
   input.my = (down ? 1 : 0) - (up ? 1 : 0);
   input.fire = mouseDown || keys.has('KeyJ');
-  input.dash = keys.has('Space') || keys.has('ShiftLeft');
+  input.roll = keys.has('Space') || keys.has('ShiftLeft');
   // cleared every frame: a stale angle from a thumb that has already left the
   // screen would keep him facing a wall for the rest of the match
   input.aimAngle = null;
@@ -162,7 +162,7 @@ const hooks = {
   onShot: (u) => sfx.shot(u.team, u === (game && game.player)),
   onHurt: (u) => { if (u === (game && game.player)) { sfx.hurt(); fx.shake(3); } },
   onKill: (u) => sfx.kill(),
-  onDash: () => sfx.dash(),
+  onRoll: () => sfx.roll(),
   onGate: () => sfx.gate(),
   onRespawn: (u) => { if (u === (game && game.player)) sfx.spawn(); },
   onTurretShot: () => sfx.turret(),
@@ -282,7 +282,11 @@ createLoop({
   update: (h) => {
     if (phase !== 'playing' || !game) return;
     readKeys();
-    input.aim = mouse ? screenToWorld(mouse.x, mouse.y, vp) : null;
+    // from where he is *now*, not from the camera the last frame was drawn
+    // with: a frame of lag here is a cursor the gun trails behind
+    input.aim = mouse && game.player && !game.player.dead
+      ? screenToWorld(mouse.x, mouse.y, vp, game.player)
+      : null;
     if (vp.touch) {
       const asked = touch.read();
       if (asked.mx || asked.my) {
@@ -294,7 +298,7 @@ createLoop({
         input.aim = null;
       }
       input.fire = input.fire || asked.fire;
-      input.dash = input.dash || asked.dash;
+      input.roll = input.roll || asked.roll;
     }
     // A trigger with no direction on it — a tap on a phone, or the fire key
     // with the mouse off the canvas — asks the game for a target instead of
