@@ -306,6 +306,15 @@ const BRAZIL_STAGES = [
 // The player lands here with a trained deck, so stage 11 opens around the
 // weight of Brazil's stage 6 and climbs past the Cuca. The economy is bigger
 // too: the campaign has four local recruits to pay for.
+//
+// **A stage is weighed against the deck that arrives, never in raw HP.** The
+// first cut of this campaign missed that and played far too easy: the yōkai
+// were about 1.5x Brazil's folklore, but the player crosses the ocean with
+// cards at level III (1.8x) and trains them to V (3x) on the way to the
+// castle. The monsters were climbing slower than the deck was. So the cast got
+// a lift of its own (see monsters.js) and the back half of the campaign
+// thickens instead of sitting flat — stage 20 is the heaviest board in the
+// game, which is the least a final boss can be.
 
 const JAPAN_STAGES = [
   {
@@ -358,8 +367,10 @@ const JAPAN_STAGES = [
       { wait: 12, monsters: [['karakasa', 4]] },
       { wait: 18, monsters: [['kappa', 2], ['karakasa', 3]] },
       { wait: 20, monsters: [['kappa', 3], ['karakasa', 4]] },
-      { wait: 22, monsters: [['kappa', 4], ['karakasa', 6]] },
-      { wait: 24, monsters: [['kappa', 5], ['karakasa', 7]] },
+      // the flooded lanes cap how much defence can answer this one, so the
+      // rice terraces climb in the dry lanes and hold the Kappa count down
+      { wait: 22, monsters: [['kappa', 3], ['karakasa', 6]] },
+      { wait: 24, monsters: [['kappa', 4], ['karakasa', 7]] },
     ],
   },
   {
@@ -385,8 +396,8 @@ const JAPAN_STAGES = [
       { wait: 10, monsters: [['karakasa', 4]] },
       { wait: 18, monsters: [['kitsune', 2], ['karakasa', 4]] },
       { wait: 20, monsters: [['kitsune', 3], ['karakasa', 5]] },
-      { wait: 22, monsters: [['kitsune', 4], ['karakasa', 7]] },
-      { wait: 24, monsters: [['kitsune', 5], ['karakasa', 8]] },
+      { wait: 22, monsters: [['kitsune', 5], ['karakasa', 7]] },
+      { wait: 24, monsters: [['kitsune', 6], ['karakasa', 9]] },
     ],
   },
   {
@@ -412,8 +423,8 @@ const JAPAN_STAGES = [
       { wait: 10, monsters: [['karakasa', 5]] },
       { wait: 16, monsters: [['tengu', 2], ['kitsune', 2]] },
       { wait: 18, monsters: [['tengu', 3], ['karakasa', 6]] },
-      { wait: 20, monsters: [['kitsune', 4], ['tengu', 3]] },
-      { wait: 24, monsters: [['tengu', 4], ['kitsune', 4], ['karakasa', 6]] },
+      { wait: 20, monsters: [['kitsune', 5], ['tengu', 3]] },
+      { wait: 22, monsters: [['tengu', 5], ['kitsune', 4], ['karakasa', 7]] },
     ],
   },
   {
@@ -440,8 +451,8 @@ const JAPAN_STAGES = [
       { wait: 12, monsters: [['karakasa', 5], ['kitsune', 2]] },
       { wait: 18, monsters: [['rokurokubi', 2], ['karakasa', 5]] },
       { wait: 20, monsters: [['rokurokubi', 3], ['kitsune', 3]] },
-      { wait: 22, monsters: [['rokurokubi', 4], ['tengu', 2]] },
-      { wait: 26, monsters: [['rokurokubi', 5], ['kitsune', 4], ['karakasa', 7]] },
+      { wait: 22, monsters: [['rokurokubi', 4], ['tengu', 3]] },
+      { wait: 24, monsters: [['rokurokubi', 6], ['kitsune', 5], ['karakasa', 8]] },
     ],
   },
   {
@@ -469,9 +480,9 @@ const JAPAN_STAGES = [
     waves: [
       { wait: 12, monsters: [['karakasa', 5]] },
       { wait: 18, monsters: [['yukionna', 2], ['karakasa', 5]] },
-      { wait: 20, monsters: [['yukionna', 3], ['rokurokubi', 2]] },
-      { wait: 22, monsters: [['yukionna', 3], ['kitsune', 4], ['karakasa', 5]] },
-      { wait: 26, monsters: [['yukionna', 4], ['rokurokubi', 3], ['karakasa', 8]] },
+      { wait: 20, monsters: [['yukionna', 3], ['rokurokubi', 3]] },
+      { wait: 22, monsters: [['yukionna', 3], ['kitsune', 4], ['karakasa', 6]] },
+      { wait: 24, monsters: [['yukionna', 5], ['rokurokubi', 4], ['karakasa', 8]] },
     ],
   },
   {
@@ -579,10 +590,12 @@ const JAPAN_STAGES = [
     },
     waves: [
       { wait: 10, monsters: [['karakasa', 7], ['kitsune', 4]] },
-      { wait: 16, monsters: [['rokurokubi', 4], ['yukionna', 3], ['tengu', 2]] },
-      { wait: 18, monsters: [['oni', 3], ['nurikabe', 2]] },
+      { wait: 16, monsters: [['rokurokubi', 4], ['yukionna', 3], ['tengu', 3]] },
+      { wait: 18, monsters: [['oni', 3], ['nurikabe', 3]] },
       { wait: 22, monsters: [['onryo', 1]] },
-      { wait: 30, monsters: [['oni', 3], ['yukionna', 4], ['rokurokubi', 4]] },
+      // the castle's last wave lands on top of a boss who is still walking:
+      // this is the hardest minute in the game, and it is meant to be
+      { wait: 28, monsters: [['oni', 4], ['yukionna', 4], ['rokurokubi', 5], ['karakasa', 6]] },
     ],
   },
 ];

@@ -6,7 +6,7 @@
 // Hence a campaign country by country, with the local folklore as the enemy.
 
 import { createCutscene as filmProjector } from 'slopkit/cutscene';
-import { shape, circle, stroke, box, text, wrapText, ellipsePoints, putSprite, rng } from '../scribble.js';
+import { shape, circle, line, stroke, box, text, wrapText, ellipsePoints, putSprite, rng } from '../scribble.js';
 import { INK, COLORS, PAPER, shade, withAlpha } from '../palette.js';
 import { animalSprite } from '../draw/animals.js';
 import { monsterSprite } from '../draw/monsters.js';
@@ -804,4 +804,6 @@ export function createCutscene(onDone, scenes = SCENES) {
   };
 }
 
-export { JAPAN_SCENES };
+// both reels are exported so the test can play them: a scene that throws is
+// invisible from outside — the loop keeps running, the picture just stops
+export { SCENES, JAPAN_SCENES };

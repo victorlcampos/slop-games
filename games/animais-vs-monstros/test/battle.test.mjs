@@ -491,6 +491,36 @@ scenario('the Onryō walks untouchable while phased, and returns in another lane
   check(boss.row !== row0, 'he came back in the same lane he left');
 });
 
+scenario('a boss calls backup under its own name, in both languages', async () => {
+  const { i18n } = await import('../src/i18n.js');
+  // The Onryō announced "the Cuca called for backup" for a whole campaign: the
+  // line was written once, in Brazil, and the second boss inherited it. The
+  // notice is a function on purpose, so read it the way the screen does.
+  const said = (stage, kind) => {
+    const b = open(stageIdx(stage), ['monkey']);
+    b.st.queued.push({ kind, when: 0, row: 2 });
+    tick(b, 0.2);
+    const boss = b.st.monsters.find((m) => m.def.boss);
+    check(boss, `no ${kind} came in`);
+    b.st.notice = null;
+    boss.summonCd = 0.1;            // the next call, without waiting out the cycle
+    tick(b, 0.4);
+    check(b.st.notice, `${kind} never called anybody`);
+    const field = b.st.notice.field;
+    return typeof field === 'function' ? field() : field[i18n.lang];
+  };
+
+  for (const lang of ['en', 'pt']) {
+    i18n.set(lang);
+    const cuca = said(10, 'cuca');
+    const onryo = said(20, 'onryo');
+    check(cuca.includes('Cuca'), `the Cuca's backup line reads "${cuca}" in ${lang}`);
+    check(onryo.includes('Onryō'), `the Onryō's backup line reads "${onryo}" in ${lang}`);
+    check(!onryo.includes('Cuca'), `in ${lang} the Onryō is still calling for the Cuca: "${onryo}"`);
+  }
+  i18n.set('en');
+});
+
 // ------------------------------------------------------- the Japan recruits
 
 scenario('the Tanuki cheats death exactly once', () => {

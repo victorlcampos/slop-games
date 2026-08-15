@@ -154,6 +154,12 @@ it and no kick moves it; the **Oni**'s club smashes the cell behind whoever it
 bites; and the **Onryō** — the boss — turns intangible on a cycle and returns
 in another lane, calling yōkai as he comes.
 
+They also hit harder than anything in Brazil, and that is the point: you dock
+in Japan with a deck already trained to level III and you leave it at V — three
+times the animal that landed on the first farm. A yōkai is worth roughly two of
+its Brazilian opposite number, so the campaign climbs with you instead of
+handing you a victory lap.
+
 The folklore names stay as they are in both languages. Translating a Saci — or
 a Kappa — would be inventing a creature that doesn't exist; what is translated
 is the legend that describes them.

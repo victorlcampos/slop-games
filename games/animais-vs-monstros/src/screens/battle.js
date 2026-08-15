@@ -22,8 +22,12 @@ function vibrate(ms) {
 const T = {
   waterOnly: { pt: 'só bicho de água aqui', en: 'water animals only here' },
   noSeeds: { pt: 'sem sementes', en: 'not enough seeds' },
-  bossBackup: { pt: 'A Cuca chamou reforço!', en: 'The Cuca called for backup!' },
-  bossDown: { pt: 'A Cuca caiu. O Brasil respira.', en: 'The Cuca is down. Brazil breathes.' },
+  // Both of these are fallbacks: a boss carries its own `backup` and `victory`
+  // lines, because "the Cuca called for backup" over an Onryō was the second
+  // campaign reading the first one's script. The fallback names whoever is on
+  // the field instead of naming anybody in particular.
+  bossBackup: { pt: '{name} chamou reforço!', en: '{name} called for backup!' },
+  bossDown: { pt: '{name} caiu.', en: '{name} is down.' },
   humans: { pt: 'HUMANOS', en: 'HUMANS' },
   here: { pt: 'AQUI', en: 'HERE' },
   seeds: { pt: 'sementes', en: 'seeds' },
@@ -43,6 +47,16 @@ const fill = (field, values) => {
   const raw = pick(field);
   return values ? String(raw).replace(/\{(\w+)\}/g, (w, k) => (k in values ? values[k] : w)) : raw;
 };
+
+/**
+ * A boss's own line for a moment, or the generic one with its name filled in.
+ *
+ * The notice is resolved at draw time, so this hands back a function: written
+ * as a value, a boss line would freeze the language it was built in and keep
+ * showing it after the flag changed mid-fight.
+ */
+const bossLine = (def, key, fallback) => () =>
+  (def[key] ? pick(def[key]) : fill(fallback, { name: pick(def.name) }));
 
 const ROWS = 5;
 const COLS = 9;
@@ -447,7 +461,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
     if (prize >= 50) sfx.coin();
     if (m.def.boss) {
       st.shake = 1.6;
-      st.notice = { field: m.def.victory || T.bossDown, t: 5 };
+      st.notice = { field: bossLine(m.def, 'victory', T.bossDown), t: 5 };
     }
   }
 
@@ -665,7 +679,7 @@ export function createBattle(stage, deck, onDone, levels = {}) {
             const kind = d.summons.types[Math.floor(Math.random() * d.summons.types.length)];
             spawnMonster(kind, Math.floor(Math.random() * ROWS));
           }
-          st.notice = { field: T.bossBackup, t: 2.5 };
+          st.notice = { field: bossLine(d, 'backup', T.bossBackup), t: 2.5 };
         }
       }
 
