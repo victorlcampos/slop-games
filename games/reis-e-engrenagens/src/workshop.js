@@ -13,7 +13,7 @@
 
 import { COLS, ROWS } from './config.js';
 import { MATERIALS, PALETTE } from './materials.js';
-import { AMMO_CAP, WEAPONS, ammoCost, defaultLoadout } from './weapons.js';
+import { AMMO_CAP, ammoCost, defaultLoadout, priceOf } from './weapons.js';
 import { canPlace, canRemove, createCastle, unsupported } from './structure.js';
 
 export function createWorkshop({ blueprint, coins, terrain, faction = null, loadout = null }) {
@@ -45,12 +45,12 @@ export function createWorkshop({ blueprint, coins, terrain, faction = null, load
      * a thinner one — that is the trade, and it is the player's to make.
      */
     adjustAmmo(id, delta) {
-      const w = WEAPONS[id];
-      if (!w || w.ammo === Infinity || !shop.faction) return 'unknown';
+      const price = priceOf(id);
+      if (price === null || !shop.faction) return 'unknown';
       const now = shop.ammo[id] || 0;
       if (delta > 0) {
         if (now >= AMMO_CAP) return 'full';
-        if (w.price > shop.left()) return 'broke';
+        if (price > shop.left()) return 'broke';
         shop.ammo[id] = now + 1;
       } else {
         if (now <= 0) return 'empty';

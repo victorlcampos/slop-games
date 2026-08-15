@@ -14,7 +14,7 @@ import { material } from './materials.js';
 import { ARSENAL, WEAPONS, craterRadius, damageAgainst, groundBonus, loadout } from './weapons.js';
 import { FLOOR_Y, buildTerrain } from './terrain.js';
 import { createCastle, grounded, gunSeat, settle, surfaceAt } from './structure.js';
-import { WAVE_EVERY, reapMinions, spawnWave, tickMinions, unlockedMinions } from './minions.js';
+import { reapMinions, spawnWave, tickMinions, unlockedMinions } from './minions.js';
 
 const DEG = Math.PI / 180;
 /** How far past the edge of the map a shell may still be coming down. */
@@ -61,6 +61,8 @@ export function createMatch(cfg) {
     minions: [],
     /** How far up the campaign this siege is — what the ground war has unlocked. */
     stage: Math.max(0, LEVELS.indexOf(level)),
+    /** Coins the ground war has looted: every walker that reaches the foe's plot. */
+    plunder: { player: 0, enemy: 0 },
     events: [],
     over: null,
     pending: false,
@@ -115,7 +117,7 @@ export function createMatch(cfg) {
   match.ammoFor = (side, id) => match.ammo[side][id];
 
   match.pick = (side, id) => {
-    if (!ARSENAL[match.faction[side]].includes(id)) return false;
+    if (id !== 'muster' && !ARSENAL[match.faction[side]].includes(id)) return false;
     if (!(match.ammo[side][id] > 0)) return false;
     match.weapon[side] = id;
     return true;
@@ -133,6 +135,17 @@ export function createMatch(cfg) {
   match.fire = (side, power) => {
     if (match.over) return null;
     const id = match.weapon[side];
+
+    // The war horn: the turn is spent at your own gate instead of theirs.
+    // No shell leaves — the squad marching out *is* the shot.
+    if (id === 'muster') {
+      if (!(match.ammo[side].muster > 0)) return null;
+      match.ammo[side].muster--;
+      spawnWave(match, side, match.stage);
+      match.weapon[side] = ARSENAL[match.faction[side]][0];
+      return { mustered: true };
+    }
+
     const w = WEAPONS[id];
     if (!(match.ammo[side][id] > 0)) return null;
     if (match.ammo[side][id] !== Infinity) match.ammo[side][id]--;
@@ -260,11 +273,12 @@ export function createMatch(cfg) {
    */
   match.trace = (side, id, angle, power) => trace(match, side, id, angle, power);
 
-  // the first wave marches with the first turn, and a siege that just reached
-  // a new unlock says so — a mechanic nobody is told about is a bug report
-  for (const side of ['player', 'enemy']) spawnWave(match, side, match.stage);
+  // a siege that just reached a new unlock says so — a mechanic nobody is
+  // told about is a bug report. Nobody marches yet: the horn is a turn you
+  // choose to spend, not a schedule.
   for (const spec of unlockedMinions(faction, match.stage)) {
-    if (spec.unlock === match.stage && match.stage > 0) match.say('recruit', { kind: spec.id });
+    // `unit`, not `kind` — see the note on the mdie event
+    if (spec.unlock === match.stage && match.stage > 0) match.say('recruit', { unit: spec.id });
   }
 
   return match;
@@ -604,10 +618,8 @@ function endTurn(match) {
   match.wind = rollWind(match.rng);
   // a full tank every turn: fuel is a per-turn allowance, not a resource to hoard
   match.launchers[match.turn].fuel = DRIVE_FUEL;
-  // both sides muster on the same beat, so neither army ever outnumbers by schedule
-  if (match.turnCount % WAVE_EVERY === 0) {
-    for (const side of ['player', 'enemy']) spawnWave(match, side, match.stage);
-  }
+  // loose earth settles: yesterday's crater is tomorrow's ordinary hillside
+  match.terrain.settleScars();
   match.say('turn', { side: match.turn, wind: match.wind });
 }
 

@@ -42,6 +42,17 @@ export function skillNow(level, turnCount) {
  * @param {function} [rng] so a test can get the same plan twice
  */
 export function planShot(match, side, skill = 0.6, rng = match.rng) {
+  // The horn before the gun: with squads in the rack and no column of its own
+  // in the field, a turn spent mustering buys pressure every later turn pays
+  // interest on. Deliberate, not rolled, so a test can sit on either side.
+  if (
+    match.ammo[side].muster > 0 &&
+    match.turnCount >= 2 &&
+    match.minions.filter((mn) => mn.side === side).length <= 1
+  ) {
+    return { weapon: 'muster', angle: 45, power: 50 };
+  }
+
   const target = pickTarget(match, side);
   const options = ARSENAL[match.faction[side]].filter((id) => match.ammo[side][id] > 0);
 

@@ -11,7 +11,9 @@ import { headlessContext } from 'slopkit/testing';
 import {
   BASE_Y, CASTLE_X, CELL, COLS, COL_W, DRIVE_FUEL, KING_HP, LEASH, LEVELS, NCOL, ROWS, TURN_LIMIT, W,
 } from '../src/config.js';
-import { MINIONS, MINION_CAP, WAVE_EVERY, summon } from '../src/minions.js';
+import { MINIONS, MINION_CAP, PLUNDER, summon, spotters } from '../src/minions.js';
+import { SCAR_TURNS } from '../src/terrain.js';
+import { MUSTER } from '../src/weapons.js';
 import { AMMO_CAP, WEAPONS } from '../src/weapons.js';
 import { MATERIALS } from '../src/materials.js';
 import { createMatch, detonate, restand, trace } from '../src/battle.js';
@@ -199,7 +201,8 @@ scenario('the forge gunner arrives with a deeper rack than the meadow one', () =
   const forge = at(LEVELS[5]);
   for (const id of Object.keys(forge)) {
     if (forge[id] === Infinity) continue;
-    check(forge[id] === Math.min(AMMO_CAP, WEAPONS[id].ammo + LEVELS[5].foe.tier),
+    const shipped = id === 'muster' ? MUSTER.ammo : WEAPONS[id].ammo;
+    check(forge[id] === Math.min(AMMO_CAP, shipped + LEVELS[5].foe.tier),
       `at the forge the enemy has ${forge[id]} ${id} — the tier is supposed to feed the rack`);
     check(forge[id] > meadow[id], `the forge gunner has no more ${id} than the meadow one`);
   }
@@ -648,38 +651,97 @@ function march(m, seconds) {
   for (let i = 0; i < n; i++) m.tick(1 / 60);
 }
 
-scenario('each siege musters its column, and the campaign unlocks new kinds', () => {
-  const kinds = (m, side) => m.minions.filter((x) => x.side === side).map((x) => x.kind);
+scenario('the horn is a turn: pick it, spend it, and a squad marches instead of a shell', () => {
+  const m = mk();
+  check(m.minions.length === 0, `${m.minions.length} walkers mustered before anybody blew the horn`);
+  check(m.ammo.player.muster === MUSTER.ammo, `the rack ships with ${m.ammo.player.muster} squads, not ${MUSTER.ammo}`);
 
-  const meadow = mk(); // stage 0, player knights vs machines
-  check(kinds(meadow, 'player').length === 2 && kinds(meadow, 'player').every((k) => k === 'squire'),
-    `at the meadow the kingdom fields ${kinds(meadow, 'player').join(', ')}`);
-  check(kinds(meadow, 'enemy').every((k) => k === 'scrapper'),
-    `at the meadow the machines field ${kinds(meadow, 'enemy').join(', ')}`);
+  check(m.pick('player', 'muster'), 'the horn could not be picked from the dock');
+  const res = m.fire('player', 60);
+  m.commit();
+  check(res && res.mustered, 'blowing the horn threw a shell instead of a squad');
+  check(m.shots.length === 0, 'a horn left something in the air');
+  const mine = m.minions.filter((x) => x.side === 'player');
+  check(mine.length === 2 && mine.every((x) => x.kind === 'squire'),
+    `at the meadow the horn fielded ${mine.map((x) => x.kind).join(', ')}`);
+  check(m.ammo.player.muster === MUSTER.ammo - 1, `one horn left ${m.ammo.player.muster} squads`);
+  m.tick(1 / 60);
+  check(m.turn === 'enemy', 'mustering did not spend the turn');
 
-  const dunes = mk({ level: LEVELS[1] });
-  check(kinds(dunes, 'player').includes('sapper'), 'the second siege did not unlock the sapper');
-  check(kinds(dunes, 'enemy').includes('spider'), 'the second siege did not unlock the spider');
+  // the campaign shapes the squad: by the fourth siege the heavies march too
+  const late = mk({ level: LEVELS[3] });
+  late.pick('player', 'muster');
+  late.fire('player', 0);
+  const kinds = late.minions.map((x) => x.kind);
+  check(kinds.includes('sapper') && kinds.includes('ram'),
+    `the fourth-siege squad is ${kinds.join(', ')} — the unlocks stayed home`);
 
-  const scrapyard = mk({ level: LEVELS[3] });
-  check(kinds(scrapyard, 'player').includes('ram'), 'the fourth siege did not unlock the ram');
-  check(kinds(scrapyard, 'enemy').includes('mole'), 'the fourth siege did not unlock the mole');
+  // an empty rack refuses, and the field never floods past the cap
+  const dry = mk();
+  dry.ammo.player.muster = 0;
+  check(dry.pick('player', 'muster') === false, 'an empty horn could still be picked');
+  const full = mk({ level: LEVELS[3] });
+  full.ammo.player.muster = 9;
+  for (let i = 0; i < 4; i++) {
+    full.turn = 'player';
+    full.pick('player', 'muster');
+    full.fire('player', 0);
+  }
+  check(full.minions.filter((x) => x.side === 'player').length <= MINION_CAP,
+    `four horns in a row put ${full.minions.filter((x) => x.side === 'player').length} walkers out against a cap of ${MINION_CAP}`);
 });
 
-scenario('waves keep coming on the turn clock, and the field never floods', () => {
+scenario('with the field empty and squads in the rack, the gunner blows the horn', () => {
   const m = mk();
-  const count = (side) => m.minions.filter((x) => x.side === side).length;
-  check(count('player') === 2 && count('enemy') === 2, `the opening wave is ${count('player')}v${count('enemy')}`);
+  m.turn = 'enemy';
+  m.turnCount = 3;
+  check(planShot(m, 'enemy', 1).weapon === 'muster', 'an empty field and a full rack, and it shelled anyway');
 
-  m.minions.length = 0;
-  for (let i = 0; i < WAVE_EVERY - 1; i++) pass(m);
-  check(m.minions.length === 0, `a wave mustered ${m.minions.length} walkers before its turn`);
-  pass(m);
-  check(count('player') === 2 && count('enemy') === 2, `on the beat the wave came out ${count('player')}v${count('enemy')}`);
+  m.ammo.enemy.muster = 0;
+  check(planShot(m, 'enemy', 1).weapon !== 'muster', 'it blew a horn it does not have');
 
-  for (let i = 0; i < WAVE_EVERY * 4; i++) pass(m);
-  check(count('player') <= MINION_CAP && count('enemy') <= MINION_CAP,
-    `after five waves the field holds ${count('player')}v${count('enemy')} against a cap of ${MINION_CAP}`);
+  m.ammo.enemy.muster = 2;
+  summon(m, 'scrapper', 'enemy', 1500);
+  summon(m, 'scrapper', 'enemy', 1470);
+  check(planShot(m, 'enemy', 1).weapon !== 'muster', 'with a column already marching it spent another turn mustering');
+});
+
+scenario('loose earth settles: a crater face is a wall for a while, then just a hill', () => {
+  const m = mk();
+  m.terrain.carve(1260, m.terrain.yAt(1260), 110);
+  check(m.terrain.scarred(1150, 1370), 'a fresh crater left no scar');
+  for (let i = 0; i < SCAR_TURNS; i++) pass(m);
+  check(!m.terrain.scarred(1150, 1370), `after ${SCAR_TURNS} turn-ends the crater face is still raw`);
+
+  // and the settled bowl is ordinary ground: a squire walks in and out
+  const walker = summon(m, 'squire', 'player', 1150);
+  march(m, 12);
+  check(!walker.stuck && walker.x > 1380,
+    `over a settled crater the squire got to x=${walker.x.toFixed(0)}, stuck=${walker.stuck}`);
+});
+
+scenario('a walker that reaches the other plot loots it, once', () => {
+  const m = mk();
+  const raider = summon(m, 'squire', 'player', CASTLE_X.enemy - 60);
+  march(m, 4);
+  check(raider.x > CASTLE_X.enemy, `four seconds in the raider is still at x=${raider.x.toFixed(0)}`);
+  check(m.plunder.player === PLUNDER, `crossing the gate paid ${m.plunder.player}, not ${PLUNDER}`);
+  check(m.events.some((e) => e.kind === 'plunder'), 'nobody said a word about the loot');
+  march(m, 2);
+  check(m.plunder.player === PLUNDER, 'it kept getting paid for standing on the same doorstep');
+});
+
+scenario('a walker near their castle is a forward observer', () => {
+  const m = mk();
+  check(spotters(m, 'player') === 0, 'an empty field is somehow calling shots home');
+  summon(m, 'squire', 'player', CASTLE_X.enemy + 40);
+  check(spotters(m, 'player') === 1, 'a walker at their gate does not count as a spotter');
+  const mole = summon(m, 'mole', 'player', CASTLE_X.enemy + 80);
+  mole.underground = true;
+  check(spotters(m, 'player') === 1, 'a walker under the dirt called shots home');
+  const far = mk();
+  summon(far, 'squire', 'player', 1200);
+  check(spotters(far, 'player') === 0, 'a walker in the middle of the valley claimed to see their courtyard');
 });
 
 scenario('a walker marches to the enemy wall and starts eating it', () => {
@@ -707,15 +769,21 @@ scenario('an enemy walker blocks the column, and a shell into it frees the march
   const mine = summon(m, 'squire', 'player', 1100);
   const theirs = summon(m, 'scrapper', 'enemy', 1130);
 
-  march(m, 0.5);
+  // fights are decisive now, so the window between "locked" and "somebody
+  // died" is short — the shell has to come fast, exactly as it does in play
+  march(m, 0.35);
   check(mine.fighting, 'nose to nose with an enemy walker it kept strolling');
   const held = mine.x;
-  march(m, 0.5);
+  march(m, 0.15);
   check(mine.x === held, `locked in a fight it still advanced ${(mine.x - held).toFixed(1)}px`);
 
   // the shell lands just past the blocker: it dies, ours survives, march resumes
   detonate(m, theirs.x + 20, theirs.y - 10, WEAPONS.boulder, 'player');
   check(!m.minions.includes(theirs), 'a trebuchet stone landed on the blocker and it shrugged');
+  // and the death is *announced as a death* — a payload key called `kind`
+  // once overwrote the event's own kind, and every mdie arrived as 'scrapper'
+  check(m.events.some((e) => e.kind === 'mdie' && e.unit === 'scrapper'),
+    'the blocker died and the renderer was never told');
   check(m.minions.includes(mine), 'the shell meant to free the column killed it too');
   march(m, 2);
   check(mine.x > held + 40, `freed, it advanced ${(mine.x - held).toFixed(0)}px in two seconds`);
@@ -895,7 +963,8 @@ scenario('a whole frame draws — field, castles, shells, dirt and the dock', ()
   fx.update(1 / 60, m.terrain);
   drawField(ctx, { match: m, scene, fx, faction: 'knights', time: 1.2 });
   const rects = drawBattleHud(ctx, { W: 1280, H: 720 }, { match: m, level: LEVEL, phase: 'charging', power: 40, driving: 0 });
-  check(rects.filter((r) => r.kind === 'weapon').length === 4, `the dock came back with ${rects.length} slots`);
+  check(rects.filter((r) => r.kind === 'weapon').length === 5,
+    `the dock came back with ${rects.filter((r) => r.kind === 'weapon').length} slots — four munitions and the horn`);
   check(rects.filter((r) => r.kind === 'drive').length === 2, 'the drive pads are not on the screen');
   check(rects.every((r) => r.w > 0 && r.h > 0), 'a control has no area to tap');
 });
@@ -909,7 +978,7 @@ scenario('the armory rows keep their buttons apart and leave the count its own c
   });
   const ctx = headlessContext(1280, 720);
   const rects = drawShopHud(ctx, { W: 1280, H: 720 }, shop, LEVELS[0], {}).filter((r) => r.kind === 'ammo');
-  check(rects.length === 6, `three munitions should make six buttons, not ${rects.length}`);
+  check(rects.length === 8, `three munitions and the horn should make eight buttons, not ${rects.length}`);
 
   const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   for (let i = 0; i < rects.length; i++) {

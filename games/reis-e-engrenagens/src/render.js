@@ -9,7 +9,7 @@
 
 import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS, WIND_MAX } from './config.js';
 import { MATERIALS, material } from './materials.js';
-import { AMMO_CAP, WEAPONS, specials } from './weapons.js';
+import { AMMO_CAP, MUSTER, WEAPONS, priceOf, specials } from './weapons.js';
 import { INK, drawBlock, drawLauncher, drawMinion, drawShot, drawShotIcon, ink } from './art.js';
 import { battleLayout, button, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
@@ -322,11 +322,17 @@ function drawOffscreen(ctx, match, cam) {
  *
  * Deliberately short. The whole trajectory drawn out turns every turn into
  * reading a line off the screen; a hand's length of it says which way the arm
- * is pointing, and the rest is the gunner's problem.
+ * is pointing, and the rest is the gunner's problem — **unless somebody is out
+ * there watching the fall of shot**. With a spotter (a walker of yours near
+ * the enemy castle), the dots run the entire arc to the ground: the ground
+ * war paying the artillery back, and the reason to escort a column forward
+ * even when it will never eat through a wall by itself.
  */
-export function drawAim(ctx, match, side, angle, power) {
+export function drawAim(ctx, match, side, angle, power, opts = {}) {
   const L = match.launchers[side];
   const w = WEAPONS[match.weapon[side]];
+  // the horn in hand throws no arc: mustering has no trajectory to preview
+  if (!w) return;
   const a = (angle * Math.PI) / 180;
   const speed = (power / 100) * POWER_SPEED * w.speed;
   let x = L.x + L.dir * Math.cos(a) * 36;
@@ -334,17 +340,19 @@ export function drawAim(ctx, match, side, angle, power) {
   let vx = Math.cos(a) * speed * L.dir;
   let vy = -Math.sin(a) * speed;
 
+  const steps = opts.spotted ? 220 : 26;
   ctx.save();
   ctx.fillStyle = 'rgba(255,240,200,0.85)';
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < steps; i++) {
     vy += GRAVITY * 0.026;
     vx += match.wind * w.wind * 0.026;
     x += vx * 0.026;
     y += vy * 0.026;
+    if (opts.spotted && match.terrain && match.terrain.solid(x, y)) break;
     if (i % 2) continue;
-    ctx.globalAlpha = 0.95 - i / 30;
+    ctx.globalAlpha = i < 26 ? 0.95 - i / 30 : 0.34;
     ctx.beginPath();
-    ctx.arc(x, y, 4 - i * 0.09, 0, TAU);
+    ctx.arc(x, y, i < 26 ? 4 - i * 0.09 : 2.4, 0, TAU);
     ctx.fill();
   }
   ctx.restore();
@@ -369,7 +377,7 @@ export function drawAim(ctx, match, side, angle, power) {
  * different places. Round the button, the charge is under the thumb that is
  * making it.
  */
-export function drawFireButton(ctx, fire, power, charging, live) {
+export function drawFireButton(ctx, fire, power, charging, live, horn = false) {
   const { cx, cy, r } = fire;
   ctx.save();
   ctx.beginPath();
@@ -396,11 +404,12 @@ export function drawFireButton(ctx, fire, power, charging, live) {
   ctx.restore();
 
   const ink = !live ? 'rgba(240,232,214,0.4)' : charging ? '#2a2210' : '#f2e7d0';
-  if (charging) {
+  if (charging && !horn) {
     label(ctx, String(Math.round(power)), cx, cy - 4, { size: 24, align: 'center', color: ink });
     label(ctx, t('hud.release'), cx, cy + 16, { size: 10, weight: 600, align: 'center', color: ink });
   } else {
-    label(ctx, t('hud.fire'), cx, cy, { size: 16, align: 'center', color: ink });
+    // the horn spends the turn at any power — the button says what the turn is
+    label(ctx, t(horn ? 'hud.muster' : 'hud.fire'), cx, cy, { size: horn ? 13 : 16, align: 'center', color: ink });
   }
 }
 
@@ -482,7 +491,7 @@ export function drawBattleHud(ctx, vp, state) {
 
   // --- the one button that ends the turn
   const firing = phase === 'charging';
-  drawFireButton(ctx, bay.fire, power, firing, mine);
+  drawFireButton(ctx, bay.fire, power, firing, mine, match.weapon.player === 'muster');
   rects.push({ ...bay.fire, kind: 'fire' });
 
   if (state.message) {
@@ -697,7 +706,7 @@ function drawIntel(ctx, vp, foe, faction) {
  */
 function drawArmory(ctx, shop) {
   if (!shop.faction) return [];
-  const ids = specials(shop.faction);
+  const ids = [...specials(shop.faction), MUSTER.id];
   const w = 224;
   const rowH = 46;
   const x = 10;
@@ -712,7 +721,7 @@ function drawArmory(ctx, shop) {
     const id = ids[i];
     const ry = y + 28 + i * rowH;
     const count = shop.ammo[id] || 0;
-    const price = WEAPONS[id].price;
+    const price = priceOf(id);
 
     ctx.save();
     ctx.globalAlpha = count > 0 ? 1 : 0.45;

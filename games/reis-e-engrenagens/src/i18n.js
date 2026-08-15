@@ -37,8 +37,8 @@ export const dict = {
     pt: 'Você recebe moedas e um terreno. Compre paredes, empilhe, ponha seu rei onde você acredita — e depois vocês se revezam jogando coisas um no outro até uma coroa ficar debaixo do entulho.',
   },
   'menu.controls': {
-    en: 'Left and right drive · up and down aim · space opens the power gauge and fires · 1-4 pick a munition',
-    pt: 'Esquerda e direita andam · cima e baixo miram · espaço abre a barra de força e dispara · 1-4 troca de munição',
+    en: 'Left and right drive · up and down aim · space opens the power gauge and fires · 1-5 pick a munition or the horn',
+    pt: 'Esquerda e direita andam · cima e baixo miram · espaço abre a barra de força e dispara · 1-5 troca munição ou corneta',
   },
 
   // ---------------------------------------------------------- the workshop
@@ -80,6 +80,7 @@ export const dict = {
   'hud.power': { en: 'power', pt: 'força' },
   'hud.fuel': { en: 'fuel', pt: 'combustível' },
   'hud.fire': { en: 'FIRE', pt: 'FOGO' },
+  'hud.muster': { en: 'MUSTER', pt: 'CONVOCAR' },
   'hud.release': { en: 'let go', pt: 'solte' },
   'hud.missed': { en: 'Out of the valley — nothing hit.', pt: 'Saiu do vale — não acertou nada.' },
   'hud.angle': { en: 'angle', pt: 'ângulo' },
@@ -132,6 +133,7 @@ export const dict = {
   'w.rustshell': { en: 'Rust shell', pt: 'Obus de ferrugem' },
   'w.tesla': { en: 'Tesla coil', pt: 'Bobina tesla' },
   'w.drill': { en: 'Drill bomb', pt: 'Bomba perfuratriz' },
+  'w.muster': { en: 'War horn', pt: 'Corneta de guerra' },
   'w.boulder.note': { en: 'Heavy, barely feels the wind. Cracks stone, slides off iron.', pt: 'Pesada, quase não sente vento. Racha pedra, escorrega no ferro.' },
   'w.firepot.note': { en: 'Sets timber alight for three turns, and the fire spreads.', pt: 'Põe fogo na madeira por três turnos, e o fogo se espalha.' },
   'w.ballista.note': { en: 'Flat and fast. Goes through crystal and out the other side.', pt: 'Reto e rápido. Atravessa cristal e sai do outro lado.' },
@@ -140,6 +142,7 @@ export const dict = {
   'w.rustshell.note': { en: 'Eats iron for three turns, and it spreads down the wall.', pt: 'Come ferro por três turnos, e se espalha pela parede.' },
   'w.tesla.note': { en: 'Arcs to the nearest metal. In a scrapyard it arcs further.', pt: 'Arqueia para o metal mais perto. Num ferro-velho, arqueia mais longe.' },
   'w.drill.note': { en: 'Burrows before it goes off. Takes the ground, not the wall.', pt: 'Enterra antes de estourar. Leva o chão, não a parede.' },
+  'w.muster.note': { en: 'Spends the turn mustering a squad at your gate.', pt: 'Gasta o turno convocando um esquadrão no seu portão.' },
 
   // ------------------------------------------------------------- the levels
   'lv.meadow': { en: 'The Meadow', pt: 'A Campina' },

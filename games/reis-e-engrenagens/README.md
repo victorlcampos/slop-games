@@ -59,8 +59,8 @@ the screen.
 At full power a shot barely carries the width of the valley, so the top of the
 gauge is a real decision and not a default.
 
-Pick munitions from the dock (or keys 1–4). The basic shot never runs out; the
-other three are whatever the armory sold you, restocked every siege. The wind
+Pick munitions from the dock (or keys 1–5 — the fifth is the horn). The basic shot never runs out; the
+other three — and your squads of walkers — are whatever the armory sold you, restocked every siege. The wind
 changes every turn, and it moves a fire pot far more than it moves a rock — and
 you can *see* it now: gusts streak across the valley the way the gauge points,
 the clouds ride it, the flags on both castles stream with it.
@@ -68,11 +68,17 @@ the clouds ride it, the flags on both castles stream with it.
 Whoever hits the other crown wins. It takes two clean hits — or one wall coming
 down on top of it.
 
-**The ground war.** Every third turn of yours, both sides muster a wave of
-walkers that march the valley and start eating the other castle when they
-arrive — wall first, crown last. The two columns block each other where they
-meet: a shell into their walkers is what frees yours to march on. The armies
-differ by crown and grow with the campaign:
+**The ground war.** The fifth slot in the dock is a war horn: spending your
+turn on it marches a squad out of your gate instead of a shell out of your
+barrel. Squads are bought in the armory like any munition, walkers eat the
+other castle when they arrive — wall first, crown last — and they pay their
+way twice before that: a walker that reaches the enemy plot **loots it**
+(coins on top of the victory purse), and any walker standing near their
+castle is a **forward observer** — your dotted aiming line runs the whole
+arc while one lives out there. The two columns lock and fight where they
+meet, fights are short and decisive, and a shell into their walkers is what
+frees yours to march on. The armies differ by crown and grow with the
+campaign:
 
 | | siege 1 | siege 2 | siege 4 |
 |---|---|---|---|
@@ -82,13 +88,16 @@ differ by crown and grow with the campaign:
 The ground has a say, and the rule is **born terrain always goes**: any
 slope the world came with — vertical cliffs included — is climbed by every
 kind, at worst as a slow, leaning scramble. The one wall in the game is
-ground *a shell has chewed*: the terrain scars every column a crater
-touches, and a raw shot-eaten face steeper than a walker's limit stops it
-dead — a stuck column shows a `!` and waits for another shell to reshape
-what the first one broke, while spiders walk the crater wall and sappers
-and moles bore *into* it with a slight upward pitch, a mound of moving
-earth until daylight. The enemy gunner treats your column at its gate as
-worth a whole turn of artillery, and so should you.
+ground *a shell has freshly chewed*: the terrain scars every column a
+crater touches, and a raw shot-eaten face steeper than a walker's limit
+stops it dead — but loose earth settles, and after a couple of rounds the
+scar fades and the crater is ordinary hillside again. A stuck column shows
+a `!` and waits — for the earth, or for another shell to reshape what the
+first one broke — while spiders walk the crater wall and sappers and moles
+bore *into* it with a slight upward pitch, a mound of moving earth until
+daylight. The enemy gunner blows its own horn when its field is empty, and
+treats your column at its gate as worth a whole turn of artillery — and so
+should you.
 
 ## What is interesting in here
 

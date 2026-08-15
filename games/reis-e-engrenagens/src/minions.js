@@ -45,19 +45,21 @@ import { CASTLE_X, CELL, COLS, ROWS, W, clamp, other } from './config.js';
  */
 export const MINIONS = {
   // ------------------------------------------------------------- knights
-  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 2.2, dig: 0, bite: 8, mdps: 9, reach: 22 },
-  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 1.9, dig: 24, bite: 11, mdps: 7, reach: 22 },
-  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 1.6, dig: 0, bite: 20, mdps: 4, reach: 26 },
+  squire: { id: 'squire', faction: 'knights', unlock: 0, hp: 36, speed: 44, climb: 2.2, dig: 0, bite: 16, mdps: 27, reach: 22 },
+  sapper: { id: 'sapper', faction: 'knights', unlock: 1, hp: 46, speed: 36, climb: 1.9, dig: 24, bite: 22, mdps: 21, reach: 22 },
+  ram: { id: 'ram', faction: 'knights', unlock: 3, hp: 95, speed: 26, climb: 1.6, dig: 0, bite: 40, mdps: 12, reach: 26 },
   // ------------------------------------------------------------ machines
-  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 2.2, dig: 0, bite: 7, mdps: 10, reach: 22 },
-  spider: { id: 'spider', faction: 'machines', unlock: 1, hp: 40, speed: 46, climb: 8, dig: 0, bite: 9, mdps: 8, reach: 22 },
-  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 1.8, dig: 28, bite: 16, mdps: 5, reach: 26 },
+  scrapper: { id: 'scrapper', faction: 'machines', unlock: 0, hp: 30, speed: 52, climb: 2.2, dig: 0, bite: 14, mdps: 30, reach: 22 },
+  spider: { id: 'spider', faction: 'machines', unlock: 1, hp: 40, speed: 46, climb: 8, dig: 0, bite: 18, mdps: 24, reach: 22 },
+  mole: { id: 'mole', faction: 'machines', unlock: 3, hp: 56, speed: 32, climb: 1.8, dig: 28, bite: 32, mdps: 15, reach: 26 },
 };
 
-/** Turns between waves — three of each side's own turns. */
-export const WAVE_EVERY = 6;
 /** No side fields more walkers than this at once. */
 export const MINION_CAP = 6;
+/** What a walker loots the moment it sets foot on the other side's plot. */
+export const PLUNDER = 5;
+/** How near the foe's castle a walker must stand to serve as a spotter. */
+export const SPOT_RANGE = 300;
 /** Seconds between swings at a wall, and between shovelfuls of hill. */
 export const BITE_EVERY = 0.9;
 export const DIG_EVERY = 0.5;
@@ -99,7 +101,7 @@ export function summon(match, kind, side, x) {
     s: 0.92 + frac * 0.18,
     tone: frac,
     stuck: false, moving: false, fighting: false, digging: false, scramble: false,
-    underground: false, coverY: 0,
+    underground: false, coverY: 0, plundered: false,
   };
   match.minions.push(mn);
   return mn;
@@ -144,13 +146,31 @@ export function wallTarget(castle, attackerSide) {
   return null;
 }
 
+/**
+ * How many of this side's walkers stand near enough to the foe's castle to
+ * call shots home. A spotter is the ground war serving the artillery: while
+ * one lives out there, the gunner's aiming line runs the whole arc.
+ */
+export function spotters(match, side) {
+  const castle = match.castles[other(side)];
+  const cx = castle.baseX + (COLS * CELL) / 2;
+  let n = 0;
+  for (const m of match.minions) {
+    if (m.side === side && !m.underground && Math.abs(m.x - cx) < SPOT_RANGE) n++;
+  }
+  return n;
+}
+
 /** Remove the fallen, with a word to the renderer about each. */
 export function reapMinions(match) {
   for (let i = match.minions.length - 1; i >= 0; i--) {
     const m = match.minions[i];
     if (m.hp > 0) continue;
     match.minions.splice(i, 1);
-    match.say('mdie', { x: m.x, y: m.y - 10, side: m.side, kind: m.kind });
+    // `unit`, not `kind`: the event's own kind field is 'mdie', and a payload
+    // key named kind silently overwrote it — every death arrived at the
+    // renderer labelled 'squire' and matched no case at all
+    match.say('mdie', { x: m.x, y: m.y - 10, side: m.side, unit: m.kind });
   }
 }
 
@@ -281,6 +301,17 @@ export function tickMinions(match, h) {
     const pace = m.scramble ? SCRAMBLE_SLOW : slope > 0.4 ? UPHILL_SLOW : 1;
     m.x = clamp(m.x + dir * spec.speed * h * pace, 20, W - 20);
     m.y = match.terrain.yAt(m.x);
+
+    // setting foot on the other side's plot pays, once: the ground war feeds
+    // the same purse the next castle is built from
+    if (!m.plundered) {
+      const gate = m.side === 'player' ? CASTLE_X.enemy : CASTLE_X.player + COLS * CELL;
+      if ((m.x - gate) * dir >= 0) {
+        m.plundered = true;
+        match.plunder[m.side] += PLUNDER;
+        match.say('plunder', { side: m.side, x: m.x, y: m.y - 20, n: PLUNDER });
+      }
+    }
   }
 
   reapMinions(match);

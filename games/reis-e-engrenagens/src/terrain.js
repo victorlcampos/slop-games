@@ -16,6 +16,9 @@ import { terrainOf } from './materials.js';
 /** The lowest the ground is allowed to go — below this a shot is simply gone. */
 export const FLOOR_Y = H - 24;
 
+/** How many turn-ends a crater face stays raw before the earth settles. */
+export const SCAR_TURNS = 4;
+
 export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) {
   const rng = makeRng(seed);
   const spec = terrainOf(kind);
@@ -77,10 +80,14 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
   for (let i = 0; i < half; i++) h[i] = Math.min(h[i], FLOOR_Y - 34);
   for (let i = 0; i < half; i++) h[NCOL - 1 - i] = h[i];
 
-  // Which columns a shell has chewed. Born terrain and blasted terrain look
-  // alike to a heightmap, but they are different things to walk on: a walker
-  // scrambles any slope the world was born with, and refuses only the raw
-  // faces a crater leaves behind. This is the array that knows the difference.
+  // Which columns a shell has chewed, and how recently. Born terrain and
+  // blasted terrain look alike to a heightmap, but they are different things
+  // to walk on: a walker scrambles any slope the world was born with, and
+  // refuses only the *raw* faces a fresh crater leaves behind. Raw is the
+  // operative word — loose earth settles, so every scar carries a countdown
+  // of turns and an old crater becomes ordinary ground again. Without the
+  // countdown the artillery carpeted the valley in permanent roadblocks by
+  // turn five, and the whole ground war stood in a queue looking at a lip.
   const scar = new Uint8Array(NCOL);
 
   const t = {
@@ -88,12 +95,16 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
     spec,
     h,
     scar,
-    /** Has any column in this span been chewed by a shell? */
+    /** Has any column in this span been chewed by a shell, recently? */
     scarred(x0, x1) {
       const a = clamp(Math.floor(Math.min(x0, x1) / COL_W), 0, NCOL - 1);
       const b = clamp(Math.ceil(Math.max(x0, x1) / COL_W), 0, NCOL - 1);
       for (let i = a; i <= b; i++) if (scar[i]) return true;
       return false;
+    },
+    /** One turn of weather: every scar a step closer to being just ground. */
+    settleScars() {
+      for (let i = 0; i < NCOL; i++) if (scar[i] > 0) scar[i]--;
     },
     /** The surface at a world x. Off the map, the wall of the world. */
     yAt(x) {
@@ -147,7 +158,7 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
         if (cy - dy <= h[i] && bottom > h[i]) {
           moved += bottom - h[i];
           h[i] = bottom;
-          scar[i] = 1;
+          scar[i] = SCAR_TURNS;
         }
       }
       return moved;
@@ -160,7 +171,7 @@ export function buildTerrain({ kind = 'soil', seed = 1, middle = 'flat' } = {}) 
         const d = Math.abs(i * COL_W - cx) / r;
         if (d > 1) continue;
         h[i] -= amount * (1 - d) ** 2;
-        scar[i] = 1;
+        scar[i] = SCAR_TURNS;
       }
     },
     snapshot() {

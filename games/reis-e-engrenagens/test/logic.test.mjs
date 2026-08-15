@@ -322,8 +322,8 @@ scenario('shells and walls come out of the same purse, and both directions of th
   check(why === 'full', `past the cap the workshop said "${why}"`);
   check(shop.ammo.firepot === AMMO_CAP, `the rack holds ${shop.ammo.firepot} fire pots against a cap of ${AMMO_CAP}`);
 
-  // sell every shell and the whole kit price is walls again
-  for (const id of specials('knights')) while (shop.ammo[id] > 0) shop.adjustAmmo(id, -1);
+  // sell every shell and every squad, and the whole kit price is walls again
+  for (const id of Object.keys(shop.ammo)) while (shop.ammo[id] > 0) shop.adjustAmmo(id, -1);
   check(shop.left() === 300, `an empty rack still holds ${300 - shop.left()} coins hostage`);
 
   // and with nothing left over, buying is refused out loud

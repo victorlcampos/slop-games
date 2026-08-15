@@ -827,6 +827,22 @@ export function drawShot(ctx, s, spin) {
       ctx.stroke();
       break;
     }
+    case 'muster': {
+      // the war horn — never in flight, only ever a dock icon and an armory row
+      ctx.rotate(-0.3);
+      ctx.beginPath();
+      ctx.moveTo(-12, 2);
+      ctx.quadraticCurveTo(2, 8, 12, -2);
+      ctx.lineTo(14, -9);
+      ctx.lineTo(7, -4);
+      ctx.quadraticCurveTo(-2, 2, -12, -3);
+      ctx.closePath();
+      ink(ctx, '#d9a445', 2.5);
+      ctx.beginPath();
+      ctx.arc(-12, -0.5, 3, 0, TAU);
+      ink(ctx, '#8a5f20', 2);
+      break;
+    }
     default: {
       // the drill
       ctx.rotate(a);

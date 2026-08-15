@@ -22,6 +22,7 @@ import { createCastle, gunSeat } from './structure.js';
 import { foeCastle } from './castles.js';
 import { createWorkshop, suggestBlueprint } from './workshop.js';
 import { planDrive, planShot, skillNow } from './ai.js';
+import { spotters } from './minions.js';
 import { freshRun, levelOf, normalizeRun, reward } from './run.js';
 import { drawAim, drawBattleHud, drawField, drawShopGrid, drawShopHud } from './render.js';
 import { drawBlock, drawLauncher } from './art.js';
@@ -203,7 +204,9 @@ function finishBattle() {
   let gained = 0;
 
   if (won) {
-    gained = reward(level, match.castles.player);
+    // the level's purse, the standing-wall bounty, and whatever the ground
+    // war looted from their plot on the way
+    gained = reward(level, match.castles.player) + match.plunder.player;
     run.coins += gained;
     run.wins++;
     run.best = Math.max(run.best, run.level + 1);
@@ -353,7 +356,7 @@ const input = createInput(canvas, vp, {
       // right are the engine, up and down the elevation — the layout every
       // artillery game with a mobile has used since Gunbound
       if (/^(Arrow(Up|Down|Left|Right)|Key[WASD])$/.test(code)) return true;
-      const n = /^Digit([1-4])$/.exec(code);
+      const n = /^Digit([1-5])$/.exec(code);
       if (n) {
         const ids = Object.keys(match.ammo.player);
         if (!match.pick('player', ids[+n[1] - 1])) sfx.deny();
@@ -595,7 +598,11 @@ function drain() {
         }
         break;
       case 'recruit':
-        say(t('hud.newMinion', { name: t(`mn.${ev.kind}`) }));
+        say(t('hud.newMinion', { name: t(`mn.${ev.unit}`) }));
+        break;
+      case 'plunder':
+        fx.number(ev.x, ev.y, `+${ev.n}`, { color: '#8fe08a', size: 15 });
+        if (ev.side === 'player') sfx.place();
         break;
       case 'mdie':
         // a pop worth noticing: the side's colour, plus a flash of white
@@ -652,7 +659,11 @@ function draw() {
   if (screen === 'battle' && match) {
     drawField(ctx, { match, scene, fx, time, cam, viewW: v.W });
     if (!match.over && match.turn === 'player' && !match.flying()) {
-      drawAim(ctx, match, 'player', match.launchers.player.angle, phase === 'charging' ? power : 55);
+      drawAim(ctx, match, 'player', match.launchers.player.angle, phase === 'charging' ? power : 55, {
+        // a walker of yours near their castle is a forward observer: the
+        // dotted line runs the whole arc while one is out there alive
+        spotted: spotters(match, 'player') > 0,
+      });
     }
   } else if (scene) {
     const span = cam.span(v.W);

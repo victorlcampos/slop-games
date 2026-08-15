@@ -64,7 +64,11 @@ export const WEAPONS = {
     dig: 0.35,
     // it keeps going through whatever it breaks — a line of crystal is one shot
     pierce: 2,
-    vs: { crystal: 2.6, sand: 1.6, wood: 1.2, stone: 0.7, iron: 0.5, king: 1.15 },
+    // 1.9, down from 2.6. Mirrored AI-vs-AI sieges showed the bolt melting
+    // every crystal castle the machines build; this softens the matchup but
+    // does not settle it — the same harness still favours the kingdom, so
+    // the faction balance is an open item with its own experiment to run.
+    vs: { crystal: 1.9, sand: 1.6, wood: 1.2, stone: 0.7, iron: 0.5, king: 1.15 },
     ground: { rock: 0.5 },
   },
   hail: {
@@ -93,7 +97,9 @@ export const WEAPONS = {
     speed: 1.25,
     wind: 0.45,
     dig: 0.9,
-    vs: { crystal: 1.4, iron: 1.2, stone: 1, wood: 1, sand: 0.55, king: 1 },
+    // stone at 1.15: the machines' half of the ballista rebalance — their
+    // endless shot needed *some* answer to the kingdom's favourite wall
+    vs: { crystal: 1.4, iron: 1.2, stone: 1.15, wood: 1, sand: 0.55, king: 1 },
     ground: { snow: 1.2 },
   },
   rustshell: {
@@ -123,7 +129,7 @@ export const WEAPONS = {
     dig: 0.3,
     // jumps to the nearest conductor: an iron wall is one target, not eight
     arc: 190,
-    vs: { iron: 2, crystal: 1.8, stone: 0.6, wood: 0.5, sand: 0.35, king: 1.1 },
+    vs: { iron: 2, crystal: 1.8, stone: 0.7, wood: 0.5, sand: 0.35, king: 1.1 },
     ground: { scrap: 1.5, snow: 1.2 },
   },
   drill: {
@@ -155,9 +161,27 @@ export const ARSENAL = {
 
 export const weapon = (id) => WEAPONS[id];
 
+/**
+ * The war horn: a squad of walkers, bought and spent like a munition.
+ *
+ * Not an entry in WEAPONS on purpose — it has no damage, no radius and no
+ * opinion about materials, and every table-driven rule about shells would
+ * have to carve out an exception for it. It lives beside them instead:
+ * priced like ammunition, racked like ammunition, and "fired" by spending
+ * the turn mustering at your own gate (battle.js knows the difference).
+ */
+export const MUSTER = { id: 'muster', price: 24, ammo: 2 };
+
 /** The limited munitions of a faction — everything the armory sells. */
 export function specials(faction) {
   return ARSENAL[faction].filter((id) => WEAPONS[id].ammo !== INF);
+}
+
+/** What one unit of this rack entry costs — shells and squads alike. */
+export function priceOf(id) {
+  if (id === MUSTER.id) return MUSTER.price;
+  const w = WEAPONS[id];
+  return w && w.ammo !== INF ? w.price : null;
 }
 
 /**
@@ -170,26 +194,32 @@ export function specials(faction) {
  */
 export function loadout(faction, counts = null, bonus = 0) {
   const out = {};
+  const pick = (id, shipped) =>
+    counts && Number.isFinite(counts[id])
+      ? Math.max(0, Math.min(AMMO_CAP, Math.round(counts[id])))
+      : Math.min(AMMO_CAP, shipped + bonus);
   for (const id of ARSENAL[faction]) {
     const w = WEAPONS[id];
-    if (w.ammo === INF) out[id] = INF;
-    else if (counts && Number.isFinite(counts[id])) out[id] = Math.max(0, Math.min(AMMO_CAP, Math.round(counts[id])));
-    else out[id] = Math.min(AMMO_CAP, w.ammo + bonus);
+    out[id] = w.ammo === INF ? INF : pick(id, w.ammo);
   }
+  out[MUSTER.id] = pick(MUSTER.id, MUSTER.ammo);
   return out;
 }
 
-/** The rack a run starts with: each limited weapon at its shipped count. */
+/** The rack a run starts with: each limited entry at its shipped count. */
 export function defaultLoadout(faction) {
   const out = {};
   for (const id of specials(faction)) out[id] = WEAPONS[id].ammo;
+  out[MUSTER.id] = MUSTER.ammo;
   return out;
 }
 
-/** What a rack of munitions costs, in the same coins the walls cost. */
+/** What a rack costs — shells and squads — in the same coins the walls cost. */
 export function ammoCost(faction, counts) {
   let sum = 0;
-  for (const id of specials(faction)) sum += WEAPONS[id].price * Math.max(0, counts && counts[id] ? counts[id] : 0);
+  for (const id of [...specials(faction), MUSTER.id]) {
+    sum += priceOf(id) * Math.max(0, counts && counts[id] ? counts[id] : 0);
+  }
   return sum;
 }
 
