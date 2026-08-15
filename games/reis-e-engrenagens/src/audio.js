@@ -91,6 +91,18 @@ export const sfx = {
     sound.tone(420, 0.05, { type: 'square', gain: 0.12 });
   },
 
+  /** A wave mustering: two low drum beats. */
+  wave() {
+    sound.tone(160, 0.14, { type: 'triangle', gain: 0.2 });
+    sound.tone(122, 0.2, { type: 'triangle', gain: 0.2, delay: 0.15 });
+  },
+
+  /** A walker's swing landing on a wall — small, and throttled by the caller. */
+  chop() {
+    noise(0.06, { gain: 0.12, freq: 1600, type: 'bandpass' });
+    sound.tone(230, 0.05, { type: 'square', gain: 0.06 });
+  },
+
   deny() {
     sound.tone(150, 0.14, { type: 'square', gain: 0.14, slide: -50 });
   },

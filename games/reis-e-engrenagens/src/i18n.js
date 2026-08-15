@@ -85,6 +85,16 @@ export const dict = {
   'hud.angle': { en: 'angle', pt: 'ângulo' },
   'hud.turn': { en: 'turn {n}', pt: 'turno {n}' },
   'hud.infinite': { en: '∞', pt: '∞' },
+  'hud.wave': { en: 'Reinforcements are marching', pt: 'Reforços em marcha' },
+  'hud.newMinion': { en: 'New recruit: {name}', pt: 'Novo recruta: {name}' },
+
+  // ------------------------------------------------------------- the minions
+  'mn.squire': { en: 'Squire', pt: 'Escudeiro' },
+  'mn.sapper': { en: 'Sapper', pt: 'Sapador' },
+  'mn.ram': { en: 'Ram crew', pt: 'Equipe de aríete' },
+  'mn.scrapper': { en: 'Scrap-bot', pt: 'Robô de sucata' },
+  'mn.spider': { en: 'Tin spider', pt: 'Aranha de lata' },
+  'mn.mole': { en: 'Drill mole', pt: 'Toupeira-broca' },
 
   // ------------------------------------------------------------ the result
   'over.won': { en: 'The crown holds', pt: 'A coroa se manteve' },

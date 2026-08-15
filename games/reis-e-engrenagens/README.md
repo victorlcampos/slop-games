@@ -68,6 +68,24 @@ the clouds ride it, the flags on both castles stream with it.
 Whoever hits the other crown wins. It takes two clean hits — or one wall coming
 down on top of it.
 
+**The ground war.** Every third turn of yours, both sides muster a wave of
+walkers that march the valley and start eating the other castle when they
+arrive — wall first, crown last. The two columns block each other where they
+meet: a shell into their walkers is what frees yours to march on. The armies
+differ by crown and grow with the campaign:
+
+| | siege 1 | siege 2 | siege 4 |
+|---|---|---|---|
+| The Kingdom | Squire | Sapper — *tunnels through hills* | Ram crew — *eats walls* |
+| The Machines | Scrap-bot | Tin spider — *climbs anything* | Drill mole — *tunnels, bites hard* |
+
+The ground has a say: every walker has a slope it can climb, and a face
+steeper than that stops it dead — a stuck column shows a `!` and waits for
+you to reshape the hill with a shell, while sappers and moles simply go
+*into* it and come out the far side, a mound of moving earth in between.
+The enemy gunner treats your column at its gate as worth a whole turn of
+artillery, and so should you.
+
 ## What is interesting in here
 
 **Range and pace are two separate dials.** Gravity and muzzle speed were scaled

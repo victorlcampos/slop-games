@@ -9,8 +9,9 @@ import { scenario, check, run } from 'slopkit/testing';
 import { headlessContext } from 'slopkit/testing';
 
 import {
-  BASE_Y, CASTLE_X, CELL, COLS, DRIVE_FUEL, KING_HP, LEASH, LEVELS, ROWS, TURN_LIMIT, W,
+  BASE_Y, CASTLE_X, CELL, COLS, COL_W, DRIVE_FUEL, KING_HP, LEASH, LEVELS, NCOL, ROWS, TURN_LIMIT, W,
 } from '../src/config.js';
+import { MINIONS, MINION_CAP, WAVE_EVERY, summon } from '../src/minions.js';
 import { AMMO_CAP, WEAPONS } from '../src/weapons.js';
 import { MATERIALS } from '../src/materials.js';
 import { createMatch, detonate, restand, trace } from '../src/battle.js';
@@ -635,6 +636,141 @@ scenario('the enemy climbs back onto its own tower after you shoot it off', () =
   }
   check(Math.abs(L.x - m.castles.enemy.centre(2, 0).x) < CELL,
     `it drove to x=${L.x.toFixed(0)} instead of the tallest column it has left`);
+});
+
+// ------------------------------------------------------------ the ground war
+
+/** Let the ground war walk for a while, with no shots in the air. */
+function march(m, seconds) {
+  const n = Math.round(seconds * 60);
+  for (let i = 0; i < n; i++) m.tick(1 / 60);
+}
+
+scenario('each siege musters its column, and the campaign unlocks new kinds', () => {
+  const kinds = (m, side) => m.minions.filter((x) => x.side === side).map((x) => x.kind);
+
+  const meadow = mk(); // stage 0, player knights vs machines
+  check(kinds(meadow, 'player').length === 2 && kinds(meadow, 'player').every((k) => k === 'squire'),
+    `at the meadow the kingdom fields ${kinds(meadow, 'player').join(', ')}`);
+  check(kinds(meadow, 'enemy').every((k) => k === 'scrapper'),
+    `at the meadow the machines field ${kinds(meadow, 'enemy').join(', ')}`);
+
+  const dunes = mk({ level: LEVELS[1] });
+  check(kinds(dunes, 'player').includes('sapper'), 'the second siege did not unlock the sapper');
+  check(kinds(dunes, 'enemy').includes('spider'), 'the second siege did not unlock the spider');
+
+  const scrapyard = mk({ level: LEVELS[3] });
+  check(kinds(scrapyard, 'player').includes('ram'), 'the fourth siege did not unlock the ram');
+  check(kinds(scrapyard, 'enemy').includes('mole'), 'the fourth siege did not unlock the mole');
+});
+
+scenario('waves keep coming on the turn clock, and the field never floods', () => {
+  const m = mk();
+  const count = (side) => m.minions.filter((x) => x.side === side).length;
+  check(count('player') === 2 && count('enemy') === 2, `the opening wave is ${count('player')}v${count('enemy')}`);
+
+  m.minions.length = 0;
+  for (let i = 0; i < WAVE_EVERY - 1; i++) pass(m);
+  check(m.minions.length === 0, `a wave mustered ${m.minions.length} walkers before its turn`);
+  pass(m);
+  check(count('player') === 2 && count('enemy') === 2, `on the beat the wave came out ${count('player')}v${count('enemy')}`);
+
+  for (let i = 0; i < WAVE_EVERY * 4; i++) pass(m);
+  check(count('player') <= MINION_CAP && count('enemy') <= MINION_CAP,
+    `after five waves the field holds ${count('player')}v${count('enemy')} against a cap of ${MINION_CAP}`);
+});
+
+scenario('a walker marches to the enemy wall and starts eating it', () => {
+  const m = mk({ theirs: { cells: stack(0, 2, 'stone'), king: { c: 5, r: 0 } } });
+  m.minions.length = 0;
+  const walker = summon(m, 'squire', 'player', CASTLE_X.enemy - 200);
+  const block = m.castles.enemy.at(0, 0);
+  const before = block.hp;
+
+  march(m, 8);
+  check(walker.x > CASTLE_X.enemy - 40, `eight seconds in it has only reached x=${walker.x.toFixed(0)}`);
+  check(block.hp < before, 'it stood at the wall and bit nothing');
+  check(m.events.some((e) => e.kind === 'mhit'), 'the bites made no sound for the renderer');
+
+  // and a wall bitten through falls like a wall shelled through
+  block.hp = 4;
+  march(m, 2);
+  check(!m.castles.enemy.at(0, 0) || m.castles.enemy.at(0, 0) !== block,
+    'the plank it chewed through is still standing');
+});
+
+scenario('an enemy walker blocks the column, and a shell into it frees the march', () => {
+  const m = mk();
+  m.minions.length = 0;
+  const mine = summon(m, 'squire', 'player', 1100);
+  const theirs = summon(m, 'scrapper', 'enemy', 1130);
+
+  march(m, 0.5);
+  check(mine.fighting, 'nose to nose with an enemy walker it kept strolling');
+  const held = mine.x;
+  march(m, 0.5);
+  check(mine.x === held, `locked in a fight it still advanced ${(mine.x - held).toFixed(1)}px`);
+
+  // the shell lands just past the blocker: it dies, ours survives, march resumes
+  detonate(m, theirs.x + 20, theirs.y - 10, WEAPONS.boulder, 'player');
+  check(!m.minions.includes(theirs), 'a trebuchet stone landed on the blocker and it shrugged');
+  check(m.minions.includes(mine), 'the shell meant to free the column killed it too');
+  march(m, 2);
+  check(mine.x > held + 40, `freed, it advanced ${(mine.x - held).toFixed(0)}px in two seconds`);
+});
+
+scenario('a steep face stops a walker, a spider climbs it, and a sapper digs through', () => {
+  const m = mk({ level: LEVELS[1] });
+  m.minions.length = 0;
+  // a designed ramp: 200px of height gained over 80px is a slope of 2.5 —
+  // over anything's walking limit except the spider's
+  const face = (x) => {
+    if (x < 1200 || x > 1440) return BASE_Y;
+    if (x < 1280) return BASE_Y - ((x - 1200) / 80) * 200;
+    if (x <= 1360) return BASE_Y - 200;
+    return BASE_Y - ((1440 - x) / 80) * 200;
+  };
+  for (let i = 0; i < NCOL; i++) m.terrain.h[i] = face(i * COL_W);
+
+  const walker = summon(m, 'squire', 'player', 1100);
+  march(m, 6);
+  check(walker.stuck && walker.x < 1220, `the squire is at x=${walker.x.toFixed(0)}, stuck=${walker.stuck} — a 2.5 slope should stop it`);
+
+  // the spider gets the hill to itself, or it would stop to fight the squire
+  const m1 = mk({ level: LEVELS[1] });
+  m1.minions.length = 0;
+  for (let i = 0; i < NCOL; i++) m1.terrain.h[i] = face(i * COL_W);
+  const spider = summon(m1, 'spider', 'enemy', 1560);
+  march(m1, 14);
+  check(spider.x < 1180, `the spider should be over the hill by now; it is at x=${spider.x.toFixed(0)}`);
+
+  // the sapper answers the same hill by going through it
+  const m2 = mk({ level: LEVELS[1] });
+  m2.minions.length = 0;
+  for (let i = 0; i < NCOL; i++) m2.terrain.h[i] = face(i * COL_W);
+  const sapper = summon(m2, 'sapper', 'player', 1140);
+  march(m2, 4);
+  check(sapper.underground, `four seconds in the sapper is at x=${sapper.x.toFixed(0)} and still above ground`);
+  check(m2.events.some((e) => e.kind === 'mdig'), 'the tunnelling threw no dirt for the renderer');
+  march(m2, 12);
+  check(!sapper.underground && sapper.x > 1350,
+    `sixteen seconds in the sapper is at x=${sapper.x.toFixed(0)}, underground=${sapper.underground} — it should be out the far side`);
+});
+
+scenario('walkers at its gate change what the gunner spends the turn on', () => {
+  const m = mk();
+  m.minions.length = 0;
+  const cx = CASTLE_X.enemy + (COLS * CELL) / 2;
+  summon(m, 'squire', 'player', cx - 170);
+  summon(m, 'squire', 'player', cx - 140);
+  const at = pickTarget(m, 'enemy');
+  check(at.defend === true, 'two walkers at the gate and the gunner still aims across the valley');
+  check(Math.abs(at.x - (cx - 155)) < 40, `it aims at x=${at.x.toFixed(0)} with the column at ${(cx - 155).toFixed(0)}`);
+
+  // one walker is not worth a turn of artillery
+  m.minions.length = 0;
+  summon(m, 'squire', 'player', cx - 170);
+  check(!pickTarget(m, 'enemy').defend, 'a single walker hijacked the whole turn');
 });
 
 // ------------------------------------------------------------ whole matches

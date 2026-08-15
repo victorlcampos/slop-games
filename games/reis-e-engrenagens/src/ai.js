@@ -111,17 +111,44 @@ export function aimPoint(match, foe) {
  * What this turn is *about* — and it is not always the king.
  *
  * A gunner that shells the same cell every turn is a metronome, and being shot
- * by a metronome is boring even when it hits. Every third turn, if the other
- * engine is perched on a tower worth the shell, the target is the block under
- * *it* instead: knock the seat down and they spend a turn climbing back up —
- * the same counter-battery play the player is invited to make. The schedule is
- * deliberate rather than rolled, so a test can sit on either side of it.
+ * by a metronome is boring even when it hits. Two things outrank the crown:
+ *
+ *   · **The gate.** A column of enemy walkers at its own wall is a clock it can
+ *     hear ticking — two or more of them close, and this turn is spent on them.
+ *   · **Counter-battery**, every third turn, if the other engine is perched on
+ *     a tower worth the shell: knock the seat down and they spend a turn
+ *     climbing back — the same play the player is invited to make.
+ *
+ * Both rules are deliberate rather than rolled, so a test can sit on either
+ * side of each.
  */
 export function pickTarget(match, side) {
   const foe = other(side);
+  const threat = menace(match, side);
+  if (threat) return threat;
   const counter = counterTarget(match, foe);
   if (counter && match.turnCount % 3 === 2) return counter;
   return aimPoint(match, foe);
+}
+
+/** Two or more enemy walkers near this side's own castle: their centre. */
+function menace(match, side) {
+  if (!match.minions) return null;
+  const castle = match.castles[side];
+  const cx = castle.baseX + (COLS * CELL) / 2;
+  let n = 0;
+  let sx = 0;
+  let sy = 0;
+  for (const mn of match.minions) {
+    if (mn.side === side) continue;
+    if (Math.abs(mn.x - cx) > 320) continue;
+    n++;
+    sx += mn.x;
+    sy += mn.y;
+  }
+  // one walker is not worth a turn of artillery; a column is
+  if (n < 2) return null;
+  return { x: sx / n, y: sy / n - 10, n, defend: true };
 }
 
 /** The block under the foe's engine, if it is riding anything worth felling. */
@@ -166,5 +193,14 @@ export function scoreOf(match, side, w, res, target) {
     if ((res.x - home) * (away - home) < 0) score -= 400;
   }
   if (res.kind === 'out') score -= 260;
+
+  // a landing among the other side's walkers is never wasted — it is also what
+  // frees this side's own column to march on
+  if (match.minions) {
+    for (const mn of match.minions) {
+      if (mn.side === side) continue;
+      if (Math.hypot(mn.x - res.x, mn.y - res.y) < w.radius + 30) score += 26;
+    }
+  }
   return score;
 }

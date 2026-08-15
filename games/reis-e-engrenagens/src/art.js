@@ -853,6 +853,287 @@ export function drawShot(ctx, s, spin) {
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- minions
+
+/**
+ * The ground war, drawn: six little walkers, each recognisable at a glance by
+ * silhouette — a plume, a log on wheels, a pick, a box, a dome on legs, a cone
+ * nose. Feet at (m.x, m.y), facing the way their side marches; the state flags
+ * the simulation keeps (`moving`, `fighting`, `digging`, `stuck`) are the whole
+ * animation system — a walk bob, a swing, and a spinning drill.
+ */
+export function drawMinion(ctx, m, time) {
+  const dir = m.side === 'player' ? 1 : -1;
+  const walk = m.moving ? Math.sin(m.t * 11) : 0;
+  const swing = m.fighting || m.digging ? Math.sin(m.t * 14) : 0;
+
+  // under the hill, the mound of moving earth is all the surface sees of it
+  if (m.underground) {
+    ctx.save();
+    ctx.translate(m.x, m.coverY);
+    ctx.beginPath();
+    ctx.arc(0, 1, 8, Math.PI, TAU);
+    ink(ctx, '#6b5233', 2.2);
+    ctx.beginPath();
+    ctx.arc(-dir * 6, 1, 4.5, Math.PI, TAU);
+    ink(ctx, '#7d6240', 1.8);
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 12, 3.4, 0, 0, TAU);
+  ctx.fill();
+  ctx.scale(dir, 1);
+
+  switch (m.kind) {
+    case 'squire': drawSquire(ctx, walk, swing); break;
+    case 'sapper': drawSapper(ctx, walk, swing, m.digging); break;
+    case 'ram': drawRam(ctx, m, swing); break;
+    case 'scrapper': drawScrapper(ctx, walk, swing); break;
+    case 'spider': drawSpider(ctx, m, walk); break;
+    default: drawMole(ctx, m, swing); break;
+  }
+  ctx.restore();
+
+  // the readouts stay upright whichever way it faces
+  if (m.hp < m.max) {
+    const frac = Math.max(0, m.hp / m.max);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(m.x - 10, m.y - 34, 20, 3.5);
+    ctx.fillStyle = frac > 0.4 ? '#6fd36a' : '#e8563a';
+    ctx.fillRect(m.x - 10, m.y - 34, 20 * frac, 3.5);
+    ctx.restore();
+  }
+  if (m.stuck) {
+    // stood at the foot of a hill it cannot climb: say so, so the player knows
+    // this column is theirs to free — with a shell into the hillside
+    ctx.save();
+    ctx.font = '800 13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 3;
+    ctx.strokeText('!', m.x, m.y - 32 + Math.sin(time * 5) * 1.5);
+    ctx.fillStyle = '#ffd646';
+    ctx.fillText('!', m.x, m.y - 32 + Math.sin(time * 5) * 1.5);
+    ctx.restore();
+  }
+}
+
+/** legs as two swinging strokes — every biped here shares them */
+function legs(ctx, walk, hipY, spread = 3.5) {
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-spread + walk * 2.4, 0);
+  ctx.lineTo(-spread * 0.5, hipY);
+  ctx.moveTo(spread - walk * 2.4, 0);
+  ctx.lineTo(spread * 0.5, hipY);
+  ctx.stroke();
+}
+
+function drawSquire(ctx, walk, swing) {
+  legs(ctx, walk, -8);
+  rr(ctx, -6, -20, 12, 13, 4);
+  ink(ctx, '#8a5a2e', 2.5);
+  // sword arm, raised and swung when there is something to hit
+  ctx.save();
+  ctx.translate(5, -16);
+  ctx.rotate(-0.7 + swing * 0.8);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(9, -7);
+  ctx.stroke();
+  ctx.strokeStyle = '#d8dee6';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(4, -3);
+  ctx.lineTo(13, -10);
+  ctx.stroke();
+  ctx.restore();
+  // shield out front
+  ctx.beginPath();
+  ctx.arc(6, -13, 5, 0, TAU);
+  ink(ctx, '#c9bfa4', 2.2);
+  // head and the plume that says "kingdom" at ten pixels tall
+  ctx.beginPath();
+  ctx.arc(0, -24, 4.8, 0, TAU);
+  ink(ctx, '#f4cba0', 2.2);
+  ctx.beginPath();
+  ctx.arc(0, -25.5, 4.8, Math.PI, TAU);
+  ink(ctx, '#9aa1a8', 2);
+  ctx.strokeStyle = '#c0335a';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(-1, -30);
+  ctx.quadraticCurveTo(-6, -33, -9, -30);
+  ctx.stroke();
+}
+
+function drawSapper(ctx, walk, swing, digging) {
+  legs(ctx, walk, -8);
+  rr(ctx, -6, -20, 12, 13, 4);
+  ink(ctx, '#7a6a3a', 2.5);
+  // the pick, swung overhead when the hill says no
+  ctx.save();
+  ctx.translate(4, -17);
+  ctx.rotate((digging ? -1.5 : -0.5) + swing * (digging ? 1 : 0.5));
+  ctx.strokeStyle = '#8a5a2e';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(12, -4);
+  ctx.stroke();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(9, -9);
+  ctx.quadraticCurveTo(14, -5, 12, 1);
+  ctx.stroke();
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(0, -24, 4.8, 0, TAU);
+  ink(ctx, '#f4cba0', 2.2);
+  // a hood, not a helmet: the digger dresses for the tunnel
+  ctx.beginPath();
+  ctx.arc(0, -25, 5, Math.PI * 0.9, TAU * 1.05);
+  ink(ctx, '#7a6a3a', 2);
+}
+
+function drawRam(ctx, m, swing) {
+  const roll = (m.x * 0.12) % TAU;
+  const lunge = Math.max(0, swing) * 6;
+  for (const dx of [-13, 13]) {
+    ctx.beginPath();
+    ctx.arc(dx, -6, 6, 0, TAU);
+    ink(ctx, '#8a5a2e', 2.4);
+    ctx.save();
+    ctx.translate(dx, -6);
+    ctx.rotate(roll);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(5, 0);
+    ctx.moveTo(0, -5);
+    ctx.lineTo(0, 5);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // the log, iron-capped, thrown forward on the swing
+  rr(ctx, -22 + lunge, -17, 42, 7.5, 3.5);
+  ink(ctx, '#a05f2c', 2.6);
+  rr(ctx, 16 + lunge, -18.5, 8, 10.5, 3);
+  ink(ctx, '#66788c', 2.4);
+  // the little roof its crew hides under
+  ctx.beginPath();
+  ctx.moveTo(-24, -20);
+  ctx.lineTo(0, -30);
+  ctx.lineTo(24, -20);
+  ctx.closePath();
+  ink(ctx, '#8a4a2a', 2.6);
+}
+
+function drawScrapper(ctx, walk, swing) {
+  legs(ctx, walk, -7, 4);
+  rr(ctx, -7, -18, 14, 12, 3);
+  ink(ctx, '#63768c', 2.5);
+  ctx.fillStyle = '#404c5a';
+  ctx.fillRect(-7, -9.5, 14, 2.5);
+  // one lamp of an eye, forward
+  ctx.beginPath();
+  ctx.arc(3.5, -13.5, 2.6, 0, TAU);
+  ink(ctx, '#4ce0ff', 1.8);
+  // claw arm
+  ctx.save();
+  ctx.translate(6, -12);
+  ctx.rotate(swing * 0.7);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(7, 2);
+  ctx.moveTo(7, 2);
+  ctx.lineTo(10, -1);
+  ctx.moveTo(7, 2);
+  ctx.lineTo(10, 5);
+  ctx.stroke();
+  ctx.restore();
+  // antenna
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-3, -18);
+  ctx.lineTo(-5, -24);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(-5.5, -25.5, 1.8, 0, TAU);
+  ink(ctx, '#ffd646', 1.6);
+}
+
+function drawSpider(ctx, m, walk) {
+  // four legs in two phases — the gait is the whole reason it climbs
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const side = i < 2 ? -1 : 1;
+    const phase = Math.sin(m.t * 12 + i * 1.7) * (m.moving ? 2.5 : 0.6);
+    const kx = side * (7 + i % 2 * 3) + phase;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(kx, -13 - (i % 2) * 2);
+    ctx.lineTo(kx * 1.5 + phase, 0);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(0, -12, 7.5, Math.PI * 0.95, TAU * 1.02);
+  ink(ctx, '#55637a', 2.5);
+  ctx.beginPath();
+  ctx.arc(2, -13, 2.8, 0, TAU);
+  ink(ctx, '#4ce0ff', 1.8);
+}
+
+function drawMole(ctx, m, swing) {
+  // treads
+  rr(ctx, -14, -8, 22, 8, 4);
+  ink(ctx, '#39434f', 2.5);
+  ctx.fillStyle = '#5c6b7d';
+  const roll = ((m.x * 0.3) % 6 + 6) % 6;
+  for (let i = -12 + roll; i < 7; i += 6) {
+    ctx.fillRect(i, -6.5, 2.5, 5);
+  }
+  // hull and the cone that does the arguing
+  rr(ctx, -14, -17, 20, 10, 3);
+  ink(ctx, '#63768c', 2.5);
+  const jab = (m.digging || m.fighting) ? Math.max(0, swing) * 3 : 0;
+  ctx.beginPath();
+  ctx.moveTo(5 + jab, -17);
+  ctx.lineTo(19 + jab, -11.5);
+  ctx.lineTo(5 + jab, -6);
+  ctx.closePath();
+  ink(ctx, '#d8dee6', 2.4);
+  ctx.strokeStyle = '#8ea3b8';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const o = ((m.t * 9 + i * 2) % 6) * 1.8;
+    ctx.moveTo(6 + jab + o, -16 + o * 0.38);
+    ctx.lineTo(6 + jab + o, -7 - o * 0.38);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(-9, -12.5, 2.2, 0, TAU);
+  ink(ctx, '#4ce0ff', 1.6);
+}
+
 /** The little pip drawn on the weapon dock — the same munition, half the size. */
 export function drawShotIcon(ctx, id, x, y, scale = 1) {
   ctx.save();

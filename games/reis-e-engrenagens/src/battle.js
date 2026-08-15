@@ -8,12 +8,13 @@
 
 import {
   CASTLE_X, CELL, CLIMB_COST, CLIMB_LIMIT, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, LEASH,
-  MAX_SEG, MIN_POWER, POWER_SPEED, TURN_LIMIT, W, WIND_MAX, clamp, makeRng, other,
+  LEVELS, MAX_SEG, MIN_POWER, POWER_SPEED, TURN_LIMIT, W, WIND_MAX, clamp, makeRng, other,
 } from './config.js';
 import { material } from './materials.js';
 import { ARSENAL, WEAPONS, craterRadius, damageAgainst, groundBonus, loadout } from './weapons.js';
 import { FLOOR_Y, buildTerrain } from './terrain.js';
 import { createCastle, grounded, gunSeat, settle, surfaceAt } from './structure.js';
+import { WAVE_EVERY, reapMinions, spawnWave, tickMinions, unlockedMinions } from './minions.js';
 
 const DEG = Math.PI / 180;
 /** How far past the edge of the map a shell may still be coming down. */
@@ -57,6 +58,9 @@ export function createMatch(cfg) {
     turnCount: 0,
     wind: 0,
     shots: [],
+    minions: [],
+    /** How far up the campaign this siege is — what the ground war has unlocked. */
+    stage: Math.max(0, LEVELS.indexOf(level)),
     events: [],
     over: null,
     pending: false,
@@ -204,6 +208,11 @@ export function createMatch(cfg) {
       L.blocked = Math.max(0, L.blocked - h);
     }
 
+    // the ground war walks in real time, turns or no turns; a bitten-through
+    // wall owes the world the same sweep a shell does
+    if (tickMinions(match, h)) sweep(match);
+    if (match.over) return;
+
     for (let i = match.shots.length - 1; i >= 0; i--) {
       const s = match.shots[i];
 
@@ -250,6 +259,13 @@ export function createMatch(cfg) {
    * different physics would be cheating in one direction or the other.
    */
   match.trace = (side, id, angle, power) => trace(match, side, id, angle, power);
+
+  // the first wave marches with the first turn, and a siege that just reached
+  // a new unlock says so — a mechanic nobody is told about is a bug report
+  for (const side of ['player', 'enemy']) spawnWave(match, side, match.stage);
+  for (const spec of unlockedMinions(faction, match.stage)) {
+    if (spec.unlock === match.stage && match.stage > 0) match.say('recruit', { kind: spec.id });
+  }
 
   return match;
 }
@@ -444,6 +460,17 @@ export function detonate(match, x, y, w, side, exclude = null, vel = null) {
   told.sort((a, b) => b.dmg - a.dmg);
   for (const h of told.slice(0, 3)) match.say('hit', { x: h.x, y: h.y, dmg: Math.round(h.dmg) });
 
+  // Walkers are soft on purpose: any shell is an answer to a column of them —
+  // theirs, to free your own march, or yours, if you aimed that badly.
+  if (match.minions) {
+    const kill = reach + 14;
+    for (const mn of match.minions) {
+      const d = Math.hypot(mn.x - x, mn.y - 12 - y);
+      if (d < kill) mn.hp -= w.damage * (1 - d / kill);
+    }
+    reapMinions(match);
+  }
+
   // The tesla coil looks for metal. On the scrapyard the whole field is metal,
   // which is exactly why the scrapyard is where you want to bring it.
   if (w.arc) {
@@ -577,6 +604,10 @@ function endTurn(match) {
   match.wind = rollWind(match.rng);
   // a full tank every turn: fuel is a per-turn allowance, not a resource to hoard
   match.launchers[match.turn].fuel = DRIVE_FUEL;
+  // both sides muster on the same beat, so neither army ever outnumbers by schedule
+  if (match.turnCount % WAVE_EVERY === 0) {
+    for (const side of ['player', 'enemy']) spawnWave(match, side, match.stage);
+  }
   match.say('turn', { side: match.turn, wind: match.wind });
 }
 

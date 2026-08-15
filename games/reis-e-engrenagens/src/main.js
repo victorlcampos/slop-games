@@ -521,6 +521,9 @@ function update(h) {
   }
 }
 
+/** The last time a walker's swing made a noise — six of them chop in chorus. */
+let chopT = -9;
+
 /** Turn what the match said into noise, dirt and a shaken camera. */
 function drain() {
   for (const ev of match.take()) {
@@ -573,13 +576,36 @@ function drain() {
         fx.shards(ev.x, ev.y, '#8a6a45', 10);
         sfx.tumble();
         break;
+      case 'wave':
+        if (ev.side === 'player') {
+          say(t('hud.wave'));
+          sfx.wave();
+        }
+        break;
+      case 'recruit':
+        say(t('hud.newMinion', { name: t(`mn.${ev.kind}`) }));
+        break;
+      case 'mdie':
+        fx.shards(ev.x, ev.y, match.faction[ev.side] === 'machines' ? '#4ce0ff' : '#c0335a', 8);
+        sfx.crack(match.faction[ev.side] === 'machines' ? 'iron' : 'wood');
+        break;
+      case 'mhit':
+      case 'mdig':
+        if (ev.kind === 'mdig') fx.shards(ev.x, ev.y, terrain.spec.dust, 5);
+        if (time - chopT > 0.18) {
+          chopT = time;
+          sfx.chop();
+        }
+        break;
       case 'kinghit':
         if (ev.x !== undefined) {
           fx.number(ev.x, ev.y - 26, `-${Math.min(999, Math.round(ev.damage))}`, { color: '#ff7a6a', size: 22 });
         }
-        slowT = Math.max(slowT, 0.55);
+        // a shell on the crown earns the slow motion; a walker's bite is a
+        // clock ticking, and a clock in permanent slow motion is just lag
+        if (ev.damage >= 15) slowT = Math.max(slowT, 0.55);
         sfx.kinghit();
-        shake = Math.max(shake, 1);
+        shake = Math.max(shake, ev.damage >= 15 ? 1 : 0.4);
         break;
       case 'turn':
         if (ev.side === 'player') {

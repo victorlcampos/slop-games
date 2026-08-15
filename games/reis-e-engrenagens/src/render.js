@@ -10,7 +10,7 @@
 import { BASE_Y, CELL, COLS, DRIVE_FUEL, GRAVITY, GUN_HEIGHT, POWER_SPEED, ROWS, WIND_MAX } from './config.js';
 import { MATERIALS, material } from './materials.js';
 import { AMMO_CAP, WEAPONS, specials } from './weapons.js';
-import { INK, drawBlock, drawLauncher, drawShot, drawShotIcon, ink } from './art.js';
+import { INK, drawBlock, drawLauncher, drawMinion, drawShot, drawShotIcon, ink } from './art.js';
 import { battleLayout, button, hit, label, meter, paletteLayout, panel, shopButtons, textWidth } from './ui.js';
 import { t, materialName, weaponName } from './i18n.js';
 
@@ -38,6 +38,11 @@ export function drawField(ctx, view) {
 
   for (const side of ['player', 'enemy']) {
     drawCastle(ctx, match, side, match.faction[side], fx, time);
+  }
+
+  // the ground war, walking between the two of them
+  if (match.minions) {
+    for (const mn of match.minions) drawMinion(ctx, mn, time);
   }
 
   for (const side of ['player', 'enemy']) {

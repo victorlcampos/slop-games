@@ -18,6 +18,7 @@ import { canPlace, canRemove, createCastle, grounded, settle, supportOf, unsuppo
 import { blueprintCost, foeCastle, normalizeBlueprint } from '../src/castles.js';
 import { createWorkshop, suggestBlueprint } from '../src/workshop.js';
 import { freshRun, normalizeRun, reward } from '../src/run.js';
+import { BITE_EVERY, MINIONS, unlockedMinions } from '../src/minions.js';
 import { chargeAt } from '../src/controls.js';
 import { battleLayout, hit, paletteLayout } from '../src/ui.js';
 import { dict } from '../src/i18n.js';
@@ -36,6 +37,7 @@ scenario('everything the game names on screen has a phrase to name it with', () 
     ...Object.keys(MATERIALS).flatMap((m) => [`m.${m}`, `m.${m}.note`]),
     ...Object.keys(WEAPONS).flatMap((w) => [`w.${w}`, `w.${w}.note`]),
     ...LEVELS.flatMap((l) => [`lv.${l.id}`, `lv.${l.id}.note`]),
+    ...Object.keys(MINIONS).map((id) => `mn.${id}`),
     'm.king',
   ];
   const missing = wanted.filter((k) => !dict[k]);
@@ -356,6 +358,47 @@ scenario('a save from before the armory is handed the default kit, not a bill', 
   check(junk.loadout.firepot === 0, `-3 fire pots came out as ${junk.loadout.firepot}`);
   check(!('tesla' in junk.loadout), "a knight's save smuggled a tesla coil in");
   check(junk.coins >= ammoCost('knights', junk.loadout), 'the purse cannot cover the rack the save claims');
+});
+
+// ----------------------------------------------------------- the two armies
+
+scenario('the two armies are mirrors in weight, not in kind', () => {
+  for (const stage of [0, 1, 3]) {
+    const kn = unlockedMinions('knights', stage);
+    const mc = unlockedMinions('machines', stage);
+    check(kn.length === mc.length, `at stage ${stage} the kingdom fields ${kn.length} kinds and the machines ${mc.length}`);
+
+    // head-on, tier for tier, neither side's walker wins a duel outright:
+    // time-to-kill each other stays inside a band
+    for (let i = 0; i < kn.length; i++) {
+      const a = kn[i];
+      const b = mc[i];
+      const knKills = b.hp / a.mdps;
+      const mcKills = a.hp / b.mdps;
+      const ratio = knKills / mcKills;
+      check(ratio > 0.65 && ratio < 1.55,
+        `${a.id} vs ${b.id}: the duel decides in ${knKills.toFixed(1)}s against ${mcKills.toFixed(1)}s — one side just wins`);
+    }
+
+    // neither army out-eats the other's walls by more than the identity gap
+    const wall = (list) => list.reduce((s, m) => s + m.bite / BITE_EVERY, 0);
+    const pressure = wall(kn) / wall(mc);
+    check(pressure > 0.6 && pressure < 1.67,
+      `at stage ${stage} the kingdom eats walls at ${wall(kn).toFixed(1)}/s against ${wall(mc).toFixed(1)}/s`);
+
+    // and from the first unlock on, both sides have an answer to a mountain —
+    // one digs, the other climbs, nobody is simply walled out of a map
+    if (stage >= 1) {
+      check(kn.some((m) => m.dig > 0 || m.climb > 3), 'the kingdom has no answer to a steep face');
+      check(mc.some((m) => m.dig > 0 || m.climb > 3), 'the machines have no answer to a steep face');
+    }
+  }
+
+  // the unlock ladder itself is symmetric: kind number n arrives on the same
+  // siege for both crowns
+  const ladder = (f) => Object.values(MINIONS).filter((m) => m.faction === f).map((m) => m.unlock).sort();
+  check(ladder('knights').join(',') === ladder('machines').join(','),
+    `the kingdom unlocks at [${ladder('knights')}] and the machines at [${ladder('machines')}]`);
 });
 
 // --------------------------------------------------------- the enemy castle
