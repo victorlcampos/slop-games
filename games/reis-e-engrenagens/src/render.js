@@ -721,7 +721,10 @@ function drawArmory(ctx, shop) {
     label(ctx, fit(ctx, weaponName(id), 92, 11), x + 38, ry + 13, { size: 11, weight: 600, color: '#e5dcc6' });
     label(ctx, t('shop.each', { n: price }), x + 38, ry + 29, { size: 11, color: '#b3a98f' });
 
-    const minus = { id, kind: 'ammo', delta: -1, x: x + w - 84, y: ry + 4, w: 30, h: 34, pad: 8 };
+    // three clear columns: the − button, the count in the gap, the + button —
+    // the first cut centred the count *inside* the − button, and on a phone
+    // the row read as one mangled "−3" key
+    const minus = { id, kind: 'ammo', delta: -1, x: x + w - 88, y: ry + 4, w: 30, h: 34, pad: 8 };
     const plus = { id, kind: 'ammo', delta: 1, x: x + w - 36, y: ry + 4, w: 30, h: 34, pad: 8 };
     const canSell = count > 0;
     const canBuy = count < AMMO_CAP && price <= shop.left();
@@ -736,7 +739,7 @@ function drawArmory(ctx, shop) {
       });
       rects.push(r2);
     }
-    label(ctx, String(count), x + w - 61, ry + rowH / 2 - 2, {
+    label(ctx, String(count), x + w - 47, ry + rowH / 2 - 2, {
       size: 17, align: 'center', color: count > 0 ? '#ffe08a' : 'rgba(240,232,214,0.4)',
     });
   }

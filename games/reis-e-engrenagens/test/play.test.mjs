@@ -20,7 +20,9 @@ import { suggestBlueprint } from '../src/workshop.js';
 import { pickTarget, planDrive, planShot, skillNow } from '../src/ai.js';
 import { MACHINE_PROPS, MEDIEVAL_PROPS, createScene, towardMachines } from '../src/scene.js';
 import { createFx } from '../src/fx.js';
-import { drawBattleHud, drawField } from '../src/render.js';
+import { drawBattleHud, drawField, drawShopHud } from '../src/render.js';
+import { createWorkshop } from '../src/workshop.js';
+import { defaultLoadout } from '../src/weapons.js';
 
 // ------------------------------------------------------------------ helpers
 
@@ -888,6 +890,30 @@ scenario('a whole frame draws — field, castles, shells, dirt and the dock', ()
   check(rects.filter((r) => r.kind === 'weapon').length === 4, `the dock came back with ${rects.length} slots`);
   check(rects.filter((r) => r.kind === 'drive').length === 2, 'the drive pads are not on the screen');
   check(rects.every((r) => r.w > 0 && r.h > 0), 'a control has no area to tap');
+});
+
+scenario('the armory rows keep their buttons apart and leave the count its own column', () => {
+  // the first cut centred the count inside the − button, and on a phone the
+  // row read as one mangled "−3" key — this keeps the three columns three
+  const m = mk();
+  const shop = createWorkshop({
+    blueprint: null, coins: 400, terrain: m.terrain, faction: 'knights', loadout: defaultLoadout('knights'),
+  });
+  const ctx = headlessContext(1280, 720);
+  const rects = drawShopHud(ctx, { W: 1280, H: 720 }, shop, LEVELS[0], {}).filter((r) => r.kind === 'ammo');
+  check(rects.length === 6, `three munitions should make six buttons, not ${rects.length}`);
+
+  const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      check(!overlap(rects[i], rects[j]), `armory buttons ${i} and ${j} overlap`);
+    }
+  }
+  for (const id of Object.keys(shop.ammo)) {
+    const pair = rects.filter((r) => r.id === id).sort((a, b) => a.x - b.x);
+    const gap = pair[1].x - (pair[0].x + pair[0].w);
+    check(gap >= 18, `${id}: only ${gap.toFixed(0)}px between − and + — the count has nowhere to live`);
+  }
 });
 
 scenario('every munition and every material has something to draw', () => {
