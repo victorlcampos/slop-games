@@ -16,7 +16,7 @@ installHeadlessDom();      // render.js reaches i18n, which reads localStorage o
 
 const {
   UNIT, GUNS, FLAG, TURRET, PAD, REGEN, TARGET, PHASES, ARENA_W, ARENA_H, ROLL, TILE, VISION,
-  dist, other, viewWidth, cameraFor, angleDelta, RAD,
+  BOT_RANGE, dist, other, viewWidth, cameraFor, angleDelta, RAD,
 } = await import('../src/config.js');
 const { buildArena } = await import('../src/arena.js');
 const { createGame, assistedAim, nearestThreat, segmentHit } = await import('../src/game.js');
@@ -333,7 +333,7 @@ scenario('the gun finds the man you pointed at, and never one behind a wall', ()
 const offBy = (facing, want) => Math.abs(angleDelta(facing, want)) / RAD;
 const at = (u, x, y) => Math.atan2(y - u.y, x - u.x);
 
-scenario('with nobody on the trigger he watches the man, not his own feet', () => {
+scenario('with nobody on the trigger he watches the man in front, not the one behind', () => {
   const game = open(0, { quiet: false });
   const me = game.player;
   const foe = game.units.find((u) => u.team === 'alien');
@@ -341,22 +341,49 @@ scenario('with nobody on the trigger he watches the man, not his own feet', () =
   const lane = open_lane(game);
   me.x = lane.x;
   me.y = lane.y;
-  me.facing = Math.PI;                       // starting off looking the other way
+  me.facing = 0;                             // eyes on him, the fight just over
   foe.dead = false;
   foe.hp = UNIT.hp;
   foe.bot = false;                           // no brain: he stands where he is put
   const spot = { x: lane.x + 300, y: lane.y };
   const stand = (o) => () => { foe.x = spot.x; foe.y = spot.y; foe.vx = 0; foe.vy = 0; return o; };
 
-  // walking away from him with both hands off the gun
+  // backing away from him with both hands off the gun: the shoulders stay on
+  // the fight, which is the whole of walking backwards out of one
   tick(game, 1, stand({ mx: -1, my: 0 }));
   check(offBy(me.facing, at(me, spot.x, spot.y)) < 4,
     `backing away from a man in plain sight he ended up looking ${offBy(me.facing, at(me, spot.x, spot.y)).toFixed(0)}° off him`);
 
-  // and with the field empty he looks where his feet are going — the second
+  // a man BEHIND him in plain sight does not steer the walk. The lit arenas
+  // see 360° and 900px, so "he can see him" alone had the soldier crossing the
+  // whole field backwards, staring at somebody off the player's screen — the
+  // walking-backwards bug, as reported from a phone. One second of walking so
+  // he stays inside `BOT_RANGE` the whole way: past it the other bar takes
+  // over, and this check would no longer be the cone's.
+  me.x = lane.x;
+  me.facing = Math.PI;
+  me.combat = 0;
+  tick(game, 1, stand({ mx: -1, my: 0 }));
+  check(dist(me.x, me.y, spot.x, spot.y) < BOT_RANGE, 'the test walked him out of range, so the cone was never the bar');
+  check(offBy(me.facing, Math.PI) < 6,
+    `walking west with a man behind him he faces ${offBy(me.facing, Math.PI).toFixed(0)}° off his feet`);
+
+  // and too far to be a fight is too far to stare at: in front, in plain
+  // sight, but past the line a fight starts at, the feet keep the shoulders
+  me.x = spot.x - BOT_RANGE - 60;
+  me.y = spot.y;
+  me.facing = 0;                             // square on to him, only far
+  me.combat = 0;
+  check(game.visibleTo(me, spot.x, spot.y), 'the test wants him visible, only far');
+  tick(game, 1, stand({ mx: -1, my: 0 }));
+  check(offBy(me.facing, Math.PI) < 6,
+    `walking away from a man a screen away he faces ${offBy(me.facing, Math.PI).toFixed(0)}° off his feet`);
+
+  // and with the field empty he looks where his feet are going — the last
   // half of the rule, and the one that stops him staring at a ghost
   foe.dead = true;
   foe.respawnT = 1e6;
+  me.x = lane.x;
   tick(game, 2.4, { mx: -1, my: 0 });
   check(offBy(me.facing, Math.PI) < 6,
     `with nobody in sight, walking west, he faces ${offBy(me.facing, Math.PI).toFixed(0)}° off it`);

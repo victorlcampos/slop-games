@@ -51,8 +51,10 @@ around it is trigger, so a near-miss used to fire the shot you were rolling
 away from.
 
 **Where the soldier is looking is never a surprise.** With nobody touching the
-gun he watches the nearest man he can actually see, and where his feet are
-going when there is nobody. A burst takes its man on the press and keeps him
+gun he watches the nearest man **ahead of him** that he can see and that is
+close enough to be a fight — never one behind him or a screen away, which in
+the lit arenas' 360° of sight had him crossing the field walking backwards —
+and where his feet are going when there is nobody. A burst takes its man on the press and keeps him
 for as long as the finger is down — out past what the gun in your hands
 reaches, and, when he ducks out of sight, straight through the doorway he went
 through rather than swinging onto somebody else. Letting go and pressing again

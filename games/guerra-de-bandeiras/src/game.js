@@ -9,7 +9,7 @@
 // of hard that is worth playing against.
 
 import {
-  UNIT, ROLL, ASSIST, GUNS, TURRET, PAD, TARGET, REGEN, TILE, eyesOf,
+  UNIT, ROLL, ASSIST, GUNS, TURRET, PAD, TARGET, REGEN, TILE, eyesOf, BOT_RANGE,
   botStats, makeRng, clamp, dist, dist2, other, turnTowards, angleDelta, RAD,
 } from './config.js';
 import { cellOf, centreOf, moveCircle, lineOfSight, castRay, flowField, nearestOpen, BASE_H, BASE_A } from './grid.js';
@@ -390,9 +390,11 @@ function playerOrders(game, u, input) {
     return orders;
   }
 
-  // Nothing on the trigger and nothing pointing anywhere. He watches whoever he
-  // can actually see — the eyes' own test, so at night the torch is still the
-  // torch and a man round the corner is not being watched through a wall.
+  // Nothing on the trigger and nothing pointing anywhere. He watches the man
+  // ahead of him if he can actually see one — the eyes' own test, so at night
+  // the torch is still the torch and a man round the corner is not being
+  // watched through a wall. A man behind him does not steer the walk
+  // (`visibleThreat` says why not).
   const watched = visibleThreat(game, u);
   if (watched) {
     u.aimHold = Math.atan2(watched.y - u.y, watched.x - u.x);
@@ -418,20 +420,30 @@ export function stillThere(game, u, t) {
 }
 
 /**
- * The nearest enemy this body can **see** — the cone, the reach and the wall,
- * the same test the light on the field is drawn from.
+ * The nearest enemy **ahead of** this body that it can see and would call a
+ * fight — the man whose stand-off is worth the shoulders.
  *
- * It is deliberately stricter than `nearestThreat`: a bare trigger searches all
- * the way round because you know where the man shooting you in the back is, but
- * a soldier with his hands down does not turn to look at something behind him.
+ * "Can see" alone was the whole of it once, and on a phone that read as a
+ * broken game: five of the six arenas are lit, the eyes there are 360° and
+ * reach 900px, so a man behind you and a screen away still took the shoulders
+ * — and the soldier crossed the field walking backwards, staring at somebody
+ * the player could not even see. Two bars on top of the eyes fix both halves:
+ * the man has to be in the half-circle ahead of the shoulders (at night the
+ * torch is narrower still, and it rules), and inside the line a fight actually
+ * starts at (`BOT_RANGE`), which is also roughly the edge of the screen.
+ *
+ * `nearestThreat` stays deliberately looser: a bare trigger searches all the
+ * way round because you know where the man shooting you in the back is, but a
+ * soldier with his hands down does not turn to look at something behind him.
  */
 export function visibleThreat(game, u) {
   let best = null;
-  let bestD = Infinity;
+  let bestD = BOT_RANGE * BOT_RANGE;
   for (const e of game.units) {
     if (e.dead || e.team === u.team) continue;
     const d = dist2(u.x, u.y, e.x, e.y);
     if (d >= bestD) continue;
+    if (Math.abs(angleDelta(u.facing, Math.atan2(e.y - u.y, e.x - u.x))) > Math.PI / 2) continue;
     if (!game.visibleTo(u, e.x, e.y)) continue;
     bestD = d;
     best = e;
