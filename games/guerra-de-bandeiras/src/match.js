@@ -5,10 +5,17 @@
 // what happens to a flag whose carrier is face down on the deck — and every one
 // of them is a rule a test can hold to account without a bullet in the air.
 //
-// The rule that shapes the whole match is the third one down: **a capture only
-// counts while your own flag is in its stand.** Without it two squads sprint
-// past each other for ten minutes and the score ends level; with it, somebody
-// on every side has to turn round and go home.
+// Two rules shape the whole match.
+//
+// **A capture only counts while your own flag is in its stand.** Without it two
+// squads sprint past each other for ten minutes and the score ends level; with
+// it, somebody on every side has to turn round and go home.
+//
+// And **your own flag has to be carried back**. Touching it does not send it
+// home — you pick it up, and it is in its stand again when *you* are. That is
+// the difference between a defender who has to be somewhere and a defender who
+// only has to run past; a flag on the deck is a body committed to the walk
+// home, in the open, with both hands full.
 
 import { FLAG, TARGET, TILE, dist, other } from './config.js';
 import { cellOf, centreOf } from './grid.js';
@@ -54,8 +61,8 @@ export function sendHome(game, flag, reason = 'returned') {
  * dark is a flag back in its stand, which is what everybody expects anyway.
  */
 export function dropFlag(game, unit) {
-  const flag = game.flags[other(unit.team)];
-  if (flag.state !== 'carried' || flag.carrier !== unit.id) return;
+  const flag = carriedBy(game, unit);
+  if (!flag) return;
   const c = cellOf(unit.x, unit.y);
   if (!game.grid.walkable(c.cx, c.cy)) {
     sendHome(game, flag, 'returned');
@@ -72,23 +79,51 @@ export function dropFlag(game, unit) {
 }
 
 /**
- * Everything a body walking around does to a flag, resolved in the order a
- * referee would: you return your own before you pick up theirs, and you can
- * only score with the one you are actually carrying.
+ * Everything a body walking around does to a flag.
+ *
+ * **One flag at a time, and the only thing that puts one back in its stand is
+ * somebody arriving with it.** A body already carrying something cannot pick up
+ * anything else; a body carrying its own flag is walking it home; a body
+ * carrying theirs is walking it to a point, and that point only counts if his
+ * own flag is where it belongs.
  */
 export function touchFlags(game, unit) {
   if (unit.dead) return;
   const mine = game.flags[unit.team];
   const theirs = game.flags[other(unit.team)];
+  const stand = mine.home;
+  const atStand = dist(unit.x, unit.y, stand.x, stand.y) <= FLAG.capR;
 
-  // yours, lying on the deck: touching it sends it home, and that is what
-  // re-opens your own end zone
-  if (mine.state === 'dropped' && dist(unit.x, unit.y, mine.x, mine.y) <= FLAG.returnR + unit.r) {
-    sendHome(game, mine, 'returned');
-    game.credit(unit, 'return');
+  // ---- already carrying his own flag: the walk home, and nothing else
+  if (mine.state === 'carried' && mine.carrier === unit.id) {
+    if (atStand) {
+      sendHome(game, mine, 'restored');
+      game.credit(unit, 'return');
+    }
+    return;
   }
 
-  // theirs, in its stand or on the deck: you are carrying it now
+  // ---- already carrying theirs: the point, if his own is where it belongs
+  if (theirs.state === 'carried' && theirs.carrier === unit.id) {
+    if (atStand && mine.state === 'home') {
+      sendHome(game, theirs, null);
+      game.score[unit.team]++;
+      game.credit(unit, 'capture');
+      game.say({ kind: 'captured', team: unit.team });
+      if (game.score[unit.team] >= TARGET) game.finish(unit.team);
+    }
+    return;
+  }
+
+  // ---- carrying nothing: his own off the deck first, then theirs
+  if (mine.state === 'dropped' && dist(unit.x, unit.y, mine.x, mine.y) <= FLAG.returnR + unit.r) {
+    mine.state = 'carried';
+    mine.carrier = unit.id;
+    mine.timer = 0;
+    game.say({ kind: 'recovered', team: mine.team });
+    return;
+  }
+
   if ((theirs.state === 'home' || theirs.state === 'dropped')
       && dist(unit.x, unit.y, theirs.x, theirs.y) <= FLAG.pickR + unit.r) {
     theirs.state = 'carried';
@@ -96,28 +131,32 @@ export function touchFlags(game, unit) {
     theirs.timer = 0;
     game.say({ kind: 'taken', team: theirs.team, by: unit.team });
   }
-
-  // and home with it — but only if your own is where it belongs
-  if (theirs.state === 'carried' && theirs.carrier === unit.id) {
-    const stand = mine.home;
-    if (dist(unit.x, unit.y, stand.x, stand.y) <= FLAG.capR && mine.state === 'home') {
-      sendHome(game, theirs, null);
-      game.score[unit.team]++;
-      game.credit(unit, 'capture');
-      game.say({ kind: 'captured', team: unit.team });
-      if (game.score[unit.team] >= TARGET) game.finish(unit.team);
-    }
-  }
 }
 
-/** A flag nobody came back for walks home by itself. */
+/**
+ * A flag on the deck stays there.
+ *
+ * It used to walk home by itself after fourteen seconds, and that quietly
+ * undid the rule above: whoever knocked your flag out of a carrier's hands
+ * could simply wait, so nobody ever had to make the walk. The only way one
+ * moves now is in somebody's hands — which is safe because a flag is never
+ * dropped anywhere a body cannot stand (see `dropFlag`), so there is always a
+ * walk home available to somebody.
+ */
 export function updateFlags(game, dt) {
   for (const team of ['human', 'alien']) {
     const flag = game.flags[team];
-    if (flag.state !== 'dropped') continue;
-    flag.timer += dt;
-    if (flag.timer >= FLAG.dropTime) sendHome(game, flag, 'returned');
+    if (flag.state === 'dropped') flag.timer += dt;      // how long it has lain there
   }
+}
+
+/** The flag this body is holding, if any — his own counts. */
+export function carriedBy(game, unit) {
+  for (const team of ['human', 'alien']) {
+    const flag = game.flags[team];
+    if (flag.state === 'carried' && flag.carrier === unit.id) return flag;
+  }
+  return null;
 }
 
 /** Who is carrying the flag of `team`, if anybody. */

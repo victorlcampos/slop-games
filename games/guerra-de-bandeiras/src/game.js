@@ -14,7 +14,7 @@ import {
 } from './config.js';
 import { cellOf, moveCircle, lineOfSight, castRay, flowField } from './grid.js';
 import { buildArena } from './arena.js';
-import { createFlags, touchFlags, updateFlags, dropFlag, carrierOf, flagPoint, sendHome } from './match.js';
+import { createFlags, touchFlags, updateFlags, dropFlag, carriedBy, carrierOf, flagPoint, sendHome } from './match.js';
 import { botOrders, assignRoles } from './ai.js';
 import { canSee } from './vision.js';
 
@@ -384,8 +384,7 @@ export function assistedAim(game, u, raw) {
 /** The only thing in the game that moves a body, whoever is asking. */
 function applyOrders(game, u, o, dt) {
   const stats = u.bot ? botStats(game.arena.skill) : null;
-  const carrying = game.flags[other(u.team)].carrier === u.id;
-  const top = UNIT.speed * (carrying ? UNIT.carry : 1) * (stats ? stats.speed : 1);
+  const top = UNIT.speed * (carriedBy(game, u) ? UNIT.carry : 1) * (stats ? stats.speed : 1);
 
   const len = Math.hypot(o.mx, o.my);
   const want = len > 0.001 ? { x: o.mx / len, y: o.my / len } : { x: 0, y: 0 };
@@ -714,4 +713,4 @@ function teleport(game, u, dt) {
   }
 }
 
-export { TARGET, carrierOf, flagPoint, sendHome };
+export { TARGET, carrierOf, carriedBy, flagPoint, sendHome };

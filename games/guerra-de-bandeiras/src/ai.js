@@ -10,15 +10,15 @@
 //
 // The list, from the top:
 //
-//   1. Am I holding their flag?          → home, and nothing else matters
-//   2. Is somebody running off with ours? → after them
-//   3. Is ours lying on the deck?         → touch it, that re-opens our end zone
-//   4. Is one of mine carrying theirs?    → get between him and the field
+//   1. Am I holding a flag?               → my own stand, and nothing else matters
+//   2. Is somebody running off with ours?  → after them
+//   3. Is ours lying on the deck?          → fetch it, and carry it home
+//   4. Is one of mine carrying one?        → get between him and the field
 //   5. Otherwise → my job: their flag, or the ground around ours
 
 import { BOT_RANGE, botStats, dist, dist2, other, clamp } from './config.js';
 import { cellOf, centreOf, stepAlong } from './grid.js';
-import { carrierOf, flagPoint } from './match.js';
+import { carrierOf, carriedBy, flagPoint } from './match.js';
 
 export function botOrders(game, u, dt) {
   const stats = botStats(game.arena.skill);
@@ -50,7 +50,7 @@ export function botOrders(game, u, dt) {
 
   // The roll is spent on the two moments it was built for: getting a stolen
   // flag out of a hot end zone, and closing on the man carrying yours.
-  const carrying = game.flags[enemyTeam].carrier === u.id;
+  const carrying = !!carriedBy(game, u);
   const hunting = goal.kind === 'chase';
   if ((carrying || hunting) && u.rollCool <= 0 && (move.x || move.y) && game.rng() < dt * 1.6) {
     // a press, not a hold: the roll is edge-triggered, so it has to fall again
@@ -96,12 +96,14 @@ function chooseGoal(game, u, stats, dt) {
   const mine = game.flags[u.team];
   const theirs = game.flags[enemyTeam];
 
-  if (theirs.carrier === u.id) {
+  // his own stand answers two different jobs: arriving with their flag is a
+  // point, arriving with his own puts it back in the ground
+  if (theirs.carrier === u.id || mine.carrier === u.id) {
     return { kind: 'home', ...mine.home };
   }
 
-  const raider = carrierOf(game, u.team);        // whoever is running off with ours
-  if (raider) {
+  const holder = carrierOf(game, u.team);        // whoever has ours, whichever side
+  if (holder && holder.team !== u.team) {
     // The standoff, and the reason this clause is not just "defenders chase".
     // Both flags out at once is the state capture the flag deadlocks in: each
     // carrier stands on his own stand, neither can score, and a squad that
@@ -110,16 +112,25 @@ function chooseGoal(game, u, stats, dt) {
     // With both flags in hands the only move on the board is the enemy
     // carrier, so **everybody** goes for him.
     const standoff = theirs.state === 'carried';
-    const far = dist(u.x, u.y, raider.x, raider.y);
-    if (standoff || u.role === 'defend' || far < 320) return { kind: 'chase', x: raider.x, y: raider.y };
+    const far = dist(u.x, u.y, holder.x, holder.y);
+    if (standoff || u.role === 'defend' || far < 320) {
+      return { kind: 'chase', x: holder.x, y: holder.y };
+    }
   }
 
+  // Ours on the deck. It does not walk home by itself any more, so this is a
+  // job somebody has to take: every defender, anybody close, and — whatever
+  // else is happening — the nearest body on the squad. A flag nobody fetches is
+  // a squad that cannot score, because a point needs its own flag in its stand.
   if (mine.state === 'dropped') {
     const far = dist(u.x, u.y, mine.x, mine.y);
-    if (u.role === 'defend' || far < 340) return { kind: 'recover', x: mine.x, y: mine.y };
+    if (u.role === 'defend' || far < 420 || nearestFree(game, u, mine) === u) {
+      return { kind: 'recover', x: mine.x, y: mine.y };
+    }
   }
 
-  const friend = carrierOf(game, enemyTeam);     // one of ours, holding theirs
+  // one of ours walking a flag home — either one — is worth walking with
+  const friend = carrierOf(game, enemyTeam) || (holder && holder.team === u.team ? holder : null);
   if (friend && friend.id !== u.id && u.role === 'attack'
       && dist(u.x, u.y, friend.x, friend.y) < 520) {
     return { kind: 'escort', x: friend.x, y: friend.y };
@@ -132,13 +143,11 @@ function chooseGoal(game, u, stats, dt) {
 
   // A defender standing on the stand is a defender who dies to the first shot
   // of a man he never saw. He walks a slow loop around it instead, which is
-  // also what puts him in the doorways rather than in the middle. The loop
-  // advances with the clock and not with the frame: on a 144 Hz screen he
-  // would otherwise pace his own base almost three times as fast.
-  // The lap is timed off `u.slot` — his place among his own squad's defenders —
-  // and never off an id or a spawn: see `assignRoles` for what that cost.
+  // also what puts him in the doorways rather than in the middle. The lap is
+  // timed off `u.slot` — his place among his own squad's defenders — and never
+  // off an id or a spawn: see `assignRoles` for what that cost.
   u.orbit += dt * (0.5 + (u.slot % 3) * 0.2);
-  const r = 92 + (u.slot % 3) * 58;
+  const r = 132 + (u.slot % 3) * 56;
   // and the lap is walked **towards the field**, which is a different direction
   // for each side: an orbit that ran east for both squads put one defender in
   // front of his stand and the other behind his at every moment of the match.
@@ -149,6 +158,21 @@ function chooseGoal(game, u, stats, dt) {
     x: mine.home.x + Math.cos(u.orbit) * r * forward,
     y: mine.home.y + Math.sin(u.orbit) * r * 0.8,
   };
+}
+
+/** The closest body on this squad with its hands free — the one who fetches. */
+function nearestFree(game, u, flag) {
+  let best = null;
+  let bestD = Infinity;
+  for (const m of game.units) {
+    if (m.dead || m.team !== u.team || carriedBy(game, m)) continue;
+    const d = dist(m.x, m.y, flag.x, flag.y);
+    if (d < bestD) {
+      bestD = d;
+      best = m;
+    }
+  }
+  return best;
 }
 
 /**

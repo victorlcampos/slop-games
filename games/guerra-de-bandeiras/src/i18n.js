@@ -14,12 +14,12 @@ export const dict = {
   'side.alien': { pt: 'Sentinelas', en: 'Sentinels' },
   'side.pick': { pt: 'De que lado você joga?', en: 'Which side are you on?' },
   'side.humanNote': {
-    pt: 'Fuzil rápido e leve: treze tiros derrubam um corpo, seis por segundo.',
-    en: 'A fast, light rifle: thirteen rounds put a body down, six a second.',
+    pt: 'Fuzil rápido e leve: nove tiros derrubam um corpo, seis por segundo.',
+    en: 'A fast, light rifle: nine rounds put a body down, six a second.',
   },
   'side.alienNote': {
-    pt: 'Blaster pesado: oito bolas derrubam um corpo, e você paga esperando a próxima.',
-    en: 'A heavy blaster: eight bolts put a body down, and you pay for it waiting.',
+    pt: 'Blaster pesado: seis bolas derrubam um corpo, e você paga esperando a próxima.',
+    en: 'A heavy blaster: six bolts put a body down, and you pay for it waiting.',
   },
 
   'menu.start': { pt: 'Entrar em campo', en: 'Take the field' },
@@ -48,8 +48,8 @@ export const dict = {
     en: 'On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button rolls.',
   },
   'menu.tip': {
-    pt: 'Ninguém defende o seu pedestal sozinho. Se a sua bandeira sumiu, o ponto não entra: alguém tem que voltar.',
-    en: 'Nobody holds your stand on their own. With your flag gone the point does not count: somebody has to turn round.',
+    pt: 'Se a sua bandeira sumiu, o ponto não entra — e ela não volta sozinha: alguém do seu time tem que pegar do chão e carregar até o pedestal, no aberto, de mãos ocupadas.',
+    en: 'With your flag gone the point does not count — and it does not come back on its own: somebody has to pick it off the deck and walk it to the stand, in the open, with both hands full.',
   },
 
   'arena.corridors': { pt: 'Corredores Gêmeos', en: 'Twin Corridors' },
@@ -89,11 +89,14 @@ export const dict = {
   'hud.flagOut': { pt: 'roubada', en: 'stolen' },
   'hud.flagDown': { pt: 'no chão', en: 'on the deck' },
   'hud.carrying': { pt: 'VOCÊ ESTÁ COM A BANDEIRA — VOLTE', en: 'YOU HAVE THE FLAG — GET HOME' },
+  'hud.rescuing': { pt: 'SUA BANDEIRA ESTÁ NA SUA MÃO — LEVE ATÉ O PEDESTAL', en: 'YOUR FLAG IS IN YOUR HANDS — WALK IT TO THE STAND' },
   'hud.blocked': { pt: 'sua bandeira está fora: o ponto não conta', en: 'your flag is out: the point will not count' },
 
   'log.taken': { pt: 'Bandeira {team} roubada', en: '{team} flag taken' },
   'log.dropped': { pt: 'Bandeira {team} caiu', en: '{team} flag dropped' },
   'log.returned': { pt: 'Bandeira {team} de volta', en: '{team} flag back home' },
+  'log.recovered': { pt: 'Bandeira {team} recolhida', en: '{team} flag picked up' },
+  'log.restored': { pt: 'Bandeira {team} no pedestal', en: '{team} flag back in its stand' },
   'log.captured': { pt: '{team} marcou!', en: '{team} scored!' },
 
   'end.won': { pt: 'Arena vencida', en: 'Arena taken' },

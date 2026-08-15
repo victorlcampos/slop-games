@@ -75,6 +75,7 @@ scenario('you cannot score while your own flag is out of its stand', () => {
   const game = open(0, { quiet: false });
   const me = game.player;
   const thief = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== thief) { u.dead = true; u.respawnT = 1e6; }
   // the sentinel takes ours, and stops where he is
   thief.x = game.flags.human.x;
   thief.y = game.flags.human.y;
@@ -89,19 +90,82 @@ scenario('you cannot score while your own flag is out of its stand', () => {
   tick(game, 0.5);
   check(game.score.human === 0, 'a point was scored with our own flag in enemy hands');
   check(game.flags.alien.carrier === me.id, 'the flag left our hands without scoring');
+});
 
-  // put ours back and the same run counts
-  thief.hp = 0;
+scenario('your own flag has to be carried back: touching it is not enough', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const thief = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== thief) { u.dead = true; u.respawnT = 1e6; }
+
+  // the sentinel takes ours and is shot down halfway
+  thief.x = game.flags.human.x;
+  thief.y = game.flags.human.y;
   tick(game, 0.1);
+  const where = { x: game.flags.human.home.x + TILE * 4, y: game.flags.human.home.y };
+  check(game.grid.walkableAt(where.x, where.y), 'the test dropped it inside a wall');
+  thief.x = where.x;
+  thief.y = where.y;
+  thief.hp = 0;
+  tick(game, 0.05);
   const mine = game.flags.human;
+  check(mine.state === 'dropped', `our flag is ${mine.state} after the thief went down`);
+
+  // walking over it picks it up — it does not fly home
   me.x = mine.x;
   me.y = mine.y;
-  tick(game, 0.2);
-  check(mine.state === 'home', 'touching our own dropped flag did not send it home');
+  tick(game, 0.1);
+  check(mine.state === 'carried' && mine.carrier === me.id,
+    `touching our own flag left it ${mine.state} — it should be in his hands`);
+  check(dist(mine.home.x, mine.home.y, me.x, me.y) > 100,
+    'the test picked it up on the stand, which proves nothing');
+
+  // and it stays out however long nobody walks it back
+  tick(game, 6);
+  check(mine.state === 'carried', 'the flag went home without anybody carrying it');
+
+  // it is home when he is
   me.x = mine.home.x;
   me.y = mine.home.y;
+  tick(game, 0.1);
+  check(mine.state === 'home', 'walking it to the stand did not put it back');
+  check(game.stats.returns === 1, 'the walk home was not booked as a rescue');
+
+  // with it home, the point counts again
+  me.x = game.flags.alien.x;
+  me.y = game.flags.alien.y;
+  tick(game, 0.1);
+  me.x = game.flags.human.home.x;
+  me.y = game.flags.human.home.y;
   tick(game, 0.2);
-  check(game.score.human === 1, 'the same run did not score once our flag was home');
+  check(game.score.human === 1, 'the run did not score once our flag was back in its stand');
+});
+
+scenario('nobody carries two flags', () => {
+  const game = open(0, { quiet: false });
+  const me = game.player;
+  const thief = game.units.find((u) => u.team === 'alien');
+  for (const u of game.units) if (u !== me && u !== thief) { u.dead = true; u.respawnT = 1e6; }
+
+  // ours is on the deck, right next to theirs — the worst case for the rule
+  thief.x = game.flags.human.x;
+  thief.y = game.flags.human.y;
+  tick(game, 0.1);
+  thief.x = game.flags.alien.home.x - TILE;
+  thief.y = game.flags.alien.home.y;
+  thief.hp = 0;
+  tick(game, 0.05);
+  check(game.flags.human.state === 'dropped', 'our flag is not on the deck');
+
+  me.x = game.flags.human.x;
+  me.y = game.flags.human.y;
+  tick(game, 0.1);
+  check(game.flags.human.carrier === me.id, 'he did not pick our flag up');
+  me.x = game.flags.alien.home.x;
+  me.y = game.flags.alien.home.y;
+  tick(game, 0.2);
+  check(game.flags.alien.state === 'home',
+    'he picked up their flag with ours already in his hands');
 });
 
 scenario('a dead carrier drops the flag where he fell, and the pit keeps nothing', () => {
@@ -141,19 +205,21 @@ scenario('a dead carrier drops the flag where he fell, and the pit keeps nothing
   check(game.flags.alien.state === 'home', `a flag lost over the pit is ${game.flags.alien.state}`);
 });
 
-scenario('a flag nobody comes back for walks home by itself', () => {
+scenario('a flag nobody comes back for stays exactly where it fell', () => {
   const game = open();
   const me = game.player;
   me.x = game.flags.alien.x;
   me.y = game.flags.alien.y;
   tick(game, 0.1);
+  const spot = { x: me.x, y: me.y };
   me.hp = 0;
   tick(game, 0.05);
-  check(game.flags.alien.state === 'dropped', 'it was not dropped');
-  tick(game, FLAG.dropTime - 1);
-  check(game.flags.alien.state === 'dropped', `it went home after ${FLAG.dropTime - 1}s, before its time`);
-  tick(game, 1.5);
-  check(game.flags.alien.state === 'home', `it was still on the deck ${FLAG.dropTime + 0.5}s later`);
+  const flag = game.flags.alien;
+  check(flag.state === 'dropped', 'it was not dropped');
+  tick(game, 30);
+  check(flag.state === 'dropped', 'it walked home on its own after thirty seconds');
+  check(dist(flag.x, flag.y, spot.x, spot.y) < TILE, 'it wandered off on its own');
+  check(flag.timer > 25, 'nothing is counting how long it has lain there');
 });
 
 scenario('a match ends at ten, and the winner is whoever got there', () => {
@@ -481,10 +547,10 @@ scenario('the dark arena is dark for both squads, and only for that arena', () =
 scenario('two squads of bots play a whole match, and it ends', () => {
   const game = createGame({ arena: buildArena(5), team: 'human', seed: 21 });
   for (const u of game.units) u.bot = true;
-  const stop = tick(game, 600, IDLE, (g) => g.state !== 'playing');
-  check(stop !== null, `nobody reached ${TARGET} in ten minutes — the arena is a stalemate`);
+  const stop = tick(game, 800, IDLE, (g) => g.state !== 'playing');
+  check(stop !== null, `nobody reached ${TARGET} in thirteen minutes — the arena is a stalemate`);
   check(Math.max(game.score.human, game.score.alien) === TARGET, `the match ended at ${game.score.human}-${game.score.alien}`);
-  check(stop < 500, `the match took ${stop.toFixed(0)}s`);
+  check(stop < 700, `the match took ${stop.toFixed(0)}s — two squads of bots, with nobody playing well`);
 });
 
 scenario('both squads score, and the field does not favour either end of it', () => {

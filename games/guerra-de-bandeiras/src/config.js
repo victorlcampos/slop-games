@@ -70,7 +70,7 @@ export const UNIT = {
   friction: 3400,
   hp: 100,
   turn: 18,                            // rad/s — a 180° whip takes 0.17s, felt but never fought
-  carry: 1,                            // a flag on your back costs nothing — see ai.js
+  carry: 1.06,                         // a flag on your back is worth a little speed — see ai.js
   hitR: 17,                            // a shade wider than the body drawn: a clipped shoulder counts
   // How long a body keeps facing the fight after the last shot. Without it,
   // releasing the trigger while backing away snaps him round to face where he
@@ -122,8 +122,8 @@ export const ASSIST = { radius: 62, cone: 17, limit: 55, settle: 13 };
  * 600. The rate below is tuned until neither side wins.
  */
 export const GUNS = {
-  human: { id: 'rifle', damage: 8, rate: 0.16, spread: 0.035, range: 900, speed: 1400, kick: 2 },
-  alien: { id: 'blaster', damage: 13, rate: 0.283, spread: 0.035, range: 900, speed: 1250, kick: 3 },
+  human: { id: 'rifle', damage: 12, rate: 0.16, spread: 0.035, range: 900, speed: 1400, kick: 2 },
+  alien: { id: 'blaster', damage: 18, rate: 0.25, spread: 0.035, range: 900, speed: 1250, kick: 3 },
 };
 
 export const dps = (g) => g.damage / g.rate;
@@ -144,7 +144,7 @@ export const BOT_RANGE = 600;
  * whole game: without it a match is decided by whoever wins the first fight,
  * because nobody who lost one is ever a threat again.
  */
-export const REGEN = { delay: 3.5, rate: 20 };
+export const REGEN = { delay: 5, rate: 14 };
 
 /**
  * The flag, and the one rule that makes capture the flag a game instead of a
@@ -154,10 +154,9 @@ export const REGEN = { delay: 3.5, rate: 20 };
  * round and defend.
  */
 export const FLAG = {
-  pickR: 34,
-  capR: 52,
-  returnR: 34,                         // touching your own dropped flag sends it home
-  dropTime: 14,                        // and it goes home by itself after this long
+  pickR: 44,                           // how close you have to be to take theirs
+  capR: 52,                            // and to your own stand for it to count
+  returnR: 34,                         // how close to pick your own off the deck
 };
 
 export const TURRET = {
@@ -206,12 +205,12 @@ export const eyesOf = (arena) => (arena && arena.dark ? VISION.night : VISION.da
  * than of six hand-tuned brains — and `difficulty` below turns it into a test.
  */
 export const PHASES = [
-  { id: 'corridors', squad: 3, skill: 0.32, respawn: 4.2, dark: false },
-  { id: 'bridge', squad: 3, skill: 0.48, respawn: 4.0, dark: false },
-  { id: 'maze', squad: 3, skill: 0.6, respawn: 3.8, dark: true },
-  { id: 'turrets', squad: 4, skill: 0.72, respawn: 3.5, dark: false },
-  { id: 'gates', squad: 4, skill: 0.85, respawn: 3.3, dark: false },
-  { id: 'open', squad: 5, skill: 1, respawn: 3, dark: false },
+  { id: 'corridors', squad: 4, skill: 0.32, respawn: 3.4, dark: false },
+  { id: 'bridge', squad: 4, skill: 0.48, respawn: 3.2, dark: false },
+  { id: 'maze', squad: 4, skill: 0.6, respawn: 3.0, dark: true },
+  { id: 'turrets', squad: 4, skill: 0.72, respawn: 2.8, dark: false },
+  { id: 'gates', squad: 5, skill: 0.85, respawn: 2.6, dark: false },
+  { id: 'open', squad: 5, skill: 1, respawn: 2.4, dark: false },
 ];
 
 /**
@@ -222,10 +221,10 @@ export function botStats(skill) {
   const k = Math.max(0, Math.min(1, skill));
   return {
     react: 0.72 - 0.5 * k,             // seconds between seeing you and firing
-    spread: 4.2 - 2.2 * k,             // multiplier on the gun's own spread
+    spread: 2.8 - 1.4 * k,             // multiplier on the gun's own spread
     speed: 0.86 + 0.16 * k,            // multiplier on the walk
     lead: k,                           // how much of your velocity it aims in front of
-    guard: 0.18 + 0.14 * k,            // share of the squad that stays home
+    guard: 0.16 + 0.12 * k,            // share of the squad that stays home
     hold: 0.9 - 0.55 * k,              // seconds it keeps chasing a corner you left
   };
 }

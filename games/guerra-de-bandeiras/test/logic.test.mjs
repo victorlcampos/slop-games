@@ -207,7 +207,10 @@ scenario('the numbers a match is paced by are all in reach of each other', () =>
     check(p.squad <= LAYOUTS[p.id].spawns.length, `${p.id}: ${p.squad} soldiers and ${LAYOUTS[p.id].spawns.length} places to put them`);
   }
   check(BOT_RANGE < GUNS.human.range, 'a bot opens fire at its gun\'s full reach — nobody will ever cross the open arena');
-  check(FLAG.dropTime > 8, 'a dropped flag walks home too fast to be worth fighting over');
+  check(FLAG.pickR > UNIT.r && FLAG.capR > FLAG.pickR,
+    'the reaches are out of order: you would score from further away than you can pick it up');
+  check(!('dropTime' in FLAG),
+    'a dropped flag still has a clock on it — it is meant to sit there until somebody carries it');
   check(REGEN.delay > 2.5, 'a body knits itself back together mid-fight');
   check(TARGET === 10, `a match is to ${TARGET}`);
 });

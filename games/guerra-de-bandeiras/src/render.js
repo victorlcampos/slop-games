@@ -20,6 +20,7 @@ import {
 } from './config.js';
 import { WALL, PIT, BASE_H, BASE_A } from './grid.js';
 import { createSight } from './vision.js';
+import { carriedBy } from './match.js';
 import { t, arenaName } from './i18n.js';
 import { STICK, fireButton, rollButton } from './controls.js';
 
@@ -100,9 +101,13 @@ export function createRenderer() {
     paintStands(ctx, game, true);
     for (const u of game.units) {
       if (u.dead) continue;
-      const carrying = game.flags[other(u.team)].carrier === u.id;
-      if (u.team === game.playerTeam) drawUnit(ctx, game, u, carrying);
-      else if (carrying && !game.teamSees(game.playerTeam, u.x, u.y)) drawGhostCarrier(ctx, game, u);
+      const flag = carriedBy(game, u);
+      if (u.team === game.playerTeam) drawUnit(ctx, game, u, flag);
+      // whoever is walking off with your flag shows through the wall: a carrier
+      // nobody can find is a match that stops being playable
+      else if (flag && flag.team === game.playerTeam && !game.teamSees(game.playerTeam, u.x, u.y)) {
+        drawGhostCarrier(ctx, game, u, flag);
+      }
     }
     if (game.player && !game.player.dead) paintReticle(ctx, game.player);
 
@@ -468,7 +473,7 @@ function paintUnits(ctx, game) {
   const order = game.units.filter((u) => !u.dead).sort((a, b) => a.y - b.y);
   for (const u of order) {
     if (u.team !== game.playerTeam && !game.teamSees(game.playerTeam, u.x, u.y)) continue;
-    drawUnit(ctx, game, u, game.flags[other(u.team)].carrier === u.id);
+    drawUnit(ctx, game, u, carriedBy(game, u));
   }
 }
 
@@ -483,7 +488,7 @@ function paintUnits(ctx, game) {
  * where he is drawn and where he is standing are the same place — which is what
  * makes aiming at him and hitting him the same act.
  */
-function drawUnit(ctx, game, u, carrying) {
+function drawUnit(ctx, game, u, flag) {
   const kit = KIT[u.team];
   const mine = u.team === game.playerTeam;
   const you = u === game.player;
@@ -602,7 +607,7 @@ function drawUnit(ctx, game, u, carrying) {
   }
   ctx.restore();
 
-  if (carrying) drawBanner(ctx, u.x - 9, u.y - 10, KIT[other(u.team)], game.time, false);
+  if (flag) drawBanner(ctx, u.x - 9, u.y - 10, KIT[flag.team], game.time, false);
 
   // health, only once it means something: a bar over everybody all the time is
   // ten bars, and ten bars is a HUD sitting on top of the game
@@ -611,10 +616,10 @@ function drawUnit(ctx, game, u, carrying) {
 }
 
 /** Whoever has your flag, seen through the wall: the one thing the fog gives away. */
-function drawGhostCarrier(ctx, game, u) {
+function drawGhostCarrier(ctx, game, u, flag) {
   ctx.save();
   ctx.globalAlpha = 0.5 + 0.25 * Math.sin(game.time * 6);
-  ctx.strokeStyle = KIT[other(u.team)].tint;
+  ctx.strokeStyle = KIT[flag.team].tint;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(u.x, u.y, 22, 0, Math.PI * 2);
@@ -625,7 +630,7 @@ function drawGhostCarrier(ctx, game, u) {
   ctx.arc(u.x, u.y, 11, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
-  drawBanner(ctx, u.x - 9, u.y - 10, KIT[other(u.team)], game.time, false);
+  drawBanner(ctx, u.x - 9, u.y - 10, KIT[flag.team], game.time, false);
 }
 
 /**
@@ -762,14 +767,15 @@ function paintHud(ctx, game, vp, W) {
     return;
   }
 
-  const carrying = game.flags[other(player.team)].carrier === player.id;
-  if (carrying) {
+  const flag = carriedBy(game, player);
+  if (flag) {
+    const own = flag.team === player.team;
     const home = game.flags[player.team].state === 'home';
     ctx.textAlign = 'center';
     ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.fillStyle = home ? KIT[player.team].tint : '#ff6a5a';
-    ctx.fillText(t('hud.carrying'), W / 2, vp.H - 26);
-    if (!home) {
+    ctx.fillStyle = own || home ? KIT[player.team].tint : '#ff6a5a';
+    ctx.fillText(t(own ? 'hud.rescuing' : 'hud.carrying'), W / 2, vp.H - 26);
+    if (!own && !home) {
       ctx.font = '13px system-ui, sans-serif';
       ctx.fillStyle = '#ff9d9d';
       ctx.fillText(t('hud.blocked'), W / 2, vp.H - 8);

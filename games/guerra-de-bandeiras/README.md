@@ -21,16 +21,22 @@ nearest enemy you can see and fires, and dragging aims by hand. 🌀 rolls.
 Held upright, the game lays the canvas on its side rather than asking you to
 unlock rotation.
 
-**The one rule that is not obvious:** their flag only scores while **your own
-flag is in its stand**. If a sentinel is running around with yours, the point
-does not count — somebody has to turn round and get it back. Touching your own
-dropped flag sends it home instantly; left alone it walks home after fourteen
-seconds.
+**Two rules that are not obvious.** Their flag only scores while **your own flag
+is in its stand** — if a sentinel is running around with yours, the point does
+not count. And **your own flag has to be carried back**: touching it does not
+send it home, you pick it up, and it is in the ground again when you are
+standing on the stand with it. A flag on the deck stays there until somebody
+makes that walk, in the open, with both hands full. Nobody carries two flags.
+
+**And nobody is bullet-proof.** Four seconds in one gun's line of fire is a body
+on the deck, and a body left alone knits back together slowly, and only after
+five quiet seconds. Crossing the field with a flag is a route problem, not a
+health problem.
 
 Pick a side before you start. It is a look and a feel, never an edge:
 
-- **Humans** — a rifle: thirteen light rounds a kill, six a second.
-- **Sentinels** — a blaster: eight heavy bolts a kill, three and a half a second.
+- **Humans** — a rifle: nine light rounds a kill, six a second.
+- **Sentinels** — a blaster: six heavy bolts a kill, four a second.
 
 ## The camera, and what you can see
 
@@ -60,17 +66,17 @@ looking at all of it.
 Each one is unlocked by winning the one before it, and each one is a different
 problem:
 
-1. **Twin Corridors** — three lanes and three ways between them. 3 a side.
+1. **Twin Corridors** — three lanes and three ways between them. 4 a side.
 2. **The Bridge** — a pit splits the field and is crossed in two places. A body
    cannot cross it; a bullet can, so both squads spend the match in each other's
-   sights.
+   sights. 4 a side.
 3. **The Maze** — the night arena, braided hard so no corridor has only one
-   answer. 3 a side.
+   answer. 4 a side.
 4. **Turret Nest** — two automatic guns guard each stand. They can be shot
    down, and twenty seconds later they are back: killing one buys a window, not
    the base.
 5. **The Gates** — four pads, each throwing you at its mirror on the far side.
-   It works for whoever is being chased and for whoever is chasing.
+   It works for whoever is being chased and for whoever is chasing. 5 a side.
 6. **Open Field** — five a side, the fastest squad in the game, and nowhere to
    hide but behind a block.
 
@@ -97,7 +103,8 @@ playing a few hundred matches between two squads of bots and counting:
   fired.
 - *Damage a second is not time to kill.* What decides a fight is the number of
   whole rounds it takes times the wait between them. The two guns are tuned
-  until neither wins, and the rate that does it is not a round number.
+  until neither wins, and the rate that does it is not a round number — and it
+  had to be found again the moment the guns were made to bite harder.
 - *Unit ids leaked into behaviour.* Defenders walked a slow lap around their own
   stand with the radius keyed off `u.id` — and ids run 1..5 on one side and
   6..10 on the other, so the two squads circled differently.
@@ -112,9 +119,9 @@ playing a few hundred matches between two squads of bots and counting:
   was "try +x first" and is now "the nearest one".
 
 **The bots have no squad brain.** Each one answers the same five questions in
-the same order — am I carrying theirs, is somebody running off with ours, is
-ours on the deck, is one of mine carrying theirs, otherwise my job. The team
-play falls out of the order. The one rule that had to be written explicitly is
+the same order — am I holding a flag, is somebody running off with ours, is ours
+on the deck, is one of mine walking one home, otherwise my job. The team play
+falls out of the order. The one rule that had to be written explicitly is
 the standoff: with both flags in hands nobody can score, and a squad that keeps
 politely raiding an empty stand will still be there ten minutes later.
 
@@ -125,6 +132,6 @@ node test/logic.test.mjs    # the arenas, the ramp, the balance, the eyes, the d
 node test/play.test.mjs     # the match, played in Node at a fixed step
 ```
 
-Forty-one scenarios, about two seconds, no browser. Three of them play whole
+Forty-three scenarios, about two seconds, no browser. Three of them play whole
 matches between two squads of bots, because "does a match end", "do both sides
 score" and "does the field favour one end" cannot be answered any other way.
