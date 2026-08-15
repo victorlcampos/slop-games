@@ -1,7 +1,7 @@
 # 🚩 Flag War · Guerra de Bandeiras
 
 Capture the flag between the humans and the sentinels, over six arenas. Take
-their flag to your own stand, ten times, before they do it to you.
+their flag to your own stand five times, before they do it to you.
 
 One HTML file, no server, no install: open `dist/index.html` on a double click.
 

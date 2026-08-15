@@ -213,7 +213,7 @@ scenario('the numbers a match is paced by are all in reach of each other', () =>
   check(!('dropTime' in FLAG),
     'a dropped flag still has a clock on it — it is meant to sit there until somebody carries it');
   check(REGEN.delay > 2.5, 'a body knits itself back together mid-fight');
-  check(TARGET === 10, `a match is to ${TARGET}`);
+  check(TARGET === 5, `a match is to ${TARGET}`);
 });
 
 // ------------------------------------------------------------------- the map

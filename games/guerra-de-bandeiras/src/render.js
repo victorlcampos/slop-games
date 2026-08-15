@@ -925,11 +925,12 @@ function scoreBlock(ctx, x, team, score, game, align) {
 
   // the pips: ten of them, filled as the side scores, so the state of the match
   // is a shape and not a number to be read
+  // half as many pips as there were, so each one can be twice as legible
   const dir = align === 'right' ? -1 : 1;
   for (let i = 0; i < TARGET; i++) {
-    const px = x + dir * (14 + i * 11);
+    const px = x + dir * (14 + i * 20);
     ctx.fillStyle = i < score ? kit.tint : 'rgba(255,255,255,0.13)';
-    ctx.fillRect(px + (dir < 0 ? -8 : 0), 42, 8, 4);
+    ctx.fillRect(px + (dir < 0 ? -16 : 0), 41, 16, 6);
   }
   ctx.textAlign = 'left';
 }

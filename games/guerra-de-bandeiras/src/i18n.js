@@ -28,8 +28,8 @@ export const dict = {
   'menu.arena': { pt: 'Arena', en: 'Arena' },
   'menu.locked': { pt: 'trancada', en: 'locked' },
   'menu.rules': {
-    pt: 'A bandeira deles vale um ponto quando encosta no pedestal do seu time — e só se a sua bandeira estiver em casa. Primeiro esquadrão a dez leva a arena.',
-    en: 'Their flag scores when it touches your stand — and only while your own flag is home. First squad to ten takes the arena.',
+    pt: 'A bandeira deles vale um ponto quando encosta no pedestal do seu time — e só se a sua bandeira estiver em casa. Primeiro esquadrão a cinco leva a arena.',
+    en: 'Their flag scores when it touches your stand — and only while your own flag is home. First squad to five takes the arena.',
   },
   'menu.controls': {
     pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço rola · M liga e desliga o som',

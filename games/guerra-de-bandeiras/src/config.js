@@ -173,8 +173,16 @@ export const TURRET = {
 
 export const PAD = { r: 44, cool: 1.4 };
 
-/** Points to win a match. */
-export const TARGET = 10;
+/**
+ * Points to win a match.
+ *
+ * Five, not ten. A capture takes both squads about half a minute of work at
+ * their best and the better part of two minutes on the defensive arenas, so ten
+ * of them is a quarter of an hour of the same field — long past the point where
+ * an arena has shown you everything it has. Five is a match you finish while it
+ * is still the arena you sat down for.
+ */
+export const TARGET = 5;
 
 /**
  * The two settings of the one pair of eyes.
@@ -203,9 +211,16 @@ export const eyesOf = (arena) => (arena && arena.dark ? VISION.night : VISION.da
  * `skill` is one dial from 0 to 1 and everything about the enemy squad reads it
  * (see `botStats`), so the difficulty curve is a property of this table rather
  * than of six hand-tuned brains — and `difficulty` below turns it into a test.
+ *
+ * The first arena's floor is 0.42 rather than the 0.32 it opened with, and that
+ * came out of the shorter match: at 0.32 neither squad shoots straight enough to
+ * clear the other off its own stand, so bodies with flags meet in the middle and
+ * trade them back for minutes at a time. Ten points hid it — the match was long
+ * either way. Two of six bot-vs-bot matches finished at 0.32; five of six do at
+ * 0.42, and it is still the easiest field in the game by a comfortable margin.
  */
 export const PHASES = [
-  { id: 'corridors', squad: 4, skill: 0.32, respawn: 3.4, dark: false },
+  { id: 'corridors', squad: 4, skill: 0.42, respawn: 3.4, dark: false },
   { id: 'bridge', squad: 4, skill: 0.48, respawn: 3.2, dark: false },
   { id: 'maze', squad: 4, skill: 0.6, respawn: 3.0, dark: true },
   { id: 'turrets', squad: 4, skill: 0.72, respawn: 2.8, dark: false },
