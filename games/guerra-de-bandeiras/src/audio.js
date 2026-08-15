@@ -108,6 +108,22 @@ export const sfx = {
   click() {
     tone('square', 520, 0.05, 0.05, 360);
   },
+  // The two halves of the pick: a climb while he winds up, and the bang on the
+  // strike. They are the only place a sound is written to a length — half a
+  // second of charge under an animation that takes half a second to swing.
+  pick(team) {
+    tone(team === 'human' ? 'square' : 'sawtooth', 150, 0.5, 0.05, 620);
+  },
+  commit(team) {
+    if (team === 'human') {
+      noise(0.3, 0.3, 2800, 'highpass');
+      tone('square', 320, 0.2, 0.11, 90);
+    } else {
+      tone('sawtooth', 90, 0.5, 0.12, 40);
+      tone('sine', 540, 0.42, 0.07, 1500);
+      noise(0.32, 0.13, 900);
+    }
+  },
   // the shards changing hands: two notes up, and one flat one when the gun
   // you were relying on gives up mid-fight
   buy() {

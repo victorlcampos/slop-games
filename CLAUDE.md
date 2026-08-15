@@ -39,7 +39,9 @@ changes — not the rule.
    engine, Iron Rain paints twenty-one pieces of alien cargo out of four
    shapes, Flag War draws six arenas from lists of rectangles and mirrors every
    one of them down the middle — and lights them with the Fortress's own cone,
-   opened to 360° for the five daylit ones, and Infinite Fortress has no map at all — a ring is a seed, and the
+   opened to 360° for the five daylit ones, and draws its two sides face on, at
+   twenty times the size the match ever sees them, so that choosing a body is
+   choosing something with a face on it, and Infinite Fortress has no map at all — a ring is a seed, and the
    rooms, corridors, sentinels and seal are laid out on the way in. Even the language
    picker's flags are drawn on a canvas — the 🇧🇷 emoji
    has no glyph on Windows, and there the picker would become the letters "BR" in
@@ -391,9 +393,9 @@ animals.
 
 ### File weight
 
-Current reference: Flag War 87 KB, Infinite Fortress 106 KB, Iron Rain 91 KB, Animals vs Monsters 191 KB
-and Zoo Tycoon 309 KB (all four with no libraries), World Drive 598 KB and
-SkiFree 3D 703 KB (three.js minified in). The last two carry all of three — that
+Current reference: Iron Rain 91 KB, Infinite Fortress 106 KB, Flag War 110 KB, Animals vs Monsters 195 KB
+and Zoo Tycoon 311 KB (all five with no libraries), World Drive 600 KB and
+SkiFree 3D 704 KB (three.js minified in). The last two carry all of three — that
 is the price of 3D.
 
 Past ~2 MB, investigate before accepting it: it is almost always an asset

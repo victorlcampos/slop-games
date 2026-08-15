@@ -61,50 +61,111 @@
     margin-bottom: 0.45rem;
   }
 
-  .sides { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.1rem; }
+  /* ---- the arena picker: six cards, each showing its own field ---- */
 
-  /* A side is picked by pressing its own colour — the button is the uniform.
-     Text wraps: "Sentinelas" and "Sentinels" are not the same width, and a
-     fixed one clips whichever language you are not reading. */
-  .side {
-    font: inherit;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border: 3px solid #0a0b10;
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    cursor: pointer;
-    box-shadow: 0 4px 0 #0a0b10;
-    min-width: 11rem;
-    max-width: 16rem;
-    opacity: 0.45;
-    filter: saturate(0.5);
+  /* two across on a phone, three on anything wider. `auto-fit` was tried and
+     gives six cards in a 4+2 on a desktop and a column of six on a phone —
+     both of them a scroll for something that fits on one screen. */
+  .arenas {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
   }
-  .side small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 0.72rem; margin-top: 0.3rem; line-height: 1.35; }
-  .side[aria-pressed="true"] { opacity: 1; filter: none; }
-  .side.human { color: #2a1305; background: linear-gradient(#ffb877, #e07a2e); }
-  .side.alien { color: #06231c; background: linear-gradient(#7ff0cd, #2fae8b); }
-
-  .arenas { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
+  @media (min-width: 46rem) { .arenas { grid-template-columns: repeat(3, 1fr); } }
 
   .arena {
     font: inherit;
-    font-size: 0.82rem;
-    font-weight: 700;
+    text-align: left;
     color: #cdd7e8;
-    background: rgba(255,255,255,0.05);
-    border: 2px solid #47506a;
-    border-radius: 9px;
-    padding: 0.45rem 0.7rem;
+    background: rgba(255,255,255,0.04);
+    border: 2px solid #3b445c;
+    border-radius: 12px;
+    padding: 0.5rem;
     cursor: pointer;
-    max-width: 14rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    transition: border-color 0.12s, transform 0.12s, background 0.12s;
   }
-  .arena b { display: block; font-size: 0.66rem; color: #7f8a9f; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-  .arena[aria-pressed="true"] { border-color: #ff9a4d; color: #fff; background: rgba(255,154,77,0.14); }
-  .arena[disabled] { opacity: 0.35; cursor: not-allowed; }
+  .arena canvas {
+    width: 100%;
+    aspect-ratio: 28 / 17;
+    display: block;
+    border-radius: 7px;
+    background: #05070b;
+  }
+  .arena .no { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7f8a9f; }
+  .arena .nm { font-size: 0.92rem; font-weight: 800; line-height: 1.15; }
+  .arena .dt { font-size: 0.7rem; color: #93a0b8; line-height: 1.35; }
+  .arena:hover:not([disabled]), .arena:focus-visible { border-color: #ff9a4d; transform: translateY(-2px); }
+  .arena[aria-pressed="true"] { border-color: #ff9a4d; background: rgba(255,154,77,0.12); }
+  .arena[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .arena[disabled] .nm::after { content: " 🔒"; }
+
+  /* ---- the character picker: two figures, face on ---- */
+
+  .heroes { display: flex; gap: 0.7rem; justify-content: center; align-items: stretch; margin: 0.2rem 0 0.8rem; }
+
+  .hero {
+    font: inherit;
+    color: #e8eef8;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 21rem;
+    background: rgba(255,255,255,0.03);
+    border: 2px solid #3b445c;
+    border-radius: 14px;
+    padding: 0.45rem 0.5rem 0.7rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    transition: border-color 0.15s, transform 0.2s, opacity 0.3s, background 0.15s;
+  }
+  .hero canvas { width: 100%; aspect-ratio: 4 / 5; display: block; }
+  .hero .nm { font-size: clamp(0.95rem, 3vw, 1.3rem); font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+  .hero .role { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: #7f8a9f; }
+  .hero .line { font-size: clamp(0.7rem, 2.1vw, 0.84rem); font-style: italic; color: #b9c4d8; line-height: 1.4; margin: 0.25rem 0; }
+  .hero .gun { font-size: clamp(0.66rem, 2vw, 0.78rem); color: #93a0b8; line-height: 1.4; }
+  .hero.human { border-color: #7a4a24; }
+  .hero.alien { border-color: #23604f; }
+  .hero.human .nm { color: #ff9a4d; }
+  .hero.alien .nm { color: #4fe0b0; }
+  .hero:hover, .hero:focus-visible { transform: translateY(-3px); }
+  .hero.human:hover, .hero.human:focus-visible, .hero.human[aria-pressed="true"] { border-color: #ff9a4d; background: rgba(255,154,77,0.09); }
+  .hero.alien:hover, .hero.alien:focus-visible, .hero.alien[aria-pressed="true"] { border-color: #4fe0b0; background: rgba(79,224,176,0.09); }
+
+  /* Committing to a side: the one you took grows, slides to the middle and the
+     other leaves. All CSS, because the figure inside the canvas is busy doing
+     its own flourish — and the slide is needed because the card that left is
+     still holding its column, so without it he finishes off to one side. */
+  .hero.chosen.human { transform: translateX(calc(50% + 0.35rem)) scale(1.06); }
+  .hero.chosen.alien { transform: translateX(calc(-50% - 0.35rem)) scale(1.06); }
+  .hero.away { opacity: 0; transform: scale(0.9); pointer-events: none; }
+  .picking .hero { cursor: default; }
+
+  /* the light the pick throws over the whole screen */
+  #flash {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 55%, var(--tint, #fff) 0%, rgba(5,7,11,0) 62%);
+  }
 
   .note { color: #9aa6bd; font-size: clamp(0.8rem, 1.9vw, 0.95rem); line-height: 1.5; margin: 0 auto 1rem; max-width: 40rem; }
+
+  .hint { color: #7f8a9f; font-size: 0.74rem; letter-spacing: 0.04em; margin-bottom: 0.9rem; }
+
+  /* the wall of rules, folded away: it is worth reading once and in the way
+     every time after that */
+  .how { max-width: 40rem; margin: 0.2rem auto 0; text-align: left; }
+  .how summary { cursor: pointer; text-align: center; list-style: none; color: #9aa6bd; font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.5rem 0; }
+  .how summary::-webkit-details-marker { display: none; }
+  .how summary::after { content: " ▾"; }
+  .how[open] summary::after { content: " ▴"; }
 
   .btnrow { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
 
@@ -191,50 +252,76 @@
     <div class="inner">
       <h1 data-pt="Guerra de Bandeiras" data-en="Flag War">Flag War</h1>
       <p class="tagline"
-         data-pt="Pegue a bandeira deles. Traga para o seu campo. Dez vezes."
-         data-en="Take their flag. Bring it to your ground. Ten times.">Take their flag. Bring it to your ground. Ten times.</p>
+         data-pt="Pegue a bandeira deles. Traga para o seu campo. Cinco vezes."
+         data-en="Take their flag. Bring it to your ground. Five times.">Take their flag. Bring it to your ground. Five times.</p>
 
-      <p class="label" data-pt="De que lado você joga?" data-en="Which side are you on?">Which side are you on?</p>
-      <div class="sides">
-        <button class="side human" id="side-human" aria-pressed="true">
-          <span data-pt="Humanos" data-en="Humans">Humans</span>
-          <small data-pt="Fuzil rápido e leve: nove tiros derrubam um corpo, seis por segundo."
-                 data-en="A fast, light rifle: nine rounds put a body down, six a second.">A fast, light rifle: nine rounds put a body down, six a second.</small>
-        </button>
-        <button class="side alien" id="side-alien" aria-pressed="false">
-          <span data-pt="Sentinelas" data-en="Sentinels">Sentinels</span>
-          <small data-pt="Blaster pesado: seis bolas derrubam um corpo, e você paga esperando a próxima."
-                 data-en="A heavy blaster: six bolts put a body down, and you pay for it waiting.">A heavy blaster: six bolts put a body down, and you pay for it waiting.</small>
-        </button>
-      </div>
-
-      <p class="label" data-pt="Arena" data-en="Arena">Arena</p>
+      <p class="label" data-pt="Primeiro: onde é a briga" data-en="First: where the fight is">First: where the fight is</p>
       <div class="arenas" id="arenas"></div>
-      <p class="note" id="arena-note"></p>
+      <p class="hint" data-pt="clique numa arena · as teclas 1 a 6 escolhem direto"
+         data-en="click an arena · the number keys 1 to 6 pick one straight away">click an arena · the number keys 1 to 6 pick one straight away</p>
 
       <div class="btnrow">
-        <button class="btn" id="btn-start" data-pt="Entrar em campo" data-en="Take the field">Take the field</button>
         <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
       </div>
 
-      <p class="foot">
-        <span data-pt="A bandeira deles vale um ponto quando você a leva até o pedestal do seu time — e só se a sua bandeira estiver lá. Primeiro esquadrão a cinco leva a arena."
-              data-en="Their flag scores when you carry it to your own stand — and only while your own flag is in it. First squad to five takes the arena.">Their flag scores when you carry it to your own stand — and only while your own flag is in it.</span><br>
-        <span data-pt="WASD ou setas andam · o mouse mira · clique atira · espaço rola · M liga e desliga o som"
-              data-en="WASD or arrows to move · the mouse aims · click to fire · space rolls · M mutes">WASD or arrows to move · the mouse aims · click to fire · space rolls · M mutes</span><br>
-        <span data-pt="A câmera fica em cima de você e o campo é maior que a tela. De dia você enxerga a sala inteira em volta — mas nada através de parede. O labirinto é de noite: ali só existe o que a lanterna alcança."
-              data-en="The camera sits on you and the field is bigger than the screen. By day you see the whole room around you — and nothing through a wall. The maze is at night: there, only what the torch reaches exists.">The camera sits on you and the field is bigger than the screen. By day you see the whole room around you — and nothing through a wall.</span><br>
-        <span data-pt="A arma mira sozinha: você aponta para o lado e ela acha o soldado. O colchete fecha quando o corpo termina o giro; o tiro sai quando ele fecha."
-              data-en="The gun aims itself: you point roughly and it finds the man. The brackets close as the body finishes its turn; the round leaves when they shut.">The gun aims itself: you point roughly and it finds the man.</span><br>
-        <span data-pt="No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 rola."
-              data-en="On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button rolls.">On a phone the left half walks; the right half is the trigger. The 🌀 button rolls.</span><br>
-        <span data-pt="Cada baixa rende cristais — e mais se o corpo estava com uma bandeira. Dentro da sua base os cristais compram arma, e arma comprada tem munição contada. Se você morrer, ela cai no chão com o que sobrou."
-              data-en="Every body you put down pays in shards, and one carrying a flag pays more. On your own ground the shards buy a gun, and a bought gun has its rounds counted. Die with it and it lands on the deck with whatever is left in it.">Every body you put down pays in shards; on your own ground they buy a gun.</span><br>
-        <span data-pt="Se a sua bandeira sumiu, o ponto não entra — e ela não volta sozinha: alguém do seu time tem que pegar do chão e carregar até o pedestal."
-              data-en="With your flag gone the point does not count — and it does not come back on its own: somebody has to pick it off the deck and walk it to the stand.">With your flag gone the point does not count — and it does not come back on its own.</span>
-      </p>
+      <details class="how">
+        <summary data-pt="Como se joga" data-en="How it plays">How it plays</summary>
+        <p class="foot">
+          <span data-pt="A bandeira deles vale um ponto quando você a leva até o pedestal do seu time — e só se a sua bandeira estiver lá. Primeiro esquadrão a cinco leva a arena."
+                data-en="Their flag scores when you carry it to your own stand — and only while your own flag is in it. First squad to five takes the arena.">Their flag scores when you carry it to your own stand — and only while your own flag is in it.</span><br>
+          <span data-pt="WASD ou setas andam · o mouse mira · clique atira · espaço rola · M liga e desliga o som"
+                data-en="WASD or arrows to move · the mouse aims · click to fire · space rolls · M mutes">WASD or arrows to move · the mouse aims · click to fire · space rolls · M mutes</span><br>
+          <span data-pt="A câmera fica em cima de você e o campo é maior que a tela. De dia você enxerga a sala inteira em volta — mas nada através de parede. O labirinto é de noite: ali só existe o que a lanterna alcança."
+                data-en="The camera sits on you and the field is bigger than the screen. By day you see the whole room around you — and nothing through a wall. The maze is at night: there, only what the torch reaches exists.">The camera sits on you and the field is bigger than the screen. By day you see the whole room around you — and nothing through a wall.</span><br>
+          <span data-pt="A arma mira sozinha: você aponta para o lado e ela acha o soldado. O colchete fecha quando o corpo termina o giro; o tiro sai quando ele fecha."
+                data-en="The gun aims itself: you point roughly and it finds the man. The brackets close as the body finishes its turn; the round leaves when they shut.">The gun aims itself: you point roughly and it finds the man.</span><br>
+          <span data-pt="No celular a metade esquerda anda e nasce onde o dedo toca; a direita é o gatilho — um toque gira para o inimigo mais próximo que dá para ver e atira. O botão 🌀 rola."
+                data-en="On a phone the left half walks and appears where your thumb lands; the right half is the trigger — a tap turns you onto the nearest enemy you can see and fires. The 🌀 button rolls.">On a phone the left half walks; the right half is the trigger. The 🌀 button rolls.</span><br>
+          <span data-pt="Cada baixa rende cristais — e mais se o corpo estava com uma bandeira. Dentro da sua base os cristais compram arma, e arma comprada tem munição contada. Se você morrer, ela cai no chão com o que sobrou."
+                data-en="Every body you put down pays in shards, and one carrying a flag pays more. On your own ground the shards buy a gun, and a bought gun has its rounds counted. Die with it and it lands on the deck with whatever is left in it.">Every body you put down pays in shards; on your own ground they buy a gun.</span><br>
+          <span data-pt="Se a sua bandeira sumiu, o ponto não entra — e ela não volta sozinha: alguém do seu time tem que pegar do chão e carregar até o pedestal."
+                data-en="With your flag gone the point does not count — and it does not come back on its own: somebody has to pick it off the deck and walk it to the stand.">With your flag gone the point does not count — and it does not come back on its own.</span>
+        </p>
+      </details>
     </div>
   </div>
+
+  <div class="card" id="pick" hidden>
+    <div class="inner">
+      <p class="label" id="pick-arena">Arena</p>
+      <h1 data-pt="Quem entra em campo?" data-en="Who takes the field?">Who takes the field?</h1>
+
+      <div class="heroes" id="heroes">
+        <button class="hero human" id="hero-human">
+          <canvas class="art" width="360" height="450"></canvas>
+          <span class="nm" data-pt="Humanos" data-en="Humans">Humans</span>
+          <span class="role" data-pt="Companhia Gavião" data-en="Kestrel Company">Kestrel Company</span>
+          <span class="line" data-pt="“Já carreguei coisa mais pesada que uma bandeira.”"
+                data-en="“I have carried heavier things than a flag.”">“I have carried heavier things than a flag.”</span>
+          <span class="gun" id="gun-human"></span>
+        </button>
+        <button class="hero alien" id="hero-alien">
+          <canvas class="art" width="360" height="450"></canvas>
+          <span class="nm" data-pt="Sentinelas" data-en="Sentinels">Sentinels</span>
+          <span class="role" data-pt="Vigília do Enxame" data-en="The Hive Vigil">The Hive Vigil</span>
+          <span class="line" data-pt="“Vocês largam a bandeira quando cansam. Nós não cansamos.”"
+                data-en="“You put the flag down when you tire. We do not tire.”">“You put the flag down when you tire. We do not tire.”</span>
+          <span class="gun" id="gun-alien"></span>
+        </button>
+      </div>
+
+      <p class="hint" data-pt="clique no seu · ← → e Enter também escolhem"
+         data-en="click yours · ← → and Enter choose too">click yours · ← → and Enter choose too</p>
+      <p class="note" data-pt="Os dois lados são o mesmo jogo: a diferença está no que você vê e no que você ouve, nunca numa vantagem."
+         data-en="Both sides are the same game: the difference is in what you see and what you hear, never in an edge.">Both sides are the same game: the difference is in what you see and what you hear, never in an edge.</p>
+
+      <div class="btnrow">
+        <button class="btn ghost" id="btn-back" data-pt="← Trocar de arena" data-en="← Change arena">← Change arena</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="flash"></div>
 
   <div class="card" id="over" hidden>
     <div class="inner">
@@ -251,6 +338,7 @@
       <div class="btnrow">
         <button class="btn" id="btn-next" data-pt="Próxima arena" data-en="Next arena" hidden>Next arena</button>
         <button class="btn ghost" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <button class="btn ghost" id="btn-side" data-pt="Trocar de lado" data-en="Change sides">Change sides</button>
         <button class="btn ghost" id="btn-menu" data-pt="Escolher arena" data-en="Pick an arena">Pick an arena</button>
         <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
       </div>

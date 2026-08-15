@@ -6,8 +6,8 @@ import { createI18n } from 'slopkit/i18n';
 export const dict = {
   'game.title': { pt: 'Guerra de Bandeiras', en: 'Flag War' },
   'game.tagline': {
-    pt: 'Pegue a bandeira deles. Traga para o seu campo. Dez vezes.',
-    en: 'Take their flag. Bring it to your ground. Ten times.',
+    pt: 'Pegue a bandeira deles. Traga para o seu campo. Cinco vezes.',
+    en: 'Take their flag. Bring it to your ground. Five times.',
   },
 
   'side.human': { pt: 'Humanos', en: 'Humans' },
@@ -25,11 +25,34 @@ export const dict = {
   'menu.start': { pt: 'Entrar em campo', en: 'Take the field' },
   'menu.again': { pt: 'De novo', en: 'Again' },
   'menu.next': { pt: 'Próxima arena', en: 'Next arena' },
+  'menu.side': { pt: 'Trocar de lado', en: 'Change sides' },
   'menu.arena': { pt: 'Arena', en: 'Arena' },
   'menu.locked': { pt: 'trancada', en: 'locked' },
+  'menu.squad': { pt: '{n} de cada lado', en: '{n} a side' },
+  'menu.night': { pt: 'de noite', en: 'at night' },
   'menu.rules': {
-    pt: 'A bandeira deles vale um ponto quando encosta no pedestal do seu time — e só se a sua bandeira estiver em casa. Primeiro esquadrão a cinco leva a arena.',
-    en: 'Their flag scores when it touches your stand — and only while your own flag is home. First squad to five takes the arena.',
+    pt: 'A bandeira deles vale um ponto quando você a leva até o pedestal do seu time — e só se a sua bandeira estiver lá. Primeiro esquadrão a cinco leva a arena.',
+    en: 'Their flag scores when you carry it to your own stand — and only while your own flag is in it. First squad to five takes the arena.',
+  },
+
+  // The character screen. The role and the line are the only two pieces of
+  // writing in the game that exist purely for flavour — everything else on a
+  // card is a number the match will hold you to.
+  'hero.pick': { pt: 'Quem entra em campo?', en: 'Who takes the field?' },
+  'hero.human.role': { pt: 'Companhia Gavião', en: 'Kestrel Company' },
+  'hero.alien.role': { pt: 'Vigília do Enxame', en: 'The Hive Vigil' },
+  'hero.human.line': {
+    pt: '“Já carreguei coisa mais pesada que uma bandeira.”',
+    en: '“I have carried heavier things than a flag.”',
+  },
+  'hero.alien.line': {
+    pt: '“Vocês largam a bandeira quando cansam. Nós não cansamos.”',
+    en: '“You put the flag down when you tire. We do not tire.”',
+  },
+  /** Assembled from the gun's own numbers, so a rebalance rewrites the card. */
+  'hero.gun': {
+    pt: '{gun} · {shots} tiros derrubam um corpo · {rate} por segundo',
+    en: '{gun} · {shots} rounds put a body down · {rate} a second',
   },
   'menu.controls': {
     pt: 'WASD ou setas andam · o mouse mira · clique atira · espaço rola · M liga e desliga o som',

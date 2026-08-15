@@ -5,6 +5,33 @@ their flag to your own stand five times, before they do it to you.
 
 One HTML file, no server, no install: open `dist/index.html` on a double click.
 
+## The way in
+
+Two screens, in the order the decisions actually matter.
+
+**The field first.** Six cards, and each one draws the arena it is — the real
+grid, built by the same `buildArena` the match is played on, so a card cannot
+drift from the field behind it. The pit through the middle of the bridge, the
+maze under its own night, the red dots of the turrets, the rings of the gates:
+you pick a fight by looking at it, not by reading two words and trusting them.
+`1` to `6` take one straight away.
+
+**Then the body.** The two sides stand there face on, at twenty times the size
+the match will ever show them, and the whole point of that screen is that they
+are worth looking at: the trooper's helmet carries tally scratches nothing in
+the game counts, his scarf never stops moving, and he has a grin he only lets
+out once he has been chosen; the sentinel's dome has been cracked and riveted
+back together, its cannon rings drift apart as they charge, and it wears a set
+of human tags on its belt. **None of it is in the simulation** — the two guns
+are tuned against each other to a fifth of a degree — and that is exactly why
+it is there. What you are choosing between is a look and a story.
+
+**And then it performs.** The one you take dips, commits, and comes up out of a
+shockwave — the trooper racks the bolt and brings the rifle to his shoulder, the
+sentinel charges its arm and lets it go — while the other card slides away, the
+screen floods with your colour and the field opens underneath the light. It
+takes a second and a half, and a tap anywhere skips it.
+
 ## How to play
 
 | | |
@@ -179,9 +206,21 @@ see. The lane rotates; the job does not.
 
 ```bash
 node test/logic.test.mjs    # the arenas, the ramp, the balance, the eyes, the dictionary
+node test/entry.test.mjs    # the two screens you come in through
 node test/play.test.mjs     # the match, played in Node at a fixed step
 ```
 
-Fifty-two scenarios, about three seconds, no browser. Three of them play whole
+Sixty-five scenarios, about three seconds, no browser. Three of them play whole
 matches between two squads of bots, because "does a match end", "do both sides
 score" and "does the field favour one end" cannot be answered any other way.
+
+The entry has its own file for a reason worth writing down: **there are rules in
+those screens**, and rules in a `main.js` are rules no test can reach. A locked
+arena is not a choice, the flourish has a length and only ever starts one match,
+the skip has a floor — that floor exists because the tap that chose the side is
+still on its way up, and without it the animation was one frame long for
+everybody who taps quickly. The figures are split the same way: `heroPose`
+returns the numbers and `drawHero` spends them, so a test can say "the flash
+lives inside its window", "nothing is ever NaN" and "the two of them do not blink
+in step" without ever looking at a pixel. What it cannot say is whether they look
+like anything — that lap is still a person's.
