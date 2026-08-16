@@ -27,6 +27,11 @@ Everything is one pointer:
   while they hammer). Nobody repairs a wall something is actively eating.
 - **Train** — the soldier and archer buttons queue recruits (each one costs
   resources *and a villager* — an army is farmers who put the hoe down).
+  A soldier keeps his bed and grows his appetite: the army counts against
+  the town's housing and eats two and a half times what a villager does,
+  so the autumn stockpile is what the winter siege actually runs on. When
+  the granary hits zero the famine climbs a ladder — villagers starve
+  first, and once none are left, soldiers desert.
 - **Camera** — drag to pan, scroll or pinch to zoom, arrows or WASD to move;
   the minimap (bottom right) shows the whole valley and teleports the view.
 - **Demolish** returns half the cost. `M` mutes.

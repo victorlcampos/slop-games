@@ -6,9 +6,9 @@
 // the tests alike.
 
 import {
-  COLS, EAT_RATE, GROW_COST, GROW_EVERY, HORN_LEAD, REPAIR_CREW, REPAIR_RATE,
-  REPAIR_WOOD, RES_CAP, ROWS, SEASONS, SEASON_LEN, SQUAD_SIZE, STARVE_EVERY,
-  START_POP, START_RES, TRAIN_TIME, QUEUE_MAX, YEAR_LEN, clamp,
+  ARMY_EAT, COLS, EAT_RATE, GROW_COST, GROW_EVERY, HORN_LEAD, REPAIR_CREW,
+  REPAIR_RATE, REPAIR_WOOD, RES_CAP, ROWS, SEASONS, SEASON_LEN, SQUAD_SIZE,
+  STARVE_EVERY, START_POP, START_RES, TRAIN_TIME, QUEUE_MAX, YEAR_LEN, clamp,
 } from './config.js';
 import { BUILDINGS, buildingAt, centerOf, crewDemand, pay, siteYield, whyNot } from './buildings.js';
 import { FARM_SEASON } from './config.js';
@@ -66,6 +66,9 @@ export function createWorld(opts = {}) {
   world.hall = () => world.buildings.find((b) => b.id === 'hall') || null;
   world.popCap = () =>
     8 + world.buildings.reduce((n, b) => n + (b.built >= 1 ? BUILDINGS[b.id].popCap || 0 : 0), 0);
+  /** Every head under the town's roofs: villagers, the army, the training
+   *  yard. A soldier does not stop needing a bed by picking up a sword. */
+  world.heads = () => world.pop + world.units.length + world.queue.length;
   /** 0..1: how staffed the economy is. The army is villagers who left it,
    *  and every repair site pulls a couple more hands off the fields. */
   world.efficiency = () => {
@@ -184,7 +187,7 @@ export function createWorld(opts = {}) {
         out[k] += rate * seasonMult * staffed * site;
       }
     }
-    out.food -= world.pop * EAT_RATE;
+    out.food -= (world.pop + world.queue.length) * EAT_RATE + world.units.length * ARMY_EAT;
     return out;
   };
 
@@ -308,14 +311,24 @@ function economy(world, h, season) {
 }
 
 function people(world, h) {
-  world.res.food = Math.max(0, world.res.food - world.pop * EAT_RATE * h);
+  // everyone eats; the army eats for two and a half — the granary the autumn
+  // banked is what the winter siege actually runs on
+  const mouths = (world.pop + world.queue.length) * EAT_RATE + world.units.length * ARMY_EAT;
+  world.res.food = Math.max(0, world.res.food - mouths * h);
 
-  if (world.res.food <= 0 && world.pop > 0) {
+  if (world.res.food <= 0 && (world.pop > 0 || world.units.length > 0)) {
     world.starveT += h;
     if (world.starveT >= STARVE_EVERY) {
       world.starveT = 0;
-      world.pop -= 1;
-      world.events.push({ kind: 'starve' });
+      if (world.pop > 0) {
+        world.pop -= 1;
+        world.events.push({ kind: 'starve' });
+      } else {
+        // the villagers are gone; a starving soldier walks away — deserters
+        // do not rise, because nothing killed them
+        const u = world.units.pop();
+        if (u) world.events.push({ kind: 'desert', x: u.x, y: u.y });
+      }
     }
   } else {
     world.starveT = 0;
@@ -324,7 +337,9 @@ function people(world, h) {
   world.growT += h;
   if (world.growT >= GROW_EVERY) {
     world.growT = 0;
-    if (world.res.food >= GROW_COST * 2 && world.pop < world.popCap()) {
+    // a new villager needs bread AND a bed — and the army sleeps under the
+    // same roofs, so a big garrison in a small town stops the cradles
+    if (world.res.food >= GROW_COST * 2 && world.heads() < world.popCap()) {
       world.pop += 1;
       world.res.food -= GROW_COST;
       world.events.push({ kind: 'born' });

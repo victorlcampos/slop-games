@@ -496,6 +496,11 @@ function drain() {
         say(t('note.starve'), '#e0563c');
         sfx.starve();
         break;
+      case 'desert':
+        say(t('note.desert'), '#e0563c');
+        fx.push({ kind: 'puff', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#5b6c9e', seed: Math.random() * 7 });
+        sfx.starve();
+        break;
       case 'trained':
         say(t('note.trained', { name: t(`u.${ev.unit}`) }));
         sfx.trained();

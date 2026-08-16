@@ -569,7 +569,9 @@ export function drawTopBar(ctx, viewW, world, t, status) {
   ctx.font = '600 13px system-ui, sans-serif';
   ctx.fillStyle = '#f2e7d0';
   drawIcon(ctx, 'pop', x, 10, 12);
-  const popText = `${world.pop}/${world.popCap()}`;
+  // heads over roofs: the army sleeps in the same houses, so the housing
+  // number the player plans around is everyone, not just the farmers
+  const popText = `${world.heads()}/${world.popCap()}`;
   ctx.fillText(popText, x + 16, 16);
   x += 16 + ctx.measureText(popText).width + 12;
   drawIcon(ctx, 'army', x, 10, 12);

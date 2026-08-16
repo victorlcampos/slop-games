@@ -300,6 +300,7 @@ scenario('an understaffed economy slows down instead of running free', () => {
 
 scenario('villagers arrive under a roof and starve without bread', () => {
   const world = bareWorld();
+  world.units.length = 0; // the two guards would fill the starting roofs
   world.res.food = 100;
   play(world, GROW_EVERY + 1);
   check(world.pop === START_POP + 1, `a fed town with room grew to ${world.pop}`);
@@ -311,12 +312,55 @@ scenario('villagers arrive under a roof and starve without bread', () => {
   check(starving.events.some((e) => e.kind === 'starve'), 'nobody was told about the starving');
 });
 
-scenario('growth stops at the roof line', () => {
+scenario('growth stops at the roof line, and the army sleeps under it too', () => {
   const world = bareWorld();
   world.res.food = 500;
   world.pop = world.popCap();
   play(world, GROW_EVERY * 3);
   check(world.pop === world.popCap(), `the town grew past its roofs: ${world.pop}/${world.popCap()}`);
+
+  // two guards + a full village = two heads over the roof line: no cradles
+  const garrison = bareWorld();
+  garrison.res.food = 500;
+  garrison.pop = garrison.popCap() - garrison.units.length; // exactly full WITH the army
+  const before = garrison.pop;
+  play(garrison, GROW_EVERY * 2);
+  check(garrison.pop === before,
+    `the garrison town grew to ${garrison.pop} heads ${garrison.heads()}/${garrison.popCap()}`);
+  // the guards fall: their beds free up and the cradles start again
+  garrison.units.length = 0;
+  play(garrison, GROW_EVERY + 1);
+  check(garrison.pop > before, 'two empty beds and nobody was born');
+});
+
+scenario('an army eats deeper into the granary than the same heads farming', () => {
+  const idle = bareWorld();
+  idle.units.length = 0;
+  idle.pop = 8;
+  const farmers = -idle.rates().food;
+
+  const armed = bareWorld();
+  armed.units.length = 0;
+  armed.pop = 4;
+  for (let i = 0; i < 4; i++) armed.units.push(makeUnit('soldier', 20, 10));
+  const soldiers = -armed.rates().food;
+  check(soldiers > farmers * 1.5,
+    `eight farmers eat ${farmers.toFixed(2)}/s, four+four with swords eat ${soldiers.toFixed(2)}/s`);
+});
+
+scenario('famine climbs the ladder: villagers starve first, then soldiers desert', () => {
+  const world = bareWorld();
+  world.res.food = 0;
+  world.pop = 1;
+  world.map.tiles.fill(GRASS);
+  play(world, STARVE_EVERY + 1);
+  check(world.pop === 0, `the last villager is still standing: pop ${world.pop}`);
+  check(world.units.length === 2, 'a soldier left while villagers still starved');
+
+  play(world, STARVE_EVERY + 1);
+  check(world.units.length === 1, `the deserters number ${2 - world.units.length}`);
+  check(world.events.some((e) => e.kind === 'desert'), 'the desertion went unannounced');
+  check(world.zombies.every((z) => !z.risen), 'a deserter rose — nothing killed him');
 });
 
 // --------------------------------------------------------------- the army

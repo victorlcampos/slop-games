@@ -26,7 +26,10 @@ export const dict = {
 
   // ------------------------------------------------------------- buildings
   'b.house': { en: 'House', pt: 'Casa' },
-  'b.house.note': { en: 'Room for four more villagers.', pt: 'Teto para mais quatro aldeões.' },
+  'b.house.note': {
+    en: 'Room for four more — villagers and soldiers both need a roof.',
+    pt: 'Teto para mais quatro — aldeão e soldado, todos precisam de cama.',
+  },
   'b.farm': { en: 'Farm', pt: 'Fazenda' },
   'b.farm.note': {
     en: 'Grows food in every season but winter — autumn is the big harvest.',
@@ -85,6 +88,7 @@ export const dict = {
 
   // ---------------------------------------------------------------- notices
   'note.starve': { en: 'Someone starved. Plant more.', pt: 'Alguém passou fome. Plante mais.' },
+  'note.desert': { en: 'A starving soldier deserted.', pt: 'Um soldado faminto desertou.' },
   'note.born': { en: 'A villager arrived.', pt: 'Chegou um aldeão.' },
   'note.trained': { en: '{name} ready.', pt: '{name} a postos.' },
   'note.newyear': { en: 'Year {n}. The town held.', pt: 'Ano {n}. A vila aguentou.' },
@@ -98,7 +102,10 @@ export const dict = {
     pt: 'Construa uma serraria junto às árvores — é dali que vem a madeira',
   },
   'q.farm': { en: 'Build a farm — winter eats what autumn banked', pt: 'Construa uma fazenda — o inverno come o que o outono guardou' },
-  'q.house': { en: 'Raise {target} houses — more roofs, more villagers', pt: 'Erga {target} casas — mais tetos, mais aldeões' },
+  'q.house': {
+    en: 'Raise {target} houses — villagers and the army share the roofs',
+    pt: 'Erga {target} casas — aldeões e exército dividem os tetos',
+  },
   'q.quarry': { en: 'Build a quarry beside rock — walls are made of stone', pt: 'Construa uma pedreira junto à rocha — muralha se faz de pedra' },
   'q.barracks': { en: 'Build a barracks', pt: 'Construa um quartel' },
   'q.soldiers': { en: 'Field an army of {target}', pt: 'Forme um exército de {target}' },

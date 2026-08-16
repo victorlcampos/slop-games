@@ -30,17 +30,21 @@ export const HORN_LEAD = 10;
 export const START_POP = 6;
 // a little stone in the wagons: the founders did not arrive empty-handed, and
 // the first winter's quest chain needs the head start
-export const START_RES = { food: 40, wood: 60, stone: 10, gold: 10 };
+export const START_RES = { food: 50, wood: 60, stone: 10, gold: 10 };
 export const RES = ['food', 'wood', 'stone', 'gold'];
 export const RES_CAP = 999;
-/** Mouths per second: 10 villagers eat 0.5 food a second. */
-export const EAT_RATE = 0.05;
+/** Mouths per second: 10 villagers eat 0.6 food a second. */
+export const EAT_RATE = 0.06;
+/** A soldier eats for two and a half — the army is what empties the granary,
+ *  and the autumn stockpile is what the winter siege actually runs on. */
+export const ARMY_EAT = 0.15;
 /** A new villager arrives this often when there is food and a roof. */
 export const GROW_EVERY = 9;
 /** …and eats this much on arrival — growth is paid for, not free. */
 export const GROW_COST = 5;
-/** With the granary empty someone starves this often. */
-export const STARVE_EVERY = 12;
+/** With the granary empty someone starves this often — villagers first,
+ *  and once none are left, the soldiers desert. */
+export const STARVE_EVERY = 10;
 
 export const TRAIN_TIME = 4.5;
 export const QUEUE_MAX = 5;
