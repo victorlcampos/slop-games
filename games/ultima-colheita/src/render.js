@@ -8,8 +8,9 @@ import { BUILDINGS, buildingAt, whyNot } from './buildings.js';
 import { UNITS } from './units.js';
 import { questNow } from './quests.js';
 import {
-  drawBuilding, drawGrassTile, drawPathTile, drawRallyFlag, drawRock, drawTree,
-  drawUnit, drawVillager, drawZombie,
+  drawBuilding, drawClutter, drawCritter, drawGrassTile, drawLamp, drawMountains,
+  drawPathTile, drawRallyFlag, drawRoadFringe, drawRock, drawTree, drawUnit,
+  drawVillager, drawWell, drawZombie,
 } from './art.js';
 import { barLayout } from './ui.js';
 import { minimapRect } from './camera.js';
@@ -37,18 +38,80 @@ export function createTerrainCache() {
       if (canvas && paintedSeason === season && paintedMap === map) return canvas;
       canvas = canvas || Object.assign(document.createElement('canvas'), { width: BOARD_W, height: BOARD_H });
       const ctx = canvas.getContext('2d');
+      const salt = (c, r) => c * 31 + r * 17;
+
+      // 1 — the ground. The road runs under whatever stands on it: a grass
+      // square in the middle of a lane reads as a hole, not as a tree.
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          const salt = c * 31 + r * 17;
-          const kind = map.tiles[c + r * COLS];
-          // the road runs under whatever stands on it — a grass square in the
-          // middle of a lane reads as a hole, not as a tree
-          if (isRoad(c, r)) drawPathTile(ctx, c * TILE, r * TILE, season, salt);
-          else drawGrassTile(ctx, c * TILE, r * TILE, season, salt);
-          if (kind === TREE) drawTree(ctx, c * TILE, r * TILE, season, salt);
-          else if (kind === ROCK) drawRock(ctx, c * TILE, r * TILE, season, salt);
+          if (isRoad(c, r)) {
+            const v = c === HALL_C || c === HALL_C + 1;
+            const hz = r === HALL_R + 2;
+            drawPathTile(ctx, c * TILE, r * TILE, season, salt(c, r), v && hz ? 'x' : v ? 'v' : 'h');
+          } else {
+            drawGrassTile(ctx, c * TILE, r * TILE, season, salt(c, r));
+          }
         }
       }
+
+      // 2 — grass creeping over the road's edges, so the lanes read as worn
+      // into the field instead of stamped on it
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!isRoad(c, r)) continue;
+          if (c > 0 && !isRoad(c - 1, r)) drawRoadFringe(ctx, c * TILE, r * TILE, season, salt(c, r), 'l');
+          if (c < COLS - 1 && !isRoad(c + 1, r)) drawRoadFringe(ctx, c * TILE, r * TILE, season, salt(c, r), 'r');
+          if (r > 0 && !isRoad(c, r - 1)) drawRoadFringe(ctx, c * TILE, r * TILE, season, salt(c, r), 'u');
+          if (r < ROWS - 1 && !isRoad(c, r + 1)) drawRoadFringe(ctx, c * TILE, r * TILE, season, salt(c, r), 'd');
+        }
+      }
+
+      // 2b — the range that walls the valley's north, behind the treeline
+      drawMountains(ctx, BOARD_W, season, map.seed);
+
+      // 3 — the standing scenery, in its own pass so a canopy may spill over
+      // the tile beside it without the next tile painting it out
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const kind = map.tiles[c + r * COLS];
+          if (kind === TREE) drawTree(ctx, c * TILE, r * TILE, season, salt(c, r));
+          else if (kind === ROCK) drawRock(ctx, c * TILE, r * TILE, season, salt(c, r));
+        }
+      }
+
+      // 4 — the woods the valley sits in: a scenic tree ring on the south,
+      // east and west borders (the north belongs to the mountains). The map
+      // keeps these tiles walkable — the horde walks out of a forest now,
+      // not off the edge of the world.
+      for (let c = 0; c < COLS; c++) {
+        const r = ROWS - 1;
+        if (isRoad(c, r) || map.tiles[c + r * COLS] !== GRASS) continue;
+        const s = salt(c, r);
+        if (s % 3 !== 0) drawTree(ctx, c * TILE + ((s * 7) % 11) - 5, r * TILE + ((s * 13) % 9) - 4, season, s);
+      }
+      for (let r = 0; r < ROWS; r++) {
+        for (const c of [0, COLS - 1]) {
+          if (isRoad(c, r) || map.tiles[c + r * COLS] !== GRASS) continue;
+          const s = salt(c, r);
+          if (s % 3 !== 1) drawTree(ctx, c * TILE + ((s * 7) % 11) - 5, r * TILE + ((s * 13) % 9) - 4, season, s);
+        }
+      }
+
+      // 5 — the village furniture: lamps along the roads, the well and the
+      // stores by the manor. Scenery, not state — nothing collides with it.
+      for (let r = 2; r < ROWS - 2; r += 5) {
+        if (Math.abs(r - (HALL_R + 2)) < 2) continue;
+        const left = (r / 5) % 2 < 1;
+        const lx = left ? (HALL_C - 0.35) * TILE : (HALL_C + 2.15) * TILE;
+        drawLamp(ctx, lx, r * TILE + 8, season);
+      }
+      for (let c = 4; c < COLS - 3; c += 7) {
+        if (Math.abs(c - HALL_C) < 3) continue;
+        drawLamp(ctx, c * TILE + 10, (HALL_R + 2 - 0.55) * TILE, season);
+      }
+      drawWell(ctx, (HALL_C + 2.7) * TILE, (HALL_R - 1.4) * TILE, season);
+      drawClutter(ctx, (HALL_C - 1.1) * TILE, (HALL_R + 1.3) * TILE, 1);
+
       paintedSeason = season;
       paintedMap = map;
       return canvas;
@@ -58,18 +121,22 @@ export function createTerrainCache() {
 
 // ------------------------------------------------------------------ the board
 
-export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villagers }) {
-  const season = world.season();
-  ctx.save();
-  ctx.translate(tr.ox, tr.oy);
-  ctx.scale(tr.k, tr.k);
+// The whole board is drawn at 1x into this canvas every frame, then blitted
+// under the camera with smoothing off. One resolution for everything is what
+// makes it read as pixel art: the old path drew the ground chunky and the
+// buildings smooth, and the seam between the two styles was visible.
+let scene = null;
 
-  // nearest-neighbour upscale: zoomed in, the ground's chunky pixels are the
-  // pixel-art look, not a rendering accident to smooth away
-  const smoothed = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
+function sceneCtx() {
+  scene = scene || Object.assign(document.createElement('canvas'), { width: BOARD_W, height: BOARD_H });
+  return scene.getContext('2d');
+}
+
+export function drawBoard(realCtx, world, tr, cache, { time, fx, tool, hover, villagers }) {
+  const season = world.season();
+  const ctx = sceneCtx();
+  ctx.clearRect(0, 0, BOARD_W, BOARD_H);
   ctx.drawImage(cache.get(world.map, season), 0, 0);
-  ctx.imageSmoothingEnabled = smoothed;
 
   // buildings first, top row first, so a banner overlaps the roof below it
   const sorted = [...world.buildings].sort((a, b) => a.r - b.r);
@@ -114,6 +181,7 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villag
   ].sort((a, b) => a.y - b.y);
   for (const m of mobs) {
     if (m.u) drawUnit(ctx, m.u, m.u.x * TILE, m.u.y * TILE, time);
+    else if (m.v && (m.v.kind === 'sheep' || m.v.kind === 'chicken')) drawCritter(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
     else if (m.v) drawVillager(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
     else drawZombie(ctx, m.z, m.z.x * TILE, m.z.y * TILE, time);
   }
@@ -132,9 +200,30 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villag
     g.addColorStop(1, 'rgba(150,170,200,0.35)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+  } else if (season === 'autumn') {
+    // a golden cast over the whole valley: the harvest light
+    ctx.fillStyle = 'rgba(232,170,60,0.07)';
+    ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   }
 
-  ctx.restore();
+  // the light: warm at the heart of the valley, cooling toward the treeline.
+  // Subtle on purpose — it grades the scene without anyone noticing a filter.
+  const light = ctx.createRadialGradient(
+    BOARD_W / 2, BOARD_H * 0.44, BOARD_H * 0.4, BOARD_W / 2, BOARD_H / 2, BOARD_W * 0.72
+  );
+  light.addColorStop(0, 'rgba(255,235,180,0.05)');
+  light.addColorStop(1, 'rgba(40,32,60,0.10)');
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+
+  // one blit under the camera, nearest-neighbour: the whole scene shares one
+  // pixel grid, which is what makes it read as pixel art
+  realCtx.save();
+  realCtx.translate(tr.ox, tr.oy);
+  realCtx.scale(tr.k, tr.k);
+  realCtx.imageSmoothingEnabled = false;
+  realCtx.drawImage(scene, 0, 0);
+  realCtx.restore();
 }
 
 /**
@@ -151,15 +240,14 @@ export function drawMinimap(ctx, world, cam, viewW, viewH, cache) {
   ctx.lineWidth = 1.5;
   ctx.strokeRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
 
-  ctx.drawImage(cache.get(world.map, world.season()), r.x, r.y, r.w, r.h);
+  // the live scene, shrunk — the minimap shows the town as it actually looks
+  ctx.drawImage(scene || cache.get(world.map, world.season()), r.x, r.y, r.w, r.h);
 
   const kx = r.w / COLS;
   const ky = r.h / ROWS;
-  for (const b of world.buildings) {
-    const spec = BUILDINGS[b.id];
-    ctx.fillStyle = b.id === 'hall' ? '#ffd97a' : '#f2e7d0';
-    ctx.fillRect(r.x + b.c * kx, r.y + b.r * ky, Math.max(2, spec.w * kx), Math.max(2, spec.h * ky));
-  }
+  ctx.fillStyle = '#ffd97a';
+  const hall = world.hall();
+  if (hall) ctx.fillRect(r.x + hall.c * kx, r.y + hall.r * ky, Math.max(3, 2 * kx), Math.max(3, 2 * ky));
   for (const u of world.units) {
     ctx.fillStyle = '#6fa0ff';
     ctx.fillRect(r.x + u.x * kx - 1, r.y + u.y * ky - 1, 2, 2);
@@ -362,8 +450,10 @@ function fitText(ctx, text, maxW, pxSize) {
 export function drawTopBar(ctx, viewW, world, t, status) {
   const pad = 10;
   ctx.save();
-  ctx.fillStyle = 'rgba(20,18,14,0.72)';
+  ctx.fillStyle = 'rgba(26,19,12,0.85)';
   ctx.fillRect(0, 0, viewW, 32);
+  ctx.fillStyle = 'rgba(200,162,50,0.35)';
+  ctx.fillRect(0, 31, viewW, 1);
 
   let x = pad;
   ctx.textBaseline = 'middle';
@@ -551,8 +641,13 @@ export function drawToolInfo(ctx, viewW, viewH, t, tool) {
 export function drawBar(ctx, viewW, viewH, world, t, tool) {
   const rects = barLayout(viewW, viewH);
   ctx.save();
-  ctx.fillStyle = 'rgba(20,18,14,0.88)';
+  // a wooden console, not a translucent strip — the UI wears the game's skin
+  ctx.fillStyle = '#221912';
   ctx.fillRect(0, viewH - HUD_H, viewW, HUD_H);
+  ctx.fillStyle = '#2b2016';
+  ctx.fillRect(0, viewH - HUD_H, viewW, 3);
+  ctx.fillStyle = 'rgba(200,162,50,0.45)';
+  ctx.fillRect(0, viewH - HUD_H, viewW, 1.5);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -574,11 +669,21 @@ export function drawBar(ctx, viewW, viewH, world, t, tool) {
       name = t(`tool.${r.id}`);
     }
 
-    ctx.fillStyle = active ? 'rgba(255,217,122,0.22)' : 'rgba(255,255,255,0.06)';
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.strokeStyle = active ? '#ffd97a' : 'rgba(255,255,255,0.16)';
-    ctx.lineWidth = active ? 2 : 1;
-    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = active ? 'rgba(200,162,50,0.28)' : 'rgba(64,46,30,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(r.x, r.y, r.w, r.h, 5);
+    ctx.fill();
+    ctx.strokeStyle = active ? '#ffd97a' : 'rgba(18,12,7,0.9)';
+    ctx.lineWidth = active ? 2 : 1.5;
+    ctx.stroke();
+    if (!active) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(r.x + 4, r.y + 1.5);
+      ctx.lineTo(r.x + r.w - 4, r.y + 1.5);
+      ctx.stroke();
+    }
 
     ctx.save();
     if (!enabled) ctx.globalAlpha = 0.38;

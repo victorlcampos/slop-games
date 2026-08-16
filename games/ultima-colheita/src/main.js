@@ -308,36 +308,76 @@ function update(h) {
  * sprites. Up to a dozen on screen keeps the town alive without a crowd.
  */
 function tendVillagers(h) {
-  const want = Math.min(12, world.pop);
   const hall = world.hall();
   const homeX = hall ? hall.c + 1 : 20;
   const homeY = hall ? hall.r + 2.6 : 12;
-  while (villagers.length < want) {
-    villagers.push({
-      x: homeX, y: homeY, tx: homeX, ty: homeY,
-      seed: villagers.length * 7 + 3, wait: Math.random() * 2,
-    });
+  const farms = world.buildings.filter((b) => b.id === 'farm' && b.built >= 1);
+  const houses = world.buildings.filter((b) => b.id === 'house' && b.built >= 1);
+
+  // people from the population number; livestock from the buildings — a farm
+  // earns its sheep, a house its chickens, and the fauna makes the town a farm
+  // instead of a diorama
+  const want = {
+    villager: Math.min(12, world.pop),
+    sheep: Math.min(4, farms.length * 2),
+    chicken: Math.min(4, houses.length + (farms.length ? 1 : 0)),
+  };
+  const counts = { villager: 0, sheep: 0, chicken: 0 };
+  for (const v of villagers) counts[v.kind] = (counts[v.kind] || 0) + 1;
+  for (const kind of ['villager', 'sheep', 'chicken']) {
+    while (counts[kind] < want[kind]) {
+      const home = kind === 'sheep'
+        ? farms[counts[kind] % Math.max(1, farms.length)]
+        : kind === 'chicken' && houses.length
+          ? houses[counts[kind] % houses.length]
+          : null;
+      const hx = home ? home.c + 1 : homeX;
+      const hy = home ? home.r + 1.5 : homeY;
+      villagers.push({
+        kind, x: hx, y: hy, tx: hx, ty: hy, hx, hy,
+        seed: villagers.length * 7 + 3, wait: Math.random() * 2,
+      });
+      counts[kind]++;
+    }
+    if (counts[kind] > want[kind]) {
+      let extra = counts[kind] - want[kind];
+      for (let i = villagers.length - 1; i >= 0 && extra > 0; i--) {
+        if (villagers[i].kind === kind) {
+          villagers.splice(i, 1);
+          extra--;
+        }
+      }
+    }
   }
-  if (villagers.length > want) villagers.length = want;
+
   for (const v of villagers) {
-    // during a horde the townsfolk are indoors — the streets belong to the fight
-    if (world.hordeIn) {
+    const critter = v.kind !== 'villager';
+    // during a horde the townsfolk run indoors; the animals, bless them, don't
+    if (world.hordeIn && !critter) {
       v.tx = homeX + (v.seed % 3) - 1;
       v.ty = homeY;
     }
+    const speed = critter ? 0.4 : 0.9;
     const d = Math.hypot(v.tx - v.x, v.ty - v.y);
     if (d > 0.15) {
-      v.x += ((v.tx - v.x) / d) * 0.9 * h;
-      v.y += ((v.ty - v.y) / d) * 0.9 * h;
-    } else if (!world.hordeIn) {
+      v.x += ((v.tx - v.x) / d) * speed * h;
+      v.y += ((v.ty - v.y) / d) * speed * h;
+    } else if (!world.hordeIn || critter) {
       v.wait -= h;
       if (v.wait <= 0) {
         v.wait = 1.5 + Math.random() * 3;
-        const spots = world.buildings.filter((b) => b.built >= 1);
-        const b = spots[Math.floor(Math.random() * spots.length)];
-        if (b) {
-          v.tx = b.c + Math.random() * 2;
-          v.ty = b.r + 1.2 + Math.random() * 1.5;
+        if (critter) {
+          // graze in a small circle around home — tight enough that a sheep
+          // stays inside the pen its farm drew
+          v.tx = v.hx + (Math.random() - 0.5) * 1.8;
+          v.ty = v.hy + (Math.random() - 0.5) * 1.2;
+        } else {
+          const spots = world.buildings.filter((b) => b.built >= 1);
+          const b = spots[Math.floor(Math.random() * spots.length)];
+          if (b) {
+            v.tx = b.c + Math.random() * 2;
+            v.ty = b.r + 1.2 + Math.random() * 1.5;
+          }
         }
       }
     }
@@ -534,6 +574,7 @@ window.__game = {
   name: 'ultima-colheita',
   viewport: vp,
   i18n,
+  cam,
   get world() {
     return world;
   },
