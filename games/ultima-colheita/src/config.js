@@ -28,7 +28,9 @@ export const HORN_LEAD = 10;
 
 // ----------------------------------------------------------------- the people
 export const START_POP = 6;
-export const START_RES = { food: 40, wood: 60, stone: 0, gold: 10 };
+// a little stone in the wagons: the founders did not arrive empty-handed, and
+// the first winter's quest chain needs the head start
+export const START_RES = { food: 40, wood: 60, stone: 10, gold: 10 };
 export const RES = ['food', 'wood', 'stone', 'gold'];
 export const RES_CAP = 999;
 /** Mouths per second: 10 villagers eat 0.5 food a second. */
@@ -40,7 +42,7 @@ export const GROW_COST = 5;
 /** With the granary empty someone starves this often. */
 export const STARVE_EVERY = 12;
 
-export const TRAIN_TIME = 6;
+export const TRAIN_TIME = 4.5;
 export const QUEUE_MAX = 5;
 
 export function clamp(v, lo, hi) {

@@ -13,7 +13,7 @@ import {
 import { BUILDINGS, buildingAt, centerOf, crewDemand, pay, siteYield, whyNot } from './buildings.js';
 import { FARM_SEASON } from './config.js';
 import { genMap, HALL_C, HALL_R } from './map.js';
-import { FIRST_WAVE, TRICKLE, ZOMBIES, gatesFor, hordeFor, hpScale, strayEvery } from './hordes.js';
+import { TRICKLE, ZOMBIES, firstWave, gatesFor, hordeFor, hpScale, ranksFor, strayEvery } from './hordes.js';
 import { UNITS, makeUnit, makeZombie, stepUnit, stepZombie } from './units.js';
 import { advanceQuests } from './quests.js';
 
@@ -354,7 +354,10 @@ function calendar(world, h) {
     world.trickleT += h;
     if (world.trickleT >= TRICKLE) {
       world.trickleT = 0;
-      admit(world, world.pending.shift());
+      // year one comes single file; the late years come in ranks
+      for (let i = ranksFor(world.year); i > 0 && world.pending.length; i--) {
+        admit(world, world.pending.shift());
+      }
     }
   }
 
@@ -383,7 +386,7 @@ function spawnHorde(world) {
   world.spawned = 0;
   world.trickleT = 0;
   world.hordeIn = true;
-  for (let i = 0; i < FIRST_WAVE && world.pending.length; i++) admit(world, world.pending.shift());
+  for (let i = 0; i < firstWave(world.year) && world.pending.length; i++) admit(world, world.pending.shift());
   world.events.push({ kind: 'horde', n: kinds.length, year: world.year });
 }
 

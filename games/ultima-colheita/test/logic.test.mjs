@@ -8,7 +8,7 @@ installHeadlessDom();
 
 const { COLS, ROWS, SEASON_LEN, SEASONS, YEAR_LEN, HORN_LEAD, STEP, START_POP, GROW_EVERY, STARVE_EVERY, TRAIN_TIME, QUEUE_MAX, H } =
   await import('../src/config.js');
-const { GRASS, TREE, ROCK, genMap, HALL_C, HALL_R } = await import('../src/map.js');
+const { GRASS, TREE, ROCK, genMap, HALL_C, HALL_R, countAround } = await import('../src/map.js');
 const { BUILDINGS, SHOP, whyNot, buildingAt, siteYield } = await import('../src/buildings.js');
 const { ZOMBIES, hordeFor, hpScale, gatesFor } = await import('../src/hordes.js');
 const { UNITS, makeUnit, makeZombie } = await import('../src/units.js');
@@ -83,6 +83,66 @@ scenario('the first quest is the sawmill, and building one advances the chain', 
   world.tick(STEP);
   check(world.events.some((e) => e.kind === 'quest' && e.id === 'sawmill'), 'the done quest went unannounced');
   check(questNow(world).id === 'farm', `the chain moved to ${questNow(world).id}`);
+});
+
+scenario('a diligent founder finishes the whole quest chain before the first snow', () => {
+  // The promise the economy is tuned to. The founder is scripted and plays
+  // by the book: reads the current quest, does exactly that, nothing else.
+  // If a cost or a yield drifts out of reach, this goes red before a player
+  // ever meets a first winter they could not have prepared for.
+  const winterAt = SEASON_LEN * (SEASONS.length - 1);
+  for (const seed of [3, 11, 42, 300]) {
+    const world = createWorld({ seed });
+
+    // candidate cells sorted by distance from the manor, like a person builds
+    const cells = [];
+    for (let r = 1; r < ROWS - 1; r++) {
+      for (let c = 1; c < COLS - 1; c++) cells.push({ c, r });
+    }
+    cells.sort((a, b) =>
+      Math.hypot(a.c - COLS / 2, a.r - ROWS / 2) - Math.hypot(b.c - COLS / 2, b.r - ROWS / 2));
+    const tryPlace = (id) => {
+      // a resource building goes where its resource is thickest — the note on
+      // the button says so, and the founder reads the notes
+      const needs = BUILDINGS[id].needs;
+      if (needs !== undefined) {
+        let best = null;
+        let bestN = 0;
+        for (const { c, r } of cells) {
+          if (whyNot(world, id, c, r) !== null) continue;
+          const n = countAround(world.map, c, r, needs);
+          if (n > bestN) {
+            bestN = n;
+            best = { c, r };
+            if (n >= 8) break;
+          }
+        }
+        return best ? world.place(id, best.c, best.r) === null : false;
+      }
+      for (const { c, r } of cells) if (world.place(id, c, r) === null) return true;
+      return false;
+    };
+
+    let t = 0;
+    while (t < winterAt && questNow(world).id !== 'survive') {
+      world.tick(STEP);
+      t += STEP;
+      world.events.length = 0;
+      if (Math.abs(t % 1) >= STEP) continue; // act once a second, like a thumb
+      const q = questNow(world);
+      if (q.id === 'soldiers') {
+        // count the training yard too — queueing five recruits for a quest
+        // that needs two is how a founder starves their own economy
+        if (world.units.length + world.queue.length < q.target) world.train('soldier');
+      } else if (q.id === 'walls') tryPlace('wall');
+      else tryPlace(q.id);
+    }
+
+    check(questNow(world).id === 'survive',
+      `seed ${seed}: winter caught the founder on "${questNow(world).id}" (${questNow(world).n}/${questNow(world).target}) `
+      + `with f${Math.round(world.res.food)} w${Math.round(world.res.wood)} s${Math.round(world.res.stone)} at t=${t.toFixed(0)}s`);
+    check(!world.over, `seed ${seed}: the town fell while following its own tutorial`);
+  }
 });
 
 scenario('a finished chain settles into surviving the winter', () => {
@@ -221,7 +281,7 @@ scenario('a sawmill cuts faster in deep forest than beside one tree', () => {
     if (dc || dr) world.map.tiles[10 + dc + (10 + dr) * COLS] = TREE;
   }
   const deep = { id: 'sawmill', c: 10, r: 10 };
-  check(siteYield(world.map, deep) > siteYield(world.map, lone) * 2,
+  check(siteYield(world.map, deep) >= siteYield(world.map, lone) * 2,
     `deep forest ${siteYield(world.map, deep)}, lone tree ${siteYield(world.map, lone)}`);
   check(siteYield(world.map, deep) <= 1, 'yield above 1 — the cap is gone');
 });

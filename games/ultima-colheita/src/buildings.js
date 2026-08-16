@@ -11,19 +11,23 @@ export const BUILDINGS = {
   // it is losing the run. Its trickle of forage is the floor under the whole
   // economy — a town that loses its last sawmill with 20 wood in the barn must
   // be able to claw back to 25, or the run dead-ends with the manor standing.
-  hall: { w: 2, h: 2, hp: 600, cost: {}, crew: 0, fixed: true, yields: { wood: 0.12, food: 0.08 } },
+  hall: { w: 2, h: 2, hp: 600, cost: {}, crew: 0, fixed: true, yields: { wood: 0.25, food: 0.1 } },
 
-  house: { w: 1, h: 1, hp: 120, cost: { wood: 20 }, crew: 0, popCap: 4, raise: 4 },
-  farm: { w: 2, h: 2, hp: 100, cost: { wood: 30 }, crew: 2, yields: { food: 0.9 }, seasonal: true, raise: 5 },
-  sawmill: { w: 1, h: 1, hp: 120, cost: { wood: 25 }, crew: 2, yields: { wood: 0.65 }, needs: TREE, per: 4, raise: 4 },
-  quarry: { w: 1, h: 1, hp: 160, cost: { wood: 40 }, crew: 2, yields: { stone: 0.5 }, needs: ROCK, per: 3, raise: 5 },
+  // The whole first-year table is tuned to one promise, enforced by a test:
+  // a founder who follows the quest chain finishes it before the first snow.
+  house: { w: 1, h: 1, hp: 120, cost: { wood: 15 }, crew: 0, popCap: 4, raise: 4 },
+  farm: { w: 2, h: 2, hp: 100, cost: { wood: 25 }, crew: 2, yields: { food: 1.0 }, seasonal: true, raise: 5 },
+  sawmill: { w: 1, h: 1, hp: 120, cost: { wood: 20 }, crew: 2, yields: { wood: 1.5 }, needs: TREE, per: 2, raise: 4 },
+  quarry: { w: 1, h: 1, hp: 160, cost: { wood: 20 }, crew: 2, yields: { stone: 1.0 }, needs: ROCK, per: 2, raise: 5 },
   market: { w: 1, h: 1, hp: 120, cost: { wood: 50, stone: 10 }, crew: 2, yields: { gold: 0.4 }, raise: 5 },
 
-  barracks: { w: 2, h: 2, hp: 260, cost: { wood: 60, stone: 30 }, crew: 0, trains: 'soldier', raise: 6 },
-  range: { w: 2, h: 2, hp: 200, cost: { wood: 80, stone: 20 }, crew: 0, trains: 'archer', raise: 6 },
+  barracks: { w: 2, h: 2, hp: 260, cost: { wood: 35, stone: 10 }, crew: 0, trains: 'soldier', raise: 6 },
+  range: { w: 2, h: 2, hp: 200, cost: { wood: 50, stone: 15 }, crew: 0, trains: 'archer', raise: 6 },
 
-  wall: { w: 1, h: 1, hp: 300, cost: { stone: 6 }, crew: 0, raise: 2 },
-  tower: { w: 1, h: 1, hp: 220, cost: { stone: 40, gold: 15 }, crew: 1, dps: 9, range: 5.2, shotEvery: 0.9, raise: 6 },
+  wall: { w: 1, h: 1, hp: 300, cost: { stone: 3 }, crew: 0, raise: 2 },
+  // gold stays out of the tower: no quest raises a market, so the chain must
+  // close on wood and stone alone
+  tower: { w: 1, h: 1, hp: 220, cost: { stone: 25 }, crew: 1, dps: 9, range: 5.2, shotEvery: 0.9, raise: 6 },
 };
 
 /** What the command bar offers, in the order it offers it. */

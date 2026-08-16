@@ -17,7 +17,7 @@ export const ZOMBIES = {
 
 /** Every winter the whole horde gets tougher — the same walker, more of it. */
 export function hpScale(year) {
-  return 1 + 0.12 * Math.max(0, year - 1);
+  return 1 + 0.15 * Math.max(0, year - 1);
 }
 
 /**
@@ -25,12 +25,19 @@ export function hpScale(year) {
  * `wealth` is how many buildings stand — the town's own weight on the scale.
  */
 export function hordeFor(year, wealth) {
-  // tuned against a scripted playthrough: the first winter must be beatable by
-  // the two starting guards plus whatever a sensible spring could afford
-  const count = Math.round(1 + year * 2 + wealth * 0.3);
+  // Tuned against two scripted playthroughs pulling opposite ways: the
+  // quest-following founder must clear the whole chain before winter one and
+  // survive it, and the competent long-run player must still lose eventually
+  // — an endless game a bot never loses has stopped being a siege.
+  // the compounding term is what finally ends a run: an army grows linearly
+  // (so many spears a season), so a linear horde reaches an equilibrium the
+  // long-run playtest rode to year fourteen without losing a wall
+  const count = Math.round((1 + year * 2.5 + wealth * 0.35) * Math.pow(1.08, year - 1));
   const kinds = [];
+  // brutes thicken with the years: one in seven at first, one in five later
+  const bruteEvery = year >= 6 ? 5 : 7;
   for (let i = 0; i < count; i++) {
-    if (ZOMBIES.brute.fromYear <= year && i % 7 === 6) kinds.push('brute');
+    if (ZOMBIES.brute.fromYear <= year && i % bruteEvery === bruteEvery - 1) kinds.push('brute');
     else if (ZOMBIES.runner.fromYear <= year && i % 3 === 2) kinds.push('runner');
     else kinds.push('walker');
   }
@@ -68,5 +75,17 @@ export function strayEvery(year) {
  */
 export const TRICKLE = 2.4;
 
+/**
+ * How many of the dead step through per arrival. Year one is single file;
+ * the late years come in ranks — with a fixed drip a standing army killed
+ * each arrival before the next one cleared the treeline, and the long-run
+ * playtest literally could not lose.
+ */
+export function ranksFor(year) {
+  return 1 + Math.floor(year / 3);
+}
+
 /** How many walk in the moment the snow starts. */
-export const FIRST_WAVE = 2;
+export function firstWave(year) {
+  return 2 + Math.floor(year / 2);
+}

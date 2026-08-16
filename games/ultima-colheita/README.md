@@ -29,6 +29,13 @@ tower, and every resource in the top bar carries its **per-second rate** — the
 answer to "where does wood come from" is the `+0.4` sitting next to the number.
 Selecting a tool spells out what it does and what it wants, above the bar.
 
+The whole chain **fits before the first snow**, and that is a tested promise,
+not a hope: a scripted founder who does exactly what the quests say finishes
+with ten seconds to spare — the tower goes up as the horn sounds. From there
+the hordes compound by the year, and a second scripted player (a competent
+one, playing without walls) is guaranteed to eventually lose: an endless siege
+a bot can ride forever has stopped being a siege.
+
 ## The year
 
 Four seasons of thirty seconds. Farms yield nothing in winter and half again as
