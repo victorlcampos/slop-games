@@ -3,11 +3,13 @@
 // and the layout and puts pixels where they say.
 
 import { BOARD_H, BOARD_W, COLS, HUD_H, ROWS, TILE } from './config.js';
-import { GRASS, ROCK, TREE } from './map.js';
-import { BUILDINGS, whyNot } from './buildings.js';
+import { GRASS, HALL_C, HALL_R, ROCK, TREE } from './map.js';
+import { BUILDINGS, buildingAt, whyNot } from './buildings.js';
 import { UNITS } from './units.js';
+import { questNow } from './quests.js';
 import {
-  drawBuilding, drawGrassTile, drawRallyFlag, drawRock, drawTree, drawUnit, drawZombie,
+  drawBuilding, drawGrassTile, drawPathTile, drawRallyFlag, drawRock, drawTree,
+  drawUnit, drawVillager, drawZombie,
 } from './art.js';
 import { barLayout } from './ui.js';
 
@@ -29,11 +31,18 @@ export function toBoard(tr, x, y) {
   return { x: (x - tr.ox) / (tr.k * TILE), y: (y - tr.oy) / (tr.k * TILE) };
 }
 
+/** The dirt cross through the village — scenery the town is built along. The
+ *  vertical road is as wide as the manor it leads to; the crossing lane is a
+ *  single cart's width, or the map reads as more road than valley. */
+export function isRoad(c, r) {
+  return c === HALL_C || c === HALL_C + 1 || r === HALL_R + 2;
+}
+
 // ------------------------------------------------------------- terrain cache
 
 /**
  * The ground never moves, so it is painted once per season onto an offscreen
- * canvas and blitted after that — 800 tiles of freckles per frame is the kind
+ * canvas and blitted after that — 800 tiles of tufts per frame is the kind
  * of spend a phone notices.
  */
 export function createTerrainCache() {
@@ -48,8 +57,11 @@ export function createTerrainCache() {
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const salt = c * 31 + r * 17;
-          drawGrassTile(ctx, c * TILE, r * TILE, season, salt);
           const kind = map.tiles[c + r * COLS];
+          // the road runs under whatever stands on it — a grass square in the
+          // middle of a lane reads as a hole, not as a tree
+          if (isRoad(c, r)) drawPathTile(ctx, c * TILE, r * TILE, season, salt);
+          else drawGrassTile(ctx, c * TILE, r * TILE, season, salt);
           if (kind === TREE) drawTree(ctx, c * TILE, r * TILE, season, salt);
           else if (kind === ROCK) drawRock(ctx, c * TILE, r * TILE, season, salt);
         }
@@ -63,7 +75,7 @@ export function createTerrainCache() {
 
 // ------------------------------------------------------------------ the board
 
-export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover }) {
+export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villagers }) {
   const season = world.season();
   ctx.save();
   ctx.translate(tr.ox, tr.oy);
@@ -73,13 +85,26 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover }) {
 
   // buildings first, top row first, so a banner overlaps the roof below it
   const sorted = [...world.buildings].sort((a, b) => a.r - b.r);
+  const isWall = (c, r) => {
+    const b = buildingAt(world, c, r);
+    return !!b && b.id === 'wall';
+  };
   for (const b of sorted) {
-    drawBuilding(ctx, b.id, b.c * TILE, b.r * TILE, {
+    const opts = {
       built: b.built,
       hurt: b.hurtT > 0,
       season,
       spec: BUILDINGS[b.id],
-    });
+    };
+    if (b.id === 'wall') {
+      opts.link = {
+        l: isWall(b.c - 1, b.r),
+        r: isWall(b.c + 1, b.r),
+        u: isWall(b.c, b.r - 1),
+        d: isWall(b.c, b.r + 1),
+      };
+    }
+    drawBuilding(ctx, b.id, b.c * TILE, b.r * TILE, opts);
     if (b.hp < BUILDINGS[b.id].hp && b.built >= 1) {
       const spec = BUILDINGS[b.id];
       const frac = Math.max(0, b.hp / spec.hp);
@@ -90,15 +115,18 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover }) {
     }
   }
 
+  drawSmoke(ctx, world, time);
   drawRallyFlag(ctx, world.rally.x * TILE, world.rally.y * TILE, time);
 
   // the walking kind, sorted by y so nearer feet stand in front
   const mobs = [
-    ...world.units.map((u) => ({ u, y: u.y, unit: true })),
+    ...(villagers || []).map((v) => ({ v, y: v.y })),
+    ...world.units.map((u) => ({ u, y: u.y })),
     ...world.zombies.map((z) => ({ z, y: z.y })),
   ].sort((a, b) => a.y - b.y);
   for (const m of mobs) {
-    if (m.unit) drawUnit(ctx, m.u, m.u.x * TILE, m.u.y * TILE, time);
+    if (m.u) drawUnit(ctx, m.u, m.u.x * TILE, m.u.y * TILE, time);
+    else if (m.v) drawVillager(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
     else drawZombie(ctx, m.z, m.z.x * TILE, m.z.y * TILE, time);
   }
 
@@ -106,8 +134,9 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover }) {
   if (tool && tool.kind === 'shop' && hover) drawGhost(ctx, world, tool.id, hover);
   if (tool && tool.kind === 'tool' && hover) drawToolMark(ctx, tool.id, hover, time);
 
-  // winter closes in from the edges — the vignette is the season on screen
   if (season === 'winter') {
+    drawSnowfall(ctx, time);
+    // winter closes in from the edges — the vignette is the season on screen
     const g = ctx.createRadialGradient(
       BOARD_W / 2, BOARD_H / 2, BOARD_H * 0.45, BOARD_W / 2, BOARD_H / 2, BOARD_W * 0.7
     );
@@ -117,6 +146,40 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover }) {
     ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   }
 
+  ctx.restore();
+}
+
+/** Woodsmoke out of the manor's chimney — stateless, derived from the clock. */
+function drawSmoke(ctx, world, time) {
+  const hall = world.hall();
+  if (!hall) return;
+  const sx = hall.c * TILE + 2 * TILE - 0.45 * TILE + 4;
+  const sy = hall.r * TILE - 6;
+  ctx.save();
+  for (let k = 0; k < 3; k++) {
+    const p = (time * 0.35 + k / 3) % 1;
+    ctx.globalAlpha = (1 - p) * 0.4;
+    const drift = Math.sin(time * 1.3 + k * 2.1) * 4;
+    ctx.fillStyle = '#cfd3d8';
+    const rr = 3 + p * 5;
+    ctx.beginPath();
+    ctx.arc(sx + drift + p * 6, sy - p * 26, rr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** Snow that needs no state: each flake's fall is a function of the clock. */
+function drawSnowfall(ctx, time) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(240,246,250,0.75)';
+  for (let i = 0; i < 60; i++) {
+    const speed = 22 + (i % 7) * 5;
+    const x = (i * 97 + Math.sin(time * 0.8 + i) * 14 + time * 9) % BOARD_W;
+    const y = (i * 61 + time * speed) % BOARD_H;
+    const s = 2 + (i % 3);
+    ctx.fillRect((x + BOARD_W) % BOARD_W, y, s, s);
+  }
   ctx.restore();
 }
 
@@ -253,8 +316,8 @@ export function drawIcon(ctx, kind, x, y, s = 12) {
 
 /** Fit `text` into `maxW`, shrinking the font before clipping ever happens —
  *  "Archery range" and "Campo de arco" are not the same length. */
-function fitText(ctx, text, maxW, px) {
-  let size = px;
+function fitText(ctx, text, maxW, pxSize) {
+  let size = pxSize;
   ctx.font = `600 ${size}px system-ui, sans-serif`;
   while (size > 7 && ctx.measureText(text).width > maxW) {
     size -= 1;
@@ -263,46 +326,152 @@ function fitText(ctx, text, maxW, px) {
   return size;
 }
 
-export function drawTopBar(ctx, viewW, world, t, notice) {
+export function drawTopBar(ctx, viewW, world, t, status) {
   const pad = 10;
   ctx.save();
-  ctx.fillStyle = 'rgba(20,18,14,0.66)';
-  ctx.fillRect(0, 0, viewW, 30);
+  ctx.fillStyle = 'rgba(20,18,14,0.72)';
+  ctx.fillRect(0, 0, viewW, 32);
 
   let x = pad;
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#f2e7d0';
   ctx.font = '700 13px system-ui, sans-serif';
   const yearText = `${t('hud.year', { n: world.year })} · ${t(`season.${world.season()}`)}`;
-  ctx.fillText(yearText, x, 15);
-  x += ctx.measureText(yearText).width + 18;
+  ctx.fillText(yearText, x, 16);
+  x += ctx.measureText(yearText).width + 16;
 
-  ctx.font = '600 13px system-ui, sans-serif';
+  // each resource carries its per-second rate: "where does wood come from"
+  // is answered by the +0.4 sitting next to the number
+  const rates = world.rates();
   for (const k of ['food', 'wood', 'stone', 'gold']) {
-    drawIcon(ctx, k, x, 9, 12);
+    drawIcon(ctx, k, x, 10, 12);
     const v = String(Math.floor(world.res[k]));
     ctx.fillStyle = '#f2e7d0';
-    ctx.fillText(v, x + 16, 15);
-    x += 16 + ctx.measureText(v).width + 14;
+    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.fillText(v, x + 16, 16);
+    x += 16 + ctx.measureText(v).width + 3;
+    const r = rates[k];
+    if (Math.abs(r) >= 0.005) {
+      const rt = `${r > 0 ? '+' : ''}${r.toFixed(1)}`;
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.fillStyle = r > 0 ? '#8fe08a' : '#e0563c';
+      ctx.fillText(rt, x, 17);
+      x += ctx.measureText(rt).width;
+    }
+    x += 12;
   }
-  drawIcon(ctx, 'pop', x, 9, 12);
+  ctx.font = '600 13px system-ui, sans-serif';
+  ctx.fillStyle = '#f2e7d0';
+  drawIcon(ctx, 'pop', x, 10, 12);
   const popText = `${world.pop}/${world.popCap()}`;
-  ctx.fillText(popText, x + 16, 15);
-  x += 16 + ctx.measureText(popText).width + 14;
-  drawIcon(ctx, 'army', x, 9, 12);
-  ctx.fillText(String(world.units.length), x + 16, 15);
+  ctx.fillText(popText, x + 16, 16);
+  x += 16 + ctx.measureText(popText).width + 12;
+  drawIcon(ctx, 'army', x, 10, 12);
+  ctx.fillText(String(world.units.length), x + 16, 16);
 
-  if (notice) {
+  if (status) {
+    // right-aligned but clear of the corner: the flags and the mute button
+    // live there in the DOM, above the canvas
     ctx.textAlign = 'right';
-    ctx.fillStyle = notice.color || '#ffd97a';
+    ctx.fillStyle = status.color || '#ffd97a';
     ctx.font = '700 13px system-ui, sans-serif';
-    ctx.fillText(notice.text, viewW - pad, 15);
+    ctx.fillText(status.text, viewW - 130, 16);
     ctx.textAlign = 'left';
   }
   ctx.restore();
 }
 
-/** The horde banner, front and centre — a horn nobody sees is a horn wasted. */
+/** Break `text` on spaces so every line fits `maxW` at the current font. */
+function wrap(ctx, text, maxW) {
+  const words = String(text).split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const probe = line ? `${line} ${word}` : word;
+    if (ctx.measureText(probe).width > maxW && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = probe;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** The quest panel, top-left like the reference: one goal, one live counter. */
+export function drawQuest(ctx, world, t) {
+  const q = questNow(world);
+  const text = q.id === 'survive'
+    ? t('q.survive', { year: q.year })
+    : t(`q.${q.id}`, { target: q.target });
+  const wMax = 250;
+
+  ctx.save();
+  ctx.font = '600 12px system-ui, sans-serif';
+  const lines = wrap(ctx, text, wMax - 40);
+  const hBox = 30 + lines.length * 15;
+
+  ctx.fillStyle = 'rgba(24,20,14,0.82)';
+  ctx.strokeStyle = 'rgba(200,162,50,0.55)';
+  ctx.lineWidth = 1.5;
+  const x = 10;
+  const y = 42;
+  ctx.beginPath();
+  ctx.roundRect(x, y, wMax, hBox, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#d9c26a';
+  ctx.font = '800 11px system-ui, sans-serif';
+  ctx.fillText(t('q.title').toUpperCase(), x + 12, y + 14);
+
+  // the checkbox with the live count beside it
+  ctx.strokeStyle = '#cfc6a8';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + 12, y + 26, 11, 11);
+  if (q.target !== null && q.n >= q.target) {
+    ctx.strokeStyle = '#8fe08a';
+    ctx.beginPath();
+    ctx.moveTo(x + 14, y + 31);
+    ctx.lineTo(x + 17, y + 35);
+    ctx.lineTo(x + 22, y + 27);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#eee6cf';
+  ctx.font = '600 12px system-ui, sans-serif';
+  lines.forEach((line, i) => ctx.fillText(line, x + 30, y + 32 + i * 15));
+  if (q.target !== null) {
+    ctx.fillStyle = '#d9c26a';
+    ctx.font = '700 12px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${q.n}/${q.target}`, x + wMax - 10, y + 14);
+    ctx.textAlign = 'left';
+  }
+  ctx.restore();
+}
+
+/** One-line toast, centre screen — refusals were invisible in the corner. */
+export function drawToast(ctx, viewW, notice) {
+  if (!notice) return;
+  ctx.save();
+  ctx.font = '700 14px system-ui, sans-serif';
+  const w = ctx.measureText(notice.text).width + 30;
+  const x = viewW / 2 - w / 2;
+  const y = 84;
+  ctx.fillStyle = 'rgba(24,20,14,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, 30, 15);
+  ctx.fill();
+  ctx.fillStyle = notice.color || '#ffd97a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(notice.text, viewW / 2, y + 15);
+  ctx.restore();
+}
+
+/** The banner for the horde, front and centre — a horn nobody sees is wasted. */
 export function drawBanner(ctx, viewW, text, time) {
   ctx.save();
   ctx.textAlign = 'center';
@@ -310,7 +479,39 @@ export function drawBanner(ctx, viewW, text, time) {
   const pulse = 0.75 + Math.sin(time * 6) * 0.25;
   ctx.font = '800 26px system-ui, sans-serif';
   ctx.fillStyle = `rgba(224,86,60,${pulse})`;
-  ctx.fillText(text, viewW / 2, 54);
+  ctx.fillText(text, viewW / 2, 130);
+  ctx.restore();
+}
+
+/** What the selected tool is and what it wants, spelled out above the bar. */
+export function drawToolInfo(ctx, viewW, viewH, t, tool) {
+  if (!tool) return;
+  let name = '';
+  let note = '';
+  if (tool.kind === 'shop') {
+    name = t(`b.${tool.id}`);
+    note = t(`b.${tool.id}.note`);
+  } else if (tool.kind === 'tool') {
+    name = t(`tool.${tool.id}`);
+    note = t(`tool.${tool.id}.note`);
+  } else {
+    return;
+  }
+  const y = viewH - HUD_H - 26;
+  ctx.save();
+  ctx.fillStyle = 'rgba(24,20,14,0.82)';
+  ctx.fillRect(0, y, viewW, 26);
+  ctx.textBaseline = 'middle';
+  ctx.font = '800 12px system-ui, sans-serif';
+  ctx.fillStyle = '#d9c26a';
+  const label = `${name} — `;
+  const cx = 12;
+  ctx.fillText(label, cx, y + 13);
+  const lw = ctx.measureText(label).width;
+  const size = fitText(ctx, note, viewW - cx - lw - 16, 12);
+  ctx.font = `600 ${size}px system-ui, sans-serif`;
+  ctx.fillStyle = '#eee6cf';
+  ctx.fillText(note, cx + lw, y + 13);
   ctx.restore();
 }
 
@@ -399,7 +600,7 @@ function drawButtonIcon(ctx, r, world) {
   ctx.scale(0.62, 0.62);
   if (r.kind === 'shop') {
     const spec = BUILDINGS[r.id];
-    drawBuilding(ctx, r.id, -spec.w * TILE * 0.5, -2, { built: 1, spec, season: 'summer' });
+    drawBuilding(ctx, r.id, -spec.w * TILE * 0.5, r.id === 'tower' ? 14 : -2, { built: 1, spec, season: 'summer' });
   } else if (r.kind === 'train') {
     drawUnit(ctx, { id: 3, kind: r.id, hp: 999 }, 0, 18, 0);
   } else if (r.id === 'demolish') {

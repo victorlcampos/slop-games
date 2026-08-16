@@ -21,6 +21,12 @@ Everything is one pointer:
   resources *and a villager* — an army is farmers who put the hoe down).
 - **Demolish** returns half the cost. `M` mutes.
 
+The game teaches its own economy: a **quest panel** (top left) walks the first
+town through sawmill → farm → houses → quarry → barracks → army → walls →
+tower, and every resource in the top bar carries its **per-second rate** — the
+answer to "where does wood come from" is the `+0.4` sitting next to the number.
+Selecting a tool spells out what it does and what it wants, above the bar.
+
 ## The year
 
 Four seasons of thirty seconds. Farms yield nothing in winter and half again as
@@ -43,7 +49,12 @@ standing building adds to the count). A rich village is a loud dinner bell.
 - **Zombies don't pathfind — they chew.** A zombie walks straight at what it
   wants; whatever blocks the way becomes what it wants. That single rule is the
   entire meaning of a wall.
-- **Every sprite is rectangles.** Buildings, villagers, the dead, the resource
-  icons — all drawn at runtime (no image ships in the file), with the ground
-  cached per season because 800 tiles of freckles per frame is the kind of
-  spend a phone notices.
+- **Every sprite is rectangles.** Timber-framed houses, the manor's banner,
+  connected ramparts, pines and broadleafs, chimney smoke, snowfall, the
+  villagers wandering the roads — all drawn at runtime (no image ships in the
+  file), with the ground cached per season because 800 tiles of tufts per
+  frame is the kind of spend a phone notices.
+- **The balance was tuned by a robot playing badly.** A scripted player runs
+  whole years headless; every time it died unfairly, the reason became a rule
+  (the horde arrives as a procession, the army hunts anything biting a
+  building, soldiers cost bread instead of gold, wounds heal in local peace).

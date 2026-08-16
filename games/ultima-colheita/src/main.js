@@ -12,7 +12,10 @@ import { BUILDINGS } from './buildings.js';
 import { createWorld } from './world.js';
 import { bank, freshSave, normalize } from './run.js';
 import { i18n, t } from './i18n.js';
-import { boardTransform, createTerrainCache, drawBanner, drawBar, drawBoard, drawTopBar, toBoard } from './render.js';
+import {
+  boardTransform, createTerrainCache, drawBanner, drawBar, drawBoard, drawQuest,
+  drawToast, drawToolInfo, drawTopBar, toBoard,
+} from './render.js';
 import { hit } from './ui.js';
 import { sfx, sound } from './audio.js';
 
@@ -45,6 +48,8 @@ let noticeT = 0;
 const fx = [];
 /** Last time each throttled sound played — a horde biting in chorus is noise. */
 const lastSfx = {};
+/** Townsfolk going about their day: pure scenery, the sim never sees them. */
+const villagers = [];
 
 function setScreen(next) {
   screen = next;
@@ -68,6 +73,7 @@ function startRun(fresh) {
   }
   tool = null;
   fx.length = 0;
+  villagers.length = 0; // the old town's people do not haunt the new one
   persist();
   setScreen('play');
 }
@@ -182,6 +188,7 @@ function update(h) {
     if (fx[i].t <= 0) fx.splice(i, 1);
   }
 
+  if (world) tendVillagers(h);
   if (screen !== 'play' || !world) return;
   world.tick(h);
   drain();
@@ -190,6 +197,49 @@ function update(h) {
   if (saveT >= 5) {
     saveT = 0;
     persist();
+  }
+}
+
+/**
+ * The visible villagers wander between the town's buildings. They are drawn
+ * from the population number but live only here — killing the scenery would
+ * mean killing sim villagers one by one, and the economy counts heads, not
+ * sprites. Up to a dozen on screen keeps the town alive without a crowd.
+ */
+function tendVillagers(h) {
+  const want = Math.min(12, world.pop);
+  const hall = world.hall();
+  const homeX = hall ? hall.c + 1 : 20;
+  const homeY = hall ? hall.r + 2.6 : 12;
+  while (villagers.length < want) {
+    villagers.push({
+      x: homeX, y: homeY, tx: homeX, ty: homeY,
+      seed: villagers.length * 7 + 3, wait: Math.random() * 2,
+    });
+  }
+  if (villagers.length > want) villagers.length = want;
+  for (const v of villagers) {
+    // during a horde the townsfolk are indoors — the streets belong to the fight
+    if (world.hordeIn) {
+      v.tx = homeX + (v.seed % 3) - 1;
+      v.ty = homeY;
+    }
+    const d = Math.hypot(v.tx - v.x, v.ty - v.y);
+    if (d > 0.15) {
+      v.x += ((v.tx - v.x) / d) * 0.9 * h;
+      v.y += ((v.ty - v.y) / d) * 0.9 * h;
+    } else if (!world.hordeIn) {
+      v.wait -= h;
+      if (v.wait <= 0) {
+        v.wait = 1.5 + Math.random() * 3;
+        const spots = world.buildings.filter((b) => b.built >= 1);
+        const b = spots[Math.floor(Math.random() * spots.length)];
+        if (b) {
+          v.tx = b.c + Math.random() * 2;
+          v.ty = b.r + 1.2 + Math.random() * 1.5;
+        }
+      }
+    }
   }
 }
 
@@ -263,6 +313,11 @@ function drain() {
         sfx.cleared();
         persist();
         break;
+      case 'quest':
+        say(t('q.done'), '#8fe08a');
+        sfx.cleared();
+        persist();
+        break;
       case 'over':
         sfx.over();
         finishRun();
@@ -279,14 +334,15 @@ function draw() {
   const ctx = vp.ctx;
   if (!world) return;
 
-  drawBoard(ctx, world, tr(), cache, { time, fx, tool: screen === 'play' ? tool : null, hover });
+  drawBoard(ctx, world, tr(), cache, { time, fx, tool: screen === 'play' ? tool : null, hover, villagers });
 
   if (screen === 'play') {
-    const info = world.hordeIn
-      ? { text: t('hud.hordeIn'), color: '#e0563c' }
-      : notice;
-    drawTopBar(ctx, vp.W, world, t, info);
+    const status = world.hordeIn ? { text: t('hud.hordeIn'), color: '#e0563c' } : null;
+    drawTopBar(ctx, vp.W, world, t, status);
+    drawQuest(ctx, world, t);
+    drawToast(ctx, vp.W, notice);
     if (world.warned && !world.hordeIn) drawBanner(ctx, vp.W, t('hud.horde'), time);
+    drawToolInfo(ctx, vp.W, vp.H, t, tool);
     hudRects = drawBar(ctx, vp.W, vp.H, world, t, tool);
   } else {
     hudRects = [];

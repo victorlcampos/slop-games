@@ -15,6 +15,7 @@ import { FARM_SEASON } from './config.js';
 import { genMap, HALL_C, HALL_R } from './map.js';
 import { FIRST_WAVE, TRICKLE, ZOMBIES, gatesFor, hordeFor, hpScale, strayEvery } from './hordes.js';
 import { UNITS, makeUnit, makeZombie, stepUnit, stepZombie } from './units.js';
+import { advanceQuests } from './quests.js';
 
 let nextBuildingId = 1;
 
@@ -39,6 +40,7 @@ export function createWorld(opts = {}) {
     units: [],
     zombies: [],
     queue: [],
+    questIdx: 0,
     rally: { x: HALL_C + 1, y: HALL_R + 3.2 },
     stats: { kills: 0, years: 0, hordes: 0, lost: 0 },
     over: null,
@@ -126,7 +128,32 @@ export function createWorld(opts = {}) {
     for (const z of world.zombies) stepZombie(world, z, h);
     reap(world);
 
+    for (const id of advanceQuests(world)) world.events.push({ kind: 'quest', id });
+
     calendar(world, h);
+  };
+
+  /**
+   * What each resource is doing per second, as the standing town earns and
+   * eats it. This is the answer to "where does wood come from" written on the
+   * screen instead of discovered by staring at a number.
+   */
+  world.rates = () => {
+    const out = { food: 0, wood: 0, stone: 0, gold: 0 };
+    const eff = world.efficiency();
+    const season = world.season();
+    for (const b of world.buildings) {
+      const spec = BUILDINGS[b.id];
+      if (!spec.yields || b.built < 1) continue;
+      const seasonMult = spec.seasonal ? FARM_SEASON[season] : 1;
+      const staffed = spec.crew ? eff : 1;
+      const site = siteYield(world.map, b);
+      for (const [k, rate] of Object.entries(spec.yields)) {
+        out[k] += rate * seasonMult * staffed * site;
+      }
+    }
+    out.food -= world.pop * EAT_RATE;
+    return out;
   };
 
   // ----------------------------------------------------------- persistence
@@ -145,6 +172,7 @@ export function createWorld(opts = {}) {
     units: world.units.map((u) => ({ kind: u.kind, x: u.x, y: u.y, hp: u.hp })),
     zombies: world.zombies.map((z) => ({ kind: z.kind, x: z.x, y: z.y, hp: z.hp, max: z.max })),
     queue: world.queue.map((q) => ({ ...q })),
+    questIdx: world.questIdx,
     rally: { ...world.rally },
     stats: { ...world.stats },
     over: world.over,
@@ -162,6 +190,7 @@ function restore(world, s) {
   world.hordeIn = !!s.hordeIn;
   world.pending = Array.isArray(s.pending) ? s.pending.filter((k) => ZOMBIES[k]) : [];
   world.spawned = Number.isFinite(s.spawned) ? s.spawned : 0;
+  world.questIdx = Number.isFinite(s.questIdx) ? Math.max(0, Math.floor(s.questIdx)) : 0;
   world.rally = s.rally || world.rally;
   world.stats = { kills: 0, years: 0, hordes: 0, lost: 0, ...(s.stats || {}) };
   world.over = s.over || null;

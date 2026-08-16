@@ -80,6 +80,22 @@ export const dict = {
   'note.newyear': { en: 'Year {n}. The town held.', pt: 'Ano {n}. A vila aguentou.' },
   'note.horde': { en: 'The horde: {n} of them.', pt: 'A horda: {n} deles.' },
 
+  // ----------------------------------------------------------------- quests
+  'q.title': { en: 'Current quest', pt: 'Missão atual' },
+  'q.done': { en: 'Quest complete!', pt: 'Missão cumprida!' },
+  'q.sawmill': {
+    en: 'Build a sawmill next to trees — that is where wood comes from',
+    pt: 'Construa uma serraria junto às árvores — é dali que vem a madeira',
+  },
+  'q.farm': { en: 'Build a farm — winter eats what autumn banked', pt: 'Construa uma fazenda — o inverno come o que o outono guardou' },
+  'q.house': { en: 'Raise {target} houses — more roofs, more villagers', pt: 'Erga {target} casas — mais tetos, mais aldeões' },
+  'q.quarry': { en: 'Build a quarry beside rock — walls are made of stone', pt: 'Construa uma pedreira junto à rocha — muralha se faz de pedra' },
+  'q.barracks': { en: 'Build a barracks', pt: 'Construa um quartel' },
+  'q.soldiers': { en: 'Field an army of {target}', pt: 'Forme um exército de {target}' },
+  'q.walls': { en: 'Raise {target} stretches of wall', pt: 'Erga {target} trechos de muralha' },
+  'q.tower': { en: 'Build a tower — it shoots while you sleep', pt: 'Construa uma torre — ela atira enquanto você dorme' },
+  'q.survive': { en: 'Survive the winter of year {year}', pt: 'Sobreviva ao inverno do ano {year}' },
+
   // ------------------------------------------------------------------- menu
   'menu.start': { en: 'Found the village', pt: 'Fundar a vila' },
   'menu.resume': { en: 'Back to the village', pt: 'Voltar para a vila' },

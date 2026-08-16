@@ -17,6 +17,7 @@ const { freshSave, normalize, bank } = await import('../src/run.js');
 const { dict } = await import('../src/i18n.js');
 const { barLayout, hit, TOOLS, TRAINABLE } = await import('../src/ui.js');
 const { boardTransform, toBoard } = await import('../src/render.js');
+const { QUESTS, questNow } = await import('../src/quests.js');
 
 /** March a world forward `seconds` at the game's own fixed step. */
 function play(world, seconds) {
@@ -59,6 +60,50 @@ scenario('every refusal the rules can give is a phrase the player can read', () 
   check(world.train('nothing') === 'why.unknown', 'the guard phrase is wired');
   const missing = [...reasons].filter((k) => !dict[k]);
   check(missing.length === 0, `refusals with no words: ${missing.join(', ')}`);
+});
+
+// ----------------------------------------------------------------- the quests
+
+scenario('every quest has words in both languages, survive included', () => {
+  const wanted = [...QUESTS.map((q) => `q.${q.id}`), 'q.survive', 'q.title', 'q.done'];
+  const missing = wanted.filter((k) => !dict[k]);
+  check(missing.length === 0, `quests with no words: ${missing.join(', ')}`);
+});
+
+scenario('the first quest is the sawmill, and building one advances the chain', () => {
+  const world = bareWorld();
+  check(questNow(world).id === 'sawmill',
+    `a new town's first quest is ${questNow(world).id} — the first player got lost exactly here`);
+  world.res.wood = 99;
+  world.map.tiles[2 + 3 * COLS] = TREE;
+  world.place('sawmill', 3, 3);
+  world.tick(STEP);
+  check(world.events.some((e) => e.kind === 'quest' && e.id === 'sawmill'), 'the done quest went unannounced');
+  check(questNow(world).id === 'farm', `the chain moved to ${questNow(world).id}`);
+});
+
+scenario('a finished chain settles into surviving the winter', () => {
+  const world = bareWorld();
+  world.questIdx = QUESTS.length;
+  const q = questNow(world);
+  check(q.id === 'survive' && q.year === world.year, 'the standing order is missing');
+});
+
+// ------------------------------------------------------------------ the rates
+
+scenario('the rates answer where wood comes from', () => {
+  const world = bareWorld();
+  const idle = world.rates();
+  check(idle.wood > 0, `a fresh town forages ${idle.wood} wood`);
+  check(idle.food < 0, `six mouths and no farm read ${idle.food} food/s`);
+
+  world.res.wood = 99;
+  world.place('farm', 3, 3);
+  world.buildings.find((b) => b.id === 'farm').built = 1;
+  world.tYear = SEASON_LEN + 1; // summer
+  check(world.rates().food > 0, `a summer farm reads ${world.rates().food} food/s`);
+  world.tYear = SEASON_LEN * 3 + 1; // winter
+  check(world.rates().food < 0, `a winter farm reads ${world.rates().food} food/s`);
 });
 
 // ---------------------------------------------------------------- the valley
@@ -451,6 +496,7 @@ scenario('a serialized town comes back whole', () => {
   check(again.buildings.length === world.buildings.length, 'a building stayed behind');
   check(again.zombies.length === 1 && again.zombies[0].kind === 'runner', 'the runner got lost');
   check(Math.abs(again.rally.x - 12) < 1e-9, 'the flag moved in the vault');
+  check(again.questIdx === world.questIdx, `the quest chain came back at ${again.questIdx}`);
   checkEqual(again.map.tiles.length, world.map.tiles.length, 'the valley changed size');
 });
 
