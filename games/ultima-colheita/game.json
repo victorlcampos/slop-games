@@ -1,0 +1,16 @@
+{
+  "slug": "ultima-colheita",
+  "name": {
+    "en": "The Last Harvest",
+    "pt": "A Última Colheita"
+  },
+  "emoji": "🧟",
+  "description": {
+    "en": "Raise a village out of six settlers: cut wood, break stone, farm the good seasons. Every first snow a horde of the dead walks in, bigger each year — and the harvest you banked is what feeds the swords.",
+    "pt": "Erga uma vila com seis colonos: corte madeira, quebre pedra, plante nas estações boas. A cada primeira neve entra uma horda de mortos, maior a cada ano — e a colheita guardada é o que sustenta as espadas."
+  },
+  "tags": ["2d", "rts", "strategy", "tower-defense"],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

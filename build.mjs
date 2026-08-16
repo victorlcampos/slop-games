@@ -40,6 +40,7 @@ const TAGS = {
   racing: { pt: 'corrida', en: 'racing' },
   remake: { pt: 'remake', en: 'remake' },
   roguelike: { pt: 'roguelike', en: 'roguelike' },
+  rts: { pt: 'rts', en: 'rts' },
   'run-and-gun': { pt: 'run and gun', en: 'run and gun' },
   simulation: { pt: 'simulação', en: 'simulation' },
   stealth: { pt: 'furtivo', en: 'stealth' },

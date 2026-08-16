@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#141a12">
+<title>The Last Harvest</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧟</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #141a12;
+    color: #eee6cf;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  .topbar {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 6;
+  }
+  .icon {
+    font: inherit;
+    font-size: 17px;
+    line-height: 1;
+    padding: 7px 9px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(18,24,16,0.72);
+    color: #eee6cf;
+    cursor: pointer;
+  }
+  .icon:hover { background: rgba(34,44,30,0.85); }
+
+  /* Upright on a phone the kit lays the canvas on its side, and the game's own
+     top-left corner ends up under this bar — move it to the other end. */
+  body.turned .topbar {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .card {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 4vh 5vw;
+    background:
+      radial-gradient(ellipse 82% 74% at 50% 45%, rgba(16,22,14,0.78) 0%, rgba(8,11,7,0.95) 78%);
+    text-align: center;
+    z-index: 4;
+    overflow-y: auto;
+  }
+  .card[hidden] { display: none; }
+  .inner { max-width: 46rem; width: 100%; }
+
+  h1 {
+    font-size: clamp(2rem, 6.4vw, 3.4rem);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #d9c26a;
+    text-shadow: 0 3px 0 #4a3f1c, 0 0 34px rgba(160,200,90,0.18);
+  }
+
+  .tagline {
+    color: #c5bda2;
+    margin: 0.5rem 0 1.3rem;
+    font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  }
+
+  .story {
+    text-align: left;
+    display: grid;
+    gap: 0.45rem;
+    margin: 0 auto 1.3rem;
+    max-width: 40rem;
+    color: #aca388;
+    font-size: clamp(0.85rem, 1.9vw, 1rem);
+    line-height: 1.5;
+  }
+  .story p::before { content: "▸ "; color: #6f8f52; }
+
+  .btnrow { display: flex; gap: 0.65rem; justify-content: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
+
+  .btn {
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #14180e;
+    background: linear-gradient(#d9c26a, #a8923e);
+    border: 0;
+    border-bottom: 4px solid #6a5a1e;
+    border-radius: 11px;
+    padding: 0.72rem 1.4rem;
+    cursor: pointer;
+    font-size: clamp(0.85rem, 2vw, 1rem);
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+  /* never leave the exit without a colour: an <a> with none inherits the
+     browser's link blue, and the border goes with it (CLAUDE.md, section 5) */
+  .btn.ghost {
+    background: none;
+    color: #cfc6a8;
+    border: 1px solid rgba(207,198,168,0.4);
+    border-bottom-width: 1px;
+  }
+  .btn.ghost:hover { background: rgba(207,198,168,0.1); }
+
+  .back-to-games { align-items: center; gap: 8px; text-decoration: none; }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .result { display: grid; gap: 0.35rem; margin-bottom: 1.2rem; }
+  .result .why { color: #aca388; font-size: 1rem; }
+  .result .record { color: #8fe08a; font-weight: 700; min-height: 1.2em; }
+  #m-progress { color: #d9c26a; font-weight: 700; margin-bottom: 0.8rem; min-height: 1.2em; }
+
+  .foot { color: #938b74; font-size: clamp(0.72rem, 1.6vw, 0.85rem); line-height: 1.6; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="topbar">
+    <span data-lang-picker></span>
+    <button class="icon" id="btn-sound" title="M">🔊</button>
+  </div>
+
+  <div class="card" id="menu">
+    <div class="inner">
+      <h1 data-pt="A Última Colheita" data-en="The Last Harvest">The Last Harvest</h1>
+      <p class="tagline"
+         data-pt="Plante nas estações boas. No inverno, os mortos vêm cobrar."
+         data-en="Farm the good seasons. In winter, the dead come to collect.">Farm the good seasons. In winter, the dead come to collect.</p>
+
+      <div class="story">
+        <p data-pt="Um vale, um casarão e seis aldeões. Corte madeira, quebre pedra, plante — o outono é a colheita grande, e o celeiro cheio é o que paga soldado."
+           data-en="A valley, a manor and six villagers. Cut wood, break stone, plant — autumn is the big harvest, and a full granary is what pays for soldiers.">A valley, a manor and six villagers.</p>
+        <p data-pt="Toda primeira neve traz uma horda, e cada ano ela volta maior. Muralhas seguram, torres atiram sozinhas, e o exército fica onde a sua bandeira mandar."
+           data-en="Every first snow brings a horde, and every year it comes back bigger. Walls hold, towers shoot on their own, and the army stands wherever your flag says.">Every first snow brings a horde.</p>
+        <p data-pt="Quanto mais rica a vila, mais fundo eles mordem. O casarão caiu, acabou — o resto é só quantos anos você aguenta."
+           data-en="The richer the town, the deeper they bite. When the manor falls it is over — the rest is just how many years you last.">The richer the town, the deeper they bite.</p>
+      </div>
+
+      <p id="m-progress"></p>
+
+      <div class="btnrow">
+        <button class="btn" id="btn-start" data-t="menu.start">Found the village</button>
+        <button class="btn" id="btn-resume" hidden data-t="menu.resume">Back to the village</button>
+        <button class="btn ghost" id="btn-reset" data-t="menu.newRun" hidden>Start over</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+
+      <p class="foot">
+        <span data-pt="Toque num botão da barra e depois no chão para construir · toque no chão sem ferramenta para posicionar o exército"
+              data-en="Tap a bar button then the ground to build · tap the ground with no tool to place the army">Tap a bar button then the ground to build · tap the ground with no tool to place the army</span><br>
+        <span data-pt="Esc solta a ferramenta · M liga e desliga o som"
+              data-en="Esc drops the tool · M mutes">Esc drops the tool · M mutes</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="card" id="over" hidden>
+    <div class="inner">
+      <h1 data-t="over.title">The manor fell</h1>
+      <div class="result">
+        <p class="why" id="o-years"></p>
+        <p class="why" id="o-kills"></p>
+        <p class="record" id="o-record"></p>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="btn-again" data-t="over.again">Found it again</button>
+        <button class="btn ghost" data-menu data-pt="Menu" data-en="Menu">Menu</button>
+        <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>
