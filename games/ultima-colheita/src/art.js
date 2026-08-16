@@ -378,33 +378,73 @@ export function drawLamp(ctx, x, y, season) {
   });
 }
 
-/** The village well: stone ring, posts, a little roof and the bucket rope. */
+/**
+ * The village well: stone ring on the ground, posts carrying a little
+ * shingled roof, the windlass, the rope and the bucket. The first version's
+ * ring stopped ten pixels short of its own shadow, and a player asked, quite
+ * reasonably, what that thing was doing flying — a sprite is *grounded* when
+ * its lowest paint touches the spot its shadow marks.
+ */
 export function drawWell(ctx, x, y, season) {
   ctx.fillStyle = SHADOW;
   ctx.beginPath();
-  ctx.ellipse(x + 12, y + 24, 12, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 16, y + 41, 15, 4, 0, 0, Math.PI * 2);
   ctx.fill();
-  outlined(ctx, x - 3, y - 12, 30, 40, (c) => {
-    c.fillStyle = STONE_DARK;
-    c.fillRect(2, 16, 22, 10);
-    c.fillStyle = STONE;
-    c.fillRect(4, 18, 18, 6);
-    c.fillStyle = '#1d2a33';
-    c.fillRect(7, 18, 12, 4);
-    c.fillStyle = TIMBER_DARK;
-    c.fillRect(3, 4, 2, 14);
-    c.fillRect(21, 4, 2, 14);
+  outlined(ctx, x, y, 32, 42, (c) => {
+    // the roof, ridge lit, gable ends
+    c.fillStyle = SHINGLE_DARK;
+    c.fillRect(0, 8, 32, 3);
     c.fillStyle = season === 'winter' ? SNOW : SHINGLE;
-    c.fillRect(0, 0, 26, 5);
-    c.fillStyle = '#3a3229';
-    c.fillRect(12, 5, 1, 9);
+    c.fillRect(1, 3, 30, 6);
+    c.fillStyle = season === 'winter' ? SNOW : SHINGLE_LIT;
+    c.fillRect(1, 3, 30, 2);
+    // the posts that carry it
+    c.fillStyle = TIMBER_DARK;
+    c.fillRect(4, 11, 3, 24);
+    c.fillRect(25, 11, 3, 24);
+    // the windlass roller, its crank, the rope and the bucket
     c.fillStyle = TIMBER;
-    c.fillRect(10, 12, 5, 4);
+    c.fillRect(6, 15, 20, 4);
+    c.fillStyle = TIMBER_DARK;
+    c.fillRect(26, 13, 2, 3); // the crank arm
+    c.fillRect(28, 10, 2, 5);
+    c.fillStyle = '#3a3229';
+    c.fillRect(15, 19, 2, 8);
+    c.fillStyle = '#8a5f33';
+    c.fillRect(11, 25, 10, 6);
+    c.fillStyle = '#5e421f';
+    c.fillRect(11, 27, 10, 2);
+    // the stone ring, planted on the ground line
+    c.fillStyle = STONE_DARK;
+    c.fillRect(1, 30, 30, 12);
+    c.fillStyle = STONE;
+    c.fillRect(3, 32, 26, 8);
+    c.fillStyle = '#1d2a33';
+    c.fillRect(8, 31, 16, 5); // the dark of the water
+    c.fillStyle = '#3d5866';
+    c.fillRect(10, 32, 5, 2); // a glint on it
+    c.fillStyle = STONE_LINE;
+    c.fillRect(3, 36, 26, 1);
+    c.fillRect(9, 37, 2, 4);
+    c.fillRect(21, 37, 2, 4);
+    if (season === 'winter') {
+      c.fillStyle = SNOW;
+      c.fillRect(1, 30, 30, 3);
+    }
   });
 }
 
 /** Barrels and a crate — the clutter that makes a yard look worked in. */
 export function drawClutter(ctx, x, y, salt) {
+  ctx.fillStyle = SHADOW;
+  ctx.beginPath();
+  ctx.ellipse(x + 5, y + 15, 6, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (salt % 2) {
+    ctx.beginPath();
+    ctx.ellipse(x + 16, y + 15, 7, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   outlined(ctx, x, y, 24, 16, (c) => {
     c.fillStyle = '#8a5f33';
     c.fillRect(0, 4, 9, 11);

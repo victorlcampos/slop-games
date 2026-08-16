@@ -270,21 +270,26 @@ export function drawMinimap(ctx, world, cam, viewW, viewH, cache) {
   return r;
 }
 
-/** Woodsmoke out of the manor's chimney — stateless, derived from the clock. */
+/**
+ * Woodsmoke out of the manor's chimney — stateless, derived from the clock.
+ * Many faint puffs on one climbing path: the first version used three big
+ * opaque balls, and the topmost read as a grey UFO hovering by the banner.
+ */
 function drawSmoke(ctx, world, time) {
   const hall = world.hall();
   if (!hall) return;
   const sx = hall.c * TILE + 2 * TILE - 0.45 * TILE + 4;
-  const sy = hall.r * TILE - 6;
+  const sy = hall.r * TILE - 12;
   ctx.save();
-  for (let k = 0; k < 3; k++) {
-    const p = (time * 0.35 + k / 3) % 1;
-    ctx.globalAlpha = (1 - p) * 0.4;
-    const drift = Math.sin(time * 1.3 + k * 2.1) * 4;
-    ctx.fillStyle = '#cfd3d8';
-    const rr = 3 + p * 5;
+  ctx.fillStyle = '#d8dce0';
+  for (let k = 0; k < 6; k++) {
+    const p = (time * 0.22 + k / 6) % 1;
+    // faint from birth, gone before it detaches into a floating object
+    ctx.globalAlpha = Math.sin(p * Math.PI) * 0.22;
+    const drift = Math.sin(time * 1.1 + k * 2.3 + p * 4) * 3;
+    const rr = 1.5 + p * 4;
     ctx.beginPath();
-    ctx.arc(sx + drift + p * 6, sy - p * 26, rr, 0, Math.PI * 2);
+    ctx.arc(sx + drift + p * 8, sy - p * 20, rr, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
