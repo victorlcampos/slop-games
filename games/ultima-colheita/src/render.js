@@ -12,24 +12,7 @@ import {
   drawUnit, drawVillager, drawZombie,
 } from './art.js';
 import { barLayout } from './ui.js';
-
-/**
- * How the board fits the screen: scaled down when the viewport is narrower
- * than it, centred when wider. The command bar keeps the bottom strip.
- */
-export function boardTransform(viewW, viewH) {
-  const k = Math.min(1, viewW / BOARD_W, (viewH - HUD_H) / BOARD_H);
-  return {
-    k,
-    ox: (viewW - BOARD_W * k) / 2,
-    oy: Math.max(0, (viewH - HUD_H - BOARD_H * k) / 2),
-  };
-}
-
-/** A screen point into tile coordinates (fractional). */
-export function toBoard(tr, x, y) {
-  return { x: (x - tr.ox) / (tr.k * TILE), y: (y - tr.oy) / (tr.k * TILE) };
-}
+import { minimapRect } from './camera.js';
 
 /** The dirt cross through the village — scenery the town is built along. The
  *  vertical road is as wide as the manor it leads to; the crossing lane is a
@@ -81,7 +64,12 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villag
   ctx.translate(tr.ox, tr.oy);
   ctx.scale(tr.k, tr.k);
 
+  // nearest-neighbour upscale: zoomed in, the ground's chunky pixels are the
+  // pixel-art look, not a rendering accident to smooth away
+  const smoothed = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cache.get(world.map, season), 0, 0);
+  ctx.imageSmoothingEnabled = smoothed;
 
   // buildings first, top row first, so a banner overlaps the roof below it
   const sorted = [...world.buildings].sort((a, b) => a.r - b.r);
@@ -147,6 +135,51 @@ export function drawBoard(ctx, world, tr, cache, { time, fx, tool, hover, villag
   }
 
   ctx.restore();
+}
+
+/**
+ * The minimap: the whole valley in a stamp, with the camera's window drawn on
+ * it. With the eye down at street level, this is how the player sees the
+ * horde crossing the far fields — and tapping it moves the eye there.
+ */
+export function drawMinimap(ctx, world, cam, viewW, viewH, cache) {
+  const r = minimapRect(viewW, viewH);
+  ctx.save();
+  ctx.fillStyle = 'rgba(24,20,14,0.9)';
+  ctx.fillRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
+  ctx.strokeStyle = 'rgba(200,162,50,0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
+
+  ctx.drawImage(cache.get(world.map, world.season()), r.x, r.y, r.w, r.h);
+
+  const kx = r.w / COLS;
+  const ky = r.h / ROWS;
+  for (const b of world.buildings) {
+    const spec = BUILDINGS[b.id];
+    ctx.fillStyle = b.id === 'hall' ? '#ffd97a' : '#f2e7d0';
+    ctx.fillRect(r.x + b.c * kx, r.y + b.r * ky, Math.max(2, spec.w * kx), Math.max(2, spec.h * ky));
+  }
+  for (const u of world.units) {
+    ctx.fillStyle = '#6fa0ff';
+    ctx.fillRect(r.x + u.x * kx - 1, r.y + u.y * ky - 1, 2, 2);
+  }
+  for (const z of world.zombies) {
+    ctx.fillStyle = '#ff5040';
+    ctx.fillRect(r.x + z.x * kx - 1.5, r.y + z.y * ky - 1.5, 3, 3);
+  }
+
+  // the camera's window over the valley
+  const halfW = viewW / (2 * cam.zoom * TILE);
+  const halfH = (viewH - HUD_H) / (2 * cam.zoom * TILE);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    r.x + (cam.x - halfW) * kx, r.y + (cam.y - halfH) * ky,
+    Math.min(r.w, halfW * 2 * kx), Math.min(r.h, halfH * 2 * ky)
+  );
+  ctx.restore();
+  return r;
 }
 
 /** Woodsmoke out of the manor's chimney — stateless, derived from the clock. */

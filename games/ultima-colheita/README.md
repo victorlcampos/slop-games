@@ -19,6 +19,8 @@ Everything is one pointer:
   their own.
 - **Train** — the soldier and archer buttons queue recruits (each one costs
   resources *and a villager* — an army is farmers who put the hoe down).
+- **Camera** — drag to pan, scroll or pinch to zoom, arrows or WASD to move;
+  the minimap (bottom right) shows the whole valley and teleports the view.
 - **Demolish** returns half the cost. `M` mutes.
 
 The game teaches its own economy: a **quest panel** (top left) walks the first

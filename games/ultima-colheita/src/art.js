@@ -27,7 +27,7 @@ export const GROUND = {
   spring: { base: '#63a24b', dark: '#579343', lit: '#75b258', blade: '#4c8639' },
   summer: { base: '#74a648', dark: '#699a40', lit: '#86b656', blade: '#5c8c36' },
   autumn: { base: '#98984a', dark: '#8a8b41', lit: '#aaa75a', blade: '#7c7c38' },
-  winter: { base: '#cdd6da', dark: '#c0cbd1', lit: '#dde5e8', blade: '#a9b8bf' },
+  winter: { base: '#cdd6da', dark: '#c6d0d5', lit: '#dde5e8', blade: '#a9b8bf' },
 };
 
 const DIRT = { base: '#997a55', dark: '#8b6e4b', lit: '#a8895f' };
@@ -36,8 +36,9 @@ const DIRT = { base: '#997a55', dark: '#8b6e4b', lit: '#a8895f' };
 
 export function drawGrassTile(ctx, x, y, season, salt) {
   const g = GROUND[season];
-  // a soft checker keeps the field from reading as one flat sheet
-  ctx.fillStyle = (salt >> 2) % 2 ? g.base : g.dark;
+  // a soft diagonal checker keeps the field from reading as one flat sheet —
+  // the salt is c*31 + r*17, so its parity IS (c+r)'s, which is the checker
+  ctx.fillStyle = salt % 2 ? g.base : g.dark;
   ctx.fillRect(x, y, TILE, TILE);
   // tufts and lit patches, salted by position so they never march in step
   ctx.fillStyle = g.lit;
@@ -56,7 +57,7 @@ export function drawGrassTile(ctx, x, y, season, salt) {
 
 /** The dirt road through the village — pure scenery, everything builds on it. */
 export function drawPathTile(ctx, x, y, season, salt) {
-  ctx.fillStyle = (salt >> 1) % 2 ? DIRT.base : DIRT.dark;
+  ctx.fillStyle = salt % 2 ? DIRT.base : DIRT.dark;
   ctx.fillRect(x, y, TILE, TILE);
   ctx.fillStyle = DIRT.lit;
   ctx.fillRect(x + ((salt * 13) % 20) + 3, y + ((salt * 7) % 20) + 4, 6, 3);

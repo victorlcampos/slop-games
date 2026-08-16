@@ -7,14 +7,18 @@ import { createLoop } from 'slopkit/loop';
 import { createSave } from 'slopkit/save';
 import { bindText, mountLangPicker } from 'slopkit/langpicker';
 
-import { H, HUD_H, STEP, W } from './config.js';
+import { H, HUD_H, STEP, TILE, W } from './config.js';
 import { BUILDINGS } from './buildings.js';
+import { HALL_C, HALL_R } from './map.js';
+import {
+  DEFAULT_ZOOM, cameraTransform, clampCamera, createCamera, minimapToBoard, toBoard, zoomAt,
+} from './camera.js';
 import { createWorld } from './world.js';
 import { bank, freshSave, normalize } from './run.js';
 import { i18n, t } from './i18n.js';
 import {
-  boardTransform, createTerrainCache, drawBanner, drawBar, drawBoard, drawQuest,
-  drawToast, drawToolInfo, drawTopBar, toBoard,
+  createTerrainCache, drawBanner, drawBar, drawBoard, drawMinimap, drawQuest,
+  drawToast, drawToolInfo, drawTopBar,
 } from './render.js';
 import { hit } from './ui.js';
 import { sfx, sound } from './audio.js';
@@ -74,6 +78,7 @@ function startRun(fresh) {
   tool = null;
   fx.length = 0;
   villagers.length = 0; // the old town's people do not haunt the new one
+  recenter();
   persist();
   setScreen('play');
 }
@@ -101,36 +106,50 @@ function showcase() {
   if (!world || world.over) world = createWorld({ seed: save.seed });
 }
 
-// -------------------------------------------------------------------- input
+// ------------------------------------------------------------------- camera
 
-const tr = () => boardTransform(vp.W, vp.H);
+const cam = createCamera(HALL_C + 1, HALL_R + 1, DEFAULT_ZOOM);
+const tr = () => cameraTransform(clampCamera(cam, vp.W, vp.H), vp.W, vp.H);
 
-function onBoard(x, y) {
-  return y < vp.H - HUD_H;
+function recenter() {
+  cam.x = HALL_C + 1;
+  cam.y = HALL_R + 1;
+  cam.zoom = DEFAULT_ZOOM;
 }
 
-function pressAt(x, y) {
-  if (screen !== 'play' || !world || world.over) return;
+// -------------------------------------------------------------------- input
+//
+// One pointer is a tap until it has travelled — then it is a pan. Two are a
+// pinch. The buttons act on the way down; the board acts on the way up, so
+// that dragging the camera never plants a building at the journey's start.
 
-  if (!onBoard(x, y)) {
-    const r = hit(hudRects, x, y);
-    if (!r) return;
-    if (r.kind === 'train') {
-      const why = world.train(r.id);
-      if (why) {
-        say(t(why), '#e0563c');
-        sfx.deny();
-      } else {
-        sfx.place();
-      }
-      return;
+const pointers = new Map();
+let gesture = null; // {kind:'tap'|'pan',...} · {kind:'pinch',...} · {kind:'mini'}
+let miniRect = null;
+const held = new Set();
+
+const inRect = (r, p) => r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+function barPress(x, y) {
+  const r = hit(hudRects, x, y);
+  if (!r) return;
+  if (r.kind === 'train') {
+    const why = world.train(r.id);
+    if (why) {
+      say(t(why), '#e0563c');
+      sfx.deny();
+    } else {
+      sfx.place();
     }
-    // shop and tools toggle: tap again to put the tool down
-    tool = tool && tool.kind === r.kind && tool.id === r.id ? null : { kind: r.kind, id: r.id };
-    sfx.rally();
     return;
   }
+  // shop and tools toggle: tap again to put the tool down
+  tool = tool && tool.kind === r.kind && tool.id === r.id ? null : { kind: r.kind, id: r.id };
+  sfx.rally();
+}
 
+function tapBoard(x, y) {
+  if (screen !== 'play' || !world || world.over) return;
   const p = toBoard(tr(), x, y);
   if (tool && tool.kind === 'shop') {
     const spec = BUILDINGS[tool.id];
@@ -156,18 +175,87 @@ function pressAt(x, y) {
   world.setRally(p.x, p.y);
 }
 
+function jumpMini(p) {
+  const b = minimapToBoard(miniRect, p.x, p.y);
+  cam.x = b.x;
+  cam.y = b.y;
+  clampCamera(cam, vp.W, vp.H);
+}
+
 canvas.addEventListener('pointerdown', (ev) => {
   sound.resume();
   const p = vp.point(ev.clientX, ev.clientY);
-  pressAt(p.x, p.y);
+  pointers.set(ev.pointerId, p);
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    gesture = { kind: 'pinch', dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: cam.zoom };
+    return;
+  }
+  if (screen === 'play' && world && !world.over) {
+    if (p.y >= vp.H - HUD_H) {
+      barPress(p.x, p.y);
+      gesture = null;
+      return;
+    }
+    if (inRect(miniRect, p)) {
+      jumpMini(p);
+      gesture = { kind: 'mini' };
+      return;
+    }
+  }
+  gesture = { kind: 'tap', sx: p.x, sy: p.y, camX: cam.x, camY: cam.y };
 });
 
 canvas.addEventListener('pointermove', (ev) => {
   const p = vp.point(ev.clientX, ev.clientY);
-  hover = onBoard(p.x, p.y) ? toBoard(tr(), p.x, p.y) : null;
+  if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, p);
+  hover = screen === 'play' && p.y < vp.H - HUD_H && !inRect(miniRect, p) ? toBoard(tr(), p.x, p.y) : null;
+  if (!gesture) return;
+
+  if (gesture.kind === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    const want = gesture.zoom * (dist / gesture.dist);
+    zoomAt(cam, vp.W, vp.H, want / cam.zoom, (a.x + b.x) / 2, (a.y + b.y) / 2);
+    return;
+  }
+  if (gesture.kind === 'mini' && pointers.size) {
+    jumpMini(p);
+    return;
+  }
+  if ((gesture.kind === 'tap' || gesture.kind === 'pan') && pointers.has(ev.pointerId)) {
+    const dx = p.x - gesture.sx;
+    const dy = p.y - gesture.sy;
+    if (gesture.kind === 'tap' && Math.hypot(dx, dy) > 8) gesture.kind = 'pan';
+    if (gesture.kind === 'pan') {
+      cam.x = gesture.camX - dx / (cam.zoom * TILE);
+      cam.y = gesture.camY - dy / (cam.zoom * TILE);
+      clampCamera(cam, vp.W, vp.H);
+    }
+  }
 });
 
+function pointerEnd(ev) {
+  const p = pointers.get(ev.pointerId);
+  pointers.delete(ev.pointerId);
+  if (gesture && gesture.kind === 'tap' && p) tapBoard(gesture.sx, gesture.sy);
+  if (pointers.size === 0 || (gesture && gesture.kind === 'pinch' && pointers.size < 2)) gesture = null;
+}
+canvas.addEventListener('pointerup', pointerEnd);
+canvas.addEventListener('pointercancel', pointerEnd);
+
+canvas.addEventListener(
+  'wheel',
+  (ev) => {
+    ev.preventDefault();
+    const p = vp.point(ev.clientX, ev.clientY);
+    zoomAt(cam, vp.W, vp.H, Math.exp(-ev.deltaY * 0.0014), p.x, p.y);
+  },
+  { passive: false }
+);
+
 window.addEventListener('keydown', (ev) => {
+  held.add(ev.code);
   if (ev.code === 'Escape') {
     tool = null;
   } else if (ev.code === 'KeyM') {
@@ -175,6 +263,7 @@ window.addEventListener('keydown', (ev) => {
     paintSoundButton();
   }
 });
+window.addEventListener('keyup', (ev) => held.delete(ev.code));
 
 // ------------------------------------------------------------------ the loop
 
@@ -190,6 +279,18 @@ function update(h) {
 
   if (world) tendVillagers(h);
   if (screen !== 'play' || !world) return;
+
+  // the camera answers the keyboard too — and travels the same ground per
+  // second whatever the zoom, which is why the speed divides by it
+  const panX = (held.has('ArrowRight') || held.has('KeyD') ? 1 : 0) - (held.has('ArrowLeft') || held.has('KeyA') ? 1 : 0);
+  const panY = (held.has('ArrowDown') || held.has('KeyS') ? 1 : 0) - (held.has('ArrowUp') || held.has('KeyW') ? 1 : 0);
+  if (panX || panY) {
+    const spd = (26 / cam.zoom) * h;
+    cam.x += panX * spd;
+    cam.y += panY * spd;
+    clampCamera(cam, vp.W, vp.H);
+  }
+
   world.tick(h);
   drain();
 
@@ -342,9 +443,12 @@ function draw() {
     drawQuest(ctx, world, t);
     drawToast(ctx, vp.W, notice);
     if (world.warned && !world.hordeIn) drawBanner(ctx, vp.W, t('hud.horde'), time);
-    drawToolInfo(ctx, vp.W, vp.H, t, tool);
+    miniRect = drawMinimap(ctx, world, cam, vp.W, vp.H, cache);
+    // the info strip stops short of the minimap instead of running under it
+    drawToolInfo(ctx, miniRect.x - 8, vp.H, t, tool);
     hudRects = drawBar(ctx, vp.W, vp.H, world, t, tool);
   } else {
+    miniRect = null;
     hudRects = [];
     // behind a card the valley dims — the card is the screen, the town is set
     ctx.fillStyle = 'rgba(12,14,10,0.5)';

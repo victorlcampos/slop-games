@@ -16,8 +16,11 @@ const { createWorld } = await import('../src/world.js');
 const { freshSave, normalize, bank } = await import('../src/run.js');
 const { dict } = await import('../src/i18n.js');
 const { barLayout, hit, TOOLS, TRAINABLE } = await import('../src/ui.js');
-const { boardTransform, toBoard } = await import('../src/render.js');
 const { QUESTS, questNow } = await import('../src/quests.js');
+const {
+  DEFAULT_ZOOM, MAX_ZOOM, cameraTransform, clampCamera, createCamera, fitZoom,
+  minimapRect, minimapToBoard, toBoard, zoomAt,
+} = await import('../src/camera.js');
 
 /** March a world forward `seconds` at the game's own fixed step. */
 function play(world, seconds) {
@@ -551,17 +554,40 @@ scenario('the command bar fits the view and every button is reachable', () => {
   }
 });
 
-scenario('the board scales to a narrow viewport and taps land on the same tile', () => {
-  const wide = boardTransform(1900, H);
-  check(wide.k === 1 && wide.ox > 0, `a wide screen got k=${wide.k}, ox=${wide.ox}`);
-  const narrow = boardTransform(1040, H);
-  check(narrow.k < 1, `a narrow screen kept k=${narrow.k}`);
-  // the centre of the board is the centre of the board at any width
-  for (const tr of [wide, narrow]) {
-    const p = toBoard(tr, tr.ox + (COLS / 2) * 32 * tr.k, tr.oy + (ROWS / 2) * 32 * tr.k);
-    check(Math.abs(p.x - COLS / 2) < 1e-9 && Math.abs(p.y - ROWS / 2) < 1e-9,
-      `the middle tap landed on ${p.x},${p.y}`);
-  }
+scenario('the camera stands low by default and never leaves the valley', () => {
+  check(DEFAULT_ZOOM > 1.5, `the default zoom is ${DEFAULT_ZOOM} — the whole point was to come down`);
+  const cam = createCamera(0, 0, DEFAULT_ZOOM);
+  clampCamera(cam, 1280, H);
+  const tr = cameraTransform(cam, 1280, H);
+  const corner = toBoard(tr, 0, 0);
+  check(corner.x >= -1e-9 && corner.y >= -1e-9,
+    `clamped at the corner, the view starts at ${corner.x},${corner.y} — off the board`);
+  // and it cannot zoom past the fit floor: the whole board is the widest view
+  const wide = createCamera(COLS / 2, ROWS / 2, 0.01);
+  clampCamera(wide, 1280, H);
+  check(Math.abs(wide.zoom - fitZoom(1280, H)) < 1e-9, `zoomed out to ${wide.zoom}`);
+  check(wide.zoom < MAX_ZOOM, 'the fit floor is above the ceiling — the clamp is meaningless');
+});
+
+scenario('zooming keeps the tile under the cursor under the cursor', () => {
+  const cam = createCamera(COLS / 2, ROWS / 2, DEFAULT_ZOOM);
+  const sx = 900;
+  const sy = 300;
+  const before = toBoard(cameraTransform(cam, 1280, H), sx, sy);
+  zoomAt(cam, 1280, H, 1.3, sx, sy);
+  const after = toBoard(cameraTransform(cam, 1280, H), sx, sy);
+  check(Math.hypot(after.x - before.x, after.y - before.y) < 0.01,
+    `the ground slid from ${before.x.toFixed(2)},${before.y.toFixed(2)} to ${after.x.toFixed(2)},${after.y.toFixed(2)}`);
+});
+
+scenario('a tap on the minimap lands on the tile it points at', () => {
+  const r = minimapRect(1280, H);
+  check(r.x > 0 && r.y > 0 && r.y + r.h < H - 80, 'the minimap left the screen or sat on the bar');
+  const centre = minimapToBoard(r, r.x + r.w / 2, r.y + r.h / 2);
+  check(Math.abs(centre.x - COLS / 2) < 0.5 && Math.abs(centre.y - ROWS / 2) < 0.5,
+    `the minimap's centre points at ${centre.x},${centre.y}`);
+  const corner = minimapToBoard(r, r.x - 50, r.y - 50);
+  check(corner.x === 0 && corner.y === 0, 'a miss outside the stamp escaped the board');
 });
 
 // --------------------------------------------------------------- a first year
