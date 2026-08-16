@@ -55,6 +55,20 @@ export const sfx = {
     sound.tone(660, 0.05, { type: 'triangle', gain: 0.1 });
     sound.tone(880, 0.06, { type: 'triangle', gain: 0.08, delay: 0.05 });
   },
+  /** A gob of bile leaving on an arc. */
+  spit() {
+    sound.tone(340, 0.12, { type: 'sawtooth', gain: 0.07, slide: -180 });
+  },
+  /** The bloated going off: a wet thump with a low tail. */
+  boomz() {
+    sound.tone(90, 0.3, { type: 'sawtooth', gain: 0.2, slide: -40 });
+    sound.tone(55, 0.5, { type: 'sine', gain: 0.16, slide: -15, delay: 0.05 });
+  },
+  /** The ambience of the dead: a low wandering moan, never quite the same. */
+  groan() {
+    const f = 70 + Math.random() * 40;
+    sound.tone(f, 0.9, { type: 'sawtooth', gain: 0.045, slide: 12 + Math.random() * 18 });
+  },
   /** The horn: two long fifths — the sound the whole game is built around. */
   horn() {
     sound.tone(196, 0.7, { type: 'sawtooth', gain: 0.16 });

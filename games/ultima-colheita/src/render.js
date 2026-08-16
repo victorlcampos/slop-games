@@ -12,7 +12,7 @@ import {
   drawMountains, drawPathTile, drawRallyFlag, drawRoadFringe, drawRock, drawTree,
   drawUnit, drawVillager, drawWell, drawZombie,
 } from './art.js';
-import { barLayout } from './ui.js';
+import { barLayout, squadChips } from './ui.js';
 import { minimapRect } from './camera.js';
 
 /** The dirt cross through the village — scenery the town is built along. The
@@ -451,6 +451,32 @@ function drawFx(ctx, fx) {
       ctx.arc(f.x * TILE, f.y * TILE, 6 + (1 - a) * 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    } else if (f.kind === 'glob') {
+      // a gob of bile on an arc from spitter to target
+      const p = 1 - a;
+      const gx = f.x + (f.tx - f.x) * p;
+      const gy = f.y + (f.ty - f.y) * p - Math.sin(p * Math.PI) * 0.8;
+      ctx.fillStyle = '#8fc25a';
+      ctx.beginPath();
+      ctx.arc(gx * TILE, gy * TILE, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#b8dd7a';
+      ctx.fillRect(gx * TILE - 1, gy * TILE - 1, 2, 2);
+    } else if (f.kind === 'ring') {
+      // the bloated's burst: a fast fat ring and a lingering stain
+      ctx.save();
+      ctx.globalAlpha = a * 0.8;
+      ctx.strokeStyle = '#9aa85a';
+      ctx.lineWidth = 4 * a + 1;
+      ctx.beginPath();
+      ctx.arc(f.x * TILE, f.y * TILE, (1 - a) * 1.7 * TILE, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = a * 0.35;
+      ctx.fillStyle = '#7a8a44';
+      ctx.beginPath();
+      ctx.arc(f.x * TILE, f.y * TILE, 0.9 * TILE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 }
@@ -689,6 +715,46 @@ export function drawBanner(ctx, viewW, text, time) {
   ctx.fillStyle = `rgba(224,86,60,${pulse})`;
   ctx.fillText(text, viewW / 2, 130);
   ctx.restore();
+}
+
+/**
+ * The squad chips: one thumb-sized button per squad on the left edge, its
+ * flag colour and head count on it — selection without hunting a soldier.
+ */
+export function drawSquadChips(ctx, world, selectedSquad, viewH) {
+  if (!world.units.length) return [];
+  const rects = squadChips(world.squads.length, viewH);
+  const members = world.squads.map(() => 0);
+  for (const u of world.units) if (members[u.squad] !== undefined) members[u.squad]++;
+
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  for (const r of rects) {
+    const active = r.idx === selectedSquad;
+    ctx.fillStyle = active ? 'rgba(200,162,50,0.30)' : 'rgba(34,25,18,0.85)';
+    ctx.beginPath();
+    ctx.roundRect(r.x, r.y, r.w, r.h, 7);
+    ctx.fill();
+    ctx.strokeStyle = active ? '#ffd97a' : 'rgba(18,12,7,0.9)';
+    ctx.lineWidth = active ? 2 : 1.5;
+    ctx.stroke();
+    // the squad's pennant
+    const color = SQUAD_COLORS[r.idx % SQUAD_COLORS.length];
+    ctx.fillStyle = '#5d3d22';
+    ctx.fillRect(r.x + 9, r.y + 8, 2, r.h - 16);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(r.x + 11, r.y + 8);
+    ctx.lineTo(r.x + 24, r.y + 13);
+    ctx.lineTo(r.x + 11, r.y + 18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f2e7d0';
+    ctx.font = '700 14px system-ui, sans-serif';
+    ctx.fillText(String(members[r.idx] || 0), r.x + 30, r.y + r.h / 2 + 1);
+  }
+  ctx.restore();
+  return rects;
 }
 
 /** What the selected tool is and what it wants, spelled out above the bar. */

@@ -33,3 +33,26 @@ export function hit(rects, x, y) {
   }
   return null;
 }
+
+/**
+ * One chip per squad, stacked on the left edge above the command bar — a
+ * thumb-sized way to pick a squad without hunting a twenty-pixel soldier
+ * (which mostly ended in a mis-tap planting the flag instead).
+ */
+export function squadChips(squadCount, viewH) {
+  const rects = [];
+  const w = 52;
+  const h = 40;
+  const gap = 6;
+  for (let i = 0; i < squadCount; i++) {
+    rects.push({
+      kind: 'squad',
+      idx: i,
+      x: 10,
+      y: viewH - HUD_H - 34 - (squadCount - i) * (h + gap),
+      w,
+      h,
+    });
+  }
+  return rects;
+}

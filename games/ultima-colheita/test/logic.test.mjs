@@ -6,7 +6,7 @@ import { missingKeys } from 'slopkit/i18n';
 
 installHeadlessDom();
 
-const { COLS, ROWS, SEASON_LEN, SEASONS, YEAR_LEN, HORN_LEAD, STEP, START_POP, GROW_EVERY, STARVE_EVERY, TRAIN_TIME, QUEUE_MAX, H } =
+const { COLS, ROWS, SEASON_LEN, SEASONS, YEAR_LEN, HORN_LEAD, STEP, START_POP, GROW_EVERY, STARVE_EVERY, TRAIN_TIME, QUEUE_MAX, H, dist } =
   await import('../src/config.js');
 const { GRASS, TREE, ROCK, genMap, HALL_C, HALL_R, countAround } = await import('../src/map.js');
 const { BUILDINGS, SHOP, whyNot, buildingAt, siteYield } = await import('../src/buildings.js');
@@ -15,7 +15,7 @@ const { UNITS, makeUnit, makeZombie } = await import('../src/units.js');
 const { createWorld } = await import('../src/world.js');
 const { freshSave, normalize, bank } = await import('../src/run.js');
 const { dict } = await import('../src/i18n.js');
-const { barLayout, hit, TOOLS, TRAINABLE } = await import('../src/ui.js');
+const { barLayout, hit, squadChips, TOOLS, TRAINABLE } = await import('../src/ui.js');
 const { QUESTS, questNow } = await import('../src/quests.js');
 const {
   DEFAULT_ZOOM, MAX_ZOOM, cameraTransform, clampCamera, createCamera, fitZoom,
@@ -495,12 +495,54 @@ scenario('the horde grows with the years and with the town it smells', () => {
   check(hpScale(5) > hpScale(1), 'five winters did not toughen a walker');
 });
 
-scenario('runners join in year 2 and brutes in year 4, not before', () => {
+scenario('the bestiary unlocks by the year, and never early', () => {
   const y1 = hordeFor(1, 10);
-  check(!y1.includes('runner') && !y1.includes('brute'), `year 1 brought ${y1.join(',')}`);
+  check(y1.every((k) => k === 'walker'), `year 1 brought ${[...new Set(y1)].join(',')}`);
   check(hordeFor(2, 10).includes('runner'), 'year 2 brought no runners');
-  check(!hordeFor(3, 10).includes('brute'), 'a brute came a year early');
-  check(hordeFor(4, 20).includes('brute'), 'year 4 brought no brute');
+  check(hordeFor(3, 12).includes('crawler'), 'year 3 brought no crawlers');
+  check(!hordeFor(3, 12).includes('brute') && !hordeFor(3, 12).includes('bloated'),
+    'year 3 jumped a year ahead');
+  check(hordeFor(4, 20).includes('brute') && hordeFor(4, 20).includes('bloated'),
+    'year 4 brought neither brute nor bloated');
+  check(!hordeFor(4, 20).includes('spitter'), 'a spitter came a year early');
+  check(hordeFor(5, 24).includes('spitter'), 'year 5 brought no spitters');
+  for (const [kind, spec] of Object.entries(ZOMBIES)) {
+    check(spec.hp > 0 && spec.dps > 0 && spec.speed > 0, `${kind} is missing a number`);
+  }
+});
+
+scenario('a spitter sieges from a distance it never closes', () => {
+  const world = bareWorld();
+  world.units.length = 0;
+  world.res.stone = 99;
+  world.place('wall', 27, 10);
+  const wall = buildingAt(world, 27, 10);
+  wall.built = 1;
+  const s = makeZombie('spitter', 30.4, 10.5);
+  world.zombies.push(s);
+  play(world, 6);
+  check(wall.hp < BUILDINGS.wall.hp, `six seconds of bile left the wall at ${wall.hp}`);
+  check(dist(s.x, s.y, 27.5, 10.5) > 1.6,
+    `the spitter closed to ${dist(s.x, s.y, 27.5, 10.5).toFixed(1)} tiles — that is a walker with extra steps`);
+  check(world.events.some((e) => e.kind === 'spit'), 'the bile flew unseen');
+});
+
+scenario('a bloated one goes off where it falls and hurts what stood close', () => {
+  const world = bareWorld();
+  world.units.length = 0;
+  world.res.stone = 99;
+  world.place('wall', 27, 10);
+  const wall = buildingAt(world, 27, 10);
+  wall.built = 1;
+  const guard = makeUnit('soldier', 28.6, 10.5);
+  world.units.push(guard);
+  const b = makeZombie('bloated', 28.2, 10.5);
+  b.hp = 0; // it falls this tick, right at the wall's skirt
+  world.zombies.push(b);
+  world.tick(STEP);
+  check(wall.hp < BUILDINGS.wall.hp, `the burst left the wall at ${wall.hp}`);
+  check(guard.hp < UNITS.soldier.hp, `the burst left the guard at ${guard.hp}`);
+  check(world.events.some((e) => e.kind === 'boomz'), 'the burst went unheard');
 });
 
 scenario('the gates are on the edge of the board', () => {
@@ -728,6 +770,20 @@ scenario('a save from a fallen town opens on the end, not on a ghost run', () =>
 });
 
 // -------------------------------------------------------------------- the UI
+
+scenario('the squad chips stack above the bar, one per squad, all on screen', () => {
+  for (const n of [1, 3, 6]) {
+    const rects = squadChips(n, H);
+    checkEqual(rects.length, n, `${n} squads got ${rects.length} chips`);
+    for (const r of rects) {
+      check(r.y > 40 && r.y + r.h < H - 80, `chip ${r.idx} sits at y=${r.y}, off the usable screen`);
+      check(r.w >= 44 && r.h >= 36, `chip ${r.idx} is ${r.w}x${r.h} — a thumb cannot hit that`);
+    }
+    const first = rects[0];
+    const found = hit(rects, first.x + 2, first.y + 2);
+    check(found && found.idx === first.idx, 'the first chip does not answer a tap');
+  }
+});
 
 scenario('the command bar fits the view and every button is reachable', () => {
   for (const viewW of [1040, 1280, 1900]) {

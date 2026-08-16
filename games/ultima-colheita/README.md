@@ -15,9 +15,10 @@ Everything is one pointer:
   better of it. `Enter` confirms too. Tap-to-build planted a farm on every
   mis-tap; the ghost-then-confirm flow is the fix.
 - **Fight** — the army forms **squads of five**, each flying its own coloured
-  flag. Tap a guard to pick their squad, then tap the ground to post exactly
-  them; tap open ground with no squad picked and the whole army fans out
-  around the point. Soldiers hold the line, archers shoot over it, towers
+  flag. The **squad chips** on the left edge are the easy way in: tap a chip
+  to pick that squad (tap again to let go), then tap the ground to post
+  exactly them. Tapping a guard on the field works too, and open ground with
+  no squad picked fans the whole army out around the point. Soldiers hold the line, archers shoot over it, towers
   shoot on their own.
 - **Losses feed the horde** — a guard the dead kill stands back up on the
   wrong side, still in the rags of the uniform. Walls are cheaper than
@@ -57,8 +58,13 @@ first snow a horn sounds; then the horde walks in. Survive it, and spring pays
 you back: build, grow, go again.
 
 The horde scales on two axes: the **year** (more of them, tougher, and new
-kinds — runners from year 2, brutes from year 4) and the **town** (every
-standing building adds to the count). A rich village is a loud dinner bell.
+kinds) and the **town** (every standing building adds to the count). A rich
+village is a loud dinner bell. The bestiary unlocks by the winter: runners in
+year 2, crawlers — half a body still coming — in year 3, brutes and the
+bloated (kill it away from everything you love: it bursts) in year 4, and
+spitters lobbing bile from outside sword's reach in year 5. Every walker
+walks its own lurch, some still wear the straw hat of the farmer they were,
+and the ones in blue rags used to be yours.
 
 ## What is interesting about it
 

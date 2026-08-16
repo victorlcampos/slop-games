@@ -1094,19 +1094,111 @@ export function drawCritter(ctx, v, x, y, time) {
 
 /** Three tints of dead flesh — a horde in one colour reads as one creature. */
 const FLESH = ['#6f8f52', '#7d9a63', '#67885b'];
+const DEAD_SKIN = '#87a468';
+const PIT = '#2e1f1a';
 
+/**
+ * The dead, one sprite per kind and small differences per individual — a
+ * horde where every walker is the same walker reads as wallpaper. Variants
+ * are dealt from the id: an arm carried high, an arm gone, the straw hat of
+ * the farmer it used to be.
+ */
 export function drawZombie(ctx, z, x, y, time) {
   const lurch = Math.round(Math.sin(time * 5 + z.wob) * 2);
+
+  if (z.kind === 'crawler') {
+    // half a body still coming, pulling itself by the arms
+    mobShadow(ctx, x, y - 3, 11);
+    outlined(ctx, x - 13, y - 9, 28, 18, (c) => {
+      c.translate(13, 9);
+      const drag = Math.sin(time * 4 + z.wob) * 2;
+      c.fillStyle = '#4a3f33'; // the rags where the legs were
+      c.fillRect(-12, -1, 9, 4);
+      c.fillStyle = FLESH[z.id % FLESH.length];
+      c.fillRect(-5, -4, 10, 8);
+      c.fillRect(3, -5 + drag, 8, 3); // the pulling arms
+      c.fillRect(3, 2 - drag, 8, 3);
+      c.fillStyle = DEAD_SKIN;
+      c.fillRect(5, -3, 6, 6);
+      c.fillStyle = PIT;
+      c.fillRect(9, -2, 2, 2);
+      c.fillRect(9, 1, 2, 2);
+    });
+    if (z.hp < z.max) drawHpPip(ctx, x, y - 12, z.hp / z.max, '#b8433a');
+    return;
+  }
+
+  if (z.kind === 'bloated') {
+    // a belly full of the wrong weather — it wobbles as it walks
+    mobShadow(ctx, x, y + 1, 11);
+    const sway = Math.sin(time * 6 + z.wob) * 1.5;
+    outlined(ctx, x - 12, y - 15, 26, 30, (c) => {
+      c.translate(12, 13);
+      c.fillStyle = '#3a3229';
+      c.fillRect(-5, 7 + lurch, 3, 4);
+      c.fillRect(2, 7 - lurch, 3, 4);
+      c.fillStyle = '#9aa85a'; // the sick yellow-green of the swell
+      c.fillRect(-8 + sway * 0.3, -4, 16, 12);
+      c.fillRect(-6 + sway * 0.3, -6, 12, 4);
+      c.fillStyle = '#b4bd6c';
+      c.fillRect(-5 + sway * 0.3, -2, 6, 6); // the taut shine
+      c.fillStyle = '#6a743c';
+      c.fillRect(-8 + sway * 0.3, 6, 16, 2);
+      c.fillStyle = DEAD_SKIN; // the head, small over all that cargo
+      c.fillRect(-2, -11, 6, 6);
+      c.fillStyle = PIT;
+      c.fillRect(-1, -9, 2, 2);
+      c.fillRect(2, -9, 2, 2);
+    });
+    if (z.hp < z.max) drawHpPip(ctx, x, y - 17, z.hp / z.max, '#b8433a');
+    return;
+  }
+
+  if (z.kind === 'spitter') {
+    // all jaw: the head is the weapon and the body just carries it
+    mobShadow(ctx, x, y, 8);
+    outlined(ctx, x - 11, y - 18, 24, 34, (c) => {
+      c.translate(11, 14);
+      c.rotate(Math.sin(time * 3 + z.wob) * 0.06);
+      c.fillStyle = '#3a3229';
+      c.fillRect(-4, 6 + lurch, 3, 4);
+      c.fillRect(1, 6 - lurch, 3, 4);
+      c.fillStyle = FLESH[z.id % FLESH.length];
+      c.fillRect(-4, -3, 8, 10);
+      c.fillStyle = '#4a3f33';
+      c.fillRect(-4, 1, 8, 3);
+      c.fillStyle = DEAD_SKIN; // the swollen head and the hanging jaw
+      c.fillRect(-4, -12, 9, 8);
+      c.fillStyle = '#5f7a44';
+      c.fillRect(-3, -5, 7, 3);
+      c.fillStyle = PIT;
+      c.fillRect(-3, -10, 2, 2);
+      c.fillRect(2, -10, 2, 2);
+      c.fillStyle = '#8fc25a'; // the drool it cannot keep in
+      c.fillRect(0, -2, 2, 4);
+    });
+    if (z.hp < z.max) drawHpPip(ctx, x, y - 18, z.hp / z.max, '#b8433a');
+    return;
+  }
+
   const size = z.kind === 'brute' ? 1.5 : z.kind === 'runner' ? 0.85 : 1;
+  const lean = z.kind === 'runner' ? 0.22 : Math.sin(time * 3 + z.wob) * 0.08;
   mobShadow(ctx, x, y, 9 * size);
   const flesh = z.kind === 'brute' ? '#5a7247' : FLESH[z.id % FLESH.length];
-  outlined(ctx, x - 13 * size, y - 16 * size, 28 * size, 32 * size, (c) => {
+  const variant = z.id % 4;
+  outlined(ctx, x - 15 * size, y - 16 * size, 32 * size, 32 * size, (c) => {
     c.scale(size, size);
-    c.translate(13, 14);
-    c.rotate(Math.sin(time * 3 + z.wob) * 0.08);
+    c.translate(15, 14);
+    c.rotate(lean);
     c.fillStyle = '#3a3229';
     c.fillRect(-4, 6 + lurch, 3, 4);
     c.fillRect(1, 6 - lurch, 3, 4);
+    if (z.kind === 'brute') {
+      // the club it drags — a fencepost, probably ours
+      c.fillStyle = TIMBER_DARK;
+      c.fillRect(-13, 2 + lurch, 9, 3);
+      c.fillRect(-14, 1 + lurch, 4, 5);
+    }
     c.fillStyle = flesh;
     c.fillRect(-5, -4, 10, 11);
     // a risen guard still wears the rags of the uniform — the player should
@@ -1119,19 +1211,33 @@ export function drawZombie(ctx, z, x, y, time) {
       c.fillRect(-3, -2, 4, 3);
     }
     if (z.kind === 'brute') {
-      // a scrap of pauldron the man it was still wears
       c.fillStyle = STONE_DARK;
       c.fillRect(-7, -5, 5, 5);
       c.fillStyle = STONE;
       c.fillRect(-6, -4, 3, 3);
     }
-    c.fillStyle = '#87a468';
+    c.fillStyle = DEAD_SKIN;
     c.fillRect(-3, -11, 7, 7);
-    c.fillStyle = '#2e1f1a';
+    c.fillStyle = PIT;
     c.fillRect(-2, -9, 2, 2);
     c.fillRect(2, -9, 2, 2);
+    // the arms are the variant: both out, one high, or one long gone
     c.fillStyle = flesh;
-    c.fillRect(5, -3 + lurch, 6, 3);
+    if (variant === 1) {
+      c.fillRect(5, -3 + lurch, 6, 3);
+      c.fillRect(-8, -8 - lurch, 3, 7); // one thrown up, mid-plea
+    } else if (variant === 2) {
+      c.fillRect(5, -3 + lurch, 7, 3); // the other arm stayed in some field
+    } else {
+      c.fillRect(5, -3 + lurch, 6, 3);
+      c.fillRect(-9, -2 - lurch, 4, 3);
+    }
+    if (variant === 3 && !z.risen && z.kind === 'walker') {
+      // the straw hat of the farmer it used to be
+      c.fillStyle = THATCH;
+      c.fillRect(-5, -13, 11, 3);
+      c.fillRect(-2, -15, 5, 3);
+    }
   });
   if (z.hp < z.max) drawHpPip(ctx, x, y - 16 * size, z.hp / z.max, '#b8433a');
 }

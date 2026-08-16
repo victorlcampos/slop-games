@@ -391,6 +391,21 @@ function reap(world) {
       world.zombies.splice(i, 1);
       world.stats.kills++;
       world.events.push({ kind: 'die', x: z.x, y: z.y, z: z.kind });
+      // the bloated go off where they fall: kill it away from what you love
+      const boom = ZOMBIES[z.kind].boom;
+      if (boom) {
+        for (const u of world.units) {
+          if (Math.hypot(u.x - z.x, u.y - z.y) <= boom.radius) u.hp -= boom.dmg;
+        }
+        for (const b of world.buildings) {
+          const c = centerOf(b);
+          if (Math.hypot(c.x - z.x, c.y - z.y) <= boom.radius + 0.8) {
+            b.hp -= boom.dmg;
+            b.hurtT = 0.3;
+          }
+        }
+        world.events.push({ kind: 'boomz', x: z.x, y: z.y });
+      }
     }
   }
   for (let i = world.units.length - 1; i >= 0; i--) {

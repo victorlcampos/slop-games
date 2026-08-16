@@ -24,7 +24,13 @@ export function makeUnit(kind, x, y, squad = 0) {
 export function makeZombie(kind, x, y, hpScale = 1) {
   const spec = ZOMBIES[kind];
   const hp = Math.round(spec.hp * hpScale);
-  return { id: nextId++, kind, x, y, hp, max: hp, cool: 0, wob: Math.random() * Math.PI * 2 };
+  const id = nextId++;
+  return {
+    id, kind, x, y, hp, max: hp, cool: 0, wob: Math.random() * Math.PI * 2,
+    // each of the dead walks its own walk: a personal pace dealt from the id
+    gait: 0.8 + ((id * 37) % 41) / 100,
+    ph: (id % 13) / 2,
+  };
 }
 
 export function nearestZombie(world, x, y, within = Infinity) {
@@ -139,17 +145,18 @@ export function stepUnit(world, u, h) {
 export function stepZombie(world, z, h) {
   const spec = ZOMBIES[z.kind];
   z.cool = Math.max(0, z.cool - h);
+  z.ph += h * 3;
 
   const prey = nearestUnit(world, z.x, z.y, 3.2);
   let tx;
   let ty;
-  let reachTo;
+  let target = null;
   let bite = null;
 
   if (prey) {
     tx = prey.x;
     ty = prey.y;
-    reachTo = spec.reach;
+    target = { unit: prey };
     if (dist(z.x, z.y, tx, ty) <= spec.reach) bite = () => (prey.hp -= spec.dps * h);
   } else {
     const b = nearestBuilding(world, z.x, z.y);
@@ -157,10 +164,24 @@ export function stepZombie(world, z, h) {
     const c = centerOf(b);
     tx = c.x;
     ty = c.y;
+    target = { building: b };
     const bspec = BUILDINGS[b.id];
     // a building is a box, not a point: in reach when at its skirt
-    reachTo = spec.reach + Math.max(bspec.w, bspec.h) / 2;
+    const reachTo = spec.reach + Math.max(bspec.w, bspec.h) / 2;
     if (dist(z.x, z.y, tx, ty) <= reachTo) bite = () => chew(world, b, spec.dps * h, z);
+  }
+
+  // a spitter stops short and lobs bile instead of closing in
+  if (spec.range && dist(z.x, z.y, tx, ty) <= spec.range && !bite) {
+    z.threat = !!target.building;
+    if (z.cool === 0) {
+      z.cool = spec.spitEvery;
+      const dmg = spec.dps * spec.spitEvery;
+      if (target.unit) target.unit.hp -= dmg;
+      else chew(world, target.building, dmg, z);
+      world.events.push({ kind: 'spit', x: z.x, y: z.y - 0.3, tx, ty });
+    }
+    return;
   }
 
   if (bite) {
@@ -175,7 +196,19 @@ export function stepZombie(world, z, h) {
   }
 
   const before = { x: z.x, y: z.y };
-  walk(z, tx, ty, spec.speed, h);
+  // personality in the stride: walkers and crawlers lurch — surge, drag,
+  // surge — while runners hold their sprint
+  const lurch = z.kind === 'runner' || z.kind === 'brute'
+    ? 1
+    : 0.55 + 0.75 * Math.abs(Math.sin(z.ph + z.wob));
+  walk(z, tx, ty, spec.speed * z.gait * lurch, h);
+  // a runner weaves as it comes — harder to love, harder to hit
+  if (z.kind === 'runner') {
+    const d = dist(before.x, before.y, tx, ty) || 1;
+    const sway = Math.sin(z.ph * 2.2) * 0.5 * h;
+    z.x += (-(ty - before.y) / d) * sway;
+    z.y += ((tx - before.x) / d) * sway;
+  }
   // walked into something that is not the target: whatever it is, it is now
   // the target — this is how a wall does its job
   const hit = buildingAt(world, Math.floor(z.x), Math.floor(z.y));

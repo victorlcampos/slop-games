@@ -8,11 +8,18 @@
 import { COLS, ROWS, rng } from './config.js';
 
 export const ZOMBIES = {
-  walker: { hp: 30, speed: 0.75, dps: 8, reach: 0.55, size: 0.32 },
+  walker: { hp: 30, speed: 0.75, dps: 8, reach: 0.55 },
   // runners appear in year 2: fast, soft, and they find the gap in the wall
-  runner: { hp: 18, speed: 1.7, dps: 6, reach: 0.5, size: 0.28, fromYear: 2 },
+  runner: { hp: 18, speed: 1.7, dps: 6, reach: 0.5, fromYear: 2 },
+  // crawlers appear in year 3: half a body still coming — slow, cheap, and
+  // there are always more of them than you shot
+  crawler: { hp: 45, speed: 0.35, dps: 10, reach: 0.5, fromYear: 3 },
   // brutes appear in year 4: a door with legs, and the door wins
-  brute: { hp: 170, speed: 0.45, dps: 26, reach: 0.7, size: 0.46, fromYear: 4 },
+  brute: { hp: 170, speed: 0.45, dps: 26, reach: 0.7, fromYear: 4 },
+  // the bloated appear in year 4 too: kill it away from everything you love
+  bloated: { hp: 55, speed: 0.55, dps: 6, reach: 0.55, boom: { radius: 1.7, dmg: 38 }, fromYear: 4 },
+  // spitters appear in year 5: the horde learns siege artillery
+  spitter: { hp: 32, speed: 0.6, dps: 9, reach: 0.5, range: 3.4, spitEvery: 1.6, fromYear: 5 },
 };
 
 /** Every winter the whole horde gets tougher — the same walker, more of it. */
@@ -34,11 +41,17 @@ export function hordeFor(year, wealth) {
   // long-run playtest rode to year fourteen without losing a wall
   const count = Math.round((1 + year * 2.5 + wealth * 0.35) * Math.pow(1.07, year - 1));
   const kinds = [];
-  // brutes thicken with the years: one in seven at first, one in five later
+  // brutes thicken with the years: one in seven at first, one in five later.
+  // Each kind claims its own slots, checked in menace order — the mix shifts
+  // every winter without a random number in sight.
   const bruteEvery = year >= 6 ? 5 : 7;
+  const ok = (kind) => ZOMBIES[kind].fromYear <= year;
   for (let i = 0; i < count; i++) {
-    if (ZOMBIES.brute.fromYear <= year && i % bruteEvery === bruteEvery - 1) kinds.push('brute');
-    else if (ZOMBIES.runner.fromYear <= year && i % 3 === 2) kinds.push('runner');
+    if (ok('brute') && i % bruteEvery === bruteEvery - 1) kinds.push('brute');
+    else if (ok('spitter') && i % 10 === 7) kinds.push('spitter');
+    else if (ok('bloated') && i % 9 === 4) kinds.push('bloated');
+    else if (ok('crawler') && i % 6 === 3) kinds.push('crawler');
+    else if (ok('runner') && i % 3 === 2) kinds.push('runner');
     else kinds.push('walker');
   }
   return kinds;

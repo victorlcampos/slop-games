@@ -18,7 +18,7 @@ import { bank, freshSave, normalize } from './run.js';
 import { i18n, t } from './i18n.js';
 import {
   createTerrainCache, drawBanner, drawBar, drawBoard, drawConfirm, drawMinimap,
-  drawQuest, drawToast, drawToolInfo, drawTopBar,
+  drawQuest, drawSquadChips, drawToast, drawToolInfo, drawTopBar,
 } from './render.js';
 import { hit } from './ui.js';
 import { sfx, sound } from './audio.js';
@@ -49,6 +49,7 @@ let pendingBuild = null;
 let confirmRects = [];
 /** The squad whose flag the next ground tap moves; null = the whole army. */
 let selectedSquad = null;
+let squadRects = [];
 let hudRects = [];
 let time = 0;
 let saveT = 0;
@@ -196,7 +197,7 @@ function tapBoard(x, y) {
   // a tap near a guard picks their squad; a tap on open ground posts the
   // picked squad there — or the whole army, fanned out, when none is picked
   let nearest = null;
-  let nearestD = 1.1;
+  let nearestD = 1.5;
   for (const u of world.units) {
     const d = Math.hypot(u.x - p.x, u.y - p.y);
     if (d < nearestD) {
@@ -244,6 +245,19 @@ canvas.addEventListener('pointerdown', (ev) => {
     if (btn) {
       if (btn.kind === 'confirm') confirmBuild();
       else pendingBuild = null;
+      gesture = null;
+      return;
+    }
+    const chip = hit(squadRects, p.x, p.y);
+    if (chip) {
+      // the chip is the easy way in: tap to pick the squad, tap again to let go
+      if (selectedSquad === chip.idx) {
+        selectedSquad = null;
+      } else {
+        selectedSquad = chip.idx;
+        say(t('note.squad', { n: chip.idx + 1 }), '#ffd97a');
+      }
+      sfx.select();
       gesture = null;
       return;
     }
@@ -348,6 +362,11 @@ function update(h) {
 
   world.tick(h);
   drain();
+
+  // the dead are never silent: a low groan drifts in while any are walking
+  if (world.zombies.length > 0 && Math.random() < h * 0.2) {
+    throttled('groan', sfx.groan, 2.2);
+  }
 
   saveT += h;
   if (saveT >= 5) {
@@ -485,6 +504,15 @@ function drain() {
         say(t('note.turned'), '#e0563c');
         sfx.turned();
         break;
+      case 'spit':
+        fx.push({ kind: 'glob', x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty, t: 0.3, max: 0.3 });
+        throttled('spit', sfx.spit, 0.2);
+        break;
+      case 'boomz':
+        fx.push({ kind: 'ring', x: ev.x, y: ev.y, t: 0.5, max: 0.5 });
+        fx.push({ kind: 'puff', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#9aa85a', seed: Math.random() * 7 });
+        sfx.boomz();
+        break;
       case 'collapse':
         fx.push({ kind: 'puff', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#8d9097', seed: Math.random() * 7 });
         sfx.demolish();
@@ -558,11 +586,13 @@ function draw() {
     // the info strip stops short of the minimap instead of running under it
     drawToolInfo(ctx, miniRect.x - 8, vp.H, t, tool);
     hudRects = drawBar(ctx, vp.W, vp.H, world, t, tool);
+    squadRects = drawSquadChips(ctx, world, selectedSquad, vp.H);
     confirmRects = pendingBuild && tool && tool.kind === 'shop'
       ? drawConfirm(ctx, tr(), world, tool.id, pendingBuild, t, vp.W, vp.H)
       : [];
   } else {
     miniRect = null;
+    squadRects = [];
     confirmRects = [];
     hudRects = [];
     // behind a card the valley dims — the card is the screen, the town is set
