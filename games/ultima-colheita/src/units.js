@@ -17,8 +17,8 @@ export const UNITS = {
 };
 
 let nextId = 1;
-export function makeUnit(kind, x, y) {
-  return { id: nextId++, kind, x, y, hp: UNITS[kind].hp, cool: 0, jx: Math.random() - 0.5, jy: Math.random() - 0.5 };
+export function makeUnit(kind, x, y, squad = 0) {
+  return { id: nextId++, kind, x, y, squad, hp: UNITS[kind].hp, cool: 0, jx: Math.random() - 0.5, jy: Math.random() - 0.5 };
 }
 
 export function makeZombie(kind, x, y, hpScale = 1) {
@@ -123,10 +123,11 @@ export function stepUnit(world, u, h) {
     return;
   }
 
-  // nothing to fight: stand by the flag — the jitter is each soldier's own
-  // spot beside it, or the whole army stacks into a single pixel
-  const hx = world.rally.x + u.jx * 1.6;
-  const hy = world.rally.y + u.jy * 1.6;
+  // nothing to fight: stand by the squad's own flag — the jitter is each
+  // soldier's spot beside it, or the whole squad stacks into a single pixel
+  const flag = world.squads[u.squad] || world.squads[0];
+  const hx = flag.x + u.jx * 1.6;
+  const hy = flag.y + u.jy * 1.6;
   if (dist(u.x, u.y, hx, hy) > 0.3) walk(u, hx, hy, spec.speed, h);
 }
 

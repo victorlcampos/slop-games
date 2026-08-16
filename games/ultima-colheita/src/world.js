@@ -6,9 +6,9 @@
 // the tests alike.
 
 import {
-  COLS, EAT_RATE, GROW_COST, GROW_EVERY, HORN_LEAD, RES_CAP, ROWS, SEASONS,
-  SEASON_LEN, STARVE_EVERY, START_POP, START_RES, TRAIN_TIME, QUEUE_MAX,
-  YEAR_LEN, clamp,
+  COLS, EAT_RATE, GROW_COST, GROW_EVERY, HORN_LEAD, REPAIR_CREW, REPAIR_RATE,
+  REPAIR_WOOD, RES_CAP, ROWS, SEASONS, SEASON_LEN, SQUAD_SIZE, STARVE_EVERY,
+  START_POP, START_RES, TRAIN_TIME, QUEUE_MAX, YEAR_LEN, clamp,
 } from './config.js';
 import { BUILDINGS, buildingAt, centerOf, crewDemand, pay, siteYield, whyNot } from './buildings.js';
 import { FARM_SEASON } from './config.js';
@@ -41,7 +41,10 @@ export function createWorld(opts = {}) {
     zombies: [],
     queue: [],
     questIdx: 0,
-    rally: { x: HALL_C + 1, y: HALL_R + 3.2 },
+    // one flag per squad of five — the army stopped being a single blob the
+    // day a player asked why every guard walked everywhere together
+    squads: [{ x: HALL_C + 1, y: HALL_R + 3.2 }],
+    repairCount: 0,
     stats: { kills: 0, years: 0, hordes: 0, lost: 0 },
     over: null,
     events: [],
@@ -63,10 +66,21 @@ export function createWorld(opts = {}) {
   world.hall = () => world.buildings.find((b) => b.id === 'hall') || null;
   world.popCap = () =>
     8 + world.buildings.reduce((n, b) => n + (b.built >= 1 ? BUILDINGS[b.id].popCap || 0 : 0), 0);
-  /** 0..1: how staffed the economy is. The army is villagers who left it. */
+  /** 0..1: how staffed the economy is. The army is villagers who left it,
+   *  and every repair site pulls a couple more hands off the fields. */
   world.efficiency = () => {
-    const need = crewDemand(world);
+    const need = crewDemand(world) + world.repairCount * REPAIR_CREW;
     return need === 0 ? 1 : Math.min(1, world.pop / need);
+  };
+
+  /** Which squad a fresh recruit joins: the first with room, or a new one. */
+  world.pickSquad = () => {
+    const members = world.squads.map(() => 0);
+    for (const u of world.units) if (members[u.squad] !== undefined) members[u.squad]++;
+    for (let i = 0; i < members.length; i++) if (members[i] < SQUAD_SIZE) return i;
+    const last = world.squads[world.squads.length - 1];
+    world.squads.push({ x: clamp(last.x + 1.5, 1, COLS - 1), y: clamp(last.y + 1, 1, ROWS - 1) });
+    return world.squads.length - 1;
   };
 
   // --------------------------------------------------------------- commands
@@ -107,9 +121,26 @@ export function createWorld(opts = {}) {
     return null;
   };
 
-  world.setRally = (x, y) => {
-    world.rally = { x: clamp(x, 0.5, COLS - 0.5), y: clamp(y, 0.5, ROWS - 0.5) };
-    world.events.push({ kind: 'rally', x: world.rally.x, y: world.rally.y });
+  /**
+   * Post a squad's flag — or, with no squad named, the whole army's: each
+   * squad fans out around the point instead of stacking on one pixel.
+   */
+  world.setRally = (x, y, squad = null) => {
+    const cx = clamp(x, 0.5, COLS - 0.5);
+    const cy = clamp(y, 0.5, ROWS - 0.5);
+    if (squad !== null && world.squads[squad]) {
+      world.squads[squad] = { x: cx, y: cy };
+    } else {
+      world.squads.forEach((s, i) => {
+        const ring = i === 0 ? 0 : 1.9;
+        const ang = i * 2.1;
+        world.squads[i] = {
+          x: clamp(cx + Math.cos(ang) * ring, 0.5, COLS - 0.5),
+          y: clamp(cy + Math.sin(ang) * ring, 0.5, ROWS - 0.5),
+        };
+      });
+    }
+    world.events.push({ kind: 'rally', x: cx, y: cy });
   };
 
   // ------------------------------------------------------------------- tick
@@ -119,6 +150,7 @@ export function createWorld(opts = {}) {
     world.tYear += h;
     const season = world.season();
 
+    repairs(world, h);
     economy(world, h, season);
     people(world, h);
     training(world, h);
@@ -169,11 +201,11 @@ export function createWorld(opts = {}) {
     pending: world.pending.slice(),
     spawned: world.spawned,
     buildings: world.buildings.map((b) => ({ id: b.id, c: b.c, r: b.r, hp: b.hp, built: b.built })),
-    units: world.units.map((u) => ({ kind: u.kind, x: u.x, y: u.y, hp: u.hp })),
-    zombies: world.zombies.map((z) => ({ kind: z.kind, x: z.x, y: z.y, hp: z.hp, max: z.max })),
+    units: world.units.map((u) => ({ kind: u.kind, x: u.x, y: u.y, hp: u.hp, squad: u.squad })),
+    zombies: world.zombies.map((z) => ({ kind: z.kind, x: z.x, y: z.y, hp: z.hp, max: z.max, risen: !!z.risen })),
     queue: world.queue.map((q) => ({ ...q })),
     questIdx: world.questIdx,
-    rally: { ...world.rally },
+    squads: world.squads.map((s) => ({ ...s })),
     stats: { ...world.stats },
     over: world.over,
   });
@@ -191,7 +223,13 @@ function restore(world, s) {
   world.pending = Array.isArray(s.pending) ? s.pending.filter((k) => ZOMBIES[k]) : [];
   world.spawned = Number.isFinite(s.spawned) ? s.spawned : 0;
   world.questIdx = Number.isFinite(s.questIdx) ? Math.max(0, Math.floor(s.questIdx)) : 0;
-  world.rally = s.rally || world.rally;
+  // squads from the save; an older save carried a single rally — it becomes
+  // squad zero, and nobody loses their run to the upgrade
+  if (Array.isArray(s.squads) && s.squads.length) {
+    world.squads = s.squads.map((p) => ({ x: clamp(p.x ?? HALL_C, 0.5, COLS - 0.5), y: clamp(p.y ?? HALL_R, 0.5, ROWS - 0.5) }));
+  } else if (s.rally) {
+    world.squads = [{ x: s.rally.x, y: s.rally.y }];
+  }
   world.stats = { kills: 0, years: 0, hordes: 0, lost: 0, ...(s.stats || {}) };
   world.over = s.over || null;
   for (const b of s.buildings || []) {
@@ -200,7 +238,8 @@ function restore(world, s) {
   }
   for (const u of s.units || []) {
     if (!UNITS[u.kind]) continue;
-    const m = makeUnit(u.kind, u.x, u.y);
+    const squad = Number.isFinite(u.squad) ? clamp(Math.floor(u.squad), 0, world.squads.length - 1) : 0;
+    const m = makeUnit(u.kind, u.x, u.y, squad);
     m.hp = u.hp ?? m.hp;
     world.units.push(m);
   }
@@ -209,6 +248,7 @@ function restore(world, s) {
     const m = makeZombie(z.kind, z.x, z.y);
     m.hp = z.hp ?? m.hp;
     m.max = z.max ?? m.max;
+    m.risen = !!z.risen;
     world.zombies.push(m);
   }
   for (const q of s.queue || []) if (UNITS[q.kind]) world.queue.push({ kind: q.kind, t: q.t ?? TRAIN_TIME });
@@ -217,6 +257,36 @@ function restore(world, s) {
 }
 
 // -------------------------------------------------------------- the economy
+
+/**
+ * Villagers mend what the dead chewed — in peacetime only (during a horde
+ * the streets belong to the fight), for wood, and each site pulls hands off
+ * the fields: `efficiency` counts the repair crews as busy.
+ */
+function repairs(world, h) {
+  if (world.hordeIn) {
+    world.repairCount = 0;
+    for (const b of world.buildings) b.repairing = false;
+    return;
+  }
+  const sites = Math.max(0, Math.floor(world.pop / 3));
+  let used = 0;
+  for (const b of world.buildings) {
+    const spec = BUILDINGS[b.id];
+    b.repairing = false;
+    if (b.built < 1 || b.hp >= spec.hp) continue;
+    // nobody hammers a wall something is actively eating — a fresh bite
+    // (hurtT still warm) pauses the site until the fight moves on
+    if (b.hurtT > 0) continue;
+    if (used >= sites || world.res.wood <= 0.5) continue;
+    used++;
+    b.repairing = true;
+    const heal = Math.min(REPAIR_RATE * h, spec.hp - b.hp);
+    b.hp += heal;
+    world.res.wood = Math.max(0, world.res.wood - heal * REPAIR_WOOD);
+  }
+  world.repairCount = used;
+}
 
 function economy(world, h, season) {
   const eff = world.efficiency();
@@ -270,7 +340,7 @@ function training(world, h) {
   world.queue.shift();
   const school = world.buildings.find((b) => BUILDINGS[b.id].trains === job.kind && b.built >= 1);
   const at = school ? centerOf(school) : centerOf(world.hall() || { id: 'hall', c: HALL_C, r: HALL_R });
-  const u = makeUnit(job.kind, at.x, at.y + 1.4);
+  const u = makeUnit(job.kind, at.x, at.y + 1.4, world.pickSquad());
   world.units.push(u);
   world.events.push({ kind: 'trained', unit: job.kind, x: u.x, y: u.y });
 }
@@ -313,7 +383,13 @@ function reap(world) {
     if (u.hp <= 0) {
       world.units.splice(i, 1);
       world.stats.lost++;
+      // what the dead kill, the dead keep: the guard stands back up on the
+      // wrong side, still in the rags of the uniform
+      const risen = makeZombie('walker', u.x, u.y, hpScale(world.year));
+      risen.risen = true;
+      world.zombies.push(risen);
       world.events.push({ kind: 'unitdie', x: u.x, y: u.y });
+      world.events.push({ kind: 'turned', x: u.x, y: u.y });
     }
   }
   for (let i = world.buildings.length - 1; i >= 0; i--) {

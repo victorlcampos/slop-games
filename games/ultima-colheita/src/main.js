@@ -17,8 +17,8 @@ import { createWorld } from './world.js';
 import { bank, freshSave, normalize } from './run.js';
 import { i18n, t } from './i18n.js';
 import {
-  createTerrainCache, drawBanner, drawBar, drawBoard, drawMinimap, drawQuest,
-  drawToast, drawToolInfo, drawTopBar,
+  createTerrainCache, drawBanner, drawBar, drawBoard, drawConfirm, drawMinimap,
+  drawQuest, drawToast, drawToolInfo, drawTopBar,
 } from './render.js';
 import { hit } from './ui.js';
 import { sfx, sound } from './audio.js';
@@ -44,6 +44,11 @@ let world = null;
 let screen = 'menu'; // menu · play · over
 let tool = null;
 let hover = null;
+/** A parked building ghost waiting for its confirm button. */
+let pendingBuild = null;
+let confirmRects = [];
+/** The squad whose flag the next ground tap moves; null = the whole army. */
+let selectedSquad = null;
 let hudRects = [];
 let time = 0;
 let saveT = 0;
@@ -76,6 +81,8 @@ function startRun(fresh) {
     world = createWorld({ seed: save.seed, state: save.state });
   }
   tool = null;
+  pendingBuild = null;
+  selectedSquad = null;
   fx.length = 0;
   villagers.length = 0; // the old town's people do not haunt the new one
   recenter();
@@ -145,21 +152,36 @@ function barPress(x, y) {
   }
   // shop and tools toggle: tap again to put the tool down
   tool = tool && tool.kind === r.kind && tool.id === r.id ? null : { kind: r.kind, id: r.id };
+  pendingBuild = null;
   sfx.rally();
+}
+
+/** Build the parked ghost — the ✓ button and the Enter key both land here. */
+function confirmBuild() {
+  if (!pendingBuild || !tool || tool.kind !== 'shop') return;
+  const why = world.place(tool.id, pendingBuild.c, pendingBuild.r);
+  if (why) {
+    say(t(why), '#e0563c');
+    sfx.deny();
+  } else {
+    // the tool stays in hand: walls go up in runs, not one at a time
+    pendingBuild = null;
+  }
 }
 
 function tapBoard(x, y) {
   if (screen !== 'play' || !world || world.over) return;
   const p = toBoard(tr(), x, y);
+
   if (tool && tool.kind === 'shop') {
+    // the tap only parks the ghost — building is the ✓ button's job.
+    // tap-to-build planted a farm on every mis-tap.
     const spec = BUILDINGS[tool.id];
-    const c = Math.floor(p.x - spec.w / 2 + 0.5);
-    const r = Math.floor(p.y - spec.h / 2 + 0.5);
-    const why = world.place(tool.id, c, r);
-    if (why) {
-      say(t(why), '#e0563c');
-      sfx.deny();
-    }
+    pendingBuild = {
+      c: Math.floor(p.x - spec.w / 2 + 0.5),
+      r: Math.floor(p.y - spec.h / 2 + 0.5),
+    };
+    sfx.rally();
     return;
   }
   if (tool && tool.id === 'demolish') {
@@ -170,9 +192,30 @@ function tapBoard(x, y) {
     }
     return;
   }
-  // no tool (or the flag): a tap on the ground is "stand here" — the army is
-  // the thing you point, everything else runs itself
-  world.setRally(p.x, p.y);
+
+  // a tap near a guard picks their squad; a tap on open ground posts the
+  // picked squad there — or the whole army, fanned out, when none is picked
+  let nearest = null;
+  let nearestD = 1.1;
+  for (const u of world.units) {
+    const d = Math.hypot(u.x - p.x, u.y - p.y);
+    if (d < nearestD) {
+      nearestD = d;
+      nearest = u;
+    }
+  }
+  if (nearest) {
+    selectedSquad = nearest.squad;
+    say(t('note.squad', { n: nearest.squad + 1 }), '#ffd97a');
+    sfx.select();
+    return;
+  }
+  if (selectedSquad !== null && world.squads[selectedSquad]) {
+    world.setRally(p.x, p.y, selectedSquad);
+  } else {
+    world.setRally(p.x, p.y);
+    if (world.squads.length > 1) say(t('note.allSquads'), '#ffd97a');
+  }
 }
 
 function jumpMini(p) {
@@ -194,6 +237,13 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (screen === 'play' && world && !world.over) {
     if (p.y >= vp.H - HUD_H) {
       barPress(p.x, p.y);
+      gesture = null;
+      return;
+    }
+    const btn = hit(confirmRects, p.x, p.y);
+    if (btn) {
+      if (btn.kind === 'confirm') confirmBuild();
+      else pendingBuild = null;
       gesture = null;
       return;
     }
@@ -257,7 +307,12 @@ canvas.addEventListener(
 window.addEventListener('keydown', (ev) => {
   held.add(ev.code);
   if (ev.code === 'Escape') {
-    tool = null;
+    // one step back per press: the ghost, then the squad, then the tool
+    if (pendingBuild) pendingBuild = null;
+    else if (selectedSquad !== null) selectedSquad = null;
+    else tool = null;
+  } else if (ev.code === 'Enter') {
+    confirmBuild();
   } else if (ev.code === 'KeyM') {
     sound.toggle();
     paintSoundButton();
@@ -423,6 +478,11 @@ function drain() {
         fx.push({ kind: 'puff', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#5b6c9e', seed: Math.random() * 7 });
         sfx.unitdie();
         break;
+      case 'turned':
+        fx.push({ kind: 'flash', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#87a468' });
+        say(t('note.turned'), '#e0563c');
+        sfx.turned();
+        break;
       case 'collapse':
         fx.push({ kind: 'puff', x: ev.x, y: ev.y, t: 0.5, max: 0.5, color: '#8d9097', seed: Math.random() * 7 });
         sfx.demolish();
@@ -475,7 +535,11 @@ function draw() {
   const ctx = vp.ctx;
   if (!world) return;
 
-  drawBoard(ctx, world, tr(), cache, { time, fx, tool: screen === 'play' ? tool : null, hover, villagers });
+  drawBoard(ctx, world, tr(), cache, {
+    time, fx, tool: screen === 'play' ? tool : null, hover, villagers,
+    pending: screen === 'play' ? pendingBuild : null,
+    selectedSquad: screen === 'play' ? selectedSquad : null,
+  });
 
   if (screen === 'play') {
     const status = world.hordeIn ? { text: t('hud.hordeIn'), color: '#e0563c' } : null;
@@ -487,8 +551,12 @@ function draw() {
     // the info strip stops short of the minimap instead of running under it
     drawToolInfo(ctx, miniRect.x - 8, vp.H, t, tool);
     hudRects = drawBar(ctx, vp.W, vp.H, world, t, tool);
+    confirmRects = pendingBuild && tool && tool.kind === 'shop'
+      ? drawConfirm(ctx, tr(), world, tool.id, pendingBuild, t, vp.W, vp.H)
+      : [];
   } else {
     miniRect = null;
+    confirmRects = [];
     hudRects = [];
     // behind a card the valley dims — the card is the screen, the town is set
     ctx.fillStyle = 'rgba(12,14,10,0.5)';

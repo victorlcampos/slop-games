@@ -46,6 +46,15 @@ export const sfx = {
   unitdie() {
     sound.tone(240, 0.25, { type: 'sine', gain: 0.13, slide: -120 });
   },
+  /** A guard standing back up on the wrong side: a wrong-way rising wail. */
+  turned() {
+    sound.tone(110, 0.5, { type: 'sawtooth', gain: 0.12, slide: 70 });
+    sound.tone(220, 0.3, { type: 'sine', gain: 0.08, slide: -60, delay: 0.35 });
+  },
+  select() {
+    sound.tone(660, 0.05, { type: 'triangle', gain: 0.1 });
+    sound.tone(880, 0.06, { type: 'triangle', gain: 0.08, delay: 0.05 });
+  },
   /** The horn: two long fifths — the sound the whole game is built around. */
   horn() {
     sound.tone(196, 0.7, { type: 'sawtooth', gain: 0.16 });

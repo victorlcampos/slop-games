@@ -32,7 +32,7 @@ export function hordeFor(year, wealth) {
   // the compounding term is what finally ends a run: an army grows linearly
   // (so many spears a season), so a linear horde reaches an equilibrium the
   // long-run playtest rode to year fourteen without losing a wall
-  const count = Math.round((1 + year * 2.5 + wealth * 0.35) * Math.pow(1.08, year - 1));
+  const count = Math.round((1 + year * 2.5 + wealth * 0.35) * Math.pow(1.07, year - 1));
   const kinds = [];
   // brutes thicken with the years: one in seven at first, one in five later
   const bruteEvery = year >= 6 ? 5 : 7;

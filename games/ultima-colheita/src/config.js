@@ -45,6 +45,14 @@ export const STARVE_EVERY = 12;
 export const TRAIN_TIME = 4.5;
 export const QUEUE_MAX = 5;
 
+/** A squad is five: small enough to post at a gate, big enough to hold it. */
+export const SQUAD_SIZE = 5;
+
+/** Villagers mend what the dead chewed — in peacetime, at a price. */
+export const REPAIR_RATE = 5; // hp per second per site
+export const REPAIR_WOOD = 0.04; // wood per hp mended
+export const REPAIR_CREW = 2; // hands pulled off the economy per site
+
 export function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }

@@ -10,13 +10,21 @@ years the town stood.
 
 Everything is one pointer:
 
-- **Build** — tap a building on the command bar, then tap the ground. The ghost
-  shows green where it fits. Tap the button again (or press `Esc`) to put the
-  tool down.
-- **Fight** — tap the ground with no tool selected and the rally flag moves
-  there; the army stands guard around it and attacks anything dead that comes
-  within reach. Soldiers hold the line, archers shoot over it, towers shoot on
-  their own.
+- **Build** — tap a building on the command bar, tap the ground to park its
+  ghost (green where it fits), then hit **✓ Build** — or ✕ / `Esc` to think
+  better of it. `Enter` confirms too. Tap-to-build planted a farm on every
+  mis-tap; the ghost-then-confirm flow is the fix.
+- **Fight** — the army forms **squads of five**, each flying its own coloured
+  flag. Tap a guard to pick their squad, then tap the ground to post exactly
+  them; tap open ground with no squad picked and the whole army fans out
+  around the point. Soldiers hold the line, archers shoot over it, towers
+  shoot on their own.
+- **Losses feed the horde** — a guard the dead kill stands back up on the
+  wrong side, still in the rags of the uniform. Walls are cheaper than
+  funerals.
+- **Repairs** — villagers mend damaged buildings by themselves in peacetime,
+  for wood, and every repair site pulls hands off the fields (production dips
+  while they hammer). Nobody repairs a wall something is actively eating.
 - **Train** — the soldier and archer buttons queue recruits (each one costs
   resources *and a villager* — an army is farmers who put the hoe down).
 - **Camera** — drag to pan, scroll or pinch to zoom, arrows or WASD to move;

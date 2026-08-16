@@ -352,11 +352,95 @@ scenario('training needs the school, the coin and a spare villager', () => {
   check(world.train('soldier') === 'why.noHands', 'the last villager was drafted');
 });
 
-scenario('the rally flag stays on the board', () => {
+scenario('the rally flags stay on the board', () => {
   const world = bareWorld();
   world.setRally(-10, 999);
-  check(world.rally.x >= 0 && world.rally.x <= COLS, `the flag went to x=${world.rally.x}`);
-  check(world.rally.y >= 0 && world.rally.y <= ROWS, `the flag went to y=${world.rally.y}`);
+  for (const s of world.squads) {
+    check(s.x >= 0 && s.x <= COLS, `a flag went to x=${s.x}`);
+    check(s.y >= 0 && s.y <= ROWS, `a flag went to y=${s.y}`);
+  }
+});
+
+scenario('recruits fill squads of five, and a squad moves alone', () => {
+  const world = bareWorld();
+  world.res.wood = 999;
+  world.res.stone = 999;
+  world.res.food = 999;
+  world.pop = 30;
+  world.place('barracks', 3, 3);
+  world.buildings.find((b) => b.id === 'barracks').built = 1;
+  for (let i = 0; i < 8; i++) {
+    world.train('soldier');
+    play(world, TRAIN_TIME + 0.2);
+  }
+  check(world.units.length === 10, `the yard produced ${world.units.length} of 10`);
+  const bySquad = {};
+  for (const u of world.units) bySquad[u.squad] = (bySquad[u.squad] || 0) + 1;
+  checkEqual(bySquad, { 0: 5, 1: 5 }, 'ten soldiers did not split into two squads of five');
+  check(world.squads.length >= 2, `only ${world.squads.length} flags exist`);
+
+  // posting squad 1 across the map moves its five and nobody else
+  world.strayT = -9999; // no strays: this scenario is about marching orders
+  const before0 = { ...world.squads[0] };
+  world.setRally(33, 4, 1);
+  checkEqual(world.squads[0], before0, 'squad 0 got dragged along');
+  play(world, 16); // the recruits start at the barracks, a long march away
+  for (const u of world.units) {
+    const flag = world.squads[u.squad];
+    check(Math.hypot(u.x - flag.x, u.y - flag.y) < 2.5,
+      `a squad-${u.squad} soldier stands ${Math.hypot(u.x - flag.x, u.y - flag.y).toFixed(1)} tiles from his flag`);
+  }
+});
+
+scenario('a guard the dead kill stands back up with them', () => {
+  const world = bareWorld();
+  world.units.length = 0;
+  const guard = makeUnit('soldier', 10, 10);
+  guard.hp = 5; // one bite from gone
+  world.units.push(guard);
+  const z = makeZombie('brute', 10.4, 10);
+  z.hp = 99999;
+  world.zombies.push(z);
+  play(world, 3);
+  check(world.units.length === 0, 'the guard survived what this scenario is about');
+  const risen = world.zombies.filter((zz) => zz.risen);
+  check(risen.length === 1, `${risen.length} of the dead wear the uniform`);
+  check(world.events.some((e) => e.kind === 'turned'), 'the rising went unannounced');
+});
+
+scenario('villagers mend the chewed wall in peacetime, for wood and hands', () => {
+  const world = bareWorld();
+  world.res.stone = 99;
+  world.res.wood = 99;
+  // an economy running at full crew, so the repair's tax on it is visible
+  world.place('farm', 3, 3);
+  world.place('farm', 6, 3);
+  world.place('farm', 9, 3);
+  world.place('wall', 5, 8);
+  for (const b of world.buildings) b.built = 1;
+  const wall = buildingAt(world, 5, 8);
+  wall.hp = 100;
+
+  const woodBefore = world.res.wood;
+  play(world, 4);
+  check(wall.hp > 100, `four peaceful seconds left the wall at ${wall.hp}`);
+  check(world.res.wood < woodBefore + 4, 'the repair cost no wood'); // +hall forage margin
+  check(world.repairCount === 1, `the town counts ${world.repairCount} repair crews`);
+  const effRepairing = world.efficiency();
+  wall.hp = BUILDINGS.wall.hp;
+  play(world, 0.2);
+  check(world.efficiency() > effRepairing,
+    `the repair crew cost the fields nothing (${effRepairing} -> ${world.efficiency()})`);
+
+  // during a horde the streets belong to the fight — a real horde, or the
+  // cleared-check would end it on the first tick
+  wall.hp = 100;
+  world.hordeIn = true;
+  world.units.length = 0;
+  world.zombies.push(makeZombie('walker', COLS - 2, ROWS - 2));
+  const hurt = wall.hp;
+  play(world, 3);
+  check(Math.abs(wall.hp - hurt) < 1e-9, `a wall healed to ${wall.hp} mid-siege`);
 });
 
 // -------------------------------------------------------------- the dead
@@ -495,7 +579,7 @@ scenario('a zombie prefers flesh within reach over timber', () => {
 
 scenario('two guards put a walker down before it costs them much', () => {
   const world = bareWorld();
-  world.zombies.push(makeZombie('walker', world.rally.x + 2, world.rally.y));
+  world.zombies.push(makeZombie('walker', world.squads[0].x + 2, world.squads[0].y));
   play(world, 12);
   check(world.zombies.length === 0, 'a lone walker outlived both starting guards');
   check(world.stats.kills === 1, `the books say ${world.stats.kills} kills`);
@@ -558,7 +642,9 @@ scenario('a serialized town comes back whole', () => {
   check(again.pop === world.pop, `pop came back as ${again.pop}`);
   check(again.buildings.length === world.buildings.length, 'a building stayed behind');
   check(again.zombies.length === 1 && again.zombies[0].kind === 'runner', 'the runner got lost');
-  check(Math.abs(again.rally.x - 12) < 1e-9, 'the flag moved in the vault');
+  check(Math.abs(again.squads[0].x - 12) < 1e-9, 'the flag moved in the vault');
+  check(again.squads.length === world.squads.length, 'a squad flag stayed behind');
+  check(again.units.every((u, i) => u.squad === world.units[i].squad), 'a soldier forgot his squad');
   check(again.questIdx === world.questIdx, `the quest chain came back at ${again.questIdx}`);
   checkEqual(again.map.tiles.length, world.map.tiles.length, 'the valley changed size');
 });

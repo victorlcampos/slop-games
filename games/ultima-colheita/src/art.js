@@ -1023,7 +1023,9 @@ export function drawZombie(ctx, z, x, y, time) {
     c.fillRect(1, 6 - lurch, 3, 4);
     c.fillStyle = flesh;
     c.fillRect(-5, -4, 10, 11);
-    c.fillStyle = '#4a3f33';
+    // a risen guard still wears the rags of the uniform — the player should
+    // recognise, with a small horror, who this used to be
+    c.fillStyle = z.risen ? '#4a5878' : '#4a3f33';
     c.fillRect(-5, 0, 10, 4);
     // an old wound once it has taken a beating
     if (z.hp < z.max * 0.6) {
@@ -1056,7 +1058,10 @@ function drawHpPip(ctx, x, y, frac, color = '#7fce6a') {
   ctx.fillRect(px(x - 7), px(y), Math.max(1, Math.round(14 * Math.max(0, frac))), 3);
 }
 
-export function drawRallyFlag(ctx, x, y, time) {
+/** Each squad flies its own colour — the flag is how you tell them apart. */
+export const SQUAD_COLORS = ['#c0392b', '#2e6fb8', '#3f8a3f', '#c8a232', '#7a4a8a', '#3f8a8a'];
+
+export function drawRallyFlag(ctx, x, y, time, color = SQUAD_COLORS[0], picked = false) {
   ctx.fillStyle = SHADOW;
   ctx.beginPath();
   ctx.ellipse(x + 1, y + 2, 6, 2.5, 0, 0, Math.PI * 2);
@@ -1065,12 +1070,23 @@ export function drawRallyFlag(ctx, x, y, time) {
   outlined(ctx, x - 2, y - 25, 20, 28, (c) => {
     c.fillStyle = '#5d3d22';
     c.fillRect(2, 1, 2, 22);
-    c.fillStyle = '#c0392b';
+    c.fillStyle = color;
     c.beginPath();
     c.moveTo(4, 1);
     c.lineTo(17, 5 + wave);
     c.lineTo(4, 10);
     c.closePath();
     c.fill();
-  });
+  }, picked ? '#f2e7d0' : undefined);
+  if (picked) {
+    // the chosen squad's flag pulses so the eye finds it after a pan
+    ctx.save();
+    ctx.globalAlpha = 0.5 + Math.sin(time * 7) * 0.3;
+    ctx.strokeStyle = '#ffd97a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x + 1, y + 2, 9, 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }

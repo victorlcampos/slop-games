@@ -8,9 +8,9 @@ import { BUILDINGS, buildingAt, whyNot } from './buildings.js';
 import { UNITS } from './units.js';
 import { questNow } from './quests.js';
 import {
-  drawBuilding, drawClutter, drawCritter, drawGrassTile, drawLamp, drawMountains,
-  drawPathTile, drawRallyFlag, drawRoadFringe, drawRock, drawTree, drawUnit,
-  drawVillager, drawWell, drawZombie,
+  SQUAD_COLORS, drawBuilding, drawClutter, drawCritter, drawGrassTile, drawLamp,
+  drawMountains, drawPathTile, drawRallyFlag, drawRoadFringe, drawRock, drawTree,
+  drawUnit, drawVillager, drawWell, drawZombie,
 } from './art.js';
 import { barLayout } from './ui.js';
 import { minimapRect } from './camera.js';
@@ -132,7 +132,7 @@ function sceneCtx() {
   return scene.getContext('2d');
 }
 
-export function drawBoard(realCtx, world, tr, cache, { time, fx, tool, hover, villagers }) {
+export function drawBoard(realCtx, world, tr, cache, { time, fx, tool, hover, villagers, pending, selectedSquad }) {
   const season = world.season();
   const ctx = sceneCtx();
   ctx.clearRect(0, 0, BOARD_W, BOARD_H);
@@ -168,10 +168,19 @@ export function drawBoard(realCtx, world, tr, cache, { time, fx, tool, hover, vi
       ctx.fillStyle = frac > 0.4 ? '#7fce6a' : '#e0563c';
       ctx.fillRect(b.c * TILE + 3, b.r * TILE - 5, (spec.w * TILE - 6) * frac, 4);
     }
+    // the repair crew's hammer: a golden spark over the site being mended
+    if (b.repairing && Math.sin(time * 10 + b.uid) > 0) {
+      ctx.fillStyle = '#ffd97a';
+      const hx = b.c * TILE + BUILDINGS[b.id].w * TILE - 8;
+      ctx.fillRect(hx, b.r * TILE - 12, 4, 2);
+      ctx.fillRect(hx + 1, b.r * TILE - 15, 2, 4);
+    }
   }
 
   drawSmoke(ctx, world, time);
-  drawRallyFlag(ctx, world.rally.x * TILE, world.rally.y * TILE, time);
+  world.squads.forEach((s, i) => {
+    drawRallyFlag(ctx, s.x * TILE, s.y * TILE, time, SQUAD_COLORS[i % SQUAD_COLORS.length], i === selectedSquad);
+  });
 
   // the walking kind, sorted by y so nearer feet stand in front
   const mobs = [
@@ -180,14 +189,33 @@ export function drawBoard(realCtx, world, tr, cache, { time, fx, tool, hover, vi
     ...world.zombies.map((z) => ({ z, y: z.y })),
   ].sort((a, b) => a.y - b.y);
   for (const m of mobs) {
-    if (m.u) drawUnit(ctx, m.u, m.u.x * TILE, m.u.y * TILE, time);
-    else if (m.v && (m.v.kind === 'sheep' || m.v.kind === 'chicken')) drawCritter(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
+    if (m.u) {
+      if (m.u.squad === selectedSquad) {
+        // the picked squad stands in its own light
+        ctx.save();
+        ctx.strokeStyle = '#ffd97a';
+        ctx.globalAlpha = 0.85;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(m.u.x * TILE, m.u.y * TILE + 10, 9, 3.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      drawUnit(ctx, m.u, m.u.x * TILE, m.u.y * TILE, time);
+    } else if (m.v && (m.v.kind === 'sheep' || m.v.kind === 'chicken')) drawCritter(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
     else if (m.v) drawVillager(ctx, m.v, m.v.x * TILE, m.v.y * TILE, time);
     else drawZombie(ctx, m.z, m.z.x * TILE, m.z.y * TILE, time);
   }
 
   drawFx(ctx, fx);
-  if (tool && tool.kind === 'shop' && hover) drawGhost(ctx, world, tool.id, hover);
+  if (tool && tool.kind === 'shop') {
+    if (pending) drawGhost(ctx, world, tool.id, pending.c, pending.r, time);
+    else if (hover) {
+      const spec = BUILDINGS[tool.id];
+      drawGhost(ctx, world, tool.id,
+        Math.floor(hover.x - spec.w / 2 + 0.5), Math.floor(hover.y - spec.h / 2 + 0.5), time);
+    }
+  }
   if (tool && tool.kind === 'tool' && hover) drawToolMark(ctx, tool.id, hover, time);
 
   if (season === 'winter') {
@@ -309,18 +337,68 @@ function drawSnowfall(ctx, time) {
   ctx.restore();
 }
 
-function drawGhost(ctx, world, id, hover) {
+function drawGhost(ctx, world, id, c, r, time = 0) {
   const spec = BUILDINGS[id];
-  const c = Math.floor(hover.x - spec.w / 2 + 0.5);
-  const r = Math.floor(hover.y - spec.h / 2 + 0.5);
   const bad = whyNot(world, id, c, r);
   ctx.save();
   ctx.globalAlpha = 0.55;
   drawBuilding(ctx, id, c * TILE, r * TILE, { built: 1, spec });
-  ctx.globalAlpha = 0.3;
+  ctx.globalAlpha = 0.28 + Math.sin(time * 5) * 0.06;
   ctx.fillStyle = bad ? '#e0563c' : '#7fce6a';
   ctx.fillRect(c * TILE, r * TILE, spec.w * TILE, spec.h * TILE);
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = bad ? '#e0563c' : '#7fce6a';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(c * TILE + 1, r * TILE + 1, spec.w * TILE - 2, spec.h * TILE - 2);
+  ctx.setLineDash([]);
   ctx.restore();
+}
+
+/**
+ * The place-then-confirm buttons, floating under the pending ghost in screen
+ * space. Tap-to-build planted a farm on every mis-tap; now the tap only
+ * parks the ghost, and these two buttons are the decision.
+ */
+export function drawConfirm(ctx, tr, world, id, pending, t, viewW, viewH) {
+  const spec = BUILDINGS[id];
+  const bad = whyNot(world, id, pending.c, pending.r);
+  const gx = tr.ox + (pending.c + spec.w / 2) * TILE * tr.k;
+  let gy = tr.oy + (pending.r + spec.h) * TILE * tr.k + 16;
+
+  ctx.save();
+  ctx.font = '700 14px system-ui, sans-serif';
+  const okText = `✓ ${t('ui.confirm')}`;
+  const noText = '✕';
+  const okW = ctx.measureText(okText).width + 26;
+  const noW = 40;
+  const bh = 34;
+  const total = okW + 8 + noW;
+  // on screen whatever corner the ghost is parked in
+  let x0 = Math.max(8, Math.min(gx - total / 2, viewW - total - 8));
+  gy = Math.max(44, Math.min(gy, viewH - HUD_H - bh - 8));
+
+  const rects = [
+    { kind: 'confirm', x: x0, y: gy, w: okW, h: bh },
+    { kind: 'cancel', x: x0 + okW + 8, y: gy, w: noW, h: bh },
+  ];
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const r of rects) {
+    const ok = r.kind === 'confirm';
+    ctx.fillStyle = ok ? (bad ? 'rgba(90,90,90,0.85)' : 'rgba(63,138,63,0.92)') : 'rgba(160,58,48,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(r.x, r.y, r.w, r.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(18,12,7,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#f5efdd';
+    ctx.fillText(ok ? okText : noText, r.x + r.w / 2, r.y + r.h / 2 + 1);
+  }
+  ctx.restore();
+  return rects;
 }
 
 function drawToolMark(ctx, id, hover, time) {

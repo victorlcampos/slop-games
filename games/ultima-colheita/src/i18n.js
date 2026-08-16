@@ -57,7 +57,17 @@ export const dict = {
   'tool.demolish': { en: 'Demolish', pt: 'Demolir' },
   'tool.demolish.note': { en: 'Take it down, get half the cost back.', pt: 'Derruba e devolve metade do custo.' },
   'tool.rally': { en: 'Rally flag', pt: 'Bandeira' },
-  'tool.rally.note': { en: 'Where the army stands guard.', pt: 'Onde o exército monta guarda.' },
+  'tool.rally.note': {
+    en: 'Tap a guard to pick their squad, then the ground to post them.',
+    pt: 'Toque num guarda para escolher o esquadrão, depois no chão para posicionar.',
+  },
+
+  // ------------------------------------------------------------ build & army
+  'ui.confirm': { en: 'Build', pt: 'Construir' },
+  'ui.cancel': { en: 'Cancel', pt: 'Cancelar' },
+  'note.squad': { en: 'Squad {n} — tap the ground to post them', pt: 'Esquadrão {n} — toque no chão para posicionar' },
+  'note.allSquads': { en: 'The whole army moves', pt: 'O exército inteiro se move' },
+  'note.turned': { en: 'A guard has risen with the dead.', pt: 'Um guarda se ergueu com os mortos.' },
 
   // ---------------------------------------------------------------- refusals
   'why.edge': { en: 'Off the map.', pt: 'Fora do mapa.' },
