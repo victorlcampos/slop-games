@@ -427,11 +427,13 @@ function tendVillagers(h) {
           v.tx = v.hx + (Math.random() - 0.5) * 1.8;
           v.ty = v.hy + (Math.random() - 0.5) * 1.2;
         } else {
+          // wander wide around a building, not straight to its doorstep —
+          // at full zoom the doorstep crowd read as a scrum
           const spots = world.buildings.filter((b) => b.built >= 1);
           const b = spots[Math.floor(Math.random() * spots.length)];
           if (b) {
-            v.tx = b.c + Math.random() * 2;
-            v.ty = b.r + 1.2 + Math.random() * 1.5;
+            v.tx = b.c - 1.5 + Math.random() * 5;
+            v.ty = b.r + 0.5 + Math.random() * 3.5;
           }
         }
       }

@@ -892,78 +892,164 @@ function mobShadow(ctx, x, y, w = 9) {
 
 const px = (n) => Math.round(n);
 
+const SKINS = ['#e3b58a', '#d9a06f', '#b98254'];
+const HAIRS = ['#5d3d22', '#2e2018', '#c8a34e', '#8a8a80'];
+const TUNICS = ['#8a5a3a', '#6e7a4a', '#7a4a5a', '#5a6a7a', '#a06a38', '#607a6a'];
+const EYE = '#26201a';
+
 /**
- * Villager-shaped things share one body: boots, tunic, head, and whatever the
- * profession adds. Local coordinates, centred on (10, 16) — the outliner
- * places it.
+ * Villager-shaped things share one body — but not one face. Skin, hair,
+ * cut, apron and a blink are what turned "small rectangles" into townsfolk:
+ * the first pass gave everyone the same cap of hair and eyes a single pixel
+ * wide, and a player summed it up as "no personality, and a rectangle on
+ * the cheek" (that rectangle was a hay bundle parked against the head).
+ *
+ * Local coordinates; `o.style` is 'cap' | 'hood' | 'long' | 'bald' | 'apron'.
  */
-function body(c, bob, { tunic, skin = '#e3b58a', head = tunic }) {
+function body(c, bob, o) {
+  const skin = o.skin || SKINS[0];
+  const hair = o.hair || HAIRS[0];
+  // boots
   c.fillStyle = '#3a3229';
   c.fillRect(6, 22 + bob, 3, 4);
   c.fillRect(11, 22 - bob, 3, 4);
-  c.fillStyle = tunic;
-  c.fillRect(5, 12, 10, 11);
-  c.fillStyle = 'rgba(0,0,0,0.15)';
-  c.fillRect(5, 19, 10, 3);
+  // tunic — or a long dress that flares over the boots
+  c.fillStyle = o.tunic;
+  if (o.style === 'long') {
+    c.fillRect(5, 12, 10, 9);
+    c.fillRect(4, 20, 12, 5);
+  } else {
+    c.fillRect(5, 12, 10, 11);
+    c.fillStyle = 'rgba(0,0,0,0.18)';
+    c.fillRect(5, 18, 10, 2); // the belt
+  }
+  if (o.style === 'apron') {
+    c.fillStyle = '#e8dfc8';
+    c.fillRect(7, 13, 7, 9);
+    c.fillStyle = 'rgba(0,0,0,0.12)';
+    c.fillRect(7, 13, 7, 1);
+  }
+  // arms, swinging against the step
+  c.fillStyle = o.tunic;
+  c.fillRect(3, 13 + (bob > 0 ? 1 : 0), 2, 6);
+  c.fillRect(16, 13 + (bob > 0 ? 0 : 1), 2, 6);
   c.fillStyle = skin;
-  c.fillRect(7, 5, 7, 7);
-  c.fillStyle = head;
-  c.fillRect(6, 3, 9, 4);
-  // two dot eyes: the difference between a figure and a doll
-  c.fillStyle = '#2b2118';
-  c.fillRect(8, 8, 1, 2);
-  c.fillRect(12, 8, 1, 2);
+  c.fillRect(3, 19 + (bob > 0 ? 1 : 0), 2, 2);
+  c.fillRect(16, 19 + (bob > 0 ? 0 : 1), 2, 2);
+  // the head
+  c.fillStyle = skin;
+  c.fillRect(7, 4, 7, 8);
+  // the hair is the hat
+  c.fillStyle = hair;
+  if (o.style === 'hood') {
+    c.fillRect(6, 1, 9, 4);
+    c.fillRect(5, 3, 2, 8);
+    c.fillRect(14, 3, 2, 8);
+  } else if (o.style === 'long') {
+    c.fillRect(6, 1, 9, 4);
+    c.fillRect(5, 3, 2, 11);
+    c.fillRect(14, 3, 2, 11);
+  } else if (o.style !== 'bald') {
+    c.fillRect(6, 1, 9, 4);
+    c.fillRect(6, 4, 1, 3);
+    c.fillRect(14, 4, 1, 3);
+  }
+  // the face: two-pixel eyes, and now and then a blink
+  c.fillStyle = EYE;
+  if (o.blink) {
+    c.fillRect(8, 9, 2, 1);
+    c.fillRect(12, 9, 2, 1);
+  } else {
+    c.fillRect(8, 8, 2, 2);
+    c.fillRect(12, 8, 2, 2);
+  }
+  if (o.style === 'bald') {
+    c.fillStyle = hair;
+    c.fillRect(7, 10, 7, 3); // the beard makes up for the scalp
+    c.fillStyle = skin;
+    c.fillRect(9, 10, 3, 1);
+  }
 }
+
+const blinkNow = (time, seed) => Math.sin(time * 1.7 + seed * 3.1) > 0.96;
 
 export function drawUnit(ctx, u, x, y, time) {
   const bob = Math.round(Math.sin(time * 9 + u.id) * 1.5);
   mobShadow(ctx, x, y);
-  outlined(ctx, x - 13, y - 18, 28, 34, (c) => {
+  outlined(ctx, x - 13, y - 18, 30, 34, (c) => {
     c.translate(3, 2);
     if (u.kind === 'soldier') {
-      body(c, bob, { tunic: '#5b6c9e', head: '#aab3c4' });
-      c.fillStyle = '#aab3c4';
-      c.fillRect(9, 5, 2, 4);
+      body(c, bob, { tunic: '#5b6c9e', skin: SKINS[u.id % SKINS.length], style: 'bald', hair: '#00000000', blink: blinkNow(time, u.id) });
+      c.fillStyle = '#aab3c4'; // the helmet, over everything
+      c.fillRect(6, 1, 9, 5);
+      c.fillRect(6, 5, 2, 4);
+      c.fillRect(13, 5, 2, 4);
+      c.fillRect(10, 5, 2, 5); // nose guard, between the eyes and not over them
       c.fillStyle = '#b8433a'; // the plume
-      c.fillRect(9, 0, 3, 4);
+      c.fillRect(9, -3, 3, 4);
       c.fillStyle = '#d8d3c2'; // the sword arm
-      c.fillRect(15, 7, 2, 11);
-      c.fillRect(14, 14, 4, 2);
+      c.fillRect(16, 6, 2, 11);
+      c.fillRect(15, 13, 4, 2);
       c.fillStyle = '#7a5230';
       c.fillRect(0, 12, 5, 9);
       c.fillStyle = '#c8a232';
       c.fillRect(1, 15, 3, 3);
     } else {
-      body(c, bob, { tunic: '#5e7a3c', head: '#46602c' });
+      body(c, bob, { tunic: '#5e7a3c', skin: SKINS[u.id % SKINS.length], style: 'hood', hair: '#46602c', blink: blinkNow(time, u.id) });
       c.strokeStyle = '#c8a34e';
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(17, 13, 5, -Math.PI / 2.2, Math.PI / 2.2);
+      c.arc(18, 13, 5, -Math.PI / 2.2, Math.PI / 2.2);
       c.stroke();
       c.strokeStyle = '#d8d3c2';
       c.lineWidth = 1;
       c.beginPath();
-      c.moveTo(17, 8);
-      c.lineTo(17, 18);
+      c.moveTo(18, 8);
+      c.lineTo(18, 18);
       c.stroke();
       c.fillStyle = '#8a674f';
-      c.fillRect(2, 8, 3, 8);
+      c.fillRect(1, 8, 3, 8);
     }
   });
   drawHpPip(ctx, x, y - 16, u.hp / (u.kind === 'soldier' ? 60 : 40));
 }
 
-/** A townsperson going about their day — pure scenery, the sim never sees them. */
+/** A townsperson going about their day — pure scenery, the sim never sees
+ *  them, but the player meets them face to face at full zoom. */
 export function drawVillager(ctx, v, x, y, time) {
   const bob = Math.round(Math.sin(time * 8 + v.seed * 7) * 1.5);
   mobShadow(ctx, x, y, 7);
-  const tunics = ['#8a5a3a', '#6e7a4a', '#7a4a5a', '#5a6a7a'];
-  outlined(ctx, x - 12, y - 18, 26, 34, (c) => {
+  const styles = ['cap', 'hood', 'long', 'bald', 'apron'];
+  outlined(ctx, x - 12, y - 18, 28, 34, (c) => {
     c.translate(2, 2);
-    body(c, bob, { tunic: tunics[v.seed % tunics.length], head: '#5d3d22' });
-    if (v.seed % 3 === 0) {
-      c.fillStyle = '#c8a34e';
-      c.fillRect(14, 7, 6, 4);
+    body(c, bob, {
+      tunic: TUNICS[v.seed % TUNICS.length],
+      skin: SKINS[(v.seed >> 1) % SKINS.length],
+      hair: HAIRS[(v.seed >> 2) % HAIRS.length],
+      style: styles[v.seed % styles.length],
+      blink: blinkNow(time, v.seed),
+    });
+    // what they carry rides at the hip, never against the face
+    const prop = (v.seed >> 3) % 4;
+    if (prop === 1) {
+      c.fillStyle = '#a5793f'; // a basket
+      c.fillRect(-1, 16, 6, 5);
+      c.fillStyle = '#7c5a2c';
+      c.fillRect(-1, 16, 6, 1);
+      c.fillRect(1, 17, 1, 4);
+      c.fillRect(3, 17, 1, 4);
+    } else if (prop === 2) {
+      c.fillStyle = TIMBER; // a pitchfork over the shoulder
+      c.fillRect(18, 2, 2, 16);
+      c.fillStyle = '#b9bec6';
+      c.fillRect(16, 0, 1, 4);
+      c.fillRect(18, 0, 1, 4);
+      c.fillRect(20, 0, 1, 4);
+    } else if (prop === 3) {
+      c.fillStyle = '#8a5f33'; // a bucket
+      c.fillRect(17, 17, 5, 5);
+      c.fillStyle = '#5e421f';
+      c.fillRect(17, 19, 5, 1);
     }
   });
 }
