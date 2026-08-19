@@ -1,0 +1,21 @@
+{
+  "slug": "dez-classicos",
+  "name": {
+    "en": "Ten Classics",
+    "pt": "Dez Clássicos"
+  },
+  "emoji": "♟️",
+  "description": {
+    "en": "Chess, draughts, backgammon, ludo, sudoku, reversi and four more, on carved wood and felt. Four levels move the machine's head — easy blunders, professional searches — and never touch the dice.",
+    "pt": "Xadrez, damas, gamão, ludo, sudoku, reversi e mais quatro, em madeira entalhada e feltro. Quatro níveis mexem na cabeça da máquina — o fácil erra, o profissional calcula — e nunca nos dados."
+  },
+  "tags": [
+    "2d",
+    "board-game",
+    "strategy",
+    "puzzle"
+  ],
+  "libs": [],
+  "offline": true,
+  "year": 2026
+}

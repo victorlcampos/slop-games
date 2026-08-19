@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#101a16">
+<title>Ten Classics</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟️</text></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #f0e6d2;
+    --dim: #a2937c;
+    --brass: #c9a052;
+    --brass-light: #f3d998;
+    --panel: rgba(14, 26, 21, 0.86);
+    --edge: rgba(255, 235, 200, 0.14);
+  }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #101a16;
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The table is painted on the canvas and every screen sits on top of it, so
+     the felt is behind the menu as well as behind the board. */
+  canvas#canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .screen[hidden] { display: none; }
+
+  /* ------------------------------------------------------------------ lobby */
+
+  .lobby { padding: clamp(0.9rem, 3vw, 2rem) clamp(0.8rem, 3vw, 2.4rem) 2rem; }
+
+  .masthead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: clamp(0.8rem, 2vw, 1.4rem);
+  }
+  .masthead h1 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: clamp(1.6rem, 4.6vw, 2.7rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    color: var(--brass-light);
+    text-shadow: 0 2px 0 rgba(0,0,0,0.45);
+  }
+  .masthead p { color: var(--dim); font-size: clamp(0.82rem, 2vw, 1rem); margin-top: 0.3rem; max-width: 46ch; }
+  .tools { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+  .icon {
+    font-size: 1.05rem;
+    line-height: 1;
+    background: rgba(9, 18, 14, 0.7);
+    border: 1px solid var(--edge);
+    border-radius: 9px;
+    color: var(--ink);
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+  }
+  .icon:hover { border-color: var(--brass); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+    gap: clamp(0.6rem, 1.6vw, 1rem);
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.7rem;
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .card:hover, .card:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--brass);
+    box-shadow: 0 12px 26px rgba(0,0,0,0.45);
+    outline: none;
+  }
+  .card canvas {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 9px;
+    display: block;
+    background: rgba(0,0,0,0.25);
+  }
+  .card h2 {
+    font-family: ui-serif, Georgia, serif;
+    font-size: 1.02rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .card .record { font-size: 0.72rem; color: var(--dim); letter-spacing: 0.02em; }
+  .card .resume { color: var(--brass-light); font-weight: 700; }
+
+  /* ------------------------------------------------------------------ setup */
+
+  .setup { align-items: center; justify-content: center; padding: 1.2rem; }
+  .sheet {
+    width: min(560px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    padding: clamp(1rem, 3vw, 1.6rem);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+  }
+  .sheet h2 {
+    font-family: ui-serif, Georgia, serif;
+    font-size: clamp(1.3rem, 3.4vw, 1.8rem);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .sheet .about { color: var(--dim); font-size: 0.9rem; margin: 0.45rem 0 1rem; line-height: 1.5; }
+  .sheet h3 {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--brass);
+    margin-bottom: 0.5rem;
+  }
+
+  .levels { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .level {
+    display: block;
+    text-align: left;
+    padding: 0.6rem 0.7rem;
+    background: rgba(8, 16, 13, 0.6);
+    border: 1px solid var(--edge);
+    border-radius: 11px;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .level b { display: block; font-size: 0.98rem; margin-bottom: 0.15rem; }
+  .level span { font-size: 0.76rem; color: var(--dim); line-height: 1.35; display: block; }
+  .level[aria-pressed="true"] {
+    border-color: var(--brass);
+    background: linear-gradient(rgba(201,160,82,0.2), rgba(201,160,82,0.07));
+  }
+  .level[aria-pressed="true"] b { color: var(--brass-light); }
+
+  .promise {
+    margin: 0.9rem 0;
+    padding: 0.6rem 0.75rem;
+    border-left: 3px solid var(--brass);
+    background: rgba(201,160,82,0.08);
+    font-size: 0.79rem;
+    color: #d9cdb4;
+    line-height: 1.45;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .sides { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .side {
+    padding: 0.42rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--edge);
+    background: rgba(8,16,13,0.6);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .side[aria-pressed="true"] { border-color: var(--brass); color: var(--brass-light); }
+
+  .row { display: flex; gap: 0.6rem; margin-top: 1.1rem; flex-wrap: wrap; }
+
+  .btn {
+    font: inherit;
+    font-weight: 700;
+    color: #201603;
+    background: linear-gradient(var(--brass-light), var(--brass));
+    border: 1px solid rgba(0,0,0,0.35);
+    border-radius: 10px;
+    padding: 0.6rem 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.4);
+  }
+  .btn:active { transform: translateY(2px); box-shadow: none; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--edge);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { border-color: var(--brass); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* The way back to the catalog: only inside it, and wearing this game's own
+     button. An <a> with no colour of its own falls back to link blue, which is
+     unreadable on felt — inheriting .btn.ghost fixes that for free. */
+  .back-to-games { text-decoration: none; align-items: center; gap: 0.4rem; }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  /* ------------------------------------------------------------------ table */
+
+  .table { pointer-events: none; }
+  .table > * { pointer-events: auto; }
+
+  .topbar, .statusbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem clamp(0.5rem, 2vw, 1rem);
+  }
+  .topbar { top: env(safe-area-inset-top, 0px); }
+  .statusbar {
+    bottom: env(safe-area-inset-bottom, 0px);
+    justify-content: center;
+    padding-bottom: 0.6rem;
+  }
+
+  .topbar .title {
+    font-family: ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: 0.98rem;
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .topbar .title small {
+    font-family: inherit;
+    font-size: 0.72rem;
+    color: var(--brass);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .status {
+    background: rgba(9, 18, 14, 0.82);
+    border: 1px solid var(--edge);
+    border-radius: 999px;
+    padding: 0.34rem 0.95rem;
+    font-size: clamp(0.76rem, 2.2vw, 0.9rem);
+    letter-spacing: 0.01em;
+    max-width: 92vw;
+    text-align: center;
+    white-space: normal;
+  }
+  .status.good { border-color: #4f9c6f; color: #b6e8c8; }
+  .status.bad { border-color: #a8503f; color: #f0bfb4; }
+
+  /* ------------------------------------------------------------------ modal */
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: 1.2rem;
+    background: rgba(4, 10, 8, 0.68);
+    backdrop-filter: blur(3px);
+  }
+  .modal[hidden] { display: none; }
+  .modal .sheet { width: min(430px, 100%); text-align: center; }
+  .modal h2 { justify-content: center; }
+  .modal .row { justify-content: center; }
+
+  .promo { display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.6rem; }
+  .promo button {
+    width: 62px;
+    height: 62px;
+    border-radius: 12px;
+    border: 1px solid var(--edge);
+    background: rgba(8,16,13,0.7);
+    cursor: pointer;
+    padding: 0;
+  }
+  .promo button:hover { border-color: var(--brass); }
+  .promo canvas { width: 100%; height: 100%; display: block; }
+
+  .stats { display: flex; gap: 1.2rem; justify-content: center; margin: 0.8rem 0; flex-wrap: wrap; }
+  .stat b { display: block; font-size: 1.35rem; color: var(--brass-light); font-family: ui-serif, Georgia, serif; }
+  .stat span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--dim); }
+
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); z-index: 9; }
+  /* `hidden` loses to `display: grid` without this, and the line would sit in
+     the middle of the board for the whole session */
+  #boot[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="boot" data-pt="Montando a mesa…" data-en="Setting the table…">Setting the table…</div>
+
+  <!-- ------------------------------------------------------------- lobby -->
+  <div class="screen lobby" id="lobby" hidden>
+    <div class="masthead">
+      <div>
+        <h1 data-t="app.name">Ten Classics</h1>
+        <p data-t="app.blurb"></p>
+      </div>
+      <div class="tools">
+        <span data-lang-picker></span>
+        <button class="icon" id="btn-sound" title="M">🔊</button>
+      </div>
+    </div>
+    <div class="grid" id="cards"></div>
+    <div class="row">
+      <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- setup -->
+  <div class="screen setup" id="setup" hidden>
+    <div class="sheet">
+      <h2><span id="setup-emoji">♛</span><span id="setup-name">Chess</span></h2>
+      <p class="about" id="setup-about"></p>
+
+      <h3 data-t="difficulty.title">How well should it play?</h3>
+      <div class="levels" id="levels"></div>
+
+      <p class="promise" data-t="difficulty.promise"></p>
+
+      <div id="side-row" hidden>
+        <h3 data-t="difficulty.side">You play</h3>
+        <div class="sides" id="sides"></div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btn-start" data-t="ui.play">Play</button>
+        <button class="btn ghost" id="btn-setup-back" data-t="ui.back">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- table -->
+  <div class="screen table" id="table" hidden>
+    <div class="topbar">
+      <span class="title"><span id="table-emoji">♛</span><span id="table-name"></span><small id="table-level"></small></span>
+      <button class="icon" id="btn-hint" title="H">💡</button>
+      <button class="icon" id="btn-undo" title="Z">↶</button>
+      <button class="icon" id="btn-restart" title="R">⟳</button>
+      <button class="icon" id="btn-sound2">🔊</button>
+      <button class="icon" id="btn-exit">✕</button>
+    </div>
+    <div class="statusbar"><span class="status" id="status"></span></div>
+  </div>
+
+  <!-- ------------------------------------------------------------- modals -->
+  <div class="modal" id="over" hidden>
+    <div class="sheet">
+      <h2 id="over-title"></h2>
+      <p class="about" id="over-why"></p>
+      <div class="stats" id="over-stats"></div>
+      <div class="row">
+        <button class="btn" id="btn-rematch" data-t="ui.rematch">Play again</button>
+        <button class="btn ghost" id="btn-over-lobby" data-t="ui.lobby">All games</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="promote" hidden>
+    <div class="sheet">
+      <h2 data-t="ui.promoteTo">Promote to</h2>
+      <div class="promo" id="promo-row"></div>
+    </div>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>
