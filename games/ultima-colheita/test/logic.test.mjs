@@ -3,6 +3,7 @@
 
 import { scenario, check, checkEqual, run, installHeadlessDom } from 'slopkit/testing';
 import { missingKeys } from 'slopkit/i18n';
+import { readFileSync } from 'node:fs';
 
 installHeadlessDom();
 
@@ -13,7 +14,7 @@ const { BUILDINGS, SHOP, whyNot, buildingAt, siteYield } = await import('../src/
 const { ZOMBIES, hordeFor, hpScale, gatesFor } = await import('../src/hordes.js');
 const { UNITS, makeUnit, makeZombie } = await import('../src/units.js');
 const { createWorld } = await import('../src/world.js');
-const { freshSave, normalize, bank } = await import('../src/run.js');
+const { freshSave, normalize, bank, menuButtons } = await import('../src/run.js');
 const { dict } = await import('../src/i18n.js');
 const { barLayout, hit, squadChips, TOOLS, TRAINABLE } = await import('../src/ui.js');
 const { QUESTS, questNow } = await import('../src/quests.js');
@@ -63,6 +64,37 @@ scenario('every refusal the rules can give is a phrase the player can read', () 
   check(world.train('nothing') === 'why.unknown', 'the guard phrase is wired');
   const missing = [...reasons].filter((k) => !dict[k]);
   check(missing.length === 0, `refusals with no words: ${missing.join(', ')}`);
+});
+
+scenario('every phrase the menu markup asks for is a phrase the game has', () => {
+  // the buttons name their text with data-t; a renamed key paints the raw key
+  const html = readFileSync(new URL('../template.html', import.meta.url), 'utf8');
+  const keys = [...html.matchAll(/data-t="([^"]+)"/g)].map((m) => m[1]);
+  check(keys.length > 0, 'the template names no phrase at all');
+  const missing = keys.filter((k) => !k.startsWith('slop.') && !dict[k]);
+  check(missing.length === 0, `markup asks for phrases nobody wrote: ${missing.join(', ')}`);
+});
+
+// ------------------------------------------------------------------ the menu
+
+scenario('the menu never offers two buttons that do the same thing', () => {
+  // "found the village" and "start over" both threw the saved town away, so
+  // with a town standing only one of them is on screen
+  const empty = menuButtons({ ...freshSave(), state: null });
+  check(empty.start && !empty.resume && !empty.newRun,
+    `with nothing saved the menu offers ${JSON.stringify(empty)}`);
+
+  const standing = menuButtons({ ...freshSave(), state: { year: 3, pop: 9 } });
+  check(!standing.start && standing.resume && standing.newRun,
+    `with a town saved the menu offers ${JSON.stringify(standing)}`);
+  check(!(standing.start && standing.newRun), 'both founding buttons are on screen at once');
+});
+
+scenario('the menu survives a save with nothing in it', () => {
+  for (const bad of [null, undefined, {}, { state: null }]) {
+    const b = menuButtons(bad);
+    check(b.start && !b.resume && !b.newRun, `a ${JSON.stringify(bad)} save offered ${JSON.stringify(b)}`);
+  }
 });
 
 // ----------------------------------------------------------------- the quests

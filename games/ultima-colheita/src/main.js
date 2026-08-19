@@ -14,7 +14,7 @@ import {
   DEFAULT_ZOOM, cameraTransform, clampCamera, createCamera, minimapToBoard, toBoard, zoomAt,
 } from './camera.js';
 import { createWorld } from './world.js';
-import { bank, freshSave, normalize } from './run.js';
+import { bank, freshSave, menuButtons, normalize } from './run.js';
 import { i18n, t } from './i18n.js';
 import {
   createTerrainCache, drawBanner, drawBar, drawBoard, drawConfirm, drawMinimap,
@@ -611,13 +611,20 @@ document.getElementById('btn-resume').addEventListener('click', () => {
   sound.resume();
   startRun(false);
 });
+// Founding another village throws the saved one away, so the button asks
+// twice. The second tap only counts while the warning is still on screen —
+// `refreshMenu` disarms it, and that is what the note's timer calls.
+let armedNew = false;
 document.getElementById('btn-reset').addEventListener('click', () => {
-  save = vault.apply({ ...freshSave(), best: save.best });
-  vault.save(save);
-  world = null;
-  showcase();
-  refreshMenu();
-  flashMenu(t('menu.wiped'));
+  if (!armedNew) {
+    armedNew = true;
+    flashMenu(t('menu.confirmNew'));
+    return;
+  }
+  armedNew = false;
+  clearTimeout(menuNoteT);
+  sound.resume();
+  startRun(true);
 });
 document.getElementById('btn-again').addEventListener('click', () => {
   sound.resume();
@@ -642,8 +649,11 @@ function flashMenu(text) {
 
 function refreshMenu() {
   const has = !!save.state;
-  document.getElementById('btn-resume').hidden = !has;
-  document.getElementById('btn-reset').hidden = !has;
+  armedNew = false; // the confirmation lives exactly as long as its warning
+  const show = menuButtons(save);
+  document.getElementById('btn-start').hidden = !show.start;
+  document.getElementById('btn-resume').hidden = !show.resume;
+  document.getElementById('btn-reset').hidden = !show.newRun;
   const lines = [];
   if (has) lines.push(t('menu.now', { year: save.state.year, pop: save.state.pop }));
   if (save.best.years > 0) lines.push(t('menu.best', { years: save.best.years, kills: save.best.kills }));

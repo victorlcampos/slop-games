@@ -28,3 +28,14 @@ export function bank(save, world) {
   save.best.kills = Math.max(save.best.kills, world.stats.kills);
   return save;
 }
+
+/** What the menu offers, which is only ever a question of whether a town is
+ *  standing. With one saved, "found the village" and "start over" were the same
+ *  button wearing two labels — both threw the saved town away — and the primary
+ *  one did it silently to a player who only meant to keep playing. So a standing
+ *  town hides "found the village": going back to it is the primary choice, and
+ *  founding another is the ghost button that says what it costs. */
+export function menuButtons(save) {
+  const standing = !!(save && save.state);
+  return { start: !standing, resume: standing, newRun: standing };
+}

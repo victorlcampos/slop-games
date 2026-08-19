@@ -116,8 +116,8 @@ export const dict = {
   // ------------------------------------------------------------------- menu
   'menu.start': { en: 'Found the village', pt: 'Fundar a vila' },
   'menu.resume': { en: 'Back to the village', pt: 'Voltar para a vila' },
-  'menu.newRun': { en: 'Start over', pt: 'Recomeçar' },
-  'menu.wiped': { en: 'Town razed — starting from nothing.', pt: 'Vila arrasada — começando do zero.' },
+  'menu.newRun': { en: 'Found another village', pt: 'Fundar outra vila' },
+  'menu.confirmNew': { en: 'The saved village is lost. Tap again to found another.', pt: 'A vila salva se perde. Toque de novo para fundar outra.' },
   'menu.best': { en: 'Best: {years} years · {kills} dead put down', pt: 'Recorde: {years} anos · {kills} mortos abatidos' },
   'menu.now': { en: 'Year {year} · {pop} villagers', pt: 'Ano {year} · {pop} aldeões' },
 
