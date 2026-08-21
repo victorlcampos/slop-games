@@ -106,6 +106,36 @@ scenario('the QML entry point loads only files that travel with it', () => {
   check(!literal, `a literal private-use glyph (U+${literal && literal[0].codePointAt(0).toString(16)}) is in the source — write it as \\uXXXX`);
 });
 
+scenario('the panel answers to the id the shell knows it by', () => {
+  // `moduleName` is how a widget finds its own entry in shell.json — its bar
+  // position and its saved settings, the EN/PT choice among them. Let it drift
+  // from the manifest id and nothing throws: the panel just draws with defaults
+  // forever and every click on a flag is forgotten on restart.
+  const qml = readFileSync(path.join(ROOT, manifest.entryPoints.barWidget), 'utf8');
+  const declared = qml.match(/moduleName:\s*"([^"]+)"/);
+  check(declared, 'the panel declares no moduleName');
+  check(declared && declared[1] === manifest.id,
+    `the panel calls itself "${declared && declared[1]}" and the manifest calls it "${manifest.id}"`);
+});
+
+scenario('the listing carries what the marketplace asks of it', () => {
+  // omarchyplugins.com refuses a submission without these, and the refusal
+  // arrives days later on somebody else's review queue. They are properties of
+  // the repository, so they are checkable here.
+  check(existsSync(path.join(ROOT, 'LICENSE')), 'no LICENSE at the root — the marketplace requires a root license file');
+  for (const field of ['author', 'description', 'license', 'version']) {
+    const value = manifest[field];
+    check(typeof value === 'string' && value.trim().length > 0, `manifest.${field} is empty — the listing shows it`);
+  }
+  check(manifest.version.length <= 64, `the version is ${manifest.version.length} characters, the listing caps it at 64`);
+
+  // "Contains a root README with installation and removal instructions" — the
+  // root one, not omarchy/README.md, which is where they would naturally go.
+  const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+  check(readme.includes('omarchy plugin add'), 'the root README never says how to install the plugin');
+  check(readme.includes('omarchy plugin remove'), 'the root README never says how to remove the plugin');
+});
+
 // -------------------------------------------------------------- the catalog
 
 scenario('Catalog.js is in step with games/*/game.json', () => {

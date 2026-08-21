@@ -81,6 +81,19 @@ omarchy plugin add https://github.com/victorlcampos/slop-games.git --enable
 lives in **[omarchy/](omarchy/README.md)**, which is also where the keybind, the
 two languages and "where do the games come from" are explained.
 
+```bash
+omarchy plugin update victorlcampos.slop-games   # fast-forward the checkout
+omarchy plugin remove victorlcampos.slop-games   # disable and delete it
+```
+
+**What it needs, and what it writes.** Nothing outside Omarchy itself: the panel
+runs `omarchy-launch-webapp`, which ships with Omarchy and opens your default
+browser with `--app=`, and one `bash` line to find out whether you have a local
+copy of the games. No npm install, no download at runtime, no service of its own.
+The only thing it ever writes is the EN/PT choice, into the widget's own entry in
+`~/.config/omarchy/shell.json`, and only when you click one of those two buttons —
+it touches no other configuration.
+
 ## Publishing
 
 Push to `main` → GitHub Actions **runs the tests and only publishes if they
