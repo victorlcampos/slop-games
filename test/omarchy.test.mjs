@@ -30,7 +30,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { renderCatalog } from '../omarchy/catalog.mjs';
 import { readGames } from '../omarchy/build.mjs';
-import { publish, checkScanLimits, SCAN_FILE_BYTE_LIMIT } from '../omarchy/publish.mjs';
+import { publish, checkScanLimits, isScanned, SCAN_FILE_BYTE_LIMIT } from '../omarchy/publish.mjs';
+import { previewHTML, darker, esc } from '../omarchy/preview.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const games = readGames(ROOT);
@@ -144,7 +145,10 @@ scenario('the package survives the marketplace static scan', () => {
   // 1.3 MB file — SkiFree's vendored three.js, which the plugin never reads and
   // which was only in the clone because the plugin was the whole repository.
   const summary = checkScanLimits(packaged);
-  check(summary.files >= 6, `only ${summary.files} files in the package`);
+  check(packaged.length >= 6, `only ${packaged.length} files in the package`);
+  // Fewer than the package holds, and that is the point: manifest.json is not
+  // in the marketplace's scanned-extension list, so it never reaches the scan.
+  check(summary.files >= 4, `only ${summary.files} of them are scanned at all`);
   const biggest = packaged.slice().sort((a, b) => b.bytes - a.bytes)[0];
   check(biggest.bytes <= SCAN_FILE_BYTE_LIMIT,
     `${biggest.name} is ${Math.round(biggest.bytes / 1024)} KB, over the ${SCAN_FILE_BYTE_LIMIT / 1024} KB per-file limit`);
@@ -189,6 +193,43 @@ scenario('the README says nothing the marketplace reads as an install path', () 
     const hit = readme.match(pattern);
     check(!hit, `the README contains ${hit && `"${hit[0]}"`}: ${why}`);
   }
+});
+
+scenario('the preview is drawn from the same ten games the panel reads', () => {
+  // The picture is generated, not committed — rule nº 5, the one that keeps this
+  // repository free of a binaries folder. Rendering it needs a browser, so what
+  // is checked here is the page that gets photographed, which needs nothing.
+  const html = previewHTML(catalog.GAMES);
+  for (const row of catalog.GAMES) {
+    // Escaped, not raw: one of these games is called "Kings & Gears".
+    check(html.includes(esc(row.name.en)), `the preview never names ${row.slug}`);
+    check(html.includes(row.emoji), `the preview never draws ${row.slug}'s emoji`);
+  }
+  check(html.includes(`${catalog.GAMES.length} games`), 'the preview does not say how many games there are');
+  // The one game that needs a connection wears the badge here too.
+  check(html.includes('needs network'), 'the preview drops the badge the panel and the index both show');
+
+  // Qt.darker divides HSV value; an eyeballed RGB scale is what makes a mock-up
+  // look almost-but-not-quite like the shell.
+  check(darker('#a9b1d6', 1.4) !== '#a9b1d6', 'darker() returned the colour unchanged');
+  check(darker('#ffffff', 2) === '#808080', `darker('#ffffff', 2) came out ${darker('#ffffff', 2)}`);
+});
+
+scenario('a megabyte of PNG does not count against a text-scan limit', () => {
+  // The per-file limit is 512 KB and the preview is about a megabyte. The
+  // marketplace never reads it — .png is not in its scanned extensions — so
+  // applying the limit to it would refuse a package it is happy with.
+  check(!isScanned('preview.png'), 'preview.png would be treated as scanned text');
+  check(isScanned('Panel.qml') && isScanned('Model.js'), 'the code has to be scanned');
+  check(isScanned('LICENSE'), 'an extensionless file is pulled in by the marketplace snapshot');
+  check(isScanned('README.md'), 'the root README is always scanned');
+  check(!isScanned('manifest.json'), '.json is not in the scanned extension list');
+
+  const summary = checkScanLimits([
+    { name: 'preview.png', bytes: 4 * 1024 * 1024 },
+    { name: 'Panel.qml', bytes: 13 * 1024 },
+  ]);
+  check(summary.files === 1, `${summary.files} files counted — the PNG should not be one of them`);
 });
 
 // -------------------------------------------------------------- the catalog

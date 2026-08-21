@@ -749,7 +749,28 @@ assembles the package and reads *it*, not the repository — mirroring
 manifest or an oversized file fails on this laptop instead of on somebody
 else's desktop.
 
-What it cannot answer is whether the panel draws — the same honest gap as
+**The listing's picture is drawn by code, like everything else here.** A
+marketplace card wants a screenshot, and rule nº 5 says this repository does not
+keep images — so `omarchy/preview.mjs` builds the panel in HTML at Panel.qml's
+own measurements, in Omarchy's Tokyo Night read off its `colors.toml`, with the
+ten rows coming from `Catalog.js`, and photographs it with whatever Chrome is on
+the machine. The PNG lands in `dist-omarchy/` and never in git, exactly like
+`dist/`. `Qt.darker` is reimplemented rather than eyeballed, because the
+secondary greys are the tell that separates a mock-up from the real thing.
+
+No browser installed is a skipped step, not a failed publish: the marketplace
+has its own fallback preview.
+
+**And a README is scanned as if every command in it were an install step.** The
+first baseline came back amber on three counts, all of them prose: a `git clone`
+plus `npm install` offered as an optional way to play from your own build, and
+— the good one — the sentence promising the plugin needs no elevated privileges.
+The scanner does understand a negated "sudo"; the line had wrapped between the
+two words, so the negation sat above the word it was negating. The plugin does
+none of those things, and keeping the words out of the README is what makes the
+report say so. A scenario enforces it.
+
+What none of it can answer is whether the panel draws — the same honest gap as
 section 6. The lap by hand is written down in `omarchy/README.md`.
 
 ### The exit to the catalog (mandatory)

@@ -122,7 +122,17 @@ function scoreMoves(game, state, legal, p, opts) {
   let table = legal.map((move) => ({ move, score: 0 }));
   let reached = 0;
 
-  for (let depth = 1; depth <= p.depth; depth++) {
+  // The clock is what stops the search on a real table, and a caller can put a
+  // depth under it instead. Nothing in the game does — a player wants an answer
+  // in a fixed time, not at a fixed strength — but a *test* wants the opposite:
+  // how deep the search gets inside 40 ms depends on how busy the machine is,
+  // which made a scenario comparing two levels fail about one run in five.
+  //
+  // A ceiling, never an override: `min`, so asking for 4 does not lift the
+  // beginner off the depth-1 search that is most of what makes it a beginner.
+  const ceiling = opts.depth ? Math.min(p.depth, opts.depth) : p.depth;
+
+  for (let depth = 1; depth <= ceiling; depth++) {
     // best-first from the previous pass: alpha-beta cuts far more when the move
     // that was good last time is tried first
     const order = table.slice().sort((a, b) => b.score - a.score);

@@ -19,6 +19,7 @@
 import { cpSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderPreview } from './preview.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -51,8 +52,29 @@ export const SCAN_FILE_BYTE_LIMIT = 512 * 1024;
 export const SCAN_TOTAL_BYTE_LIMIT = 8 * 1024 * 1024;
 export const SCAN_FILE_COUNT_LIMIT = 1000;
 
+/**
+ * Which files the marketplace actually reads, mirroring its
+ * `isSecurityScanPath` plus the two extra ways its snapshot pulls a file in.
+ *
+ * It matters here because the preview is a megabyte of PNG and the per-file
+ * limit is half that — applying the limit to everything would refuse a package
+ * the marketplace is perfectly happy with. Text is scanned; an image is not.
+ */
+const SCANNED_EXTENSIONS = new Set([
+  '.bash', '.cjs', '.desktop', '.fish', '.js', '.lua', '.mjs', '.pl', '.py',
+  '.qml', '.rb', '.service', '.sh', '.sudoers', '.toml', '.yaml', '.yml', '.zsh',
+]);
+
+export function isScanned(name) {
+  if (/^readme(\.[^/]+)?$/i.test(name)) return true;   // the root README always is
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return true;                            // extensionless, e.g. LICENSE
+  return SCANNED_EXTENSIONS.has(name.slice(dot).toLowerCase());
+}
+
 /** Throws if the assembled package would fail the marketplace's static scan. */
-export function checkScanLimits(files) {
+export function checkScanLimits(all) {
+  const files = all.filter((f) => isScanned(f.name));
   const oversized = files.filter((f) => f.bytes > SCAN_FILE_BYTE_LIMIT);
   if (oversized.length) {
     throw new Error(
@@ -70,8 +92,13 @@ export function checkScanLimits(files) {
   return { files: files.length, bytes: total };
 }
 
-/** Writes dist-omarchy/ and returns what landed in it. */
-export function publish(target = PACKAGE_DIR) {
+/**
+ * Writes dist-omarchy/ and returns what landed in it.
+ *
+ * `preview: false` skips the screenshot, which is what the test wants: the
+ * renderer needs a browser on the machine and the listing is valid without one.
+ */
+export function publish(target = PACKAGE_DIR, { preview = false } = {}) {
   rmSync(target, { recursive: true, force: true });
   mkdirSync(target, { recursive: true });
 
@@ -79,6 +106,11 @@ export function publish(target = PACKAGE_DIR) {
     cpSync(source, join(target, name));
     return { name, bytes: statSync(join(target, name)).size };
   });
+
+  if (preview) {
+    const made = renderPreview(join(target, 'preview.png'));
+    if (made) written.push({ name: 'preview.png', bytes: made.bytes });
+  }
 
   // Belt and braces: measure what is really on disk, not what we meant to put
   // there, and refuse to hand over a package that would be rejected.
@@ -88,9 +120,12 @@ export function publish(target = PACKAGE_DIR) {
 }
 
 if (process.argv[1] && process.argv[1].endsWith('omarchy/publish.mjs')) {
-  const written = publish();
+  const written = publish(PACKAGE_DIR, { preview: true });
   const kb = (n) => (n / 1024).toFixed(1);
   for (const file of written) console.log(`  ${kb(file.bytes).padStart(7)} KB  ${file.name}`);
+  if (!written.some((f) => f.name === 'preview.png')) {
+    console.log('    ⚠ no Chrome or Chromium here — published without a preview');
+  }
   console.log(`\n  ✔ dist-omarchy/  (${written.length} files)`);
   console.log(`    Push it to ${PLUGIN_REPO} — see omarchy/README.md.\n`);
 }

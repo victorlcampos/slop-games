@@ -26,8 +26,17 @@ import { tictactoe } from '../src/games/tictactoe.js';
 import { sudoku } from '../src/games/sudoku.js';
 import { EMPTY } from '../src/games/shared.js';
 
-/** Play a whole game between two levels and say who won. */
-function duel(game, levels, { seed = 7, ms = 60, cap = 800 } = {}) {
+/**
+ * Play a whole game between two levels and say who won.
+ *
+ * `depth` is here because a millisecond budget is not reproducible. The search
+ * deepens until the clock runs out, so how strong a level plays inside 40 ms
+ * depends on what else the machine is doing — and a scenario that compares two
+ * levels then fails on a busy laptop and passes on an idle one. Handing it a
+ * depth instead makes the same duel come out the same way every time; `ms:
+ * Infinity` takes the clock out of it entirely.
+ */
+function duel(game, levels, { seed = 7, ms = 60, depth, cap = 800 } = {}) {
   const rnd = createRandom(seed);
   let state = game.setup({ rnd });
   let guard = 0;
@@ -36,7 +45,7 @@ function duel(game, levels, { seed = 7, ms = 60, cap = 800 } = {}) {
       state = game.roll(state, rnd.luck);
       continue;
     }
-    const { move } = bestMove(game, state, levels[state.turn], rnd, { ms });
+    const { move } = bestMove(game, state, levels[state.turn], rnd, { ms, depth });
     if (!move) break;
     state = game.apply(state, move);
   }
@@ -352,11 +361,32 @@ scenario('backgammon: it comes in off the bar before doing anything else', () =>
   }
 });
 
+scenario('a depth ceiling caps the search without lifting the level under it', () => {
+  const state = checkers.setup({ rnd: createRandom(11) });
+
+  const capped = bestMove(checkers, state, 'pro', createRandom(11), { ms: Infinity, depth: 3 });
+  check(capped.depth <= 3, `the professional reached depth ${capped.depth} under a ceiling of 3`);
+
+  // A ceiling, never a floor. Asking for 5 must not promote the beginner off
+  // its own depth-1 search — otherwise the scenario below would be measuring a
+  // beginner that does not exist on the difficulty screen.
+  const beginner = bestMove(checkers, state, 'easy', createRandom(11), { ms: Infinity, depth: 5 });
+  check(beginner.depth <= PROFILE.easy.depth,
+    `the beginner reached depth ${beginner.depth}, past the ${PROFILE.easy.depth} its own profile allows`);
+});
+
 scenario('easy really is easy: it hands over material a professional never would', () => {
   // The measurable difference between the two ends of the dial, on the same
   // opponent: how much wood is left standing after twenty plies of draughts.
+  //
+  // Bounded by depth, not by a 40 ms clock. With the clock this was the one
+  // flaky scenario in the repository — roughly one run in five, and on the
+  // publish gate too: under load the professional got through fewer plies of
+  // search than the seed suggested, played worse than the beginner, and the
+  // comparison inverted. Depth 5 is a ceiling, so the beginner keeps the
+  // depth-1 search that is most of what makes it a beginner.
   const left = (level) => {
-    const { state } = duel(checkers, [level, 'hard'], { seed: 4, ms: 40, cap: 24 });
+    const { state } = duel(checkers, [level, 'hard'], { seed: 4, ms: Infinity, depth: 5, cap: 24 });
     let mine = 0;
     for (const v of state.b) if (v === MAN0 || v === 3) mine++;
     return mine;
