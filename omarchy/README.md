@@ -41,8 +41,8 @@ touches it.
 **External dependencies: none beyond Omarchy itself.** The panel runs
 `omarchy-launch-webapp`, which ships with Omarchy and opens your default browser
 with `--app=`, plus one `bash -c` line to detect whether you have a local copy of
-the games. No package install, no download at runtime, no service of its own, no
-sudo, no network calls from the plugin.
+the games. It installs nothing, downloads nothing at runtime, starts no service
+of its own, asks for no elevated privileges, and makes no network calls.
 
 **Configuration:** the only thing it ever writes is the EN/PT choice, into this
 widget's own entry in `~/.config/omarchy/shell.json`, and only when you click one
@@ -65,21 +65,17 @@ worker precaches every game on the first open, so after one game the whole
 catalog works with no connection. The footer tells you which one you are on —
 *playing from disk* or *playing from the web*.
 
-To play from your own build instead:
+To play from your own build instead, follow **[Running locally][source]** in the
+source repository and finish with its `omarchy:install` script, which writes the
+built catalog to `~/.local/share/slop-games` — the third row above. The panel
+probes again every time it opens, so there is nothing to restart.
 
-```bash
-git clone https://github.com/victorlcampos/slop-games.git
-cd slop-games && npm install
-npm run build
-npm run omarchy:install     # copies dist/ to ~/.local/share/slop-games
-```
+> Build in your own checkout, never inside the installed plugin folder. A
+> package manager run in there leaves a `node_modules` full of symlinks, and
+> `omarchy plugin validate` — which `omarchy plugin update` runs before
+> accepting a new revision — refuses a symlink anywhere inside a plugin folder.
 
-The panel probes again every time it opens, so there is nothing to restart.
-
-> Don't `npm install` inside the installed plugin folder. npm workspaces link
-> packages as symlinks, and `omarchy plugin validate` — which
-> `omarchy plugin update` runs before accepting a new revision — refuses a
-> symlink anywhere inside a plugin folder.
+[source]: https://github.com/victorlcampos/slop-games#running-locally
 
 ## Why it launches a browser
 
