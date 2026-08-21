@@ -14,6 +14,7 @@
     "open": "node build.mjs && open dist/index.html",
     "omarchy": "node omarchy/build.mjs",
     "omarchy:install": "node omarchy/install.mjs",
+    "omarchy:publish": "node omarchy/build.mjs && node omarchy/publish.mjs",
     "test:games": "npm run test --workspaces --if-present"
   },
   "license": "MIT"

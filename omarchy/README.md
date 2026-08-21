@@ -1,21 +1,17 @@
-# slop-games, as an Omarchy plugin
+# slop-games — the catalog on your Omarchy bar
 
-The whole catalog on the bar. One icon, ten games, each one opening in its own
-window with no tabs and no address bar.
+Ten browser games, one HTML file each, behind a gamepad on the bar. Click one
+and it opens in its own window — no tabs, no address bar.
 
+```bash
+omarchy plugin add https://github.com/victorlcampos/omarchy-slop-games.git --enable
 ```
-omarchy plugin add https://github.com/victorlcampos/slop-games.git --enable
-```
 
-That is the whole install. It clones this repository into
-`~/.config/omarchy/plugins/victorlcampos.slop-games/`, validates
-`manifest.json`, and asks where on the bar you want it.
+## Using it
 
-## What you get
-
-A gamepad icon on the bar. Click it and the ten games are there, each with its
-name and one line about it; click one and it opens. `↑↓` or `j/k` walk the list,
-`⏎` plays, `Esc` closes, `Tab` moves to the next panel on the bar.
+A gamepad icon appears on the bar. Click it and the ten games are there, each
+with its name and one line about it. `↑↓` or `j/k` walk the list, `⏎` plays,
+`Esc` closes, `Tab` moves to the next panel on the bar.
 
 For a keybind instead of a click, the panel answers on IPC:
 
@@ -23,110 +19,82 @@ For a keybind instead of a click, the panel answers on IPC:
 bind = SUPER, G, exec, omarchy-shell slop-games toggle
 ```
 
-The footer has two more things: **Open the catalog**, which opens the index with
-all ten cards, and **EN / PT**. The panel starts in the language your desktop
-asks for — a `pt_*` locale gets Portuguese, everything else gets English, which
-is the product default — and the buttons override that. The choice is written
-into `~/.config/omarchy/shell.json` next to the widget, so it survives a
-restart.
+The footer has **Open the catalog**, which opens the index with all ten cards,
+and **EN / PT**. The panel starts in the language your desktop asks for — a
+`pt_*` locale gets Portuguese, everything else English — and those two buttons
+override it.
+
+## Removing it
+
+```bash
+omarchy plugin update victorlcampos.slop-games   # fast-forward the checkout
+omarchy plugin remove victorlcampos.slop-games   # disable and delete it
+```
+
+Removal takes the plugin's own folder and its entry in `shell.json`. If you also
+used the optional local copy of the games (below), delete
+`~/.local/share/slop-games` yourself — it is outside the plugin and nothing else
+touches it.
+
+## What it needs, and what it writes
+
+**External dependencies: none beyond Omarchy itself.** The panel runs
+`omarchy-launch-webapp`, which ships with Omarchy and opens your default browser
+with `--app=`, plus one `bash -c` line to detect whether you have a local copy of
+the games. No package install, no download at runtime, no service of its own, no
+sudo, no network calls from the plugin.
+
+**Configuration:** the only thing it ever writes is the EN/PT choice, into this
+widget's own entry in `~/.config/omarchy/shell.json`, and only when you click one
+of those two buttons. It touches no other configuration and overwrites nothing.
 
 ## Where the games come from
 
-`omarchy plugin add` clones and stops there. It "never runs anything from the
-plugin, never executes an install hook", which is the right call for something
-that runs unsandboxed inside your shell — and it means a fresh install has the
-ten `game.json` but none of the ten built HTML files.
-
-So the panel probes, in this order, and takes the first that is really there:
+The plugin carries the ten names, not the ten games. It looks for them in order
+and takes the first that is really there:
 
 | | Where | Who puts it there |
 |---|---|---|
-| 1 | `$SLOP_GAMES_DIR` | you, for a checkout somewhere else |
-| 2 | `<plugin>/dist` | a `dist/` copied into the installed clone |
-| 3 | `~/.local/share/slop-games` | `npm run omarchy:install` |
+| 1 | `$SLOP_GAMES_DIR` | you, pointing at a build of your own |
+| 2 | `<plugin>/dist` | a `dist/` copied into the installed plugin |
+| 3 | `~/.local/share/slop-games` | `npm run omarchy:install` in the source repo |
 | 4 | https://victorlcampos.github.io/slop-games/ | the fallback, always there |
 
-> **Don't `npm install` inside the installed plugin.** npm workspaces links
-> `slopkit` into `node_modules` as a symlink, and `omarchy plugin validate`
-> refuses a symlink anywhere inside a plugin folder — which is the check
-> `omarchy plugin update` runs before it accepts a new revision. Build in your
-> own checkout and use option 1 or 3.
+The fallback is not a downgrade: the published catalog is a PWA whose service
+worker precaches every game on the first open, so after one game the whole
+catalog works with no connection. The footer tells you which one you are on —
+*playing from disk* or *playing from the web*.
 
-The fallback is not a downgrade. The published catalog is a PWA whose service
-worker precaches every game on the first open, so: you had a connection when you
-installed the plugin, the first game you open caches all ten, and it is offline
-from then on. The footer says which one you are on — *playing from disk* or
-*playing from the web*.
-
-To play from your own checkout instead:
+To play from your own build instead:
 
 ```bash
+git clone https://github.com/victorlcampos/slop-games.git
+cd slop-games && npm install
 npm run build
 npm run omarchy:install     # copies dist/ to ~/.local/share/slop-games
 ```
 
-The panel probes again on every open, so there is nothing to restart.
+The panel probes again every time it opens, so there is nothing to restart.
 
-A copy, not a symlink, and on purpose: `omarchy plugin validate` refuses a
-symlink anywhere inside a plugin folder, and option 2 above puts one right next
-to the manifest.
+> Don't `npm install` inside the installed plugin folder. npm workspaces link
+> packages as symlinks, and `omarchy plugin validate` — which
+> `omarchy plugin update` runs before accepting a new revision — refuses a
+> symlink anywhere inside a plugin folder.
 
-## Why it launches a browser instead of drawing the game
+## Why it launches a browser
 
 Quickshell has no web engine, and every game here is a canvas in an HTML file.
-`omarchy-launch-webapp` runs your default browser with `--app=`, which is a
-window with no tabs, no address bar and no bookmarks — as close to "the game is
-an application" as a single HTML file gets, and closer than a browser tab.
+`omarchy-launch-webapp` gives it a window with no tabs and no address bar, which
+is as close to "the game is an application" as a single HTML file gets, and
+closer than a browser tab.
 
-## Working on it
+## This repository is generated
 
-The plugin is three files next to this one:
+The source lives in **[victorlcampos/slop-games](https://github.com/victorlcampos/slop-games)**,
+under `omarchy/`, next to the games themselves. `npm run omarchy:publish` there
+assembles this repository; `Catalog.js` is generated from the games' own
+metadata, so the panel and the catalog can never disagree about what exists.
 
-| | |
-|---|---|
-| `Panel.qml` | the bar button and the popup, in one entry point — the shape seven first-party widgets use |
-| `Model.js` | every rule with no QML in it: which language, which URL, where the cursor goes |
-| `Catalog.js` | generated from `games/*/game.json` by `npm run omarchy`, and committed, because a clone never builds |
+Open issues and pull requests against that repository.
 
-`Model.js` is split off the panel so the test can load it — `test/omarchy.test.mjs`
-runs it in a `node:vm` context and checks the rules without a compositor, the
-same trick `games/zoo-magnata/test` uses on a game that lives in global scope.
-The test also mirrors what `omarchy-plugin-validate` checks, so a bad manifest
-fails here instead of on somebody else's desktop.
-
-```bash
-npm test                          # includes the plugin's floor
-omarchy plugin validate .         # the real thing, on an Omarchy box
-```
-
-Saving any file under `~/.config/omarchy/plugins/` reloads the plugin, so the
-edit loop is: clone the repo there, or symlink your checkout in (outside the
-plugins directory), and watch the panel redraw.
-
-### The lap by hand
-
-The suite has no eyes — CLAUDE.md section 6 says why. What a person has to look
-at, on an actual Omarchy desktop:
-
-1. the icon is on the bar and the panel opens under it
-2. the ten rows read, in both languages, with the flag buttons flipping them
-3. a click opens a game in its own window
-4. **Open the catalog** opens the index
-5. the footer says *from disk* after `npm run omarchy:install`, and *from the
-   web* before it
-6. `omarchy-shell slop-games toggle` opens and closes it
-
-## Updating and removing
-
-```
-omarchy plugin update victorlcampos.slop-games
-omarchy plugin remove victorlcampos.slop-games
-```
-
-`update` is a fast-forward pull of the same checkout, and it validates the new
-revision before accepting it. Both of those are reasons to leave the installed
-clone alone: local changes block the pull, and a `node_modules` from an
-`npm install` in there fails the validation on a symlink. `npm run
-omarchy:install` writes outside the plugin folder for exactly that reason.
-
-MIT, same as the rest of the repository.
+MIT — see `LICENSE`.

@@ -7,7 +7,7 @@
   "license": "MIT",
   "description": "The whole catalog on the bar: ten games, one HTML file each, opened as their own window",
   "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "omarchy/Panel.qml" },
+  "entryPoints": { "barWidget": "Panel.qml" },
   "barWidget": {
     "displayName": "slop-games",
     "description": "Ten games, one HTML file each",

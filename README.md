@@ -69,30 +69,33 @@ you back to the list.
 
 ## On Omarchy
 
-This repository is also an [Omarchy](https://omarchy.org) shell plugin: a
+There is an [Omarchy](https://omarchy.org) shell plugin for this catalog: a
 gamepad on the bar, the ten games in the panel under it, each one opening in its
 own window.
 
 ```
-omarchy plugin add https://github.com/victorlcampos/slop-games.git --enable
+omarchy plugin add https://github.com/victorlcampos/omarchy-slop-games.git --enable
 ```
 
-`manifest.json` at the root is what makes that one line work; the plugin itself
-lives in **[omarchy/](omarchy/README.md)**, which is also where the keybind, the
-two languages and "where do the games come from" are explained.
+Its source is here, in **[omarchy/](omarchy/)** — the panel, the rules behind it,
+and the generator that keeps its list of games in step with `games/`. What gets
+published is a repository of its own, assembled by `npm run omarchy:publish`:
 
 ```bash
-omarchy plugin update victorlcampos.slop-games   # fast-forward the checkout
-omarchy plugin remove victorlcampos.slop-games   # disable and delete it
+npm run omarchy:publish     # -> dist-omarchy/, six files, ~28 KB
 ```
 
-**What it needs, and what it writes.** Nothing outside Omarchy itself: the panel
-runs `omarchy-launch-webapp`, which ships with Omarchy and opens your default
-browser with `--app=`, and one `bash` line to find out whether you have a local
-copy of the games. No npm install, no download at runtime, no service of its own.
-The only thing it ever writes is the EN/PT choice, into the widget's own entry in
-`~/.config/omarchy/shell.json`, and only when you click one of those two buttons —
-it touches no other configuration.
+**Why it is not this repository.** It was, for an afternoon. But `omarchy plugin
+add` clones whatever URL you give it, so installing a bar widget meant cloning
+16 MB of games — and the marketplace's static scan, which refuses any scanned
+file over 512 KB, choked on SkiFree's 1.3 MB vendored three.js. A file the
+plugin never reads, in the clone only because it lived in the same repository,
+sank the listing. The plugin ships as its own repository now and this one stays
+its source.
+
+Everything else about it — the keybind, the two languages, what it needs and
+what it writes — is in [omarchy/README.md](omarchy/README.md), which is also the
+published repository's README.
 
 ## Publishing
 

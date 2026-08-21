@@ -1,15 +1,21 @@
-// The floor for the Omarchy plugin, read off the files the shell will read.
+// The floor for the Omarchy plugin, read off the package that is published.
 //
-// Two halves, and neither of them needs a compositor:
+// Three halves, and none of them needs a compositor:
 //
 //   1. the manifest, checked the way omarchy-plugin-validate checks it. That
 //      script is what stands between a bad manifest and a shell that loads it,
 //      and it runs on the machine of whoever types `omarchy plugin add` — long
 //      after a push here. Mirroring it means the failure lands on this laptop
 //      instead of on somebody else's desktop.
-//   2. the rules in Model.js, loaded into a node:vm context exactly like
-//      zoo-magnata's test loads its global-scope game. QML is not JavaScript we
-//      can import, but Model.js is: it was split off the panel for this.
+//   2. the marketplace's static-scan limits. Those do not warn: a submission
+//      that trips one is refused, days later, on a reviewer's queue. The first
+//      one we sent was refused for a 1.3 MB vendored three.js belonging to a
+//      game the plugin never reads — which is why the plugin is assembled from
+//      an explicit list now, and why this measures the assembled package.
+//   3. the rules in omarchy/Model.js, run in a node:vm context exactly like
+//      zoo-magnata's test runs a game that lives in global scope. QML is not
+//      JavaScript we can import; Model.js is, and it was split off the panel
+//      for this.
 //
 // What is left over is what QML draws, and that is the lap by hand — CLAUDE.md
 // section 6 already says why the machine with no graphics card was never honest
@@ -18,23 +24,31 @@
 import { scenario, check, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import { renderCatalog } from '../omarchy/catalog.mjs';
 import { readGames } from '../omarchy/build.mjs';
+import { publish, checkScanLimits, SCAN_FILE_BYTE_LIMIT } from '../omarchy/publish.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const manifest = JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
 const games = readGames(ROOT);
+
+// Built here rather than read from dist-omarchy/, so the test says something
+// about the code even on a checkout where nobody has run the publisher.
+const PACKAGE = mkdtempSync(path.join(tmpdir(), 'slop-plugin-'));
+publish(PACKAGE);
+
+const manifest = JSON.parse(readFileSync(path.join(PACKAGE, 'manifest.json'), 'utf8'));
+const packaged = readdirSync(PACKAGE).map((name) => ({ name, bytes: statSync(path.join(PACKAGE, name)).size }));
 
 /** Model.js and Catalog.js are plain top-level `var`s — no ESM, no QML. That is
  *  what QML's `import … as` reads, and it is what a vm context evaluates. */
 function load(...files) {
   const context = vm.createContext({});
   for (const file of files) {
-    vm.runInContext(readFileSync(path.join(ROOT, 'omarchy', file), 'utf8'), context, { filename: file });
+    vm.runInContext(readFileSync(path.join(PACKAGE, file), 'utf8'), context, { filename: file });
   }
   return context;
 }
@@ -62,7 +76,7 @@ scenario('every entry point is a relative path to a file that is really there', 
     check(!file.startsWith('/'), `entryPoints.${kind} is absolute: ${file}`);
     check(!file.includes('..'), `entryPoints.${kind} escapes the plugin folder: ${file}`);
     check(!file.includes('\n'), `entryPoints.${kind} contains a newline`);
-    check(existsSync(path.join(ROOT, file)), `entryPoints.${kind} points at ${file}, which does not exist`);
+    check(existsSync(path.join(PACKAGE, file)), `entryPoints.${kind} points at ${file}, which is not in the package`);
   }
 });
 
@@ -82,28 +96,20 @@ scenario('each kind brings the entry point that kind is loaded through', () => {
   }
 });
 
-scenario('nothing that ships in the clone is a symlink', () => {
-  // The validator refuses a symlink anywhere inside a plugin folder, and the
-  // plugin folder is this repository. node_modules is full of them (npm
-  // workspaces links slopkit) and never leaves this machine, so the question is
-  // exactly "what does git carry" — mode 120000 is git's word for a symlink.
-  const listing = execFileSync('git', ['ls-files', '-s'], { cwd: ROOT, encoding: 'utf8' });
-  const links = listing.split('\n').filter((line) => line.startsWith('120000')).map((l) => l.split('\t')[1]);
-  check(links.length === 0, `git tracks ${links.length} symlink(s): ${links.slice(0, 3).join(', ')}`);
+scenario('nothing in the package is a symlink', () => {
+  // The validator refuses a symlink anywhere inside a plugin folder: after the
+  // folder lands in the trusted plugins directory, one could point back at any
+  // file on disk.
+  const links = packaged.filter((f) => lstatSync(path.join(PACKAGE, f.name)).isSymbolicLink());
+  check(links.length === 0, `${links.length} symlink(s): ${links.map((l) => l.name).join(', ')}`);
 });
 
-scenario('the QML entry point loads only files that travel with it', () => {
-  const qml = readFileSync(path.join(ROOT, manifest.entryPoints.barWidget), 'utf8');
-  const dir = path.dirname(path.join(ROOT, manifest.entryPoints.barWidget));
-  const imports = [...qml.matchAll(/^import\s+"([^"]+)"/gm)].map((m) => m[1]);
-  check(imports.length >= 2, `the panel imports ${imports.length} local file(s) — expected Model.js and Catalog.js`);
-  for (const file of imports) {
-    check(existsSync(path.join(dir, file)), `imports "${file}", which is not next to it`);
-  }
-  // A private-use glyph pasted into source is invisible in a diff and the first
-  // thing an encoding mishap eats. The bar icons are written as escapes.
-  const literal = qml.match(/[\uE000-\uF8FF]/u);
-  check(!literal, `a literal private-use glyph (U+${literal && literal[0].codePointAt(0).toString(16)}) is in the source — write it as \\uXXXX`);
+scenario('the package is exactly the plugin, and nothing else', () => {
+  // The publisher copies a list, so this is what stops the list from growing a
+  // build script, a test, or a game by accident.
+  const names = packaged.map((f) => f.name).sort();
+  check(names.join(' ') === 'Catalog.js LICENSE Model.js Panel.qml README.md manifest.json',
+    `the package holds: ${names.join(', ')}`);
 });
 
 scenario('the panel answers to the id the shell knows it by', () => {
@@ -111,18 +117,41 @@ scenario('the panel answers to the id the shell knows it by', () => {
   // position and its saved settings, the EN/PT choice among them. Let it drift
   // from the manifest id and nothing throws: the panel just draws with defaults
   // forever and every click on a flag is forgotten on restart.
-  const qml = readFileSync(path.join(ROOT, manifest.entryPoints.barWidget), 'utf8');
+  const qml = readFileSync(path.join(PACKAGE, manifest.entryPoints.barWidget), 'utf8');
   const declared = qml.match(/moduleName:\s*"([^"]+)"/);
   check(declared, 'the panel declares no moduleName');
   check(declared && declared[1] === manifest.id,
     `the panel calls itself "${declared && declared[1]}" and the manifest calls it "${manifest.id}"`);
 });
 
+scenario('the QML entry point loads only files that travel with it', () => {
+  const qml = readFileSync(path.join(PACKAGE, manifest.entryPoints.barWidget), 'utf8');
+  const imports = [...qml.matchAll(/^import\s+"([^"]+)"/gm)].map((m) => m[1]);
+  check(imports.length >= 2, `the panel imports ${imports.length} local file(s) — expected Model.js and Catalog.js`);
+  for (const file of imports) {
+    check(existsSync(path.join(PACKAGE, file)), `imports "${file}", which is not in the package`);
+  }
+  // A private-use glyph pasted into source is invisible in a diff and the first
+  // thing an encoding mishap eats. The bar icons are written as escapes.
+  const literal = qml.match(/[\uE000-\uF8FF]/u);
+  check(!literal, `a literal private-use glyph (U+${literal && literal[0].codePointAt(0).toString(16)}) is in the source — write it as \\uXXXX`);
+});
+
+// ----------------------------------------------------------- the marketplace
+
+scenario('the package survives the marketplace static scan', () => {
+  // The scan does not warn. Our first submission was refused outright for one
+  // 1.3 MB file — SkiFree's vendored three.js, which the plugin never reads and
+  // which was only in the clone because the plugin was the whole repository.
+  const summary = checkScanLimits(packaged);
+  check(summary.files >= 6, `only ${summary.files} files in the package`);
+  const biggest = packaged.slice().sort((a, b) => b.bytes - a.bytes)[0];
+  check(biggest.bytes <= SCAN_FILE_BYTE_LIMIT,
+    `${biggest.name} is ${Math.round(biggest.bytes / 1024)} KB, over the ${SCAN_FILE_BYTE_LIMIT / 1024} KB per-file limit`);
+});
+
 scenario('the listing carries what the marketplace asks of it', () => {
-  // omarchyplugins.com refuses a submission without these, and the refusal
-  // arrives days later on somebody else's review queue. They are properties of
-  // the repository, so they are checkable here.
-  check(existsSync(path.join(ROOT, 'LICENSE')), 'no LICENSE at the root — the marketplace requires a root license file');
+  check(existsSync(path.join(PACKAGE, 'LICENSE')), 'no LICENSE in the package — the marketplace requires a root license file');
   for (const field of ['author', 'description', 'license', 'version']) {
     const value = manifest[field];
     check(typeof value === 'string' && value.trim().length > 0, `manifest.${field} is empty — the listing shows it`);
@@ -130,10 +159,11 @@ scenario('the listing carries what the marketplace asks of it', () => {
   check(manifest.version.length <= 64, `the version is ${manifest.version.length} characters, the listing caps it at 64`);
 
   // "Contains a root README with installation and removal instructions" — the
-  // root one, not omarchy/README.md, which is where they would naturally go.
-  const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-  check(readme.includes('omarchy plugin add'), 'the root README never says how to install the plugin');
-  check(readme.includes('omarchy plugin remove'), 'the root README never says how to remove the plugin');
+  // package's README is the published repository's root README.
+  const readme = readFileSync(path.join(PACKAGE, 'README.md'), 'utf8');
+  check(readme.includes('omarchy plugin add'), 'the README never says how to install the plugin');
+  check(readme.includes('omarchy plugin remove'), 'the README never says how to remove the plugin');
+  check(/dependenc/i.test(readme), 'the README never mentions dependencies, which the submission checklist claims are documented');
 });
 
 // -------------------------------------------------------------- the catalog
@@ -277,12 +307,16 @@ scenario('the cursor wraps at both ends and survives an empty list', () => {
 });
 
 scenario('the plugin folder is found from the file QML is running', () => {
-  check(model.dirFromUrl('file:///home/v/.config/omarchy/plugins/x/omarchy/') === '/home/v/.config/omarchy/plugins/x/omarchy',
+  check(model.dirFromUrl('file:///home/v/.config/omarchy/plugins/x/') === '/home/v/.config/omarchy/plugins/x',
     'the file:// prefix or the trailing slash survived');
-  check(model.dirFromUrl('file:///home/v/my%20games/omarchy') === '/home/v/my games/omarchy',
+  check(model.dirFromUrl('file:///home/v/my%20games/x') === '/home/v/my games/x',
     'a percent-encoded path came back encoded — the probe would then look for a directory called %20');
-  check(model.parentDir('/home/v/plugins/x/omarchy') === '/home/v/plugins/x', 'the parent of the QML folder is the plugin root');
-  check(model.parentDir('/a') === '/', 'walking off the top should stop at the root, not produce ""');
+  // Panel.qml is at the root of the published plugin, so the folder QML reports
+  // is the plugin folder — no walking up. Getting this wrong points candidate
+  // two at the parent directory, which is silently never there.
+  check(model.rootCandidates(model.dirFromUrl('file:///home/v/.config/omarchy/plugins/x/'), '', '/home/v')[0]
+    === '/home/v/.config/omarchy/plugins/x/dist',
+    'the plugin\'s own dist/ is not where the probe would look');
 });
 
 scenario('what the panel would open is really in dist/, when dist/ has been built', () => {
@@ -302,4 +336,7 @@ scenario('what the panel would open is really in dist/, when dist/ has been buil
     'the catalog button would open an index that is not there');
 });
 
+// After run(), not before: scenario() only registers, so the package has to
+// still be on disk when run() actually executes them.
 await run('omarchy plugin');
+rmSync(PACKAGE, { recursive: true, force: true });

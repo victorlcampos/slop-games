@@ -104,13 +104,6 @@ function dirFromUrl(url) {
   }
 }
 
-/** The folder above — Panel.qml lives in omarchy/, the games do not. */
-function parentDir(path) {
-  var trimmed = stripSlash(path)
-  var cut = trimmed.lastIndexOf('/')
-  return cut <= 0 ? '/' : trimmed.slice(0, cut)
-}
-
 /** What to hand the browser for one game. */
 function gameUrl(slug, root, site) {
   if (isLocal(root)) return fileUrl(stripSlash(root) + '/' + slug + '/index.html')

@@ -32,8 +32,9 @@ Panel {
   property string libraryRoot: ""
   readonly property bool local: Model.isLocal(libraryRoot)
 
-  // Panel.qml lives in omarchy/; the games do not.
-  readonly property string pluginDir: Model.parentDir(Model.dirFromUrl(Qt.resolvedUrl(".")))
+  // Panel.qml sits at the root of the published plugin, so this is the plugin
+  // folder itself — the second place the probe below looks for a local build.
+  readonly property string pluginDir: Model.dirFromUrl(Qt.resolvedUrl("."))
 
   property int cursor: 0
   // The cursor only paints once a key or the mouse has moved it: an open panel

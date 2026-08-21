@@ -17,3 +17,6 @@ games/*/test/_scratch_*.mjs
 .agendado.sh
 .commit-msg.tmp
 *.tmp.mjs
+
+# the Omarchy plugin package, assembled by npm run omarchy:publish
+dist-omarchy/
