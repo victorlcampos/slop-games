@@ -542,6 +542,8 @@ npm install            # once (npm workspaces handles the games and the lib)
 npm run build          # builds every game + the index -> dist/
 npm run build zoo-magnata   # builds one game (and the index)
 npm run open           # builds and opens the index in a browser
+npm run omarchy        # regenerates omarchy/Catalog.js (npm run build does it too)
+npm run omarchy:install     # copies dist/ to where the Omarchy plugin looks
 ```
 
 The root `build.mjs` runs each game's `npm run build`, validates the result,
@@ -683,6 +685,53 @@ The installed manifest speaks **one language only** — an app's name doesn't
 change with the flag. It uses the English side; the `<title>`, which JavaScript
 *can* update, is what follows the player's choice.
 
+### And on the Omarchy bar (the repository is also a shell plugin)
+
+The phone gets an icon on the home screen; a desktop running
+[Omarchy](https://omarchy.org) gets a gamepad on the bar, and the ten games in
+the panel under it. `omarchy plugin add <git-url>` is the whole install, so
+**`manifest.json` sits at the repository root** — that is where the CLI looks,
+and it is not negotiable — with the plugin itself in `omarchy/`: the panel it
+loads, the rules behind it, and the generator that keeps its catalog current.
+
+None of this touches `dist/`, the games, or any rule in section 1. A game is
+still one file that opens on a double click, and the loose download still knows
+nothing about any of it.
+
+Three things about it earned their place here:
+
+- **`omarchy/Catalog.js` is generated *and* committed**, which nothing else in
+  this repository is. `omarchy plugin add` clones and stops: it "never runs
+  anything from the plugin, never executes an install hook" — the right call for
+  code that runs unsandboxed inside a long-lived shell process, and it means a
+  fresh install has the ten `game.json` and no build. So whatever the panel needs
+  to draw ten rows in two languages has to be in git already. The root build
+  rewrites it from `games/*/game.json` and the test regenerates it in memory and
+  compares, so it cannot drift.
+- **The games are found, not assumed.** The panel probes `$SLOP_GAMES_DIR`, then
+  a `dist/` inside the plugin, then `~/.local/share/slop-games`, and falls back
+  to the published site — which is the PWA above, so the first game opened
+  precaches all ten and it is offline from then on. Candidates are passed to
+  `bash` as *arguments*, never interpolated into the script: a home directory
+  with a space in it is then an argv entry and there is no escaping to get wrong.
+- **Never `npm install` inside the installed plugin.** npm workspaces links
+  `slopkit` into `node_modules` as a symlink, and `omarchy plugin validate` —
+  which `omarchy plugin update` runs before accepting a new revision — refuses a
+  symlink anywhere inside a plugin folder. `npm run omarchy:install` copies
+  `dist/` *outside* the plugin folder for that reason.
+
+The split inside `omarchy/` is the one the first-party plugins use, and it is
+what keeps this testable: `Panel.qml` owns pixels and Qt types, `Model.js` owns
+every rule with no QML in it — which language, which URL, where the cursor goes.
+QML is not JavaScript a test can import; `Model.js` is, and
+`test/omarchy.test.mjs` runs it in a `node:vm` context the same way
+`games/zoo-magnata/test` runs a game that lives in global scope. That test also
+mirrors `omarchy-plugin-validate` check for check, so a bad manifest fails on
+this laptop instead of on somebody else's desktop.
+
+What it cannot answer is whether the panel draws — the same honest gap as
+section 6. The lap by hand is written down in `omarchy/README.md`.
+
 ### The exit to the catalog (mandatory)
 
 In app mode **there is no browser chrome**. Whoever enters a game is stuck: on
@@ -789,7 +838,7 @@ Gone along the way: a 150-line homegrown ES bundler (SkiFree), a bash `build.sh`
 ## 6. Tests
 
 ```bash
-npm test               # the kit's unit tests + the catalog floor
+npm test               # the kit's unit tests + the catalog floor + the plugin's
 npm run test:games     # each game's own test
 node games/<slug>/test/logic.test.mjs   # only one file
 ```
@@ -798,7 +847,7 @@ node games/<slug>/test/logic.test.mjs   # only one file
 is not an accident of scale, it is the design — see "why there is no browser
 here" below.
 
-### Two layers, and what goes in each
+### Three layers, and what goes in each
 
 1. **The catalog floor** (`test/catalog.test.mjs`) — the rules of section 1, read
    off the built file: one `index.html` per game with nothing loaded from
@@ -807,7 +856,15 @@ here" below.
    catalog and off in the loose copy, an installable manifest. It is a text
    search over `dist/`, and it answers in milliseconds what took Chrome five
    minutes.
-2. **The game itself** (`games/<slug>/test/`) — the simulation, played in Node:
+2. **The Omarchy plugin** (`test/omarchy.test.mjs`) — the manifest, checked the
+   way `omarchy-plugin-validate` checks it, and the rules in `omarchy/Model.js`,
+   run in a `node:vm` context. The validator is what stands between a bad
+   manifest and a shell that loads it, and it runs on the machine of whoever
+   types `omarchy plugin add` — long after a push here. Mirroring it puts the
+   failure on this laptop instead. One scenario runs the real `bash`, because a
+   probe that silently picks the wrong branch is a panel opening the internet
+   with the games sitting on disk, and no error anywhere.
+3. **The game itself** (`games/<slug>/test/`) — the simulation, played in Node:
    the skier accelerates and the Yeti eats him; World Drive turns a canned
    Overpass answer into a whole world and drives it; an animal is planted, a
    monster dies and the 46 creatures all draw; 219 species are well formed, all
@@ -982,7 +1039,7 @@ What blocks the deploy:
 
 1. `npm run build` — which already fails on its own if any game produces HTML
    with an external reference (rule nº 2) or a `game.json` missing a language.
-2. `npm test` — the kit's unit tests and the catalog floor.
+2. `npm test` — the kit's unit tests, the catalog floor and the plugin's.
 3. Every game's own test (`npm run test --workspaces --if-present`).
 
 All three together take a few seconds, install eight packages and need nothing

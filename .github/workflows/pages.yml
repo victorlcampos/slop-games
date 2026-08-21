@@ -39,6 +39,15 @@ jobs:
       - name: Build the games and the index
         run: npm run build
 
+      # The build regenerates omarchy/Catalog.js, which — unlike everything else
+      # it writes — is committed, because the Omarchy plugin is a clone of this
+      # repository and a clone never builds. That also means the test that says
+      # "the catalog is in step" cannot fail here: the build has already put it
+      # back in step. This is the check that does fail, and it is the only place
+      # in the gate that looks at the working tree instead of at dist/.
+      - name: The plugin's catalog is committed and current
+        run: git diff --exit-code omarchy/Catalog.js
+
       - name: Unit and catalog tests
         run: npm test
 

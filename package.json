@@ -10,8 +10,10 @@
   ],
   "scripts": {
     "build": "node build.mjs",
-    "test": "node lib/test/kit.test.mjs && node test/catalog.test.mjs",
+    "test": "node lib/test/kit.test.mjs && node test/catalog.test.mjs && node test/omarchy.test.mjs",
     "open": "node build.mjs && open dist/index.html",
+    "omarchy": "node omarchy/build.mjs",
+    "omarchy:install": "node omarchy/install.mjs",
     "test:games": "npm run test --workspaces --if-present"
   },
   "license": "MIT"

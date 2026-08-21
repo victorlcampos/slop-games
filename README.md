@@ -67,6 +67,20 @@ to Home Screen" (iOS) or "Install app" (Android). It becomes a single icon with
 every game inside — and from inside a game, the exit on the home screen takes
 you back to the list.
 
+## On Omarchy
+
+This repository is also an [Omarchy](https://omarchy.org) shell plugin: a
+gamepad on the bar, the ten games in the panel under it, each one opening in its
+own window.
+
+```
+omarchy plugin add https://github.com/victorlcampos/slop-games.git --enable
+```
+
+`manifest.json` at the root is what makes that one line work; the plugin itself
+lives in **[omarchy/](omarchy/README.md)**, which is also where the keybind, the
+two languages and "where do the games come from" are explained.
+
 ## Publishing
 
 Push to `main` → GitHub Actions **runs the tests and only publishes if they

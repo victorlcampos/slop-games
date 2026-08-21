@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeCatalog } from './omarchy/build.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const GAMES = join(ROOT, 'games');
@@ -101,6 +102,12 @@ const catalog = readdirSync(GAMES)
   .sort((a, b) => a.name.en.localeCompare(b.name.en, 'en'));
 
 if (!catalog.length) throw new Error('no game found in games/*/game.json');
+
+// The Omarchy plugin reads its list from a generated source file rather than
+// from dist/, because the plugin is a clone of this repository and a clone never
+// builds. Regenerated from the whole catalog even on a one-game build: the
+// panel lists ten games whichever one you happened to rebuild.
+const catalogChanged = writeCatalog(catalog);
 
 const toBuild = filter.length ? catalog.filter((g) => filter.includes(g.slug)) : catalog;
 for (const slug of filter) {
@@ -287,4 +294,5 @@ for (const missing of published.filter((f) => !present.includes(f))) {
 
 console.log(`\n  ✔ dist/index.html  (${catalog.length} games in the catalog)`);
 console.log(`  ✔ dist/sw.js       (${list.length} files cached offline, build ${version})`);
+if (catalogChanged) console.log('  ✔ omarchy/Catalog.js was out of date and has been rewritten — commit it');
 console.log('    Open it on a double click — no server needed.\n');
