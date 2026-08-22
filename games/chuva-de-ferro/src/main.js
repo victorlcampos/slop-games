@@ -142,11 +142,15 @@ function finish(result) {
   phase = 'over';
   sfx.over();
   const record = result.score > best.score || result.time > best.time;
-  best = vault.save({
+  // vault.save answers "did it write", not "here is the save" — assigning its
+  // result left `best` as `true`, so the card read "undefined · undefined" and
+  // the next run compared against NaN and threw the record away
+  best = {
     score: Math.max(best.score, Math.round(result.score)),
     time: Math.max(best.time, result.time),
     runs: best.runs + 1,
-  });
+  };
+  vault.save(best);
   document.getElementById('o-score').textContent = String(Math.round(result.score));
   document.getElementById('o-time').textContent = clock(result.time);
   document.getElementById('o-killed').textContent = String(result.killed);

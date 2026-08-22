@@ -162,12 +162,22 @@ function start() {
   startMusic();
 }
 
+/** 284900 is a number; 284 900 is a score. */
+const grouped = (n) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+
 function fillOver() {
   if (!game) return;
-  document.getElementById('o-score').textContent = String(game.state.score);
+  document.getElementById('o-score').textContent = grouped(game.state.score);
   document.getElementById('o-missions').textContent = String(game.state.missionsDone);
   document.getElementById('o-rank').textContent = t('rank.' + RANKS[game.state.rank]);
-  document.getElementById('o-best').textContent = String(best.score);
+  document.getElementById('o-best').textContent = grouped(best.score);
+  // what the run actually consisted of — the machine keeps count of all of it
+  // anyway, and a score on its own tells you nothing about how you got it
+  document.getElementById('o-tally').textContent = t('over.tally', {
+    b: game.state.bumperHits,
+    s: game.state.spins,
+    o: game.state.orbits,
+  });
   show(document.getElementById('o-record'), game.state.score >= best.score && game.state.score > 0);
 }
 
@@ -176,7 +186,10 @@ function finish() {
   stopMusic();
   sfx.over();
   const record = game.state.score > best.score;
-  best = vault.save({ score: Math.max(best.score, game.state.score), games: best.games + 1 });
+  // hold the snapshot, then persist it: vault.save answers "did it write",
+  // so assigning its result here is how the record quietly becomes undefined
+  best = { score: Math.max(best.score, game.state.score), games: best.games + 1 };
+  vault.save(best);
   fillOver();
   if (record) document.getElementById('o-record').hidden = false;
   show(over, true);

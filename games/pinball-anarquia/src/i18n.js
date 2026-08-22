@@ -18,6 +18,10 @@ export const DICT = {
   'panel.gameOver': { en: 'game over', pt: 'fim de jogo' },
   'panel.pull': { en: 'hold and release to launch', pt: 'segure e solte para lançar' },
   'panel.save': { en: 'ball saver on', pt: 'bola protegida' },
+  'over.tally': {
+    en: '{b} bumpers · {s} spins · {o} orbits',
+    pt: '{b} bumpers · {s} giros · {o} órbitas',
+  },
 
   // ranks: a ladder you climb by tearing it down — the top is nobody at all
   'rank.citizen': { en: 'citizen', pt: 'cidadão' },

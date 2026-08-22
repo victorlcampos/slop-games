@@ -29,6 +29,7 @@ export function createGame({ onEvent } = {}) {
     progress: 0,
     missionsDone: 0,
     bumperHits: 0,
+    orbits: 0,
     tilt: false,
     tiltHeat: 0,
     charge: 0,
@@ -328,6 +329,7 @@ export function createGame({ onEvent } = {}) {
         if (state.loopFrom && state.loopFrom !== z.id && state.loopTimer > 0) {
           state.loopFrom = null;
           state.loopTimer = 0;
+          state.orbits += 1;
           addScore(RULES.score.orbit);
           say('msg.orbit');
           emit('orbit');

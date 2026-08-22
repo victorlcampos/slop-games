@@ -150,6 +150,25 @@
     .icon { font-size: 1rem; padding: 0.15rem 0.35rem; }
   }
 
+  /* Tell people how to play with what they are actually holding. A phone has
+     no Z key, and a desktop has no thumb — showing both lists to everybody is
+     how a control legend becomes something nobody reads. */
+  .touch { display: none; }
+  @media (pointer: coarse) {
+    .keys { display: none; }
+    .touch { display: block; }
+  }
+
+  /* Upright, the card has the whole screen and no room to waste on leading. */
+  @media (max-aspect-ratio: 3 / 4) {
+    .card { padding: 2vh 3vw; }
+    .inner { padding: 1.2rem 1.1rem 1rem; }
+    h1 { font-size: clamp(1.6rem, 8vw, 2.4rem); }
+    .tagline { margin: 0.4rem 0 0.9rem; }
+    .story { gap: 0.35rem; margin-bottom: 0.9rem; line-height: 1.4; }
+    .foot { line-height: 1.45; }
+  }
+
   #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #565f89; z-index: 5; }
   /* `hidden` loses to `display: grid` — without this the line never leaves the screen */
   #boot[hidden] { display: none; }
@@ -173,8 +192,8 @@
          data-en="The Space Cadet table defected from the academy. It plays for itself now.">The Space Cadet table defected from the academy. It plays for itself now.</p>
 
       <div class="story">
-        <p data-pt="Três bumpers de motim, duas vias de fuga, um buraco para o subterrâneo. Nenhum chefe, nenhuma ficha: jogo livre para sempre."
-           data-en="Three riot bumpers, two escape lanes, one wormhole to the underground. No boss, no coin slot: free play forever.">Three riot bumpers, two escape lanes, one wormhole to the underground. No boss, no coin slot: free play forever.</p>
+        <p data-pt="Bumpers de motim, rampas, um spinner, a órbita inteira do domo e um buraco para o subterrâneo. Nenhum chefe, nenhuma ficha: jogo livre para sempre."
+           data-en="Riot bumpers, ramps, a spinner, the whole orbit of the dome and a wormhole to the underground. No boss, no coin slot: free play forever.">Riot bumpers, ramps, a spinner, the whole orbit of the dome and a wormhole to the underground. No boss, no coin slot: free play forever.</p>
         <p data-pt="As missões sobem uma hierarquia que só existe para ser desmontada — a última patente é ninguém."
            data-en="The missions climb a rank ladder that only exists to be torn down — the last rank is nobody.">The missions climb a rank ladder that only exists to be torn down — the last rank is nobody.</p>
         <p data-pt="Pode empurrar a máquina. Ela avisa uma vez, avisa duas, e na terceira: TILT."
@@ -186,13 +205,17 @@
         <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
       </div>
 
-      <p class="foot">
+      <p class="foot keys">
         <span data-pt="Z ou ← flipper esquerdo · / ou → flipper direito · espaço segura e solta o lançador"
               data-en="Z or ← left flipper · / or → right flipper · space holds and releases the plunger">Z or ← left flipper · / or → right flipper · space holds and releases the plunger</span><br>
         <span data-pt="X e N (ou .) sacodem a mesa, W sacode por baixo — três sacudidas e é TILT · M silencia"
-              data-en="X and N (or .) nudge the table, W shoves from below — three shoves is a TILT · M mutes">X and N (or .) nudge the table, W shoves from below — three shoves is a TILT · M mutes</span><br>
-        <span data-pt="No celular: com a bola no lançador, segure e solte a tela; jogando, cada metade da tela é um flipper"
-              data-en="On a phone: with the ball on the plunger, hold and release the screen; in play, each half of the screen is a flipper">On a phone: with the ball on the plunger, hold and release the screen; in play, each half of the screen is a flipper</span>
+              data-en="X and N (or .) nudge the table, W shoves from below — three shoves is a TILT · M mutes">X and N (or .) nudge the table, W shoves from below — three shoves is a TILT · M mutes</span>
+      </p>
+      <p class="foot touch">
+        <span data-pt="Com a bola no lançador, segure e solte a tela. Jogando, cada metade da tela é um flipper."
+              data-en="With the ball on the plunger, hold and release the screen. In play, each half of the screen is a flipper.">With the ball on the plunger, hold and release the screen. In play, each half of the screen is a flipper.</span><br>
+        <span data-pt="Toque no alto-falante para silenciar."
+              data-en="Tap the speaker to mute.">Tap the speaker to mute.</span>
       </p>
     </div>
   </div>
@@ -207,6 +230,7 @@
         <div class="stat"><b id="o-rank">—</b><span data-pt="patente final" data-en="final rank">final rank</span></div>
       </div>
       <p class="foot" style="margin-bottom:1rem">
+        <span id="o-tally"></span><br>
         <span data-pt="recorde" data-en="best">best</span>: <span id="o-best">0</span>
       </p>
       <div class="btnrow">
