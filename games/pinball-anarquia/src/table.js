@@ -4,7 +4,7 @@
 // simulation and the renderer read the same lists — the picture and the
 // physics cannot drift apart because they are the same numbers.
 
-import { TABLE, FLIPPER, C } from './config.js';
+import { TABLE, FLIPPER, PLUNGER, C } from './config.js';
 
 const T = TABLE;
 
@@ -15,9 +15,12 @@ export function createTable() {
   const walls = [
     // outer shell
     wall(T.left, T.arch.cy, T.left, T.bottom, 6, { id: 'left' }),
-    wall(T.right, T.arch.cy, T.right, 700, 6, { id: 'laneOuter' }),
-    wall(T.laneWall, 700, T.right, 700, 6, { id: 'laneFloor' }),
-    wall(T.laneWall, 300, T.laneWall, T.bottom, 6, { id: 'laneInner' }),
+    // the lane runs past the ball's resting place, because the plunger draws
+    // the ball down with it — and the floor is a backstop under the rod's
+    // lowest reach, not the thing the ball normally sits on
+    wall(T.right, T.arch.cy, T.right, PLUNGER.baseY, 6, { id: 'laneOuter' }),
+    wall(T.laneWall, PLUNGER.baseY, T.right, PLUNGER.baseY, 6, { id: 'laneFloor' }),
+    wall(T.laneWall, 300, T.laneWall, PLUNGER.baseY, 6, { id: 'laneInner' }),
 
     // one-way gate at the lane's mouth: solid from the playfield side, open to
     // a ball on its way up. The normal points up-left, out of the lane.
@@ -32,11 +35,16 @@ export function createTable() {
     // the wall the drop targets stand in front of
     wall(44, 310, 102, 442, 6, { id: 'targetBack', e: 0.3 }),
 
-    // inlane dividers and the shoes that feed the flippers
+    // Inlane dividers and the shoes that feed the flippers. The shoe used to
+    // aim straight at the flipper's pivot, which meant the pivot's round cap
+    // stood six pixels proud of the surface the ball was rolling down — a
+    // curb, with a pocket behind it, and a ball that reached it stopped there
+    // for good. It runs tangent to that cap now, so the ball rolls over the
+    // pivot and onto the flipper instead of into a corner.
     wall(88, 545, 118, 640, 5, { id: 'inL' }),
-    wall(118, 640, 154, 662, 5, { id: 'shoeL' }),
+    wall(118, 640, 158, 652, 5, { id: 'shoeL' }),
     wall(400, 545, 370, 640, 5, { id: 'inR' }),
-    wall(370, 640, 334, 662, 5, { id: 'shoeR' }),
+    wall(370, 640, 330, 652, 5, { id: 'shoeR' }),
   ];
 
   // slingshots: the long face kicks, the other two sides are plain wall
@@ -81,10 +89,14 @@ export function createTable() {
     { id: 'r2', x: 316, y: 108, r: 14, lit: false, flash: 0 },
   ];
 
-  // round posts scatter what falls off the arch — without the guard above the
-  // wormhole, every full-power launch fell straight into it, same path every time
+  // Round posts scatter what falls off the arch. Without the guard above the
+  // wormhole every full-power launch fell straight into it, on the same path
+  // every time — and where exactly it stands turns out to decide what the whole
+  // launch does: twelve pixels to the right of here, nine launches in ten came
+  // down the right-hand side and out of the outlane without touching a single
+  // thing on the table. From here, half of them find something.
   const posts = [
-    { x: 438, y: 322, r: 9 },
+    { x: 418, y: 298, r: 9 },
     { x: 396, y: 250, r: 8 },
     { x: 62, y: 232, r: 8 },
   ];
@@ -117,8 +129,27 @@ export function createTable() {
     makeFlipper('R', 330, 662, -1),
   ];
 
+  // The rod. `p` is how far back it is drawn from the stop, `v` how fast it is
+  // travelling (down positive). Its tip is a capsule stretched across the lane
+  // and it is in the collision list like any other wall — the ball rests on it
+  // and rides it, which is the whole point.
+  const plunger = {
+    p: 0,
+    v: 0,
+    face: {
+      x1: T.laneWall, y1: PLUNGER.restY, x2: T.right, y2: PLUNGER.restY,
+      rad: PLUNGER.tipRad,
+      // Dead: a rubber tip does not bounce, and more importantly a springy one
+      // would flick the ball off the moment the rod started moving. With e=0
+      // the ball simply takes the rod's speed, stays in contact all the way up
+      // the stroke, and leaves with everything the spring had.
+      e: 0,
+      sx: 0, sy: 0, friction: 0.25,
+    },
+  };
+
   return {
-    walls, slings, bumpers, targets, rollovers, posts, hole, kickback, skillShot, flippers,
+    walls, slings, bumpers, targets, rollovers, posts, hole, kickback, skillShot, flippers, plunger,
     spinner, inlanes, outlanes, loops,
     arch: T.arch,
   };
@@ -136,6 +167,26 @@ function makeFlipper(id, px, py, dir) {
     target: FLIPPER.rest,
     omega: 0, // signed, rad/s, set while travelling
   };
+}
+
+/**
+ * The rod, one slice. `pulling` is the player's hand: it draws the rod back at
+ * a constant rate and holds it there. Let go and the only thing acting on it is
+ * the spring — a = -k*p — until it reaches the stop, which takes the rest of
+ * the energy and is the clack you hear on a real machine.
+ */
+export function plungerStep(pl, dt, pulling) {
+  if (pulling) {
+    pl.v = pl.p < PLUNGER.travel ? PLUNGER.travel / PLUNGER.pullTime : 0;
+    pl.p = Math.min(PLUNGER.travel, pl.p + pl.v * dt);
+  } else if (pl.p > 0 || pl.v !== 0) {
+    pl.v -= PLUNGER.k * pl.p * dt;
+    pl.p += pl.v * dt;
+    if (pl.p <= 0) { pl.p = 0; pl.v = 0; }
+  }
+  pl.face.y1 = pl.face.y2 = PLUNGER.restY + pl.p;
+  pl.face.sy = pl.v;
+  return pl;
 }
 
 /** The flipper's tip for its current angle. */

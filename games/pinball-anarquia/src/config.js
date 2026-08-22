@@ -92,12 +92,26 @@ export const FLIPPER = {
 };
 
 export const PLUNGER = {
+  // The plunger is a rod on a spring, not a number that gets assigned to the
+  // ball. Its tip is the floor of the shooter lane: the ball rests on it, is
+  // drawn down the lane with it while you pull, and is *carried* back up by
+  // it — which is why a weak pull now does what a weak pull does, instead of
+  // teleporting the ball back into place afterwards.
   x: 492,
-  y: 686,
-  min: 720, // launch speed at zero charge — not enough to clear the lane
-  max: 1340,
-  chargeTime: 1.0, // seconds of holding for a full pull
+  restY: 668, // where the tip's face sits with the spring relaxed
+  tipRad: 4,
+  travel: 34, // how far back the rod draws
+  pullTime: 0.55, // seconds of holding to draw it all the way
+  // Spring stiffness, in 1/s^2. Released from a pull of `p`, simple harmonic
+  // motion puts the rod at the stop doing p*sqrt(k) — so a full pull leaves at
+  // 34 * sqrt(1553) = 1340 px/s, and every shorter pull is proportionally
+  // slower with nothing to tune.
+  k: 1553,
+  baseY: 716, // the cabinet front the spring pushes off
 };
+
+/** What a pull of `p` pixels throws the ball at. */
+export const plungerSpeed = (p) => p * Math.sqrt(PLUNGER.k);
 
 export const RULES = {
   balls: 3,

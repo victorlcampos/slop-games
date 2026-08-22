@@ -3,7 +3,7 @@
 // file; the tests play it exactly the way main.js does, through update().
 
 import { PHYS, PLUNGER, RULES, FLIPPER, TABLE, MISSIONS, RANKS } from './config.js';
-import { createTable, flipperTip, flipperStep, flipperSurfaceVel } from './table.js';
+import { createTable, flipperTip, flipperStep, flipperSurfaceVel, plungerStep } from './table.js';
 import {
   collideSegment,
   collideCircle,
@@ -49,7 +49,8 @@ export function createGame({ onEvent } = {}) {
     msgTimer: 0,
   };
 
-  const ball = { x: PLUNGER.x, y: PLUNGER.y, vx: 0, vy: 0, r: PHYS.ballR };
+  const restY = PLUNGER.restY - PHYS.ballR - PLUNGER.tipRad; // sitting on the rod
+  const ball = { x: PLUNGER.x, y: restY, vx: 0, vy: 0, r: PHYS.ballR };
   let plungerHeld = false;
 
   function say(key, values) {
@@ -92,14 +93,19 @@ export function createGame({ onEvent } = {}) {
     }
   }
 
+  /** The trough feeds a new ball into the lane and the rod is let go of. */
   function toPlunger() {
     state.phase = 'plunger';
     state.charge = 0;
     state.inPlayfield = false;
     state.skillArmed = false;
     state.ballSave = 0;
+    plungerHeld = false;
+    table.plunger.p = 0;
+    table.plunger.v = 0;
+    plungerStep(table.plunger, 0, false);
     ball.x = PLUNGER.x;
-    ball.y = PLUNGER.y;
+    ball.y = restY;
     ball.vx = 0;
     ball.vy = 0;
   }
@@ -180,10 +186,12 @@ export function createGame({ onEvent } = {}) {
       state.searchTimer = 0;
       return;
     }
-    if (onFlipper()) {
-      state.searchTimer = 0;
-      return;
-    }
+    // A ball cradled on a *held* flipper is not a lost ball. The timer pauses
+    // rather than resetting: a wedged ball that happens to be touching a
+    // flipper the player is flapping would otherwise have its clock zeroed on
+    // every press, and never be looked for at all. That is how a ball sat on
+    // the flipper's pivot cap for eighty-four seconds.
+    if (cradled()) return;
     if (!state.searchFrom || Math.hypot(ball.x - state.searchFrom.x, ball.y - state.searchFrom.y) > RULES.searchBox) {
       state.searchFrom = { x: ball.x, y: ball.y };
       state.searchTimer = 0;
@@ -201,11 +209,18 @@ export function createGame({ onEvent } = {}) {
     emit('search');
   }
 
-  /** Is the ball sitting against a flipper? */
-  function onFlipper() {
+  /**
+   * Is the player holding the ball on a raised flipper? A cradle is a ball
+   * sitting on the *blade* of a flipper that is being held up. A ball jammed
+   * against the pivot end is not being cradled, it is stuck — and treating the
+   * two the same is what let a ball sit on the pivot cap indefinitely.
+   */
+  function cradled() {
     for (const f of table.flippers) {
+      if (f.target !== FLIPPER.up) continue;
       const tip = flipperTip(f);
       const q = closestOnSegment(ball.x, ball.y, f.px, f.py, tip.x, tip.y);
+      if (q.t < 0.3) continue;
       if (Math.hypot(ball.x - q.x, ball.y - q.y) < ball.r + f.r + 4) return true;
     }
     return false;
@@ -216,6 +231,7 @@ export function createGame({ onEvent } = {}) {
     collideArchInside(ball, table.arch, PHYS.wallBounce);
 
     for (const w of table.walls) collideSegment(ball, w, PHYS.wallBounce);
+    collideSegment(ball, table.plunger.face, PHYS.wallBounce);
     for (const p of table.posts) collideCircle(ball, p.x, p.y, p.r, PHYS.postBounce, PHYS.rubberGrip);
 
     for (const t of table.targets) {
@@ -350,7 +366,9 @@ export function createGame({ onEvent } = {}) {
     }
 
     if (table.kickback.lit && ball.vy > 0 && inSensor(ball, table.kickback)) {
-      ball.vy = -980;
+      // a coil, like every other coil here: it throws its plunger at a speed,
+      // so it cannot slow down a ball that is already leaving faster
+      ball.vy = Math.min(ball.vy, -980);
       ball.vx += 40;
       table.kickback.lit = false;
       table.kickback.flash = 1;
@@ -456,19 +474,19 @@ export function createGame({ onEvent } = {}) {
     if (state.phase === 'over') return;
 
     if (state.phase === 'plunger') {
-      if (input.plunger) {
-        plungerHeld = true;
-        state.charge = Math.min(1, state.charge + h / PLUNGER.chargeTime);
-      } else if (plungerHeld) {
+      if (input.plunger) plungerHeld = true;
+      else if (plungerHeld) {
+        // Letting go does not launch anything. It stops holding the rod back,
+        // and the spring does the rest over the next few hundredths of a
+        // second — which is why a pull too short to clear the lane now sends
+        // the ball up and lets it fall back on its own.
         plungerHeld = false;
-        ball.vy = -(PLUNGER.min + state.charge * (PLUNGER.max - PLUNGER.min));
-        state.charge = 0;
         state.phase = 'play';
         state.skillArmed = true;
         emit('launch');
       }
-      return;
     }
+    const pulling = state.phase === 'plunger' && !!input.plunger;
 
     if (state.phase === 'captured') {
       state.holeTimer -= h;
@@ -482,23 +500,31 @@ export function createGame({ onEvent } = {}) {
       return;
     }
 
-    // play
-    ballSearch(h);
-    if (input.nudgeL) nudge(RULES.nudge, -30);
-    if (input.nudgeR) nudge(-RULES.nudge, -30);
-    if (input.nudgeUp) nudge(0, -RULES.nudge);
-    if (state.inPlayfield && state.ballSave > 0) state.ballSave = Math.max(0, state.ballSave - h);
+    if (state.phase === 'play') {
+      ballSearch(h);
+      if (input.nudgeL) nudge(RULES.nudge, -30);
+      if (input.nudgeR) nudge(-RULES.nudge, -30);
+      if (input.nudgeUp) nudge(0, -RULES.nudge);
+      if (state.inPlayfield && state.ballSave > 0) state.ballSave = Math.max(0, state.ballSave - h);
+    }
 
     const dt = h / PHYS.substeps;
     for (let i = 0; i < PHYS.substeps; i++) {
+      plungerStep(table.plunger, dt, pulling);
       physicsStep(dt);
       if (ball.y > TABLE.drainY) { drain(); return; }
-      if (state.phase !== 'play') return; // captured mid-step
+      if (state.phase === 'captured') return; // captured mid-step
     }
+    state.charge = table.plunger.p / PLUNGER.travel;
 
-    // a weak plunge falls back onto the plunger instead of playing dead in the lane
-    if (!state.inPlayfield && ball.x > TABLE.laneWall && ball.y > 668 && Math.abs(ball.vy) < 30) {
-      toPlunger();
+    // A plunge too weak to reach the playfield puts the ball back down on the
+    // rod, where it is simply sitting — nothing moved it there. All that
+    // happens here is the machine noticing, and handing the plunger back.
+    if (state.phase === 'play' && !state.inPlayfield && ball.x > TABLE.laneWall
+        && ball.y > table.plunger.face.y1 - ball.r - PLUNGER.tipRad - 26
+        && Math.abs(ball.vy) < 40) {
+      state.phase = 'plunger';
+      state.skillArmed = false;
     }
   }
 

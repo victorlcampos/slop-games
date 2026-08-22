@@ -35,7 +35,7 @@ export function paintParts(ctx, game, P, now, attract) {
   bumpers(ctx, P, table, now, attract);
   kickback(ctx, P, table, now);
   flippers(ctx, P, table);
-  plunger(ctx, P, state, ball);
+  plunger(ctx, P, game);
   if (state.phase !== 'over' && state.phase !== 'captured') theBall(ctx, P, ball);
 }
 
@@ -633,30 +633,46 @@ function flippers(ctx, P, table) {
   }
 }
 
-function plunger(ctx, P, state, ball) {
-  const resting = state.phase === 'plunger';
-  const topY = resting ? ball.y + ball.r + 3 : 664;
+function plunger(ctx, P, game) {
+  // The rod is drawn where the rod is: the cap rides the collision face, and
+  // the spring between it and the cabinet front gets shorter and denser as it
+  // is drawn back, because that is what a compressed spring does.
+  const rod = game.table.plunger;
+  const topY = PLUNGER.restY + rod.p;
+  const charge = rod.p / PLUNGER.travel;
   const a = P.rise(P.at(PLUNGER.x, topY), 8);
-  const b = P.rise(P.at(PLUNGER.x, 700), 8);
-  const k = P.sizeAt(690);
+  const b = P.rise(P.at(PLUNGER.x, PLUNGER.baseY), 8);
+  const k = P.sizeAt(topY);
   ctx.save();
+  if (charge > 0) glow(ctx, C.orange, b.x, (a.y + b.y) / 2, 30 * k, charge);
   ctx.strokeStyle = mix(C.orange, '#ffffff', 0.15);
-  ctx.lineWidth = 3 * k;
+  ctx.lineWidth = (3 + charge) * k;
   ctx.lineJoin = 'round';
-  if (state.charge > 0) glow(ctx, C.orange, b.x, (a.y + b.y) / 2, 30 * k, state.charge);
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
-  const coils = 8;
+  // fixed pitch, not a fixed number of turns: eight turns squeezed into the
+  // last dozen pixels is a smear, and a spring that reads as a smear reads as
+  // a bug
+  const coils = Math.max(3, Math.round((PLUNGER.baseY - topY) / 6));
+  const w = (9 - 2 * charge) * k; // a compressed spring bulges less, not more
   for (let i = 0; i <= coils; i++) {
-    ctx.lineTo(a.x + (i % 2 === 0 ? -9 : 9) * k, a.y + ((b.y - a.y) * i) / coils);
+    ctx.lineTo(a.x + (i % 2 === 0 ? -w : w), a.y + ((b.y - a.y) * i) / coils);
   }
   ctx.lineTo(b.x, b.y);
   ctx.stroke();
+
+  // the cap, standing off the felt like everything else here
+  const capBase = P.at(PLUNGER.x, topY);
+  ctx.fillStyle = mix(C.orange, '#000000', 0.35);
+  ctx.fillRect(capBase.x - 13 * k, a.y, 26 * k, capBase.y - a.y);
   ctx.fillStyle = C.orange;
-  ctx.fillRect(b.x - 13 * k, b.y, 26 * k, 8 * k);
-  if (resting && state.charge > 0) {
+  ctx.fillRect(a.x - 13 * k, a.y - 5 * k, 26 * k, 6 * k);
+  ctx.fillStyle = alpha('#ffffff', 0.5);
+  ctx.fillRect(a.x - 13 * k, a.y - 5 * k, 26 * k, 1.6 * k);
+
+  if (charge > 0) {
     ctx.fillStyle = C.red;
-    ctx.fillRect(b.x - 15 * k, b.y + 11 * k, 30 * k * state.charge, 4 * k);
+    ctx.fillRect(b.x - 15 * k, b.y + 4 * k, 30 * k * charge, 4 * k);
   }
   ctx.restore();
 }

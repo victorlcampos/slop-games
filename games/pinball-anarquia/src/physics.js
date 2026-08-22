@@ -20,12 +20,13 @@ export function closestOnSegment(px, py, x1, y1, x2, y2) {
  * (sx,sy). Only the approaching half is reflected — a ball already leaving is
  * left alone, which is what stops a resting ball from jittering.
  *
- * `friction` bleeds the component *along* the surface, and leaving it out is
- * what let a ball skid back and forth across the tops of the two slingshots
- * forever: bouncing only ever touched the normal, so a ball whose motion was
- * almost entirely sideways arrived at each one with everything it had left the
- * last one with. Steel on rubber does not work like that, and neither does
- * steel on anything else.
+ * `friction` is a Coulomb coefficient, and it has to be: the tangential
+ * impulse a surface can deliver is capped by the normal one, so a square hit
+ * scrubs a lot of sideways speed and a graze scrubs almost none. Scaling the
+ * tangential component by a flat fraction instead reads fine on impacts and is
+ * a disaster on contacts — a ball resting on a slingshot's rubber lost a third
+ * of its sliding speed seven hundred times a second, which is glue, and it sat
+ * on the face of the slingshot until the machine was switched off.
  */
 export function reflect(ball, nx, ny, e, sx = 0, sy = 0, friction = 0) {
   const rvx = ball.vx - sx;
@@ -35,7 +36,9 @@ export function reflect(ball, nx, ny, e, sx = 0, sy = 0, friction = 0) {
   // split into normal and tangential, treat each, put them back together
   const tx = rvx - vn * nx;
   const ty = rvy - vn * ny;
-  const k = 1 - friction;
+  const tSpeed = Math.hypot(tx, ty);
+  const scrub = Math.min(tSpeed, friction * (1 + e) * -vn);
+  const k = tSpeed > 1e-9 ? 1 - scrub / tSpeed : 0;
   ball.vx = tx * k - e * vn * nx + sx;
   ball.vy = ty * k - e * vn * ny + sy;
   return -vn; // how hard the hit was, for whoever wants to score or flash it

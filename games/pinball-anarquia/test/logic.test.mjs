@@ -8,7 +8,7 @@ import { missingKeys } from 'slopkit';
 import { createGame } from '../src/game.js';
 import { DICT } from '../src/i18n.js';
 import { reflect, closestOnSegment, collideSegment } from '../src/physics.js';
-import { PLUNGER, RULES, TABLE, PHYS, FLIPPER, MISSIONS, RANKS } from '../src/config.js';
+import { PLUNGER, plungerSpeed, RULES, TABLE, PHYS, FLIPPER, MISSIONS, RANKS } from '../src/config.js';
 import { flipperTip } from '../src/table.js';
 
 const STEP = 1 / 120;
@@ -19,11 +19,20 @@ function play(game, seconds, input = IDLE) {
   for (let t = 0; t < seconds; t += STEP) game.update(STEP, input);
 }
 
-/** Hold the plunger for `pull` seconds, release, and let the ball fly off it. */
+/** Hold the plunger for `pull` seconds, release, and let the spring do its work. */
 function launch(game, pull = 1) {
   play(game, pull, { plunger: true });
-  game.update(STEP, {});
-  game.update(STEP, {});
+  play(game, 0.1);
+}
+
+/** The fastest the ball goes up the lane over the next `seconds`. */
+function peakLaunch(game, seconds = 0.3) {
+  let peak = 0;
+  for (let t = 0; t < seconds; t += STEP) {
+    game.update(STEP, {});
+    peak = Math.min(peak, game.ball.vy);
+  }
+  return -peak;
 }
 
 /** Park the ball in open field, mid-table — wherever the launch bounced it. */
@@ -34,6 +43,30 @@ function settle(game) {
   game.ball.y = 480;
   game.ball.vx = 0;
   game.ball.vy = 0;
+}
+
+
+/** Is (x,y) somewhere a ball could actually be, or is it inside the furniture? */
+function clearOfEverything(tbl, x, y, r = PHYS.ballR) {
+  const segs = [...tbl.walls, tbl.plunger.face, ...tbl.targets];
+  for (const s of tbl.slings) segs.push(s.face, ...s.body);
+  for (const f of tbl.flippers) {
+    const tip = flipperTip(f);
+    segs.push({ x1: f.px, y1: f.py, x2: tip.x, y2: tip.y, rad: f.r });
+  }
+  for (const s of segs) {
+    const q = closestOnSegment(x, y, s.x1, s.y1, s.x2, s.y2);
+    if (Math.hypot(x - q.x, y - q.y) < r + (s.rad || 0) + 0.5) return false;
+  }
+  for (const p of [...tbl.posts, ...tbl.bumpers]) if (Math.hypot(x - p.x, y - p.y) < r + p.r + 0.5) return false;
+  // and not sealed inside a slingshot, which is a triangle with no way in
+  for (const s of tbl.slings) {
+    const behind = (x - s.face.x1) * s.n.x + (y - s.face.y1) * s.n.y < 0;
+    const lo = Math.min(s.face.y1, s.face.y2) - 12;
+    const hi = Math.max(s.face.y1, s.face.y2) + 12;
+    if (behind && y > lo && y < hi) return false;
+  }
+  return true;
 }
 
 // ------------------------------------------------------------------ physics
@@ -58,19 +91,35 @@ scenario('a capsule pushes the ball out on the side it came from', () => {
 
 // ------------------------------------------------------------------ the plunger
 
-scenario('the plunger throws harder the longer it is held', () => {
-  const weak = createGame({});
-  play(weak, 0.05, { plunger: true });
-  weak.update(STEP, {});
-  const weakV = -weak.ball.vy;
+scenario('the rod draws the ball down the lane with it', () => {
+  const game = createGame({});
+  const rest = game.ball.y;
+  play(game, PLUNGER.pullTime, { plunger: true });
+  const face = game.table.plunger.face.y1;
+  check(game.table.plunger.p > PLUNGER.travel - 0.5, `a full hold only drew the rod back ${game.table.plunger.p.toFixed(1)}px`);
+  check(game.ball.y > rest + PLUNGER.travel - 1, `the ball stayed at ${game.ball.y.toFixed(1)} while the rod went to ${face.toFixed(1)}`);
+  check(
+    Math.abs(game.ball.y - (face - PHYS.ballR - PLUNGER.tipRad)) < 0.6,
+    `the ball is ${(face - game.ball.y).toFixed(1)}px off a rod it should be resting on`,
+  );
+});
 
-  const strong = createGame({});
-  play(strong, 1.2, { plunger: true });
-  strong.update(STEP, {});
-  const strongV = -strong.ball.vy;
-
-  check(weakV >= PLUNGER.min && weakV < strongV, `a tap threw ${weakV.toFixed(0)}, a full pull ${strongV.toFixed(0)}`);
-  check(strongV <= PLUNGER.max + 1, `a full pull threw ${strongV.toFixed(0)}, past the plunger's max`);
+scenario('the spring gives back exactly what was put into it', () => {
+  // A pull of p leaves the stop at p*sqrt(k) and the ball is carried, not
+  // struck, so the ball leaves at that speed — every partial pull in between
+  // follows from the same spring with nothing to tune.
+  const speeds = [0.15, 0.3, PLUNGER.pullTime].map((hold) => {
+    const game = createGame({});
+    play(game, hold, { plunger: true });
+    const pull = game.table.plunger.p;
+    return { pull, got: peakLaunch(game), want: plungerSpeed(pull) };
+  });
+  for (const s of speeds) {
+    check(Math.abs(s.got - s.want) < s.want * 0.05 + 15,
+      `a ${s.pull.toFixed(0)}px pull threw ${s.got.toFixed(0)}, the spring holds ${s.want.toFixed(0)}`);
+  }
+  check(speeds[0].got < speeds[1].got && speeds[1].got < speeds[2].got,
+    `harder pulls did not throw harder: ${speeds.map((s) => s.got.toFixed(0)).join(' < ')}`);
 });
 
 scenario('a full pull sends the ball over the arch into the playfield', () => {
@@ -89,12 +138,65 @@ scenario('a full pull sends the ball over the arch into the playfield', () => {
   check(saverArmed, 'entering play never armed the ball saver');
 });
 
-scenario('a timid pull falls back onto the plunger instead of playing dead', () => {
+scenario('a timid pull comes back down the lane and lands on the rod', () => {
+  // The bug this replaces: the ball used to be *teleported* back onto the
+  // plunger, which on screen is a ball passing straight through the spring.
   const game = createGame({});
-  launch(game, 0.02);
-  play(game, 4);
+  const rest = game.ball.y;
+  play(game, 0.1, { plunger: true });
+  game.update(STEP, {});
+  let jump = 0;
+  let last = game.ball.y;
+  let rose = 0;
+  for (let t = 0; t < 4; t += STEP) {
+    game.update(STEP, {});
+    jump = Math.max(jump, Math.abs(game.ball.y - last));
+    rose = Math.max(rose, rest - game.ball.y);
+    last = game.ball.y;
+  }
+  check(rose > 4, `the weak plunge moved the ball ${rose.toFixed(1)}px`);
+  check(jump < 12, `the ball moved ${jump.toFixed(1)}px in one step — something put it there`);
+  check(Math.abs(game.ball.y - rest) < 1, `it settled at ${game.ball.y.toFixed(1)} instead of on the rod at ${rest.toFixed(1)}`);
   check(game.state.phase === 'plunger', `the weak ball ended in phase "${game.state.phase}"`);
   check(game.state.balls === RULES.balls, 'a failed plunge cost a ball');
+});
+
+scenario('the rod is a wall even when nobody is touching it', () => {
+  const game = createGame({});
+  launch(game, PLUNGER.pullTime);
+  play(game, 6); // it is out in the playfield now; drop a ball back down the lane
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.ball.x = PLUNGER.x;
+  game.ball.y = 420;
+  game.ball.vx = 0;
+  game.ball.vy = 300;
+  play(game, 2);
+  check(game.ball.y < PLUNGER.restY, `the ball fell to ${game.ball.y.toFixed(0)}, past a rod resting at ${PLUNGER.restY}`);
+  check(game.state.balls === RULES.balls, 'a ball in the shooter lane drained');
+});
+
+scenario('a launch finds the table, not the drain', () => {
+  // Where the deflector post above the wormhole stands decides what every
+  // launch does, and it is not obvious by eye: one position twelve pixels away
+  // from the one in the table sent nine launches in ten down the right-hand
+  // side and out of the outlane without touching a single scoring thing. This
+  // fires every pull strength that clears the lane, with nobody on the
+  // flippers, and counts how many find something.
+  const LIVE = ['bumper', 'sling', 'target', 'hole', 'rollover', 'spinner', 'orbit'];
+  let cleared = 0;
+  let found = 0;
+  for (let hold = 0.4; hold <= PLUNGER.pullTime; hold += 0.01) {
+    const seen = [];
+    const game = createGame({ onEvent: (e) => seen.push(e) });
+    play(game, hold, { plunger: true });
+    play(game, 8);
+    if (!game.state.inPlayfield && !seen.includes('drain') && !seen.includes('save')) continue;
+    cleared++;
+    if (seen.some((e) => LIVE.includes(e))) found++;
+  }
+  check(cleared > 8, `only ${cleared} pull strengths reached the playfield at all`);
+  check(found / cleared > 0.35, `${found} of ${cleared} launches touched anything scoring on the way down`);
 });
 
 // ------------------------------------------------------------------ flippers
@@ -462,6 +564,59 @@ scenario('a ball cradled on a flipper is not a lost ball', () => {
     game.update(STEP, { left: true });
   }
   check(searches === 0, `a held ball was shaken off the flipper ${searches} time(s)`);
+});
+
+scenario('a wedged ball touching a flapping flipper is still looked for', () => {
+  // The exemption above used to apply to a flipper at rest, and it reset the
+  // clock rather than pausing it — so a ball wedged anywhere near a flipper
+  // the player was flapping had its timer zeroed on every press and was never
+  // searched for. That is a ball stuck for eighty-four seconds.
+  let searches = 0;
+  const game = createGame({ onEvent: (e) => { if (e === 'search') searches++; } });
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.state.ballSave = 0;
+  const f = game.table.flippers[0];
+  for (let t = 0; t < RULES.ballSearch + 4; t += STEP) {
+    game.ball.x = f.px;
+    game.ball.y = f.py - game.ball.r - f.r + 1;
+    game.ball.vx = 0;
+    game.ball.vy = 0;
+    game.update(STEP, { left: Math.floor(t * 5) % 2 === 0 });
+  }
+  check(searches > 0, 'the machine never went looking for a ball pinned on the flipper pivot');
+});
+
+scenario('nowhere on the lower table is a place a ball can come to rest', () => {
+  // The regression test for every trap a player has reported. Put a dead ball
+  // everywhere one could legally be, and give the whole machine — geometry
+  // first, ball search as the last resort — twelve seconds to give it back. A
+  // pinball table that keeps the ball has stopped being a game.
+  const probe = createGame({}).table;
+  const stuck = [];
+  let tried = 0;
+  for (let x = 22; x <= 468; x += 8) {
+    for (let y = 480; y <= 660; y += 10) {
+      if (!clearOfEverything(probe, x, y)) continue;
+      tried++;
+      const game = createGame({});
+      game.state.phase = 'play';
+      game.state.inPlayfield = true;
+      game.state.ballSave = 0;
+      game.ball.x = x;
+      game.ball.y = y;
+      game.ball.vx = 0;
+      game.ball.vy = 0;
+      let gone = false;
+      for (let t = 0; t < 12; t += STEP) {
+        game.update(STEP, {});
+        if (game.state.balls < RULES.balls || game.state.phase !== 'play') { gone = true; break; }
+      }
+      if (!gone && stuck.length < 6) stuck.push(`(${x},${y}) -> (${game.ball.x.toFixed(0)},${game.ball.y.toFixed(0)})`);
+    }
+  }
+  check(tried > 500, `only ${tried} of the lower table was reachable — the probe is measuring nothing`);
+  check(stuck.length === 0, `a ball came to rest at ${stuck.join('  ')}`);
 });
 
 // ------------------------------------------------------------------ tilt

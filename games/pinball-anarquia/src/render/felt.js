@@ -327,9 +327,9 @@ function paintedField(g, pts, color, a) {
 function rails(g) {
   metalArc(g, 262, 252, 248, PI, PI * 2, 8);
   metalLine(g, 14, 252, 14, 712, 6);
-  metalLine(g, 510, 252, 510, 700, 6);
-  metalLine(g, 476, 300, 476, 712, 6);
-  metalLine(g, 476, 700, 510, 700, 6);
+  metalLine(g, 510, 252, 510, 716, 6);
+  metalLine(g, 476, 300, 476, 716, 6);
+  metalLine(g, 476, 716, 510, 716, 6);
 }
 
 function metalArc(g, cx, cy, r, a0, a1, w) {
