@@ -24,6 +24,8 @@ export const C = {
   yellow: '#e0af68',
   orange: '#ff9e64',
   red: '#f7768e',
+  teal: '#73daca',
+  magenta: '#ad8ee6',
 };
 
 // The playfield strip of the frame. Everything left of `right` is table;
@@ -38,7 +40,9 @@ export const TABLE = {
   drainY: 738, // past this the ball is gone
 };
 
-export const PANEL = { x: 546, w: FRAME - 546 - 14 };
+// The backglass. The table is drawn in perspective and its widest row is the
+// near edge, so the panel starts where that row ends — see render/project.js.
+export const PANEL = { x: 610, w: FRAME - 610 - 16 };
 
 export const PHYS = {
   gravity: 1350, // the table's slope, in px/s^2

@@ -8,7 +8,7 @@ import { mountLangPicker, bindText } from 'slopkit/langpicker';
 import { H, C, RANKS } from './config.js';
 import { i18n, t } from './i18n.js';
 import { createGame } from './game.js';
-import { createRenderer } from './render.js';
+import { createRenderer } from './render/index.js';
 import { sound, sfx, startMusic, stopMusic } from './audio.js';
 
 const canvas = document.getElementById('canvas');
