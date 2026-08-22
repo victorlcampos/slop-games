@@ -38,6 +38,7 @@ const TAGS = {
   'board-game': { pt: 'tabuleiro', en: 'board game' },
   'capture-the-flag': { pt: 'captura a bandeira', en: 'capture the flag' },
   'open-world': { pt: 'mundo aberto', en: 'open world' },
+  pinball: { pt: 'pinball', en: 'pinball' },
   puzzle: { pt: 'quebra-cabeça', en: 'puzzle' },
   racing: { pt: 'corrida', en: 'racing' },
   remake: { pt: 'remake', en: 'remake' },

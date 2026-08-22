@@ -1,0 +1,15 @@
+{
+  "name": "pinball-anarquia",
+  "version": "1.0.0",
+  "description": "A Space Cadet-style pinball table in Omarchy's Tokyo Night neon: bumpers, missions, tilt and a rank ladder climbed by tearing it down.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/logic.test.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "slopkit": "*"
+  }
+}
