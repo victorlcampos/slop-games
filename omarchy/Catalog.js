@@ -1,7 +1,7 @@
 // Generated from games/*/game.json — do not edit by hand.
 //
 // Run `npm run omarchy` (any `npm run build` does it too) to regenerate it.
-// The plugin is a clone of this repository and a clone never builds, so the ten
+// The plugin is a clone of this repository and a clone never builds, so the
 // names and their two languages have to be committed, not produced on install.
 
 var SITE = "https://victorlcampos.github.io/slop-games"

@@ -178,8 +178,9 @@ Panel {
         //
         // ListView rather than a Repeater in a Column: it owns its scroll
         // position, so j/k past the bottom row scrolls instead of walking the
-        // cursor off screen. Ten games fit on a desktop; a laptop with a big
-        // font does not, and this is what makes that case work.
+        // cursor off screen. The catalog fits on a desktop today and will stop
+        // fitting as it grows, and a laptop with a big font does not fit it
+        // now — this is what makes both of those cases work.
         ListView {
           id: list
           width: parent.width

@@ -56,12 +56,12 @@ function t(key, lang, vars) {
 
 // -------------------------------------------------------------- where it is
 //
-// The plugin is a clone of the repository, so a clone has the ten game.json but
-// none of the ten built HTML files — `omarchy plugin add` never runs a build.
+// The plugin is a clone of the repository, so a clone has every game.json but
+// none of the built HTML files — `omarchy plugin add` never runs a build.
 // So the panel looks for a copy on disk and falls back to the published site,
 // which is a PWA whose worker precaches the whole catalog on first open. In
 // practice: you had a connection when you installed the plugin, the first game
-// you open caches all ten, and it is offline from then on.
+// you open caches the whole catalog, and it is offline from then on.
 
 /** The bash that picks the first candidate that is really there.
  *

@@ -7,7 +7,7 @@
 // there is not one image in git. A marketplace listing wants a picture, so this
 // generates one instead of committing one: the layout below is the panel's own
 // geometry, the colours are Omarchy's Tokyo Night theme read off its own
-// colors.toml, and the ten rows come from Catalog.js — the same file the panel
+// colors.toml, and the rows come from Catalog.js — the same file the panel
 // reads, so the preview cannot advertise a game that is not there.
 //
 // It is a rendering, not a photograph. The honest thing it buys over a mock-up
@@ -66,7 +66,7 @@ export function darker(hex, factor) {
   return '#' + rgb.map((u) => Math.round((u + m) * 255).toString(16).padStart(2, '0')).join('');
 }
 
-/** The ten games, read from the file the panel itself reads. */
+/** Every game, read from the file the panel itself reads. */
 export function readCatalog(dir = HERE) {
   const context = vm.createContext({});
   vm.runInContext(readFileSync(join(dir, 'Catalog.js'), 'utf8'), context, { filename: 'Catalog.js' });
@@ -221,17 +221,32 @@ const CHROME = [
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
   '/usr/bin/google-chrome-stable',
   '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
 ];
 
-/** The browser that takes the picture, or null when there is none to be had. */
-export function findChrome() {
+/**
+ * The browser that takes the picture, or null when there is none to be had.
+ *
+ * `CHROME_PATH` is honoured first because the machine most likely to be missing
+ * a system Chrome is the one that has a perfectly good headless one sitting in
+ * a Playwright cache — and skipping the listing's picture on a machine that
+ * could take it is a worse default than looking in one more place.
+ */
+export function findChrome(env = process.env) {
+  if (env.CHROME_PATH && existsSync(env.CHROME_PATH)) return env.CHROME_PATH;
   return CHROME.find((path) => existsSync(path)) || null;
 }
 
 /**
- * Renders the preview to `out`. Returns null when no browser is installed —
- * the listing works without a preview (the marketplace falls back to its own),
- * so a missing browser is a skipped step, not a failed publish.
+ * Renders the preview to `out`. Returns null when there is no picture to be
+ * had — the listing works without one (the marketplace falls back to its own),
+ * so this is a skipped step, not a failed publish.
+ *
+ * That "not a failed publish" has to hold for a browser that is *there and does
+ * not work*, not only for a browser that is missing. A container running as
+ * root has a Chromium that refuses to start, and letting it throw took the
+ * whole package down over a picture the marketplace was willing to supply.
  */
 export function renderPreview(out, { games = readCatalog(), scale = 2 } = {}) {
   const chrome = findChrome();
@@ -245,11 +260,16 @@ export function renderPreview(out, { games = readCatalog(), scale = 2 } = {}) {
       '--headless=new',
       '--disable-gpu',
       '--hide-scrollbars',
+      // Chromium refuses to run as root without this, and says so on stderr we
+      // are not reading. Only as root: nobody else should be handing it out.
+      ...(typeof process.getuid === 'function' && process.getuid() === 0 ? ['--no-sandbox'] : []),
       `--force-device-scale-factor=${scale}`,
       '--window-size=1000,800',
       `--screenshot=${out}`,
       `file://${page}`,
     ], { stdio: ['ignore', 'ignore', 'ignore'] });
+  } catch {
+    return null;
   } finally {
     rmSync(box, { recursive: true, force: true });
   }

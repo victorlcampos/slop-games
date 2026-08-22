@@ -1,6 +1,6 @@
 # slop-games — the catalog on your Omarchy bar
 
-Ten browser games, one HTML file each, behind a gamepad on the bar. Click one
+Every game in the catalog, one HTML file each, behind a gamepad on the bar. Click one
 and it opens in its own window — no tabs, no address bar.
 
 ```bash
@@ -9,7 +9,7 @@ omarchy plugin add https://github.com/victorlcampos/omarchy-slop-games.git --ena
 
 ## Using it
 
-A gamepad icon appears on the bar. Click it and the ten games are there, each
+A gamepad icon appears on the bar. Click it and the whole catalog is there, each
 with its name and one line about it. `↑↓` or `j/k` walk the list, `⏎` plays,
 `Esc` closes, `Tab` moves to the next panel on the bar.
 
@@ -19,7 +19,7 @@ For a keybind instead of a click, the panel answers on IPC:
 bind = SUPER, G, exec, omarchy-shell slop-games toggle
 ```
 
-The footer has **Open the catalog**, which opens the index with all ten cards,
+The footer has **Open the catalog**, which opens the index with every card,
 and **EN / PT**. The panel starts in the language your desktop asks for — a
 `pt_*` locale gets Portuguese, everything else English — and those two buttons
 override it.
@@ -50,7 +50,7 @@ of those two buttons. It touches no other configuration and overwrites nothing.
 
 ## Where the games come from
 
-The plugin carries the ten names, not the ten games. It looks for them in order
+The plugin carries the names, not the games. It looks for them in order
 and takes the first that is really there:
 
 | | Where | Who puts it there |

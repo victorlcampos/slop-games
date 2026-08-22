@@ -5,12 +5,16 @@
   "version": "1.0.0",
   "author": "Victor Campos",
   "license": "MIT",
-  "description": "The whole catalog on the bar: ten games, one HTML file each, opened as their own window",
-  "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "Panel.qml" },
+  "description": "The whole catalog on the bar: every game one HTML file, opened as its own window",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
   "barWidget": {
     "displayName": "slop-games",
-    "description": "Ten games, one HTML file each",
+    "description": "The whole slop-games catalog, one HTML file each",
     "category": "Games",
     "allowMultiple": false,
     "defaultSection": "right"

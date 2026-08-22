@@ -5,7 +5,7 @@
 //
 // Why the plugin has a repository of its own, when it started as this one:
 // `omarchy plugin add` clones whatever URL it is given, and the marketplace
-// runs a static scan over that clone. This repository is ten games, and one of
+// runs a static scan over that clone. This repository is a pile of games, and one of
 // them — SkiFree — carries a vendored three.js of 1.3 MB. The marketplace scan
 // refuses any scanned file over 512 KB and fails closed, so a file that is not
 // part of the plugin, never read by it, and only in the clone by accident of

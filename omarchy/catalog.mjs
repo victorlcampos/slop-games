@@ -4,7 +4,7 @@
 // the plugin *is* a git clone of this repository, and `omarchy plugin add`
 // clones and never builds — it "never runs anything from the plugin, never
 // executes an install hook". A clone therefore has no dist/ and no node_modules,
-// so whatever the panel needs to draw ten rows in two languages has to be in
+// so whatever the panel needs to draw its rows in two languages has to be in
 // git already. Catalog.js is that, and test/omarchy.test.mjs regenerates it in
 // memory and compares, so it cannot drift away from game.json unnoticed.
 //
@@ -51,7 +51,7 @@ export function renderCatalog(games) {
   return `// Generated from games/*/game.json — do not edit by hand.
 //
 // Run \`npm run omarchy\` (any \`npm run build\` does it too) to regenerate it.
-// The plugin is a clone of this repository and a clone never builds, so the ten
+// The plugin is a clone of this repository and a clone never builds, so the
 // names and their two languages have to be committed, not produced on install.
 
 var SITE = ${JSON.stringify(SITE)}

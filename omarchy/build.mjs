@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Writes omarchy/Catalog.js — the ten games, in two languages, as QML can read
-// them.
+// Writes omarchy/Catalog.js — every game, in two languages, as QML can read them.
 //
 //   node omarchy/build.mjs        (npm run omarchy)
 //

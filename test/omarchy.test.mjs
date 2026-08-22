@@ -57,6 +57,24 @@ function load(...files) {
 const model = load('Model.js');
 const catalog = load('Catalog.js');
 
+// ------------------------------------------------------------- the wording
+
+scenario('nothing the plugin ships counts the games out loud', () => {
+  // Every hand-written string here used to say "ten games". It was true once,
+  // stopped being true the moment a game was added, and nothing noticed —
+  // because a number in prose has no test unless you write one. The rule is
+  // simpler than keeping it in step: the plugin describes the catalog, it does
+  // not count it. Catalog.js is exempt; its text is generated from game.json,
+  // and a blurb that says "twelve ways to score" is about a table, not a shelf.
+  const counted = /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|\d+)[ -]+(browser +)?games\b/i;
+  for (const file of packaged) {
+    if (file.name === 'Catalog.js' || file.name === 'LICENSE') continue;
+    const text = readFileSync(path.join(PACKAGE, file.name), 'utf8');
+    const hit = text.split('\n').find((line) => counted.test(line));
+    check(!hit, `${file.name} hardcodes how many games there are: ${String(hit).trim()}`);
+  }
+});
+
 // ------------------------------------------------------------- the manifest
 
 scenario('the manifest says what omarchy-plugin-validate demands', () => {

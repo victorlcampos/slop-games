@@ -5,7 +5,7 @@
 //
 // Why this exists at all: `omarchy plugin add` clones the repository and never
 // builds it — it "never runs anything from the plugin, never executes an
-// install hook" — so a fresh install has the ten game.json and none of the ten
+// install hook" — so a fresh install has every game.json and none of the
 // HTML files, and the panel falls back to the published site. That is fine, and
 // the service worker there makes it offline after the first open.
 //
