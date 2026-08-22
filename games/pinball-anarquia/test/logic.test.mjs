@@ -335,6 +335,135 @@ scenario('a tilted machine pays for none of it', () => {
   check(game.state.score === 0, `tilted, the new shots still paid ${game.state.score}`);
 });
 
+// ------------------------------------------------------------------ traps
+
+/**
+ * The bug this section exists for: a ball dropped into the mouth between the
+ * two slingshots bounced from one to the other and never came down. Each kick
+ * *replaced* the velocity with a fixed one, so the ball left every slingshot at
+ * exactly the speed and angle it left the last one — gravity had been feeding
+ * the tangential component all the way down the table and the kick threw it
+ * away. Twenty-one thousand slingshot hits in thirty simulated seconds, and a
+ * player watching a ball they could not lose and could not use.
+ */
+scenario('a ball in the mouth of the slingshots always comes down', () => {
+  const worst = { slings: 0, alive: 0, at: null };
+  for (let x = 190; x <= 300; x += 10) {
+    for (const vx of [-260, -90, 0, 90, 260]) {
+      let slings = 0;
+      const game = createGame({ onEvent: (e) => { if (e === 'sling') slings++; } });
+      game.state.phase = 'play';
+      game.state.inPlayfield = true;
+      game.state.ballSave = 0;
+      game.ball.x = x;
+      game.ball.y = 520;
+      game.ball.vx = vx;
+      game.ball.vy = 60;
+      let alive = 0;
+      for (let t = 0; t < 25; t += STEP) {
+        game.update(STEP, {});
+        if (game.state.phase !== 'play') break;
+        alive = t;
+      }
+      if (slings > worst.slings) Object.assign(worst, { slings, alive, at: `${x} @ ${vx}` });
+      check(game.state.phase !== 'play' || alive < 24.9,
+        `dropped at x=${x} moving ${vx}, the ball was still up there after 25s (${slings} slingshot hits)`);
+    }
+  }
+  check(worst.slings < 60, `one drop rang the slingshots ${worst.slings} times (${worst.at})`);
+});
+
+scenario('a slingshot does not fire at a ball behind it', () => {
+  // A ball cannot legitimately get inside the wedge — but if one ever does,
+  // the coil kicking it further in, every step, is a game that has stopped.
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  let fired = 0;
+  const watched = createGame({ onEvent: (e) => { if (e === 'sling') fired++; } });
+  watched.state.phase = 'play';
+  watched.state.inPlayfield = true;
+  watched.state.ballSave = 0;
+  const sl = watched.table.slings[0];
+  watched.ball.x = 158;
+  watched.ball.y = 598; // inside the wedge, behind the kicking face
+  watched.ball.vx = 0;
+  watched.ball.vy = 0;
+  play(watched, 2);
+  check(fired === 0, `the coil fired ${fired} times at a ball sitting behind it`);
+  check(sl.face.x1 === 142, 'the left slingshot moved — this scenario is aimed at the wrong wedge');
+  check(game.state.score === 0, 'the untouched control game scored');
+});
+
+scenario('a coil cannot fire faster than it resets', () => {
+  let fired = 0;
+  const game = createGame({ onEvent: (e) => { if (e === 'sling') fired++; } });
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.state.ballSave = 0;
+  const face = game.table.slings[0].face;
+  // hold the ball against the rubber for a second, re-seating it every step
+  for (let t = 0; t < 1; t += STEP) {
+    game.ball.x = (face.x1 + face.x2) / 2 + 8;
+    game.ball.y = (face.y1 + face.y2) / 2 - 4;
+    game.ball.vx = -300;
+    game.ball.vy = 120;
+    game.update(STEP, {});
+  }
+  const ceiling = Math.ceil(1 / PHYS.coilReset) + 1;
+  check(fired <= ceiling, `held against the rubber for a second the coil fired ${fired} times, ceiling is ${ceiling}`);
+  check(fired > 0, 'held against the rubber for a second the coil never fired at all');
+});
+
+scenario('the machine goes looking for a ball that stops going anywhere', () => {
+  let searches = 0;
+  const game = createGame({ onEvent: (e) => { if (e === 'search') searches++; } });
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.state.ballSave = 0;
+  // Pin it in open felt, away from every flipper, until the machine notices.
+  // The pin is released the moment it does — holding the ball still through
+  // the shove would be measuring the test's grip, not the machine's.
+  let waited = 0;
+  for (let t = 0; t < RULES.ballSearch + 2 && searches === 0; t += STEP) {
+    game.ball.x = 250;
+    game.ball.y = 470;
+    game.ball.vx = 0;
+    game.ball.vy = 0;
+    game.update(STEP, {});
+    waited = t;
+  }
+  check(searches >= 1, `the ball sat still for ${(RULES.ballSearch + 2).toFixed(0)}s and the machine never looked for it`);
+  check(waited >= RULES.ballSearch - 1, `the machine went looking after only ${waited.toFixed(1)}s of stillness`);
+  const speed = Math.hypot(game.ball.vx, game.ball.vy);
+  check(speed > 200, `the search fired but only shoved the ball at ${speed.toFixed(0)}`);
+  play(game, 1.5);
+  check(Math.hypot(game.ball.x - 250, game.ball.y - 470) > RULES.searchBox,
+    `a second after the search the ball is still at ${game.ball.x.toFixed(0)},${game.ball.y.toFixed(0)}`);
+});
+
+scenario('a ball cradled on a flipper is not a lost ball', () => {
+  // Holding the ball on a raised flipper is the most useful thing a player can
+  // do with one. A ball search that shakes it loose is the machine taking the
+  // game away from somebody who is playing it well.
+  let searches = 0;
+  const game = createGame({ onEvent: (e) => { if (e === 'search') searches++; } });
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.state.ballSave = 0;
+  const f = game.table.flippers[0];
+  play(game, 0.3, { left: true });
+  const tip = flipperTip(f);
+  for (let t = 0; t < RULES.ballSearch + 3; t += STEP) {
+    game.ball.x = (f.px + tip.x) / 2;
+    game.ball.y = (f.py + tip.y) / 2 - game.ball.r - f.r + 1;
+    game.ball.vx = 0;
+    game.ball.vy = 0;
+    game.update(STEP, { left: true });
+  }
+  check(searches === 0, `a held ball was shaken off the flipper ${searches} time(s)`);
+});
+
 // ------------------------------------------------------------------ tilt
 
 scenario('three shoves is a TILT: dead flippers, no pay, cleared by the drain', () => {

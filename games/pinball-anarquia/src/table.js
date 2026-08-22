@@ -9,7 +9,7 @@ import { TABLE, FLIPPER, C } from './config.js';
 const T = TABLE;
 
 /** A capsule wall. */
-const wall = (x1, y1, x2, y2, rad = 6, extra = {}) => ({ x1, y1, x2, y2, rad, ...extra });
+const wall = (x1, y1, x2, y2, rad = 6, extra = {}) => ({ x1, y1, x2, y2, rad, friction: 0.06, ...extra });
 
 export function createTable() {
   const walls = [
@@ -45,14 +45,14 @@ export function createTable() {
     // ball wedges into the notch between their bottom corner and the shoe
     {
       id: 'slingL',
-      face: wall(142, 544, 186, 612, 5, { e: 0.4 }),
+      face: wall(142, 544, 186, 612, 5, { e: 0.4, friction: 0.34 }),
       body: [wall(186, 612, 142, 612, 5), wall(142, 612, 142, 544, 5)],
       n: norm(68, -44),
       flash: 0,
     },
     {
       id: 'slingR',
-      face: wall(346, 544, 302, 612, 5, { e: 0.4 }),
+      face: wall(346, 544, 302, 612, 5, { e: 0.4, friction: 0.34 }),
       body: [wall(302, 612, 346, 612, 5), wall(346, 612, 346, 544, 5)],
       n: norm(-68, -44),
       flash: 0,

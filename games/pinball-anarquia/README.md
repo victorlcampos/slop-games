@@ -68,6 +68,17 @@ rotate your device" card anywhere in here.
 - **Flippers that throw.** The collision takes the flipper arm's angular
   velocity into account, so a moving flipper adds energy instead of being a wall
   that happens to be tilted.
+- **A coil is an actuator, not an impulse.** Slingshots and bumpers throw the
+  rubber at a *speed*; a ball already leaving faster than the rubber is moving
+  gets nothing from them. Slow ball into a bumper: 180 in, 291 out. Fast ball:
+  700 in, 517 out — the rubber absorbed it and the coil had nothing to add.
+  That one property is why the table cannot resonate (below).
+- **Surfaces grip.** A bounce bleeds the component *along* the wall too, hard on
+  rubber and barely at all on the metal rails — so a ball skidding across
+  something slows down instead of skating on forever.
+- **The band, not the posts.** A slingshot's switch is a blade behind the rubber
+  band, and the band is stretched between two posts. Clipping a post is a
+  bounce; only the middle of the face fires the coil.
 - **Everything added late is a sensor.** The spinner, the orbit, the inlanes and
   the outlanes notice the ball and never touch it — which is the only reason
   this many shots could be added to a table that was already tuned. A sensor
@@ -86,6 +97,42 @@ rotate your device" card anywhere in here.
   arpeggio, noise hats, sine kick — scheduled ahead on the WebAudio clock. Every
   cabinet noise is an oscillator with an envelope, including the spinner, which
   is a run of clicks slowing down.
+
+## The ball that could not be lost
+
+A player got a ball wedged between the two slingshots and it stayed there. Not
+resting — bouncing, at a constant speed, from one to the other, for as long as
+they cared to watch. The simulation agreed: **twenty-one thousand slingshot hits
+in thirty seconds**, and the ball exactly where it started.
+
+Each kick *replaced* the ball's velocity with a fixed one. Gravity had been
+feeding the sideways component all the way down the table and the kick threw it
+away, so the ball left every slingshot at precisely the speed and angle it left
+the last one. Nothing in the loop could wind down, because nothing in the loop
+remembered anything.
+
+Four things came out of that, and each one is in the physics because a
+measurement asked for it:
+
+1. **Kicks became velocity-limited actuators** rather than impulses — see above.
+   This is the one that actually closes it: an actuator with a top speed cannot
+   sustain a cycle whose losses exceed it, and two facing each other stop being
+   a resonator.
+2. **Surfaces got friction.** Bouncing only ever touched the normal, so a ball
+   whose motion was almost entirely sideways arrived at each slingshot with
+   everything it had left the last one with.
+3. **Coils got a reset time.** The face was firing on every physics substep —
+   seven hundred times a second — which is how a ball that ever found its way
+   *behind* a slingshot stayed pinned there for good. It only fires from the
+   playfield side now, too.
+4. **A ball search**, for the traps nobody has found yet. A real machine notices
+   a ball it has not seen move and pulses its coils until it falls out. A ball
+   cradled on a raised flipper is exempt: that is the most useful thing a player
+   can do with one, and shaking it loose would be the machine taking the game
+   away from somebody playing it well.
+
+Five minutes of scripted play now spends at most **2.9 seconds** with the ball
+inside any 110-pixel box. It used to be *forever*.
 
 ## Two things that were only found by measuring
 

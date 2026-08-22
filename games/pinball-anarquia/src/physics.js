@@ -19,14 +19,25 @@ export function closestOnSegment(px, py, x1, y1, x2, y2) {
  * Reflect the ball's velocity off a surface with normal (nx,ny) moving at
  * (sx,sy). Only the approaching half is reflected — a ball already leaving is
  * left alone, which is what stops a resting ball from jittering.
+ *
+ * `friction` bleeds the component *along* the surface, and leaving it out is
+ * what let a ball skid back and forth across the tops of the two slingshots
+ * forever: bouncing only ever touched the normal, so a ball whose motion was
+ * almost entirely sideways arrived at each one with everything it had left the
+ * last one with. Steel on rubber does not work like that, and neither does
+ * steel on anything else.
  */
-export function reflect(ball, nx, ny, e, sx = 0, sy = 0) {
+export function reflect(ball, nx, ny, e, sx = 0, sy = 0, friction = 0) {
   const rvx = ball.vx - sx;
   const rvy = ball.vy - sy;
   const vn = rvx * nx + rvy * ny;
   if (vn >= 0) return 0;
-  ball.vx = rvx - (1 + e) * vn * nx + sx;
-  ball.vy = rvy - (1 + e) * vn * ny + sy;
+  // split into normal and tangential, treat each, put them back together
+  const tx = rvx - vn * nx;
+  const ty = rvy - vn * ny;
+  const k = 1 - friction;
+  ball.vx = tx * k - e * vn * nx + sx;
+  ball.vy = ty * k - e * vn * ny + sy;
   return -vn; // how hard the hit was, for whoever wants to score or flash it
 }
 
@@ -62,11 +73,11 @@ export function collideSegment(ball, seg, e = 0.5) {
 
   ball.x = q.x + nx * reach;
   ball.y = q.y + ny * reach;
-  return reflect(ball, nx, ny, seg.e !== undefined ? seg.e : e, seg.sx || 0, seg.sy || 0);
+  return reflect(ball, nx, ny, seg.e !== undefined ? seg.e : e, seg.sx || 0, seg.sy || 0, seg.friction || 0);
 }
 
 /** Resolve the ball against a solid circle (post, bumper body). */
-export function collideCircle(ball, cx, cy, r, e = 0.6) {
+export function collideCircle(ball, cx, cy, r, e = 0.6, friction = 0) {
   let nx = ball.x - cx;
   let ny = ball.y - cy;
   const dist = Math.hypot(nx, ny);
@@ -81,7 +92,7 @@ export function collideCircle(ball, cx, cy, r, e = 0.6) {
   }
   ball.x = cx + nx * reach;
   ball.y = cy + ny * reach;
-  return reflect(ball, nx, ny, e);
+  return reflect(ball, nx, ny, e, 0, 0, friction);
 }
 
 /**

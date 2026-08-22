@@ -67,6 +67,7 @@ function onEvent(type) {
     case 'save': sfx.save(); break;
     case 'kickback': sfx.kickback(); if (b) renderer.spark(b.x, b.y, C.green, 10, 320); break;
     case 'nudge': sfx.nudge(); break;
+    case 'search': sfx.kickback(); break;
     case 'spinner': sfx.spinner(game ? game.table.spinner.spin : 8); if (b) renderer.spark(b.x, b.y, C.yellow, 6, 200); break;
     case 'inlane': sfx.inlane(); break;
     case 'inlanes': sfx.inlanes(); break;

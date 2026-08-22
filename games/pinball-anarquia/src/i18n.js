@@ -58,6 +58,7 @@ export const DICT = {
   'msg.kickback': { en: 'MUTUAL AID KICKBACK', pt: 'APOIO MÚTUO — RESGATE' },
   'msg.kickbackLit': { en: 'KICKBACK LIT', pt: 'RESGATE ARMADO' },
   'msg.orbit': { en: 'ORBIT — ALL THE WAY ROUND', pt: 'ÓRBITA — VOLTA COMPLETA' },
+  'msg.search': { en: 'BALL SEARCH', pt: 'PROCURANDO A BOLA' },
 };
 
 export const i18n = createI18n({ dict: DICT });

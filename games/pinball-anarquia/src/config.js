@@ -48,9 +48,37 @@ export const PHYS = {
   airDrag: 0.06, // per second, linear
   wallBounce: 0.5,
   postBounce: 0.75,
-  bumperKick: 470, // outward speed a pop bumper sets
-  slingKick: 430,
+  // How much of the sideways component a surface takes off the ball. Steel on
+  // painted wood and metal rail barely grips; steel on the rubber round a
+  // slingshot or a bumper grips a lot, which is why a ball skidding along one
+  // slows down instead of skating on forever.
+  wallGrip: 0.06,
+  rubberGrip: 0.34,
+  // A kick is an impulse ADDED to the bounce, not a velocity that replaces it.
+  // Replacing it threw away the tangential component — the part gravity has
+  // been feeding all the way down the table — so a ball between the two
+  // slingshots left each one at exactly the speed and angle it left the last
+  // one, forever. Nothing in the loop could ever wind down, because nothing in
+  // the loop remembered anything.
+  bumperKick: 300,
+  slingKick: 300,
   slingMinHit: 60, // slower than this and the sling is just a wall
+  // ...and the coil only gives back what the ball put into the rubber. At a
+  // square hit it fires at full strength; a graze gets a proportional nudge.
+  // Flat strength for any contact at all is what let a ball skim the top
+  // corner of one slingshot, cross to the other, and be topped up again — a
+  // loop fed entirely by hits too glancing to deserve one.
+  slingFull: 260,
+  // The switch behind a slingshot is a blade behind the *band*, and the band is
+  // stretched between two posts. A ball that clips a post has not touched it.
+  // Firing on any contact with the face made the top posts into a pair of
+  // trampolines aimed at each other, and a ball skimming between them kept
+  // being topped up by a coil it never actually triggered.
+  slingBand: [0.2, 0.96],
+  // A coil has to reset before it can fire again. Without this the face fired
+  // on every physics substep — seven hundred times a second — which is how a
+  // ball that found its way behind a slingshot stayed pinned there for good.
+  coilReset: 0.09,
   substeps: 6, // per 1/120 update — keeps the ball from tunnelling a wall
 };
 
@@ -79,6 +107,12 @@ export const RULES = {
   nudge: 110, // px/s a shove adds
   maxMult: 5,
   extraBallAt: 200000,
+  // A real machine watches for a ball it has not seen score in a while and
+  // pulses its coils to shake it loose. This is that: the last resort behind
+  // every geometric fix, because the one thing a pinball table must never do
+  // is keep the ball and stop being a game.
+  ballSearch: 7, // seconds inside `searchBox` before the machine goes looking
+  searchBox: 90, // how far it has to travel to count as still playing
   score: {
     bumper: 100,
     sling: 50,

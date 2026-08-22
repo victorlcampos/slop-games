@@ -41,6 +41,8 @@ export function createGame({ onEvent } = {}) {
     holeCool: 0,
     loopFrom: null, // which end of the orbit the ball came in at
     loopTimer: 0,
+    searchFrom: null, // where the ball was when it last went somewhere
+    searchTimer: 0,
     spins: 0,
     bankTimer: 0,
     message: null, // { key, values }
@@ -158,12 +160,63 @@ export function createGame({ onEvent } = {}) {
     }
   }
 
+
+  /**
+   * The ball search.
+   *
+   * Every geometric fix in this file is a fix for a trap somebody found. This
+   * is the one for the traps nobody has found yet: a real machine notices a
+   * ball it has not seen move and pulses its coils until it falls out, and the
+   * one thing a pinball table must never do is keep the ball and stop being a
+   * game.
+   *
+   * A ball cradled on a raised flipper is not a lost ball — it is the single
+   * most useful thing a player can do with one — so held balls never age the
+   * timer, however long the player holds them.
+   */
+  function ballSearch(h) {
+    if (state.phase !== 'play') {
+      state.searchFrom = null;
+      state.searchTimer = 0;
+      return;
+    }
+    if (onFlipper()) {
+      state.searchTimer = 0;
+      return;
+    }
+    if (!state.searchFrom || Math.hypot(ball.x - state.searchFrom.x, ball.y - state.searchFrom.y) > RULES.searchBox) {
+      state.searchFrom = { x: ball.x, y: ball.y };
+      state.searchTimer = 0;
+      return;
+    }
+    state.searchTimer += h;
+    if (state.searchTimer < RULES.ballSearch) return;
+
+    // shove it toward the middle and down the table, where the flippers are
+    ball.vx += (ball.x < TABLE.right / 2 ? 1 : -1) * 150;
+    ball.vy += 340;
+    state.searchFrom = null;
+    state.searchTimer = 0;
+    say('msg.search');
+    emit('search');
+  }
+
+  /** Is the ball sitting against a flipper? */
+  function onFlipper() {
+    for (const f of table.flippers) {
+      const tip = flipperTip(f);
+      const q = closestOnSegment(ball.x, ball.y, f.px, f.py, tip.x, tip.y);
+      if (Math.hypot(ball.x - q.x, ball.y - q.y) < ball.r + f.r + 4) return true;
+    }
+    return false;
+  }
+
   function physicsStep(dt) {
     integrate(ball, dt, PHYS.gravity, PHYS.airDrag, PHYS.maxSpeed);
     collideArchInside(ball, table.arch, PHYS.wallBounce);
 
     for (const w of table.walls) collideSegment(ball, w, PHYS.wallBounce);
-    for (const p of table.posts) collideCircle(ball, p.x, p.y, p.r, PHYS.postBounce);
+    for (const p of table.posts) collideCircle(ball, p.x, p.y, p.r, PHYS.postBounce, PHYS.rubberGrip);
 
     for (const t of table.targets) {
       if (!t.up) continue;
@@ -187,33 +240,56 @@ export function createGame({ onEvent } = {}) {
 
     for (const s of table.slings) {
       for (const w of s.body) collideSegment(ball, w, PHYS.wallBounce);
+      // where along the face it landed, read before the bounce moves the ball
+      const q = closestOnSegment(ball.x, ball.y, s.face.x1, s.face.y1, s.face.x2, s.face.y2);
       const hit = collideSegment(ball, s.face);
-      if (hit > PHYS.slingMinHit && state.phase === 'play') {
-        const tx = -s.n.y;
-        const ty = s.n.x;
-        const vt = ball.vx * tx + ball.vy * ty;
-        ball.vx = s.n.x * PHYS.slingKick + tx * vt * 0.4;
-        ball.vy = s.n.y * PHYS.slingKick + ty * vt * 0.4;
-        s.flash = 1;
-        addScore(RULES.score.sling);
-        emit('sling');
-        missionWatch('sling');
+
+      // The rubber is always there; the coil behind it is not. It fires for a
+      // ball that hit the band — not a post at either end — from the playfield
+      // side, and only once its reset has elapsed. A ball that has somehow got
+      // *behind* the slingshot would otherwise be kicked further in, every
+      // step, for the rest of the game.
+      const onBand = q.t > PHYS.slingBand[0] && q.t < PHYS.slingBand[1];
+      const outside = (ball.x - s.face.x1) * s.n.x + (ball.y - s.face.y1) * s.n.y > 0;
+      if (!outside || !onBand || s.cool > 0 || hit <= PHYS.slingMinHit || state.phase !== 'play') continue;
+
+      // A coil throws the band at a speed. It cannot push a ball that is
+      // already leaving faster than the band is moving — so the sling brings
+      // the outgoing speed *up to* that, and adds nothing to a ball that
+      // beat it. Adding a flat impulse instead is an actuator with infinite
+      // power, and two of those facing each other across a table will hold a
+      // ball between them for as long as the machine is switched on.
+      const power = Math.min(1, hit / PHYS.slingFull);
+      const target = PHYS.slingKick * power;
+      const out = ball.vx * s.n.x + ball.vy * s.n.y;
+      if (out < target) {
+        ball.vx += s.n.x * (target - out);
+        ball.vy += s.n.y * (target - out);
       }
+      s.cool = PHYS.coilReset;
+      s.flash = 1;
+      addScore(RULES.score.sling);
+      emit('sling');
+      missionWatch('sling');
     }
 
     for (const b of table.bumpers) {
-      if (collideCircle(ball, b.x, b.y, b.r, PHYS.postBounce) > 0) {
-        const d = Math.hypot(ball.x - b.x, ball.y - b.y) || 1;
-        const nx = (ball.x - b.x) / d;
-        const ny = (ball.y - b.y) / d;
-        ball.vx = nx * PHYS.bumperKick + ball.vx * 0.25;
-        ball.vy = ny * PHYS.bumperKick + ball.vy * 0.25;
-        b.flash = 1;
-        state.bumperHits += 1;
-        addScore(RULES.score.bumper);
-        emit('bumper');
-        missionWatch('bumper');
+      if (collideCircle(ball, b.x, b.y, b.r, PHYS.postBounce, PHYS.rubberGrip) <= 0) continue;
+      if (b.cool > 0) continue; // still a mushroom to bounce off, just not a live one
+      const d = Math.hypot(ball.x - b.x, ball.y - b.y) || 1;
+      const nx = (ball.x - b.x) / d;
+      const ny = (ball.y - b.y) / d;
+      const outward = ball.vx * nx + ball.vy * ny;
+      if (outward < PHYS.bumperKick) {
+        ball.vx += nx * (PHYS.bumperKick - outward);
+        ball.vy += ny * (PHYS.bumperKick - outward);
       }
+      b.cool = PHYS.coilReset;
+      b.flash = 1;
+      state.bumperHits += 1;
+      addScore(RULES.score.bumper);
+      emit('bumper');
+      missionWatch('bumper');
     }
 
     for (const f of table.flippers) {
@@ -351,6 +427,9 @@ export function createGame({ onEvent } = {}) {
   function update(h, input = {}) {
     if (state.msgTimer > 0) state.msgTimer = Math.max(0, state.msgTimer - h);
     if (state.holeCool > 0) state.holeCool = Math.max(0, state.holeCool - h);
+    for (const c of [...table.slings, ...table.bumpers]) {
+      if (c.cool > 0) c.cool = Math.max(0, c.cool - h);
+    }
     if (state.loopTimer > 0) {
       state.loopTimer -= h;
       if (state.loopTimer <= 0) state.loopFrom = null;
@@ -404,6 +483,7 @@ export function createGame({ onEvent } = {}) {
     }
 
     // play
+    ballSearch(h);
     if (input.nudgeL) nudge(RULES.nudge, -30);
     if (input.nudgeR) nudge(-RULES.nudge, -30);
     if (input.nudgeUp) nudge(0, -RULES.nudge);
