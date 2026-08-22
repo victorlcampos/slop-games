@@ -10,7 +10,7 @@
 //      them. That gap is the whole illusion: it is what tells you a bumper is
 //      a thing sticking out of the playfield and not a circle printed on it.
 
-import { C, PLUNGER } from '../config.js';
+import { C, PLUNGER, plungerClears } from '../config.js';
 import { flipperTip } from '../table.js';
 import { STRINGS, ROSETTE, INSERTS, LADDER, lampOn } from './lights.js';
 import { alpha, mix, glow, circleA, roundRect, castShadow, LIGHT } from './util.js';
@@ -670,10 +670,21 @@ function plunger(ctx, P, game) {
   ctx.fillStyle = alpha('#ffffff', 0.5);
   ctx.fillRect(a.x - 13 * k, a.y - 5 * k, 26 * k, 1.6 * k);
 
+  // The meter, with the line on it. A plunge short of that mark goes up the
+  // lane and comes straight back down — which is what a real plunger does, and
+  // which read as a broken game for as long as nothing on screen said where
+  // the line was. Below it the bar is red and it is a rehearsal; past it the
+  // bar is green and the ball is going somewhere.
+  const gate = Math.min(1, plungerClears() / PLUNGER.travel);
+  const w0 = 15 * k;
+  ctx.fillStyle = alpha('#000000', 0.55);
+  ctx.fillRect(b.x - w0, b.y + 4 * k, w0 * 2, 4 * k);
   if (charge > 0) {
-    ctx.fillStyle = C.red;
-    ctx.fillRect(b.x - 15 * k, b.y + 4 * k, 30 * k * charge, 4 * k);
+    ctx.fillStyle = charge < gate ? C.red : C.green;
+    ctx.fillRect(b.x - w0, b.y + 4 * k, w0 * 2 * charge, 4 * k);
   }
+  ctx.fillStyle = alpha(C.bright, 0.9);
+  ctx.fillRect(b.x - w0 + w0 * 2 * gate - 0.8 * k, b.y + 2 * k, 1.6 * k, 8 * k);
   ctx.restore();
 }
 

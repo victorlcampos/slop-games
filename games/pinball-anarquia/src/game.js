@@ -525,6 +525,8 @@ export function createGame({ onEvent } = {}) {
         && Math.abs(ball.vy) < 40) {
       state.phase = 'plunger';
       state.skillArmed = false;
+      say('msg.shortPlunge');
+      emit('shortPlunge');
     }
   }
 

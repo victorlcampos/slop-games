@@ -8,7 +8,7 @@ import { missingKeys } from 'slopkit';
 import { createGame } from '../src/game.js';
 import { DICT } from '../src/i18n.js';
 import { reflect, closestOnSegment, collideSegment } from '../src/physics.js';
-import { PLUNGER, plungerSpeed, RULES, TABLE, PHYS, FLIPPER, MISSIONS, RANKS } from '../src/config.js';
+import { PLUNGER, plungerSpeed, plungerClears, LANE_ESCAPE, RULES, TABLE, PHYS, FLIPPER, MISSIONS, RANKS } from '../src/config.js';
 import { flipperTip } from '../src/table.js';
 
 const STEP = 1 / 120;
@@ -176,27 +176,88 @@ scenario('the rod is a wall even when nobody is touching it', () => {
   check(game.state.balls === RULES.balls, 'a ball in the shooter lane drained');
 });
 
-scenario('a launch finds the table, not the drain', () => {
-  // Where the deflector post above the wormhole stands decides what every
-  // launch does, and it is not obvious by eye: one position twelve pixels away
-  // from the one in the table sent nine launches in ten down the right-hand
-  // side and out of the outlane without touching a single scoring thing. This
-  // fires every pull strength that clears the lane, with nobody on the
-  // flippers, and counts how many find something.
-  const LIVE = ['bumper', 'sling', 'target', 'hole', 'rollover', 'spinner', 'orbit'];
-  let cleared = 0;
-  let found = 0;
-  for (let hold = 0.4; hold <= PLUNGER.pullTime; hold += 0.01) {
-    const seen = [];
-    const game = createGame({ onEvent: (e) => seen.push(e) });
-    play(game, hold, { plunger: true });
-    play(game, 8);
-    if (!game.state.inPlayfield && !seen.includes('drain') && !seen.includes('save')) continue;
-    cleared++;
-    if (seen.some((e) => LIVE.includes(e))) found++;
+scenario('the mark on the plunger meter is where the lane really ends', () => {
+  // The meter draws a line at plungerClears(), and the whole point of the line
+  // is that it is true. Binary-search what it actually costs to get out of the
+  // shooter lane and check the constant behind the line still matches.
+  let lo = 600;
+  let hi = 1600;
+  for (let i = 0; i < 20; i++) {
+    const v = (lo + hi) / 2;
+    const game = createGame({});
+    game.state.phase = 'play';
+    game.ball.vy = -v;
+    let out = false;
+    for (let t = 0; t < 3; t += STEP) {
+      game.update(STEP, {});
+      if (game.state.inPlayfield) { out = true; break; }
+    }
+    if (out) hi = v; else lo = v;
   }
-  check(cleared > 8, `only ${cleared} pull strengths reached the playfield at all`);
-  check(found / cleared > 0.35, `${found} of ${cleared} launches touched anything scoring on the way down`);
+  check(Math.abs(hi - LANE_ESCAPE) < 60, `getting out of the lane costs ${hi.toFixed(0)}, the meter is drawn for ${LANE_ESCAPE}`);
+  check(plungerClears() < PLUNGER.travel * 0.55,
+    `the mark sits at ${(100 * plungerClears() / PLUNGER.travel).toFixed(0)}% of the pull — most of the plunger does nothing`);
+  check(plungerSpeed(PLUNGER.travel) > hi * 2, `a full pull throws ${plungerSpeed(PLUNGER.travel).toFixed(0)} against a lane that costs ${hi.toFixed(0)}`);
+});
+
+scenario('a launch that reaches the playfield can be played', () => {
+  // The complaint this exists for: "I threw the ball dozens of times and no
+  // matter the force it always fell straight down." It did. Of the pulls that
+  // cleared the lane at all, three in nineteen ever came anywhere a flipper
+  // could touch — the top orbit was sealed by two guides standing proud of the
+  // arch, and everything that came over the top fell down the right-hand side
+  // through seventy pixels of open air into the outlane.
+  //
+  // Holding both flippers up is the wrong question: a raised flipper cannot
+  // catch a ball skimming across the top of it. So each launch is replayed
+  // with the flippers raised at a dozen different moments, and it counts as
+  // playable if any one of them gets a touch.
+  const saveable = (hold) => {
+    for (let delay = 0; delay <= 0.6; delay += 0.06) {
+      let hit = false;
+      const game = createGame({ onEvent: (e) => { if (e === 'flipperHit') hit = true; } });
+      play(game, hold, { plunger: true });
+      let out = false;
+      let raiseAt = null;
+      for (let t = 0; t < 16; t += STEP) {
+        if (raiseAt === null && out && game.ball.y > 540 && game.ball.vy > 0) raiseAt = t + delay;
+        const up = raiseAt !== null && t >= raiseAt;
+        game.update(STEP, up ? { left: true, right: true } : {});
+        if (game.state.inPlayfield) out = true;
+        if (hit) return { out, saved: true };
+        if (game.ball.y > 700 && game.ball.vy > 0) break;
+      }
+      if (!out) return { out: false, saved: false };
+    }
+    return { out: true, saved: false };
+  };
+
+  let cleared = 0;
+  let saved = 0;
+  const lost = [];
+  for (let hold = 0.15; hold <= PLUNGER.pullTime; hold += 0.02) {
+    const r = saveable(hold);
+    if (!r.out) continue;
+    cleared++;
+    if (r.saved) saved++; else lost.push(hold.toFixed(2));
+  }
+  check(cleared > 12, `only ${cleared} pull strengths reached the playfield`);
+  check(saved / cleared > 0.85, `${saved} of ${cleared} launches were saveable; unsaveable at ${lost.join(', ')}`);
+});
+
+scenario('the hardest pull goes all the way round the top', () => {
+  // A plunger whose best shot cannot make the orbit is a plunger with one
+  // outcome — and for a while this one could not, because the top rollover
+  // guides stood three and seven pixels proud of the arch's inner surface and
+  // sealed it. Nothing about the picture says so.
+  const game = createGame({});
+  launch(game, PLUNGER.pullTime);
+  let leftmost = 999;
+  for (let t = 0; t < 4; t += STEP) {
+    game.update(STEP, {});
+    leftmost = Math.min(leftmost, game.ball.x);
+  }
+  check(leftmost < 60, `a full plunge only reached x=${leftmost.toFixed(0)} — it never got round the top`);
 });
 
 // ------------------------------------------------------------------ flippers
@@ -587,16 +648,20 @@ scenario('a wedged ball touching a flapping flipper is still looked for', () => 
   check(searches > 0, 'the machine never went looking for a ball pinned on the flipper pivot');
 });
 
-scenario('nowhere on the lower table is a place a ball can come to rest', () => {
+scenario('nowhere on the table is a place a ball can come to rest', () => {
   // The regression test for every trap a player has reported. Put a dead ball
   // everywhere one could legally be, and give the whole machine — geometry
   // first, ball search as the last resort — twelve seconds to give it back. A
   // pinball table that keeps the ball has stopped being a game.
+  //
+  // It covers the whole table and not just the flipper end, because the third
+  // trap this caught was a notch at the *top* of a guide rail, eight pixels
+  // wide, four hundred pixels away from anywhere a ball is normally lost.
   const probe = createGame({}).table;
   const stuck = [];
   let tried = 0;
   for (let x = 22; x <= 468; x += 8) {
-    for (let y = 480; y <= 660; y += 10) {
+    for (let y = 300; y <= 660; y += 12) {
       if (!clearOfEverything(probe, x, y)) continue;
       tried++;
       const game = createGame({});
@@ -615,7 +680,7 @@ scenario('nowhere on the lower table is a place a ball can come to rest', () => 
       if (!gone && stuck.length < 6) stuck.push(`(${x},${y}) -> (${game.ball.x.toFixed(0)},${game.ball.y.toFixed(0)})`);
     }
   }
-  check(tried > 500, `only ${tried} of the lower table was reachable — the probe is measuring nothing`);
+  check(tried > 1000, `only ${tried} of the table was reachable — the probe is measuring nothing`);
   check(stuck.length === 0, `a ball came to rest at ${stuck.join('  ')}`);
 });
 

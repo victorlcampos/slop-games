@@ -68,6 +68,10 @@ rotate your device" card anywhere in here.
 - **Flippers that throw.** The collision takes the flipper arm's angular
   velocity into account, so a moving flipper adds energy instead of being a wall
   that happens to be tilted.
+- **The plunger meter has a line on it**, and the line is the truth: below it a
+  plunge cannot climb out of the shooter lane, so the bar is red and the ball
+  comes back; past it the bar is green. A scenario re-measures the lane and
+  fails if the drawn line and the physics disagree.
 - **The plunger is a rod on a spring.** Not a number assigned to the ball: a
   capsule across the bottom of the shooter lane, in the collision list like any
   other wall. Hold the button and your hand draws it down and the ball rides it
@@ -156,6 +160,50 @@ machine twelve seconds to give each one back. It found all three. Six minutes of
 scripted flailing now spends at most **2.6 seconds** with the ball inside a
 26-pixel box; before, it spent **eighty-four**.
 
+## Always fell straight down
+
+> *"I literally threw the ball dozens of times and no matter the force it
+> always fell straight down."*
+
+Measured, that was 21 pull strengths out of 40 that never left the shooter
+lane, and — of the 19 that did — **three** that ever put the ball anywhere a
+flipper could touch it. Thirty-seven plunges out of forty ended in a ball you
+could not play. Four separate things, none of them visible in the picture:
+
+1. **The top orbit was sealed.** A ball riding the arch clears one of the top
+   lane guides only if that guide's cap is more than a ball's diameter below
+   the arch's inner surface at that x. Two of the four stood *proud* of it — by
+   three pixels and by seven. No launch at any speed, up to and past the
+   game's own speed limit, ever got further left than x=214. On screen the
+   guides look exactly like a comb you could whip a ball over.
+2. **The plunger could not have made it anyway.** Reaching the crown of the
+   arch from the rod costs 1300 px/s, and arriving with anything left costs
+   about 1450. The spring's hardest pull was 1340. A plunger whose best shot
+   cannot make the orbit is a plunger with one outcome.
+3. **The right-hand side was a funnel into the outlane.** Between the top of
+   the inlane divider and the shooter lane there were seventy pixels of open
+   air, and everything that came over the top of the table fell through them.
+   The renderer had drawn a habitrail down that side for months — *"the right
+   one is the habitrail that brings the ball back down"* — and the physics had
+   never had anything there at all. It does now, along the rail the picture
+   already draws.
+4. **The left orbit's return was one ball wide.** The gap between the left rail
+   and the top of the drop-target bank measured exactly eighteen pixels, and a
+   ball is eighteen pixels. Anything that did come round the top slipped down
+   the outside of the bank and into the left outlane.
+
+Now: 20 pulls in 57 stay in the lane — that is a real plunger and a tall lane,
+and it is why the meter has a line on it — and of the 37 that leave, **37 are
+saveable**.
+
+"Saveable" is measured with some care, because the obvious way to ask is wrong.
+Holding both flippers up for the whole descent looks like the generous test and
+is actually the strict one: a flipper that is *already* raised cannot catch a
+ball skimming across the top of it, and the paths that were failing were
+missing a held flipper by half a pixel. So each launch is replayed with the
+flippers raised at a dozen different moments, and it counts only if one of them
+gets a touch.
+
 ## The ball that could not be lost
 
 A player got a ball wedged between the two slingshots and it stayed there. Not
@@ -206,7 +254,13 @@ strength with nobody on the flippers and count how many launches touch anything
 that scores: from where it used to stand, **nine in ten touched nothing at all**
 — down the right-hand side, out of the outlane, gone. Twelve pixels away, more
 than half of them find something. Nothing about the picture says so; a post is a
-post. That measurement is a scenario now.
+post.
+
+The trap sweep covers the whole table for the same reason, and not just the
+flipper end where balls are normally lost: the third trap it caught was a notch
+eight pixels wide at the *top* of a guide rail, four hundred pixels from
+anywhere a player would look. A ball that found it stayed for forty-two
+seconds.
 
 And a frame used to cost 110 ms. Two full-screen gradients for a room that never
 changes, three full-table composites for layers that never change, a backglass

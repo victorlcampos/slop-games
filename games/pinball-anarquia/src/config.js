@@ -44,7 +44,7 @@ export const TABLE = {
 export const PHYS = {
   gravity: 1350, // the table's slope, in px/s^2
   ballR: 9,
-  maxSpeed: 1700,
+  maxSpeed: 2600,
   airDrag: 0.06, // per second, linear
   wallBounce: 0.5,
   postBounce: 0.75,
@@ -104,14 +104,30 @@ export const PLUNGER = {
   pullTime: 0.55, // seconds of holding to draw it all the way
   // Spring stiffness, in 1/s^2. Released from a pull of `p`, simple harmonic
   // motion puts the rod at the stop doing p*sqrt(k) — so a full pull leaves at
-  // 34 * sqrt(1553) = 1340 px/s, and every shorter pull is proportionally
+  // 34 * sqrt(2740) = 1780 px/s, and every shorter pull is proportionally
   // slower with nothing to tune.
-  k: 1553,
+  //
+  // 1780 is not a feel number, it is the top of the table: 1300 px/s is what
+  // it costs to reach the crown of the arch from the rod, and anything less
+  // than about 1450 arrives there with nothing left and falls back down the
+  // right-hand side instead of going round. A plunger whose hardest pull
+  // cannot make the orbit is a plunger with one outcome.
+  k: 5200,
   baseY: 716, // the cabinet front the spring pushes off
 };
 
 /** What a pull of `p` pixels throws the ball at. */
 export const plungerSpeed = (p) => p * Math.sqrt(PLUNGER.k);
+
+// What it costs to get out of the shooter lane. The ball has to climb from the
+// rod to where the arch can bend it left, and anything short of that goes up,
+// comes back, and lands on the rod again — which is what a real plunger does,
+// and is also exactly what a player reads as "the game is broken" when nothing
+// on screen says so. Measured, not guessed; a scenario re-measures it.
+export const LANE_ESCAPE = 1013;
+
+/** How far back the rod has to come before the plunge is worth anything. */
+export const plungerClears = () => LANE_ESCAPE / Math.sqrt(PLUNGER.k);
 
 export const RULES = {
   balls: 3,

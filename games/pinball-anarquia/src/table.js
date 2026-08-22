@@ -26,14 +26,38 @@ export function createTable() {
     // a ball on its way up. The normal points up-left, out of the lane.
     wall(470, 298, 508, 278, 4, { id: 'gate', oneway: norm(-20, -38), e: 0.2 }),
 
-    // top rollover lane guides, hanging from the arch
-    wall(136, 56, 136, 140, 5, { id: 'lg0', e: 0.35 }),
-    wall(208, 30, 208, 140, 5, { id: 'lg1', e: 0.35 }),
-    wall(280, 30, 280, 140, 5, { id: 'lg2', e: 0.35 }),
+    // Top rollover lane guides, hanging from the arch. Their tops follow the
+    // arch, and they have to: a ball riding the arch round the top clears a
+    // guide only if its cap is more than a ball's diameter below the arch's
+    // inner surface at that x, and lg0 and lg1 used to stand three and seven
+    // pixels *proud* of it. The top orbit was sealed. Nothing on screen said
+    // so — the guides look like a comb you could whip a ball over — and it is
+    // why every launch, at every strength, dribbled down the right-hand side
+    // into the outlane instead of going round.
+    wall(136, 74, 136, 140, 5, { id: 'lg0', e: 0.35 }),
+    wall(208, 44, 208, 140, 5, { id: 'lg1', e: 0.35 }),
+    wall(280, 38, 280, 140, 5, { id: 'lg2', e: 0.35 }),
     wall(352, 56, 352, 140, 5, { id: 'lg3', e: 0.35 }),
 
-    // the wall the drop targets stand in front of
-    wall(44, 310, 102, 442, 6, { id: 'targetBack', e: 0.3 }),
+    // The wall the drop targets stand in front of. It reaches the left rail:
+    // the gap it used to leave was exactly one ball wide, so everything that
+    // came round the top orbit slipped down the outside of the target bank and
+    // straight into the left outlane. An orbit should return the ball to the
+    // playfield; an outlane is fed from below, by a ball that missed a flipper.
+    wall(22, 290, 102, 442, 6, { id: 'targetBack', e: 0.3 }),
+
+    // The lower half of the right habitrail, which the renderer has always
+    // drawn as "the one that brings the ball back down" and the physics has
+    // always ignored. It is a wall now, and together with the divider below it
+    // the right outlane is an outlane instead of a funnel: everything that came
+    // over the top of the table used to cross seventy pixels of open air and
+    // drop straight into it.
+    // It runs along the rail the renderer already draws down that side of the
+    // habitrail, and it has to *reach* the lane wall: an end cap eight pixels
+    // short of it is a notch a ball drops into and stays in, which is the same
+    // mistake as the flipper's pivot in a different corner of the table.
+    wall(463, 352, 455, 440, 5, { id: 'railR0', e: 0.3 }),
+    wall(455, 440, 404, 524, 5, { id: 'railR1', e: 0.3 }),
 
     // Inlane dividers and the shoes that feed the flippers. The shoe used to
     // aim straight at the flipper's pivot, which meant the pivot's round cap
@@ -43,7 +67,7 @@ export function createTable() {
     // pivot and onto the flipper instead of into a corner.
     wall(88, 545, 118, 640, 5, { id: 'inL' }),
     wall(118, 640, 158, 652, 5, { id: 'shoeL' }),
-    wall(400, 545, 370, 640, 5, { id: 'inR' }),
+    wall(404, 524, 370, 640, 5, { id: 'inR' }),
     wall(370, 640, 330, 652, 5, { id: 'shoeR' }),
   ];
 

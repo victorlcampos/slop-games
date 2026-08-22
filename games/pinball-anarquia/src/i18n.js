@@ -48,6 +48,7 @@ export const DICT = {
   'mission.slings.how': { en: 'trip the slingshots {n} times', pt: 'dispare os slingshots {n} vezes' },
 
   'msg.launch': { en: 'PULL THE PLUNGER', pt: 'PUXE O LANÇADOR' },
+  'msg.shortPlunge': { en: 'TOO SHORT — PULL PAST THE MARK', pt: 'CURTO — PUXE ALÉM DA MARCA' },
   'msg.skillShot': { en: 'SKILL SHOT +2000', pt: 'TIRO CERTEIRO +2000' },
   'msg.ballSaved': { en: 'BALL SAVED', pt: 'BOLA SALVA' },
   'msg.tilt': { en: 'TILT — HANDS OFF THE MACHINE', pt: 'TILT — TIRE AS MÃOS DA MÁQUINA' },
