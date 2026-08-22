@@ -141,6 +141,15 @@
     cursor: pointer;
   }
 
+  /* Upright, the score display runs across the top and leaves a gutter on its
+     right for these — so they stack into it instead of sitting over the table,
+     where every tap is a flipper. */
+  @media (max-aspect-ratio: 1 / 1) {
+    .corner { flex-direction: column; align-items: flex-end; gap: 0.3rem; padding: 0.4rem 0.35rem; }
+    .corner [data-lang-picker] { flex-direction: column; }
+    .icon { font-size: 1rem; padding: 0.15rem 0.35rem; }
+  }
+
   #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #565f89; z-index: 5; }
   /* `hidden` loses to `display: grid` — without this the line never leaves the screen */
   #boot[hidden] { display: none; }

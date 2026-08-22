@@ -28,8 +28,9 @@ export const C = {
   magenta: '#ad8ee6',
 };
 
-// The playfield strip of the frame. Everything left of `right` is table;
-// the backglass panel starts at PANEL.x.
+// The playfield the simulation runs on, in its own coordinates. Where any of
+// it lands on screen is not a constant — it depends on the shape of the
+// window, and render/layout.js works that out.
 export const TABLE = {
   left: 14,
   right: 510,
@@ -39,10 +40,6 @@ export const TABLE = {
   arch: { cx: 262, cy: 252, r: 248 },
   drainY: 738, // past this the ball is gone
 };
-
-// The backglass. The table is drawn in perspective and its widest row is the
-// near edge, so the panel starts where that row ends — see render/project.js.
-export const PANEL = { x: 610, w: FRAME - 610 - 16 };
 
 export const PHYS = {
   gravity: 1350, // the table's slope, in px/s^2

@@ -180,9 +180,17 @@ function paintedRegions(g) {
   paintedField(g, [[120, 30], [372, 30], [372, 148], [120, 148]], C.blue, 0.34);
   paintedField(g, [[28, 566], [128, 566], [128, 700], [40, 700]], C.red, 0.3);
   paintedField(g, [[400, 566], [468, 566], [462, 700], [400, 700]], C.red, 0.3);
-  // the plate the drop targets stand on, so they read as a bank and not as
-  // three sticks floating over the felt
-  paintedField(g, [[28, 306], [66, 296], [122, 430], [84, 446]], C.red, 0.42);
+  // The plate the drop targets stand on. It is dark rather than red: the
+  // targets themselves are the red thing, and printing the plate in their own
+  // colour was what made a standing target disappear into its own backing.
+  g.beginPath();
+  [[26, 304], [68, 294], [124, 432], [82, 448]].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.closePath();
+  g.fillStyle = 'rgba(8,8,18,0.72)';
+  g.fill();
+  g.strokeStyle = alpha(C.red, 0.8);
+  g.lineWidth = 2;
+  g.stroke();
 
   // the shooting lane, in the warm brown the original used for its wood
   const lane = g.createLinearGradient(478, 0, 508, 0);
@@ -213,6 +221,28 @@ function paintedRegions(g) {
     g.moveTo(233 + Math.cos(a) * 66, 263 + Math.sin(a) * 66);
     g.lineTo(233 + Math.cos(a) * 148, 263 + Math.sin(a) * 148);
     g.stroke();
+  }
+
+  // the drain, painted like something you are being pulled into
+  {
+    const dg = g.createRadialGradient(245, 726, 10, 245, 726, 150);
+    dg.addColorStop(0, alpha(C.red, 0.5));
+    dg.addColorStop(0.5, alpha(C.magenta, 0.24));
+    dg.addColorStop(1, alpha(C.magenta, 0));
+    g.fillStyle = dg;
+    g.fillRect(95, 596, 300, 124);
+    g.strokeStyle = alpha(C.red, 0.42);
+    g.lineWidth = 2;
+    for (let i = 0; i < 9; i++) {
+      const a = PI + (i / 8) * PI;
+      g.beginPath();
+      g.moveTo(245 + Math.cos(a) * 44, 726 + Math.sin(a) * 44);
+      g.lineTo(245 + Math.cos(a) * 122, 726 + Math.sin(a) * 122);
+      g.stroke();
+    }
+    g.globalAlpha = 0.5;
+    circleA(g, 245, 690, 30, C.red, 3.4);
+    g.globalAlpha = 1;
   }
 
   // painted apron under the flippers
@@ -284,6 +314,27 @@ function ramps(g) {
 
 function wireform(g, path, halfWidth, color) {
   const pts = samplePath(path, 40);
+
+  // A ramp painted flat on the felt is a stripe. The shadow under it — offset
+  // down-screen, the way everything else here casts — is the whole difference
+  // between a stripe and something the ball climbs.
+  g.save();
+  g.beginPath();
+  pts.forEach((q, i) => {
+    const x = q.x + q.nx * (halfWidth + 3);
+    const y = q.y + q.ny * (halfWidth + 3) + 9;
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  });
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const q = pts[i];
+    g.lineTo(q.x - q.nx * (halfWidth + 3), q.y - q.ny * (halfWidth + 3) + 9);
+  }
+  g.closePath();
+  g.fillStyle = 'rgba(4,5,12,0.5)';
+  g.fill();
+  g.restore();
+
   const side = (sign) => {
     g.beginPath();
     pts.forEach((p, i) => {

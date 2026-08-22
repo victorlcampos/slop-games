@@ -126,6 +126,30 @@ export const STRINGS = [
       11
     ),
   },
+  {
+    id: 'outlane-left',
+    color: C.red,
+    r: 3,
+    chase: 'alt',
+    speed: 3.2,
+    lamps: pathLamps([{ x: 52, y: 590 }, { x: 46, y: 634 }, { x: 52, y: 678 }], 6),
+  },
+  {
+    id: 'outlane-right',
+    color: C.red,
+    r: 3,
+    chase: 'alt',
+    speed: -3.2,
+    lamps: pathLamps([{ x: 438, y: 590 }, { x: 444, y: 634 }, { x: 438, y: 678 }], 6),
+  },
+  {
+    id: 'drain-fan',
+    color: C.magenta,
+    r: 3,
+    chase: 'run',
+    speed: 3,
+    lamps: arcLamps(245, 726, 118, PI * 1.08, PI * 1.92, 11),
+  },
 ];
 
 /**

@@ -21,9 +21,15 @@ const applyTitle = () => { document.title = t('page.title'); };
 applyTitle();
 i18n.onChange(applyTitle);
 
-// The table and its backglass sit side by side, the way the Space Cadet window
-// did — upright, the kit lays the canvas on its side (CLAUDE.md, section 2b).
-const vp = createViewport(canvas, { height: H, frame: 1280, landscape: true });
+// No forced landscape here, and that is the point. A pinball machine is a tall
+// thing and so is a phone held upright: turning the canvas would give the
+// player a table lying on its side for no reason. The renderer reads the shape
+// of the frame instead — narrow puts the display across the top with the table
+// under it, wide stands the backglass beside it (see render/layout.js). The
+// kit's minimum width has to come down for that: its default of 1040 is wider
+// than a portrait phone's whole logical frame, and the clamp would push half
+// the table off the screen.
+const vp = createViewport(canvas, { height: H, minWidth: 330, maxWidth: 1900 });
 
 const vault = createSave({
   game: 'pinball-anarquia',
