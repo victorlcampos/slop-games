@@ -425,23 +425,7 @@ function arrowsAndSigns(g) {
     g.restore();
   }
 
-  // a spinner hanging in the left orbit
-  g.save();
-  g.translate(120, 205);
-  g.fillStyle = '#12162a';
-  roundRect(g, -14, -18, 28, 36, 3);
-  g.fill();
-  g.strokeStyle = C.bright;
-  g.lineWidth = 1.6;
-  g.stroke();
-  g.strokeStyle = alpha(C.cyan, 0.8);
-  for (let i = -2; i <= 2; i++) {
-    g.beginPath();
-    g.moveTo(-11, i * 6.5);
-    g.lineTo(11, i * 6.5);
-    g.stroke();
-  }
-  g.restore();
+  // (the spinner itself turns, so it is drawn live — render/parts.js)
 
   // the bonus ladder rungs, painted dark
   for (const l of LADDER) {

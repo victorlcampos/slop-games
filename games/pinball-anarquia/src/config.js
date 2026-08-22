@@ -90,16 +90,26 @@ export const RULES = {
     skillShot: 2000,
     kickback: 0,
     mission: 25000,
+    spinner: 130, // per revolution, and a good pass is worth a dozen
+    orbit: 3200,
+    inlane: 400,
+    inlanesDone: 3000,
+    outlane: 900, // a consolation: you are about to lose the ball anyway
   },
+  loopWindow: 3, // seconds to get from one side of the orbit to the other
 };
 
-// Missions cycle in this order; a lap through all five raises the level and
+// Missions cycle in this order; a lap through all of them raises the level and
 // the counts scale with it. `watch` names the event that advances progress.
 export const MISSIONS = [
   { id: 'barricades', watch: 'bumper', count: 12 },
   { id: 'pillars', watch: 'bank', count: 2 },
   { id: 'underground', watch: 'hole', count: 2 },
   { id: 'freepress', watch: 'lanes', count: 2 },
+  { id: 'presses', watch: 'spinner', count: 6 },
+  { id: 'blockade', watch: 'orbit', count: 3 },
+  // slings stays last: it is the one every ball feeds by accident, so it is
+  // the right mission to be holding when the lap wraps and the level goes up
   { id: 'slings', watch: 'sling', count: 8 },
 ];
 

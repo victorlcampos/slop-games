@@ -2,9 +2,9 @@
 
 The Windows XP machine had one great game hiding in its Accessories: 3D Pinball
 Space Cadet — loud music, lights everywhere, a dozen ways to score, and a TILT
-for whoever shook it too hard. This is that table after it defected: the same
-window (playfield on the left, backglass on the right), repainted in
-[Omarchy](https://omarchy.org)'s Tokyo Night and rethemed around the circle-A.
+for whoever shook it too hard. This is that table after it defected, repainted
+in [Omarchy](https://omarchy.org)'s Tokyo Night and rethemed around the
+circle-A.
 
 ## How to play
 
@@ -25,44 +25,82 @@ flippers, nothing pays, and only the drain forgives you.
 
 ## The table
 
-- **Three riot bumpers** (blue, purple, green — the Tokyo Night accents), each
-  wearing the circle-A.
-- **Three Ⓐ lanes** under the dome: light all three and the multiplier climbs,
-  up to x5. It dies with the ball, as multipliers do.
+Twelve ways to score, and every one of them lights something:
+
+- **Three riot bumpers**, each wearing the circle-A.
+- **Three Ⓐ lanes** under the dome: light all three and the multiplier climbs to
+  x5. It dies with the ball, as multipliers do.
 - **A three-target bank** on the left. Clear it and the **mutual aid kickback**
   in the left outlane re-arms — one free rescue.
-- **The wormhole to the underground**: swallows the ball, pays, spits it back.
+- **The wormhole**: swallows the ball, pays, spits it back out.
+- **The spinner** in the left orbit, paid by how hard you sent it round.
+- **The orbit**: reach both ends of the dome inside three seconds.
+- **Inlane rollovers** — light both and the kickback re-arms.
+- **Outlane rollovers**, which pay you something on your way out.
 - **Skill shot** at the top of the launch lane, for a measured pull.
-- **Ball saver** for the first seconds after every launch.
-- Extra ball at 200,000 — *solidarity*.
+- **Ball saver** for the first seconds after every launch, and an extra ball at
+  200,000 — *solidarity*.
 
 ## Missions and the joke
 
-Five missions cycle (feed the bumpers, clear the bank, occupy the underground,
-run the free press, march on the slings), each one promoting you up a rank
-ladder: citizen, sympathizer, punk, agitator, saboteur, insurgent… and at the
-top, **nobody (free)** — it is a rank ladder in a game about not having one,
-so climbing it is dismantling it. After a full lap the goals scale up.
+Seven missions cycle — feed the bumpers, clear the bank, occupy the underground,
+light the lanes, run the presses, break the blockade, march on the slings — and
+each one promotes you up a rank ladder: citizen, sympathizer, punk, agitator,
+saboteur, insurgent… and at the top, **nobody (free)**. It is a rank ladder in a
+game about not having one, so climbing it is dismantling it. After a full lap
+the goals scale up.
+
+## Two screens, one machine
+
+The layout is read off the shape of the window, not off a breakpoint someone
+guessed. A phone held upright gets the display across the top and the table
+underneath it, filling everything that is left — which is the honest
+arrangement, because a pinball machine is a tall thing and so is a phone. A
+monitor stands the backglass beside the machine instead. There is no "please
+rotate your device" card anywhere in here.
 
 ## What is interesting under the hood
 
-- **The physics is data**: the whole table — walls, slingshots, bumpers,
+- **The physics is data.** The whole table — walls, slingshots, bumpers,
   targets, sensors, flippers — is one list of capsules and circles in
   `src/table.js`, read by both the simulation and the renderer, so the picture
   and the collisions cannot drift apart.
-- **Flippers that throw**: the collision takes the flipper arm's angular
-  velocity into account, so a moving flipper adds energy instead of being a
-  wall that happens to be tilted.
-- The simulation runs at 1/120 with 6 substeps (720 Hz effective) so a
-  full-power launch never tunnels a wall; the whole thing is playable from
-  Node, which is how `test/logic.test.mjs` plays launch, tilt, saver, missions
-  and game over without a browser.
-- The soundtrack is a 2-bar riff in A minor — sawtooth bass, square arpeggio,
-  noise hats, sine kick — scheduled ahead on the WebAudio clock, Space Cadet
-  style. Every cabinet noise is an oscillator with an envelope.
-- The guard posts above the wormhole exist because playtesting-by-script found
-  every full-power launch landing in it, on the exact same path; and the
-  slingshots sit 12px higher than they look like they should, because a ball
-  used to wedge into the notch between their bottom corner and the flipper
-  shoe. Both bugs were caught by a stress test that flails at the flippers for
-  four minutes and screams if the ball stops moving.
+- **Flippers that throw.** The collision takes the flipper arm's angular
+  velocity into account, so a moving flipper adds energy instead of being a wall
+  that happens to be tilted.
+- **Everything added late is a sensor.** The spinner, the orbit, the inlanes and
+  the outlanes notice the ball and never touch it — which is the only reason
+  this many shots could be added to a table that was already tuned. A sensor
+  cannot wedge a ball or change a bounce.
+- **It is drawn in perspective, by hand.** Canvas 2D has no perspective
+  transform, so the painted playfield is a flat texture warped one scanline at a
+  time (`render/project.js`) and everything standing on it is projected. There
+  is one light direction and every shadow obeys it. Ramps have a floor, two side
+  walls that grow as they climb, and rails; the guide rails are bent rod raised
+  off the wood; two sheets of acrylic hang over the corners on posts.
+- **The score is a real dot-matrix.** The text is drawn into a canvas one pixel
+  per lamp and read back, so any phrase in either language becomes dots with no
+  glyph table to maintain — and it shrinks and wraps itself, because Portuguese
+  is longer than English.
+- **The soundtrack** is a 2-bar riff in A minor — sawtooth bass, square
+  arpeggio, noise hats, sine kick — scheduled ahead on the WebAudio clock. Every
+  cabinet noise is an oscillator with an envelope, including the spinner, which
+  is a run of clicks slowing down.
+
+## Two things that were only found by measuring
+
+The guard posts above the wormhole exist because a script that flails at the
+flippers for four minutes found every full-power launch landing in it on the
+same path; the slingshots sit twelve pixels higher than they look like they
+should, because a ball used to wedge into the notch between their bottom corner
+and the flipper shoe.
+
+And a frame used to cost 110 ms. Two full-screen gradients for a room that never
+changes, three full-table composites for layers that never change, a backglass
+repainted from scratch, and additive halos whose area nobody had multiplied out
+— three bumper glows alone were half the cost of drawing the entire playfield.
+The renderer will tell you where its time goes:
+
+```js
+__game.render.profile = true;   // then read __game.render.timings
+```

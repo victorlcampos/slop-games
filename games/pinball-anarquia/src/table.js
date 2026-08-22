@@ -90,6 +90,25 @@ export function createTable() {
   ];
 
   const hole = { x: 426, y: 352, r: 15, eject: { vx: -520, vy: -640 }, flash: 0 };
+
+  // Everything below is a *sensor*: it notices the ball and never touches it.
+  // That is the whole reason this many scoring shots could be added to a table
+  // that was already tuned — a sensor cannot wedge a ball, cannot change a
+  // bounce, and cannot turn a good playfield into a trap.
+  const spinner = { x: 120, y: 205, r: 17, angle: 0, spin: 0, flash: 0 };
+  const inlanes = [
+    { id: 'inL', x: 130, y: 604, r: 13, lit: false, flash: 0 },
+    { id: 'inR', x: 358, y: 604, r: 13, lit: false, flash: 0 },
+  ];
+  const outlanes = [
+    { id: 'outL', x: 50, y: 618, r: 13, flash: 0 },
+    { id: 'outR', x: 440, y: 618, r: 13, flash: 0 },
+  ];
+  // the two ends of the orbit: touch one, then the other, and you went round
+  const loops = [
+    { id: 'loopL', x: 58, y: 272, r: 24, flash: 0 },
+    { id: 'loopR', x: 456, y: 268, r: 24, flash: 0 },
+  ];
   const kickback = { x: 44, y: 688, r: 18, lit: true, flash: 0 };
   const skillShot = { x: 492, y: 320, r: 16 };
 
@@ -98,7 +117,11 @@ export function createTable() {
     makeFlipper('R', 330, 662, -1),
   ];
 
-  return { walls, slings, bumpers, targets, rollovers, posts, hole, kickback, skillShot, flippers, arch: T.arch };
+  return {
+    walls, slings, bumpers, targets, rollovers, posts, hole, kickback, skillShot, flippers,
+    spinner, inlanes, outlanes, loops,
+    arch: T.arch,
+  };
 }
 
 function makeFlipper(id, px, py, dir) {

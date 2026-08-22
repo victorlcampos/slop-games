@@ -16,8 +16,8 @@ var GAMES = [
       "pt": "Pinball Anarquia"
     },
     "blurb": {
-      "en": "The Space Cadet table defected: neon on black, three riot bumpers, a wormhole to the underground and a rank ladder you climb by tearing it down.",
-      "pt": "A mesa do Space Cadet desertou: neon no preto, três bumpers de motim, um buraco para o subterrâneo e uma hierarquia que você sobe derrubando."
+      "en": "The Space Cadet table defected: a playfield in perspective, twelve ways to score, two hundred lamps and a rank ladder you climb by tearing it down.",
+      "pt": "A mesa do Space Cadet desertou: campo em perspectiva, doze formas de pontuar, duzentas lâmpadas e uma hierarquia que você sobe derrubando."
     }
   },
   {

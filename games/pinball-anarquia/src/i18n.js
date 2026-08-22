@@ -36,6 +36,10 @@ export const DICT = {
   'mission.underground.how': { en: 'drop into the wormhole {n} times', pt: 'caia no buraco {n} vezes' },
   'mission.freepress': { en: 'Run the free press', pt: 'Rode a imprensa livre' },
   'mission.freepress.how': { en: 'light all Ⓐ lanes {n} times', pt: 'acenda todas as vias Ⓐ {n} vezes' },
+  'mission.presses': { en: 'Run the presses', pt: 'Rode as prensas' },
+  'mission.presses.how': { en: 'send the spinner round {n} times', pt: 'gire o spinner {n} vezes' },
+  'mission.blockade': { en: 'Break the blockade', pt: 'Rompa o bloqueio' },
+  'mission.blockade.how': { en: 'take the full orbit {n} times', pt: 'faça a volta completa {n} vezes' },
   'mission.slings': { en: 'March on the slings', pt: 'Marche sobre os slings' },
   'mission.slings.how': { en: 'trip the slingshots {n} times', pt: 'dispare os slingshots {n} vezes' },
 
@@ -49,6 +53,7 @@ export const DICT = {
   'msg.hole': { en: 'INTO THE UNDERGROUND', pt: 'PARA O SUBTERRÂNEO' },
   'msg.kickback': { en: 'MUTUAL AID KICKBACK', pt: 'APOIO MÚTUO — RESGATE' },
   'msg.kickbackLit': { en: 'KICKBACK LIT', pt: 'RESGATE ARMADO' },
+  'msg.orbit': { en: 'ORBIT — ALL THE WAY ROUND', pt: 'ÓRBITA — VOLTA COMPLETA' },
 };
 
 export const i18n = createI18n({ dict: DICT });

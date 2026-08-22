@@ -134,6 +134,17 @@ export const sfx = {
   save: () => [659, 880].forEach((f, i) => sound.tone(f, 0.12, { gain: 0.18, delay: i * 0.08 })),
   kickback: () => sound.tone(140, 0.22, { type: 'square', gain: 0.24, slide: 500 }),
   nudge: () => sound.tone(70, 0.05, { type: 'sine', gain: 0.25 }),
+  // a spinner is a run of clicks slowing down, which is the one sound on a
+  // pinball table everybody can imitate
+  spinner: (spins = 8) => {
+    for (let i = 0; i < Math.min(spins, 14); i++) {
+      sound.tone(1400 - i * 40, 0.03, { type: 'square', gain: 0.09, delay: i * (0.035 + i * 0.006) });
+    }
+  },
+  inlane: () => sound.tone(740, 0.07, { type: 'sine', gain: 0.16, slide: 180 }),
+  inlanes: () => [523, 784].forEach((f, i) => sound.tone(f, 0.1, { gain: 0.16, delay: i * 0.07 })),
+  outlane: () => sound.tone(300, 0.16, { type: 'triangle', gain: 0.18, slide: -110 }),
+  orbit: () => [392, 523, 659, 880].forEach((f, i) => sound.tone(f, 0.11, { type: 'square', gain: 0.15, delay: i * 0.055 })),
   tilt: () => {
     sound.tone(110, 0.7, { type: 'sawtooth', gain: 0.25, slide: -60 });
     sound.tone(117, 0.7, { type: 'sawtooth', gain: 0.25, slide: -60 });

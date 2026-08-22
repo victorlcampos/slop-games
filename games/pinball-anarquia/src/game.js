@@ -38,6 +38,9 @@ export function createGame({ onEvent } = {}) {
     extraGiven: false,
     holeTimer: 0,
     holeCool: 0,
+    loopFrom: null, // which end of the orbit the ball came in at
+    loopTimer: 0,
+    spins: 0,
     bankTimer: 0,
     message: null, // { key, values }
     msgTimer: 0,
@@ -108,6 +111,8 @@ export function createGame({ onEvent } = {}) {
     state.tilt = false;
     state.tiltHeat = 0;
     state.mult = 1;
+    state.loopFrom = null;
+    state.loopTimer = 0;
     state.balls -= 1;
     emit('drain');
     if (state.balls <= 0) {
@@ -132,6 +137,23 @@ export function createGame({ onEvent } = {}) {
       state.tilt = true;
       say('msg.tilt');
       emit('tilt');
+    }
+  }
+
+  /**
+   * Run `hit` the first frame the ball enters a sensor, and not again until it
+   * has left. Without the latch a ball rolling slowly across a rollover scores
+   * it sixty times a second, which is not generosity, it is a bug that reads
+   * as one.
+   */
+  function sensor(s, hit) {
+    if (inSensor(ball, s)) {
+      if (!s.hot) {
+        s.hot = true;
+        hit();
+      }
+    } else {
+      s.hot = false;
     }
   }
 
@@ -259,6 +281,64 @@ export function createGame({ onEvent } = {}) {
       emit('kickback');
     }
 
+    // ---- the sensors. None of them touch the ball; they only notice it.
+    sensor(table.spinner, () => {
+      // a spinner is rated by how fast the ball went through it, and a real one
+      // keeps ticking for a second after
+      const spins = 5 + Math.min(14, Math.round(Math.hypot(ball.vx, ball.vy) / 90));
+      state.spins += spins;
+      table.spinner.spin = spins;
+      table.spinner.flash = 1;
+      addScore(RULES.score.spinner * spins);
+      emit('spinner');
+      missionWatch('spinner');
+    });
+
+    for (const r of table.inlanes) {
+      sensor(r, () => {
+        r.flash = 1;
+        addScore(RULES.score.inlane);
+        emit('inlane');
+        if (!r.lit) {
+          r.lit = true;
+          if (table.inlanes.every((x) => x.lit)) {
+            addScore(RULES.score.inlanesDone);
+            for (const x of table.inlanes) x.lit = false;
+            if (!table.kickback.lit) {
+              table.kickback.lit = true;
+              say('msg.kickbackLit');
+            }
+            emit('inlanes');
+          }
+        }
+      });
+    }
+
+    for (const r of table.outlanes) {
+      sensor(r, () => {
+        r.flash = 1;
+        addScore(RULES.score.outlane);
+        emit('outlane');
+      });
+    }
+
+    for (const z of table.loops) {
+      sensor(z, () => {
+        z.flash = 1;
+        if (state.loopFrom && state.loopFrom !== z.id && state.loopTimer > 0) {
+          state.loopFrom = null;
+          state.loopTimer = 0;
+          addScore(RULES.score.orbit);
+          say('msg.orbit');
+          emit('orbit');
+          missionWatch('orbit');
+        } else {
+          state.loopFrom = z.id;
+          state.loopTimer = RULES.loopWindow;
+        }
+      });
+    }
+
     if (!state.inPlayfield && ball.x < TABLE.laneWall - 4) {
       state.inPlayfield = true;
       state.skillArmed = false;
@@ -269,12 +349,22 @@ export function createGame({ onEvent } = {}) {
   function update(h, input = {}) {
     if (state.msgTimer > 0) state.msgTimer = Math.max(0, state.msgTimer - h);
     if (state.holeCool > 0) state.holeCool = Math.max(0, state.holeCool - h);
+    if (state.loopTimer > 0) {
+      state.loopTimer -= h;
+      if (state.loopTimer <= 0) state.loopFrom = null;
+    }
+    if (table.spinner.spin > 0) table.spinner.spin = Math.max(0, table.spinner.spin - 9 * h);
+    table.spinner.angle += table.spinner.spin * h * 2.4;
     if (state.tiltHeat > 0 && !state.tilt) state.tiltHeat = Math.max(0, state.tiltHeat - RULES.tiltCool * h);
     if (state.bankTimer > 0) {
       state.bankTimer -= h;
       if (state.bankTimer <= 0) for (const t of table.targets) t.up = true;
     }
-    for (const list of [table.bumpers, table.slings, table.targets, table.rollovers, [table.hole, table.kickback]])
+    for (const list of [
+      table.bumpers, table.slings, table.targets, table.rollovers,
+      table.inlanes, table.outlanes, table.loops,
+      [table.hole, table.kickback, table.spinner],
+    ])
       for (const el of list) el.flash = Math.max(0, el.flash - 3 * h);
 
     const flip = !state.tilt && (state.phase === 'play' || state.phase === 'plunger');

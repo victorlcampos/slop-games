@@ -25,6 +25,9 @@ export function paintParts(ctx, game, P, now, attract) {
   inserts(ctx, P, now, state, attract);
   ladder(ctx, P, state, attract);
   rollovers(ctx, P, table, now, attract);
+  laneButtons(ctx, P, table, now, attract);
+  loopMarks(ctx, P, table, now, attract);
+  spinner(ctx, P, table, now);
   wormhole(ctx, P, table, now);
   posts(ctx, P, table);
   targets(ctx, P, table);
@@ -154,6 +157,124 @@ function rollovers(ctx, P, table, now, attract) {
     glow(ctx, C.yellow, p.x, p.y, rad * 3.4, on ? 0.95 : 0.3);
     circleA(ctx, p.x, p.y, rad, on ? '#ffffff' : alpha(C.yellow, 0.72), (on ? 3 : 2) * P.sizeAt(r.y));
   });
+}
+
+/** The rollover buttons in the inlanes and the outlanes. */
+function laneButtons(ctx, P, table, now, attract) {
+  const draw = (r, color, lit) => {
+    const p = P.rise(P.at(r.x, r.y), 3);
+    const k = P.sizeAt(r.y);
+    const on = lit || r.flash > 0.05 || attract;
+    if (on) glow(ctx, color, p.x, p.y, 22 * k, 0.55 + r.flash * 0.45);
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, r.r * k, r.r * 0.62 * k, 0, 0, PI * 2);
+    ctx.fillStyle = on ? alpha(mix(color, '#ffffff', 0.6), 0.95) : alpha(mix(color, '#ffffff', 0.15), 0.55);
+    ctx.fill();
+    ctx.strokeStyle = alpha('#05050c', 0.8);
+    ctx.lineWidth = 1.6 * k;
+    ctx.stroke();
+  };
+  for (const r of table.inlanes) draw(r, C.green, r.lit);
+  for (const r of table.outlanes) draw(r, C.red, false);
+}
+
+/** The two ends of the orbit, as one arrow each pointing the way round. */
+function loopMarks(ctx, P, table, now, attract) {
+  table.loops.forEach((z, i) => {
+    const p = P.rise(P.at(z.x, z.y), 4);
+    const k = P.sizeAt(z.y);
+    const live = z.flash > 0.05 || attract || (Math.floor(now * 2.5) + i) % 2 === 0;
+    if (live) glow(ctx, C.cyan, p.x, p.y, 30 * k, 0.45 + z.flash * 0.55);
+    // one arrow, not a stack of chevrons: two overlapping chevrons at this size
+    // stopped reading as a direction and started reading as a scribble
+    const dir = i === 0 ? -1 : 1; // both point up the orbit, away from the flippers
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(dir * 0.35);
+    ctx.beginPath();
+    ctx.moveTo(0, -13 * k);
+    ctx.lineTo(9 * k, 2 * k);
+    ctx.lineTo(3.5 * k, 2 * k);
+    ctx.lineTo(3.5 * k, 12 * k);
+    ctx.lineTo(-3.5 * k, 12 * k);
+    ctx.lineTo(-3.5 * k, 2 * k);
+    ctx.lineTo(-9 * k, 2 * k);
+    ctx.closePath();
+    ctx.fillStyle = live ? alpha(mix(C.cyan, '#ffffff', 0.5), 0.9) : alpha(C.cyan, 0.28);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(5,5,12,0.8)';
+    ctx.lineWidth = 1.4 * k;
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+/** The spinner: a vane on a spindle, still turning after the ball is gone. */
+function spinner(ctx, P, table, now) {
+  const sp = table.spinner;
+  const base = P.at(sp.x, sp.y);
+  const k = P.sizeAt(sp.y);
+  const w = 11 * k;
+  const h = 15 * k;
+  const axle = P.rise(base, 30);
+
+  castShadow(ctx, base.x, base.y, w, 30, k, 0.5);
+
+  // the slot in the wood the vane hangs over
+  ctx.beginPath();
+  ctx.ellipse(base.x, base.y, w * 1.15, 3.4 * k, 0, 0, PI * 2);
+  ctx.fillStyle = 'rgba(4,4,10,0.85)';
+  ctx.fill();
+
+  // the two uprights it swings between
+  for (const dx of [-w - 3 * k, w + 3 * k]) {
+    ctx.beginPath();
+    ctx.moveTo(base.x + dx - 2 * k, base.y);
+    ctx.lineTo(base.x + dx + 2 * k, base.y);
+    ctx.lineTo(axle.x + dx + 2 * k, axle.y - h);
+    ctx.lineTo(axle.x + dx - 2 * k, axle.y - h);
+    ctx.closePath();
+    const rod = ctx.createLinearGradient(base.x + dx - 2 * k, 0, base.x + dx + 2 * k, 0);
+    rod.addColorStop(0, '#232840');
+    rod.addColorStop(0.45, '#9aa4d0');
+    rod.addColorStop(1, '#2b3150');
+    ctx.fillStyle = rod;
+    ctx.fill();
+  }
+
+  // The vane, foreshortened by its own rotation — that squash IS the spin, and
+  // it is the only animation on the table that carries on after the ball has
+  // gone, which is exactly what a real spinner does.
+  const face = Math.cos(sp.angle);
+  if (sp.spin > 0.2) glow(ctx, C.yellow, axle.x, axle.y - h / 2, 30 * k, Math.min(1, sp.spin / 8), true);
+  ctx.save();
+  ctx.translate(axle.x, axle.y - h / 2);
+  ctx.scale(Math.max(0.05, Math.abs(face)), 1);
+  ctx.fillStyle = face > 0 ? mix(C.yellow, '#ffffff', 0.4) : mix(C.yellow, '#05050c', 0.5);
+  roundRect(ctx, -w, -h, w * 2, h * 2, 2 * k);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(5,5,12,0.85)';
+  ctx.lineWidth = 1.5 * k;
+  ctx.stroke();
+  if (Math.abs(face) > 0.45) {
+    ctx.strokeStyle = alpha('#05050c', 0.5);
+    ctx.lineWidth = 1.4 * k;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.62, i * h * 0.55);
+      ctx.lineTo(w * 0.62, i * h * 0.55);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // the spindle across the top, which is what it hangs from
+  ctx.beginPath();
+  ctx.moveTo(axle.x - w - 3 * k, axle.y - h);
+  ctx.lineTo(axle.x + w + 3 * k, axle.y - h);
+  ctx.strokeStyle = '#c9d1ee';
+  ctx.lineWidth = 2 * k;
+  ctx.stroke();
 }
 
 /** The round posts the ball rattles off, as little chrome columns. */

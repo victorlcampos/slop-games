@@ -228,6 +228,113 @@ scenario('the lit kickback rescues an outlane ball, once', () => {
   check(game.state.balls === RULES.balls, 'the rescued ball was counted as drained');
 });
 
+// ------------------------------------------------------------------ sensors
+
+/** Drop the ball onto a sensor and take it away again. */
+function sweep(game, s, vx = 0, vy = 60) {
+  game.ball.x = s.x;
+  game.ball.y = s.y;
+  game.ball.vx = vx;
+  game.ball.vy = vy;
+  game.update(STEP, {});
+  game.ball.x = 250;
+  game.ball.y = 470;
+  game.update(STEP, {});
+}
+
+scenario('the spinner pays by how hard it was hit', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  const slow = createGame({});
+  slow.state.phase = 'play';
+  slow.state.inPlayfield = true;
+
+  sweep(game, game.table.spinner, 900, 0);
+  sweep(slow, slow.table.spinner, 60, 0);
+  check(game.state.score > slow.state.score,
+    `a fast pass paid ${game.state.score} and a slow one ${slow.state.score}`);
+  check(slow.state.score >= RULES.score.spinner * 5, `the slow pass paid only ${slow.state.score}`);
+  check(game.state.progress === 0 || game.state.mission !== 0, 'the spinner advanced the bumper mission');
+});
+
+scenario('a spinner still in the sensor is not a spinner hit every frame', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.ball.x = game.table.spinner.x;
+  game.ball.y = game.table.spinner.y;
+  game.ball.vx = 0;
+  game.ball.vy = 0;
+  for (let i = 0; i < 40; i++) game.update(STEP, {});
+  check(game.state.score < RULES.score.spinner * 25,
+    `parked on the spinner it racked up ${game.state.score}`);
+});
+
+scenario('the orbit needs both ends of it, in the same trip', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  const [left, right] = game.table.loops;
+
+  sweep(game, left);
+  const half = game.state.score;
+  sweep(game, right);
+  check(game.state.score - half >= RULES.score.orbit, `the full orbit paid ${game.state.score - half}`);
+
+  // and the same end twice is not an orbit
+  const before = game.state.score;
+  sweep(game, left);
+  sweep(game, left);
+  check(game.state.score - before < RULES.score.orbit, 'one end, hit twice, counted as a lap');
+});
+
+scenario('the orbit forgets a half-lap the player never finished', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  const [left, right] = game.table.loops;
+  sweep(game, left);
+  play(game, RULES.loopWindow + 0.5);
+  const before = game.state.score;
+  sweep(game, right);
+  check(game.state.score - before < RULES.score.orbit,
+    `a lap left half-finished for ${RULES.loopWindow}s still paid ${game.state.score - before}`);
+});
+
+scenario('lighting both inlanes re-arms the kickback', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.table.kickback.lit = false;
+  for (const r of game.table.inlanes) sweep(game, r);
+  check(game.table.kickback.lit, 'both inlanes lit and the kickback stayed cold');
+  check(game.table.inlanes.every((r) => !r.lit), 'the inlanes never reset for the next pass');
+  check(game.state.score >= RULES.score.inlane * 2 + RULES.score.inlanesDone,
+    `the pair paid ${game.state.score}`);
+});
+
+scenario('an outlane pays something on the way out', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  sweep(game, game.table.outlanes[0]);
+  check(game.state.score >= RULES.score.outlane, `the outlane paid ${game.state.score}`);
+});
+
+scenario('a tilted machine pays for none of it', () => {
+  const game = createGame({});
+  game.state.phase = 'play';
+  game.state.inPlayfield = true;
+  game.state.tilt = true;
+  sweep(game, game.table.spinner, 900, 0);
+  sweep(game, game.table.inlanes[0]);
+  sweep(game, game.table.outlanes[0]);
+  sweep(game, game.table.loops[0]);
+  sweep(game, game.table.loops[1]);
+  check(game.state.score === 0, `tilted, the new shots still paid ${game.state.score}`);
+});
+
 // ------------------------------------------------------------------ tilt
 
 scenario('three shoves is a TILT: dead flippers, no pay, cleared by the drain', () => {
