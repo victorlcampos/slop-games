@@ -10,6 +10,7 @@
 // in motion while you played.
 
 import { C } from '../config.js';
+import { RAMPS, rampLamps } from './props.js';
 
 /** Lamps evenly spaced along an arc. */
 export function arcLamps(cx, cy, r, a0, a1, n) {
@@ -104,27 +105,24 @@ export const STRINGS = [
     speed: 1.6,
     lamps: arcLamps(245, 452, 98, PI * 1.14, PI * 1.86, 13),
   },
+  // These two ride the ramps, so their positions and their heights come from
+  // the ramp geometry rather than from a second list that would drift out of
+  // step with it the first time a curve moved.
   {
-    id: 'ramp-edge',
+    id: 'ramp-left',
     color: C.orange,
     r: 2.8,
     chase: 'run',
     speed: 4.2,
-    lamps: pathLamps(
-      [{ x: 120, y: 528 }, { x: 130, y: 452 }, { x: 120, y: 348 }, { x: 134, y: 268 }],
-      11
-    ),
+    lamps: rampLamps(RAMPS[0]),
   },
   {
-    id: 'habitrail',
+    id: 'ramp-right',
     color: C.teal,
     r: 2.8,
     chase: 'run',
     speed: -4.2,
-    lamps: pathLamps(
-      [{ x: 406, y: 240 }, { x: 452, y: 308 }, { x: 462, y: 378 }, { x: 452, y: 448 }, { x: 410, y: 516 }],
-      11
-    ),
+    lamps: rampLamps(RAMPS[1]),
   },
   {
     id: 'outlane-left',

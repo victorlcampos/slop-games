@@ -13,7 +13,7 @@
 import { C, PLUNGER } from '../config.js';
 import { flipperTip } from '../table.js';
 import { STRINGS, ROSETTE, INSERTS, LADDER, lampOn } from './lights.js';
-import { alpha, mix, glow, circleA, roundRect } from './util.js';
+import { alpha, mix, glow, circleA, roundRect, castShadow, LIGHT } from './util.js';
 
 const PI = Math.PI;
 
@@ -36,13 +36,19 @@ export function paintParts(ctx, game, P, now, attract) {
   if (state.phase !== 'over' && state.phase !== 'captured') theBall(ctx, P, ball);
 }
 
-/** The silhouette of a cylinder standing on the felt. */
-function column(ctx, base, top, r, fill, edge) {
+/**
+ * The silhouette of something standing on the felt, from its footprint up to
+ * its top face. `taper` narrows the top: a straight-sided column reads as a tin
+ * can, and almost nothing on a playfield is a tin can — the parts are moulded,
+ * so they all pull in slightly on the way up.
+ */
+function column(ctx, base, top, r, fill, edge, taper = 1) {
+  const rt = r * taper;
   ctx.beginPath();
-  ctx.moveTo(base.x + r, top.y);
+  ctx.moveTo(top.x + rt, top.y);
   ctx.lineTo(base.x + r, base.y);
   ctx.arc(base.x, base.y, r, 0, PI);
-  ctx.lineTo(base.x - r, top.y);
+  ctx.lineTo(top.x - rt, top.y);
   ctx.closePath();
   ctx.fillStyle = fill;
   ctx.fill();
@@ -59,9 +65,12 @@ function lamps(ctx, P, now) {
   for (const s of STRINGS) {
     s.lamps.forEach((l, i) => {
       const on = lampOn(s, i, now);
-      const p = P.rise(P.at(l.x, l.y), 3);
+      const p = P.rise(P.at(l.x, l.y), l.h || 3);
       const r = s.r * P.sizeAt(l.y);
-      glow(ctx, s.color, p.x, p.y, r * 6, on * 0.9);
+      // Only a lamp the chase is actually on gets a halo. The idling ones keep
+      // their colour and their socket, which is all they were contributing —
+      // and two thirds of the frame's halos went away with them.
+      if (on > 0.5) glow(ctx, s.color, p.x, p.y, r * 4.4, on * 0.9);
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, PI * 2);
       ctx.fillStyle = mix(s.color, '#ffffff', 0.55 * on);
@@ -86,7 +95,7 @@ function rosette(ctx, P, now, state, attract) {
     const color = colors[i % colors.length];
     const p = P.at(b.x, b.y);
     const r = 5.5 * P.sizeAt(b.y);
-    glow(ctx, color, p.x, p.y, r * 5.5, on);
+    glow(ctx, color, p.x, p.y, r * 4.4, on);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, PI * 2);
     ctx.fillStyle = mix(color, '#ffffff', on * 0.6);
@@ -95,7 +104,7 @@ function rosette(ctx, P, now, state, attract) {
 
   const pulse = 0.55 + 0.45 * Math.sin(now * 4);
   const r = P.sizeAt(y);
-  glow(ctx, C.cyan, c.x, c.y, 46 * r, 0.55 * pulse);
+  glow(ctx, C.cyan, c.x, c.y, 46 * r, 0.55 * pulse, true);
   circleA(ctx, c.x, c.y, 20 * r, alpha(C.bright, 0.4 + 0.45 * pulse), 2.4 * r);
 }
 
@@ -153,14 +162,15 @@ function posts(ctx, P, table) {
     const base = P.at(q.x, q.y);
     const top = P.rise(base, 22);
     const r = q.r * P.sizeAt(q.y);
-    ctx.save();
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#04050a';
+    castShadow(ctx, base.x, base.y, r, 22, P.sizeAt(q.y), 0.6);
+    column(ctx, base, top, r, '#39406a', 'rgba(0,0,0,0.6)', 0.82);
+    // the rubber ring every post on a real table wears, at the height the ball
+    // actually meets it
+    const mid = P.rise(base, 11);
     ctx.beginPath();
-    ctx.ellipse(base.x + r * 0.4, base.y + r * 0.4, r * 1.1, r * 0.7, 0, 0, PI * 2);
+    ctx.ellipse(mid.x, mid.y, r * 1.22, r * 0.62, 0, 0, PI * 2);
+    ctx.fillStyle = alpha(C.red, 0.85);
     ctx.fill();
-    ctx.restore();
-    column(ctx, base, top, r, '#39406a', 'rgba(0,0,0,0.6)');
     const cap = ctx.createRadialGradient(top.x - r * 0.4, top.y - r * 0.4, 0, top.x, top.y, r);
     cap.addColorStop(0, '#ffffff');
     cap.addColorStop(0.6, '#9aa4d0');
@@ -203,6 +213,7 @@ function targets(ctx, P, table) {
 
     const ra = P.rise(a, 38);
     const rb = P.rise(b, 38);
+    castShadow(ctx, (a.x + b.x) / 2, (a.y + b.y) / 2, Math.hypot(b.x - a.x, b.y - a.y) * 0.4, 38, k, 0.5);
     glow(ctx, C.red, (ra.x + rb.x) / 2, (ra.y + rb.y) / 2, 40 * k, 0.55 + t.flash * 0.45);
 
     // the face, standing in the slot
@@ -252,7 +263,8 @@ function slingshots(ctx, P, table, now, attract) {
     const rc = P.rise(c, H);
     ctx.save();
 
-    if (f > 0.02) glow(ctx, C.red, (ra.x + rb.x) / 2, (ra.y + rb.y) / 2, 74 * k, f);
+    castShadow(ctx, (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, Math.hypot(b.x - a.x, b.y - a.y) * 0.5, H, k, 0.5);
+    if (f > 0.02) glow(ctx, C.red, (ra.x + rb.x) / 2, (ra.y + rb.y) / 2, 74 * k, f, true);
 
     // the side, from the felt up to the top face
     ctx.beginPath();
@@ -321,9 +333,14 @@ function bumpers(ctx, P, table, now, attract) {
     const base = P.at(b.x, b.y);
     const k = P.sizeAt(b.y);
     const r = b.r * 1.2 * k;
-    const top = P.rise(base, 26);
+    const top = P.rise(base, 15);
 
-    glow(ctx, b.color, base.x, base.y, r * 4, 0.7 + f * 0.9);
+    castShadow(ctx, base.x, base.y, r, 15, k, 0.62);
+    // A halo four radii wide, additively blended, three times a frame, was half
+    // the cost of drawing the entire table — the area of a glow goes up with
+    // the square of its radius and it is very easy not to notice. It is tight
+    // now, and only goes additive on the frames the bumper actually fires.
+    glow(ctx, b.color, base.x, base.y, r * 2.3, 0.62 + f * 0.9, f > 0.2);
 
     // skirt on the felt
     const skirt = ctx.createRadialGradient(base.x, base.y, r * 0.4, base.x, base.y, r * 1.8);
@@ -335,9 +352,9 @@ function bumpers(ctx, P, table, now, attract) {
     ctx.arc(base.x, base.y, r * 1.8, 0, PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(base.x, base.y, r * 1.3, 0, PI * 2);
-    ctx.strokeStyle = alpha(mix(b.color, '#ffffff', 0.5), 0.85);
-    ctx.lineWidth = 2.4 * k;
+    ctx.arc(base.x, base.y, r * 1.32, 0, PI * 2);
+    ctx.strokeStyle = alpha(mix(b.color, '#ffffff', 0.35), 0.5);
+    ctx.lineWidth = 1.8 * k;
     ctx.stroke();
 
     // the body, a lit column
@@ -345,7 +362,7 @@ function bumpers(ctx, P, table, now, attract) {
     side.addColorStop(0, mix(b.color, '#05050a', 0.55));
     side.addColorStop(0.4, mix(b.color, '#ffffff', 0.15 + f * 0.3));
     side.addColorStop(1, mix(b.color, '#05050a', 0.7));
-    column(ctx, base, top, r, side, 'rgba(0,0,0,0.55)');
+    column(ctx, base, top, r, side, 'rgba(0,0,0,0.55)', 0.9);
 
     // the cap
     const cap = ctx.createRadialGradient(top.x - r * 0.36, top.y - r * 0.42, r * 0.06, top.x, top.y, r);
@@ -354,18 +371,18 @@ function bumpers(ctx, P, table, now, attract) {
     cap.addColorStop(0.74, b.color);
     cap.addColorStop(1, mix(b.color, '#0a0a12', 0.45));
     ctx.beginPath();
-    ctx.arc(top.x, top.y, r, 0, PI * 2);
+    ctx.arc(top.x, top.y, r * 0.9, 0, PI * 2);
     ctx.fillStyle = cap;
     ctx.fill();
-    ctx.lineWidth = 3 * k;
+    ctx.lineWidth = 2.6 * k;
     ctx.strokeStyle = f > 0.3 ? '#ffffff' : alpha('#07070d', 0.85);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(top.x, top.y, r * 0.58, 0, PI * 2);
+    ctx.arc(top.x, top.y, r * 0.5, 0, PI * 2);
     ctx.fillStyle = f > 0.3 ? '#ffffff' : alpha('#0d1020', 0.9);
     ctx.fill();
-    circleA(ctx, top.x, top.y, r * 0.31, f > 0.3 ? '#12121c' : mix(b.color, '#ffffff', 0.72), 2.1 * k);
+    circleA(ctx, top.x, top.y, r * 0.27, f > 0.3 ? '#12121c' : mix(b.color, '#ffffff', 0.72), 1.9 * k);
   });
 }
 
@@ -376,34 +393,48 @@ function wormhole(ctx, P, table, now) {
   const k = P.sizeAt(h.y);
   const r = (h.r + 4) * k;
 
-  glow(ctx, C.green, p.x, p.y, r * 3.6, 0.55 + h.flash * 0.45);
-  // the lip, catching light on its far side
+  glow(ctx, C.green, p.x, p.y, r * 3.6, 0.55 + h.flash * 0.45, true);
+
+  // The metal collar round the hole. It gets a full ring, brighter on the far
+  // side where the light hits it: with only the far half drawn the hole read as
+  // a sticker, because nothing on a table has an edge on one side only.
   ctx.beginPath();
-  ctx.ellipse(p.x, p.y, r * 1.16, r * 1.16, 0, 0, PI * 2);
-  ctx.fillStyle = '#0b1016';
+  ctx.arc(p.x, p.y, r * 1.2, 0, PI * 2);
+  ctx.fillStyle = '#141a20';
   ctx.fill();
+  const collar = ctx.createLinearGradient(0, p.y - r * 1.2, 0, p.y + r * 1.2);
+  collar.addColorStop(0, mix(C.green, '#ffffff', 0.55));
+  collar.addColorStop(0.5, C.green);
+  collar.addColorStop(1, mix(C.green, '#05050c', 0.5));
+  ctx.strokeStyle = collar;
+  ctx.lineWidth = 3 * k;
   ctx.beginPath();
-  ctx.arc(p.x, p.y, r * 1.16, PI, PI * 2);
-  ctx.strokeStyle = alpha(mix(C.green, '#ffffff', 0.4), 0.9);
-  ctx.lineWidth = 2.4 * k;
+  ctx.arc(p.x, p.y, r * 1.2, 0, PI * 2);
   ctx.stroke();
 
-  const pit = ctx.createRadialGradient(p.x, p.y - r * 0.2, 1, p.x, p.y, r);
-  pit.addColorStop(0, '#000000');
-  pit.addColorStop(0.6, '#04140b');
-  pit.addColorStop(1, alpha(C.green, 0.35));
+  const pit = ctx.createRadialGradient(p.x, p.y - r * 0.3, r * 0.1, p.x, p.y, r);
+  pit.addColorStop(0, '#02170c');
+  pit.addColorStop(0.55, '#010a06');
+  pit.addColorStop(1, '#000000');
   ctx.beginPath();
   ctx.arc(p.x, p.y, r, 0, PI * 2);
   ctx.fillStyle = pit;
   ctx.fill();
-  for (let i = 0; i < 3; i++) {
-    const a0 = now * 2.6 + (i * PI * 2) / 3;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, (5 + i * 4) * k, a0, a0 + 1.9);
-    ctx.strokeStyle = alpha(C.green, 0.75 - i * 0.18);
-    ctx.lineWidth = 1.8 * k;
-    ctx.stroke();
+  // one spiral turning in the dark, drawn as a single stroke — three concentric
+  // arcs at different phases read as a face, which is not what a hole should do
+  ctx.beginPath();
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const a = now * 2.2 + t * PI * 3.2;
+    const rad = r * (0.16 + t * 0.72);
+    const x = p.x + Math.cos(a) * rad;
+    const y = p.y + Math.sin(a) * rad;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
+  ctx.strokeStyle = alpha(C.green, 0.7);
+  ctx.lineWidth = 1.6 * k;
+  ctx.stroke();
 }
 
 function kickback(ctx, P, table, now) {
@@ -440,13 +471,14 @@ function flippers(ctx, P, table) {
     ctx.save();
     ctx.lineCap = 'round';
 
-    // the shadow it lays on the felt
+    // the shadow it lays on the felt, offset the way every other shadow here is
     const bat = f.r * 2.5 * k;
-    ctx.strokeStyle = 'rgba(4,5,10,0.55)';
-    ctx.lineWidth = bat;
+    const off = 10 * 0.42 * k;
+    ctx.strokeStyle = 'rgba(4,5,10,0.6)';
+    ctx.lineWidth = bat * 1.05;
     ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    ctx.moveTo(a.x + LIGHT.x * off, a.y + LIGHT.y * off);
+    ctx.lineTo(b.x + LIGHT.x * off, b.y + LIGHT.y * off);
     ctx.stroke();
 
     glow(ctx, C.blue, (ra.x + rb.x) / 2, (ra.y + rb.y) / 2, 44 * k, 0.5);
@@ -515,15 +547,9 @@ function theBall(ctx, P, ball) {
   const r = ball.r * k;
   const p = P.rise(base, ball.r);
 
-  ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.fillStyle = '#04050a';
-  ctx.beginPath();
-  ctx.ellipse(base.x + r * 0.35, base.y + r * 0.3, r * 1.15, r * 0.75, 0, 0, PI * 2);
-  ctx.fill();
-  ctx.restore();
+  castShadow(ctx, base.x, base.y, r * 0.92, ball.r, k, 0.6);
 
-  glow(ctx, C.cyan, p.x, p.y, r * 3, 0.45);
+  glow(ctx, C.cyan, p.x, p.y, r * 3, 0.45, true);
   const sphere = ctx.createRadialGradient(p.x - r * 0.4, p.y - r * 0.45, r * 0.1, p.x, p.y, r);
   sphere.addColorStop(0, '#ffffff');
   sphere.addColorStop(0.35, '#d6ddf5');

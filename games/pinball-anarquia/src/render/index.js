@@ -16,15 +16,22 @@ import { createProjection } from './project.js';
 import { computeLayout, layoutKey } from './layout.js';
 import { paintFelt } from './felt.js';
 import { paintParts } from './parts.js';
+import { paintPropsUnder, paintPropsOver } from './props.js';
 import { paintScore } from './panel.js';
 import { makeCanvas, alpha, mix, glow } from './util.js';
 
 export function createRenderer(t) {
   let flat = null; // the playfield, painted flat — independent of layout
   let flatKey = '';
-  let warped = null;
-  let warpOrigin = { x: 0, y: 0 };
   let warpKey = '';
+  // The whole static half of the picture, in one canvas: the warped felt, the
+  // depth haze over it, and every raised prop the ball rolls under. It used to
+  // be three canvases blitted separately, and at a phone's pixel ratio that was
+  // three full-table composites a frame — the single biggest cost in the
+  // renderer, for three pictures that never change between frames.
+  let board = null;
+  let glassLayer = null;
+  let boardOrigin = { x: 0, y: 0 };
   let P = null;
   let layout = null;
   const sparks = [];
@@ -53,15 +60,8 @@ export function createRenderer(t) {
    * unpainted gaps wherever the far end compresses, and they show up as a comb
    * of dark lines across the top of the table.
    */
-  function buildWarp(k) {
+  function warpInto(g, k, ox, oy, h) {
     const v = P.view;
-    const ox = v.cx - v.halfW - 8;
-    const oy = v.top - 4;
-    const w = Math.ceil((v.halfW * 2 + 16) * k);
-    const h = Math.ceil((v.bottom - v.top + 10) * k);
-    warped = makeCanvas(w, h);
-    const g = warped.getContext('2d');
-
     for (let py = 0; py < h; py++) {
       const screenY = oy + py / k;
       const tRow = P.rowAt(screenY);
@@ -73,11 +73,68 @@ export function createRenderer(t) {
       const row = P.row(tRow);
       g.drawImage(flat, 0, tRow * v.srcH * k, flat.width, srcH, (v.cx - row.w / 2 - ox) * k, py, row.w * k, 1.02);
     }
-    warpOrigin = { x: ox, y: oy };
   }
+
+  /**
+   * Everything static, into one canvas.
+   *
+   * The layer reaches well above the table's own far edge: a ramp at its apex
+   * is drawn forty units higher than the row it belongs to, and a layer cropped
+   * to the playfield would slice the top off it.
+   */
+  function buildBoard(k) {
+    const v = P.view;
+    const ox = v.cx - v.halfW - 30;
+    const oy = v.top - 80;
+    const w = Math.ceil((v.halfW * 2 + 60) * k);
+    const h = Math.ceil((v.bottom - v.top + 120) * k);
+    boardOrigin = { x: ox, y: oy };
+    const c = P.corners();
+
+    board = makeCanvas(w, h);
+    const g = board.getContext('2d');
+    g.setTransform(k, 0, 0, k, -ox * k, -oy * k);
+    cabinet(g, c, layout);
+    // The warp addresses device rows, so it runs with the transform cleared —
+    // and against this layer's own origin. Handing it a different origin and
+    // trying to translate the difference away shifted the felt sideways under
+    // everything drawn on top of it, which on screen was the whole table
+    // wearing a ghost of itself.
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    warpInto(g, k, ox, oy, h);
+    g.restore();
+    depthHaze(g, c);
+    paintPropsUnder(g, P);
+    walls(g, c);
+    lockdownBar(g, c);
+
+    // the sheet of glass is static too, and it was two clipped full-table fills
+    glassLayer = makeCanvas(w, h);
+    const gg = glassLayer.getContext('2d');
+    gg.setTransform(k, 0, 0, k, -ox * k, -oy * k);
+    glass(gg, c);
+  }
+
+  function blit(ctx, layer, k) {
+    ctx.drawImage(layer, boardOrigin.x, boardOrigin.y, layer.width / k, layer.height / k);
+  }
+
+  // Where a frame's time actually goes. Reading it needs a flush, so it is off
+  // unless someone asks: `__game.render.profile = true`, then `.timings`.
+  const timings = {};
+  const api = { profile: false, timings };
+  const mark = (ctx, name, t0) => {
+    if (!api.profile) return 0;
+    ctx.getImageData(0, 0, 1, 1);
+    const dt = performance.now() - t0;
+    timings[name] = (timings[name] || 0) * 0.9 + dt * 0.1;
+    return performance.now();
+  };
 
   function draw(ctx, game, vp, { now = 0, attract = false } = {}) {
     const k = vp.scale * vp.dpr;
+    let t0 = api.profile ? performance.now() : 0;
     layout = computeLayout(vp.W, vp.H);
     const wk = layoutKey(layout, k);
     if (warpKey !== wk) {
@@ -87,25 +144,30 @@ export function createRenderer(t) {
         paintFlat(k, layout.table);
       }
       P = createProjection(layout.table);
-      buildWarp(k);
+      buildBoard(k);
       warpKey = wk;
     }
 
-    room(ctx, vp, now);
+    room(ctx, vp, now, k);
+    t0 = mark(ctx, 'room', t0) || t0;
 
     const c = P.corners();
-    cabinet(ctx, c, now, layout);
-    ctx.drawImage(warped, warpOrigin.x, warpOrigin.y, warped.width / k, warped.height / k);
-    depthHaze(ctx, c);
-    walls(ctx, c);
+    blit(ctx, board, k);
+    backboardTitle(ctx, c, now, layout);
+    t0 = mark(ctx, 'board', t0) || t0;
 
     paintParts(ctx, game, P, now, attract);
+    t0 = mark(ctx, 'parts', t0) || t0;
+
+    // the plastics are two polygons and go over the ball, so they stay live
+    paintPropsOver(ctx, P);
     paintSparks(ctx);
     if (game.state.tilt) tiltSlam(ctx, c, now);
-    glass(ctx, c);
-    lockdownBar(ctx, c);
+    blit(ctx, glassLayer, k);
+    t0 = mark(ctx, 'glass', t0) || t0;
 
-    paintScore(ctx, game, layout, now, attract, t);
+    paintScore(ctx, game, layout, now, attract, t, k);
+    mark(ctx, 'panel', t0);
   }
 
   function paintSparks(ctx) {
@@ -130,35 +192,50 @@ export function createRenderer(t) {
     }
   }
 
-  return {
-    draw,
-    spark,
-    get projection() {
-      return P;
-    },
-    get layout() {
-      return layout;
-    },
-  };
+  api.draw = draw;
+  api.spark = spark;
+  Object.defineProperty(api, 'projection', { get: () => P });
+  Object.defineProperty(api, 'layout', { get: () => layout });
+  return api;
 }
 
 // ---------------------------------------------------------------- the room
 
-function room(ctx, vp, now) {
-  const g = ctx.createLinearGradient(0, 0, 0, vp.H);
-  g.addColorStop(0, '#07070c');
-  g.addColorStop(0.55, '#0c0c14');
-  g.addColorStop(1, '#050508');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, vp.W, vp.H);
+/**
+ * The dark arcade the cabinet stands in.
+ *
+ * Two full-screen gradient fills, neither of which ever changes — and together
+ * they were the most expensive thing in the whole frame, more than the entire
+ * playfield. Cached, they are one blit. Only the dust in the beam moves.
+ */
+let roomLayer = null;
+let roomKey = '';
 
-  // the machine's own light, spilling onto the wall behind it
-  const spill = ctx.createRadialGradient(vp.W * 0.3, 320, 40, vp.W * 0.3, 320, 540);
-  spill.addColorStop(0, alpha(C.purple, 0.16));
-  spill.addColorStop(0.6, alpha(C.blue, 0.05));
-  spill.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = spill;
-  ctx.fillRect(0, 0, vp.W, vp.H);
+function room(ctx, vp, now, k) {
+  const key = `${vp.W}x${vp.H}@${k.toFixed(2)}`;
+  if (roomKey !== key) {
+    roomKey = key;
+    // built at device resolution, so drawing it back is a straight copy. Built
+    // at logical size it was a full-screen *upscale* every frame — blurry, and
+    // by some way the most expensive call in the renderer.
+    roomLayer = makeCanvas(Math.ceil(vp.W * k), Math.ceil(vp.H * k));
+    const g = roomLayer.getContext('2d');
+    g.scale(k, k);
+    const bg = g.createLinearGradient(0, 0, 0, vp.H);
+    bg.addColorStop(0, '#07070c');
+    bg.addColorStop(0.55, '#0c0c14');
+    bg.addColorStop(1, '#050508');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, vp.W, vp.H);
+    // the machine's own light, spilling onto the wall behind it
+    const spill = g.createRadialGradient(vp.W * 0.3, 320, 40, vp.W * 0.3, 320, 540);
+    spill.addColorStop(0, alpha(C.purple, 0.16));
+    spill.addColorStop(0.6, alpha(C.blue, 0.05));
+    spill.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = spill;
+    g.fillRect(0, 0, vp.W, vp.H);
+  }
+  ctx.drawImage(roomLayer, 0, 0, vp.W, vp.H);
 
   ctx.fillStyle = 'rgba(169,177,214,0.1)';
   for (let i = 0; i < 36; i++) {
@@ -175,10 +252,27 @@ function rimWidths(c) {
   return [near, near * 0.6];
 }
 
+/** How tall the backboard can be without climbing into whatever is above it. */
+function backboardHeight(c, layout) {
+  return Math.min(46, c.tl.y - (layout.topLimit || 6));
+}
+
+/** The one part of the cabinet that breathes, so the rest of it can be baked. */
+function backboardTitle(ctx, c, now, layout) {
+  const bbH = backboardHeight(c, layout);
+  if (bbH <= 12) return;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.font = `900 ${Math.round(bbH * 0.44)}px "Segoe UI", system-ui, sans-serif`;
+  ctx.fillStyle = alpha(C.purple, 0.55 + 0.12 * Math.sin(now * 2));
+  ctx.fillText('Ⓐ N A R C H Y', (c.tl.x + c.tr.x) / 2, c.tl.y - bbH * 0.32);
+  ctx.restore();
+}
+
 /** The box the playfield is sunk into, plus the backboard behind it. */
-function cabinet(ctx, c, now, layout) {
+function cabinet(ctx, c, layout) {
   const [near, far] = rimWidths(c);
-  const bbH = Math.min(46, c.tl.y - (layout.topLimit || 6));
+  const bbH = backboardHeight(c, layout);
 
   // backboard: the wall standing at the far end, drawn first so the table's
   // own rim overlaps its foot the way a real one does
@@ -198,13 +292,6 @@ function cabinet(ctx, c, now, layout) {
     ctx.strokeStyle = alpha(C.blue, 0.5);
     ctx.lineWidth = 1.6;
     ctx.stroke();
-
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.font = `900 ${Math.round(bbH * 0.44)}px "Segoe UI", system-ui, sans-serif`;
-    ctx.fillStyle = alpha(C.purple, 0.55 + 0.12 * Math.sin(now * 2));
-    ctx.fillText('Ⓐ N A R C H Y', (c.tl.x + c.tr.x) / 2, c.tl.y - bbH * 0.32);
-    ctx.restore();
   }
 
   // the rim: brushed metal around the playfield

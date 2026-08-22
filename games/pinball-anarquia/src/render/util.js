@@ -36,14 +36,120 @@ export function glowSprite(color, size = 64) {
   return c;
 }
 
-/** Paint a cached halo centred on a point. */
-export function glow(ctx, color, x, y, radius, strength = 1) {
+/**
+ * Paint a cached halo centred on a point.
+ *
+ * Two things about it are performance, and both were measured rather than
+ * guessed. It sets and restores the two properties it touches by hand instead
+ * of calling save()/restore(), because a save() copies the entire drawing state
+ * and there are two hundred lamps a frame. And it composites normally unless
+ * asked for `hot`: additive blending is what makes a lamp look like it is
+ * *emitting*, and it also costs two and a half times as much per blit — so the
+ * fifteen things whose glow is the point get it, and the two hundred that only
+ * need to look lit do not.
+ */
+export function glow(ctx, color, x, y, radius, strength = 1, hot = false) {
   if (strength <= 0) return;
-  const sprite = glowSprite(color);
+  const prevAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = strength < 1 ? strength : 1;
+  if (hot) {
+    const prevOp = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(glowSprite(color), x - radius, y - radius, radius * 2, radius * 2);
+    ctx.globalCompositeOperation = prevOp;
+  } else {
+    ctx.drawImage(glowSprite(color), x - radius, y - radius, radius * 2, radius * 2);
+  }
+  ctx.globalAlpha = prevAlpha;
+}
+
+/**
+ * Where the light comes from, and what that means for every shadow here.
+ *
+ * A pinball cabinet is lit from its backbox, which stands at the far end — so
+ * on screen the light comes from the top and every shadow falls toward the
+ * player. One direction, obeyed by the ramps, the wires, the plastics, the
+ * bumpers and the ball alike: shadows that disagree with each other are worse
+ * than no shadows at all, because the eye reads the disagreement before it
+ * reads the depth.
+ */
+export const LIGHT = { x: 0.22, y: 1 };
+
+const shadows = new Map();
+
+/** A soft round shadow, pre-rendered once. */
+export function shadowSprite(size = 64) {
+  let c = shadows.get(size);
+  if (c) return c;
+  c = makeCanvas(size, size);
+  const g = c.getContext('2d');
+  const r = size / 2;
+  const grad = g.createRadialGradient(r, r, 0, r, r, r);
+  grad.addColorStop(0, 'rgba(0,0,0,0.92)');
+  grad.addColorStop(0.45, 'rgba(0,0,0,0.55)');
+  grad.addColorStop(0.78, 'rgba(0,0,0,0.16)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  shadows.set(size, c);
+  return c;
+}
+
+/**
+ * The shadow a thing of height `h` throws on the felt beneath it.
+ * `k` is the projection's isotropic scale at that point, so the shadow grows
+ * and slides the same way the object does as it moves up the table.
+ */
+export function castShadow(ctx, x, y, r, h, k, strength = 0.55) {
+  const off = h * 0.42 * k;
+  const rx = r * (1 + h * 0.006);
   ctx.save();
-  ctx.globalAlpha = Math.min(1, strength);
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2);
+  ctx.globalAlpha = strength;
+  ctx.drawImage(
+    shadowSprite(),
+    x + LIGHT.x * off - rx * 1.35,
+    y + LIGHT.y * off - rx * 0.95,
+    rx * 2.7,
+    rx * 1.9
+  );
+  ctx.restore();
+}
+
+/** Whether this canvas can blur. Asked once — the answer never changes, and
+ *  asking per shadow costs more than the shadow. */
+let canBlur = null;
+export function blurSupported(ctx) {
+  if (canBlur === null) {
+    try {
+      ctx.filter = 'blur(2px)';
+      canBlur = ctx.filter !== 'none';
+      ctx.filter = 'none';
+    } catch {
+      canBlur = false;
+    }
+  }
+  return canBlur;
+}
+
+/** A soft-edged shadow in the shape of whatever `path` draws. */
+export function softShadow(ctx, path, blur = 7, strength = 0.5) {
+  ctx.save();
+  if (blurSupported(ctx)) {
+    ctx.filter = `blur(${blur}px)`;
+    ctx.fillStyle = `rgba(0,0,0,${strength})`;
+    path(ctx);
+    ctx.fill();
+  } else {
+    // no filter: three thin passes read as soft enough at this size
+    ctx.fillStyle = `rgba(0,0,0,${strength / 2.2})`;
+    for (let i = 0; i < 3; i++) {
+      ctx.save();
+      ctx.translate(0, i);
+      path(ctx);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
 
@@ -53,12 +159,21 @@ export function alpha(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-/** Mix two hex colours, 0 = a, 1 = b. */
+/**
+ * Mix two hex colours, 0 = a, 1 = b.
+ *
+ * It returns hex, not `rgb(...)`, and that is load-bearing: `alpha()` parses
+ * its argument as hex, so `alpha(mix(x, y, t), 0.8)` — which reads perfectly
+ * well and is written all over this renderer — silently produced **black** for
+ * as long as this returned `rgb(...)`. Every ramp floor and every plastic in
+ * the game was painted black by that one mismatch, and it looked like a
+ * lighting problem rather than a parsing one.
+ */
 export function mix(a, b, t) {
   const x = parseInt(a.slice(1), 16);
   const y = parseInt(b.slice(1), 16);
-  const ch = (sh) => Math.round((((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t));
-  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+  const ch = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
+  return '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
 }
 
 export function roundRect(ctx, x, y, w, h, r) {

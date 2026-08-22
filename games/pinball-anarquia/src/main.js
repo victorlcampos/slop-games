@@ -227,6 +227,7 @@ window.__game = {
   name: 'pinball-anarquia',
   viewport: vp,
   i18n,
+  render: renderer,
   get game() { return game; },
   start,
   state: () => (game ? game.state : null),

@@ -27,7 +27,6 @@ export function paintFelt(g) {
   starfield(g);
   cracks(g);
   paintedRegions(g);
-  ramps(g);
   rails(g);
   arrowsAndSigns(g);
   rosetteFace(g);
@@ -192,20 +191,48 @@ function paintedRegions(g) {
   g.lineWidth = 2;
   g.stroke();
 
-  // the shooting lane, in the warm brown the original used for its wood
+  // The shooter lane: bare varnished wood with a worn groove down the middle
+  // where every ball this machine has ever launched has run.
   const lane = g.createLinearGradient(478, 0, 508, 0);
-  lane.addColorStop(0, '#33241a');
-  lane.addColorStop(0.45, '#6a4a2e');
-  lane.addColorStop(1, '#281d14');
+  lane.addColorStop(0, '#2b1f16');
+  lane.addColorStop(0.4, '#7a5533');
+  lane.addColorStop(0.72, '#5a3e26');
+  lane.addColorStop(1, '#241a12');
   g.fillStyle = lane;
   g.fillRect(478, 288, 30, 414);
-  g.strokeStyle = alpha(C.orange, 0.7);
+
+  const groove = g.createLinearGradient(486, 0, 500, 0);
+  groove.addColorStop(0, 'rgba(0,0,0,0)');
+  groove.addColorStop(0.5, 'rgba(0,0,0,0.4)');
+  groove.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = groove;
+  g.fillRect(486, 288, 14, 414);
+
+  // grain, and the chevrons that say which way it fires
+  const rand = rng(31);
+  for (let i = 0; i < 34; i++) {
+    const y = 292 + rand() * 400;
+    g.strokeStyle = `rgba(0,0,0,${0.1 + rand() * 0.16})`;
+    g.lineWidth = 0.8 + rand();
+    g.beginPath();
+    g.moveTo(479, y);
+    g.bezierCurveTo(487, y + 4, 497, y - 5, 507, y + 2);
+    g.stroke();
+  }
+  g.strokeStyle = alpha(C.orange, 0.55);
+  g.lineWidth = 2.4;
+  g.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const y = 620 - i * 30;
+    g.beginPath();
+    g.moveTo(486, y + 8);
+    g.lineTo(493, y);
+    g.lineTo(500, y + 8);
+    g.stroke();
+  }
+  g.strokeStyle = alpha(C.orange, 0.75);
   g.lineWidth = 1.4;
   g.strokeRect(478.5, 288.5, 29, 413);
-  for (let y = 306; y < 700; y += 24) {
-    g.fillStyle = alpha('#000000', 0.26);
-    g.fillRect(480, y, 26, 2);
-  }
 
   // the big circle-A branded across the lower playfield
   g.globalAlpha = 0.16;
@@ -285,146 +312,24 @@ function paintedField(g, pts, color, a) {
 }
 
 /**
- * The ramps. A real pinball ramp is a wireform — two rails and a ladder of
- * rungs between them — and drawing it that way, rather than as a painted
- * stripe, is most of what makes a playfield read as three-dimensional even
- * before the perspective goes on.
- */
-function ramps(g) {
-  // The left ramp threads between the drop-target bank and the bumpers. Its
-  // first route ran straight over the targets — a ramp and the shot it is
-  // supposed to be an alternative to cannot occupy the same strip of felt.
-  wireform(
-    g,
-    bezier({ x: 120, y: 528 }, { x: 134, y: 452 }, { x: 114, y: 344 }, { x: 134, y: 266 }),
-    12,
-    // orange, not the purple it started as: a purple ramp on a purple felt is
-    // a shape you have to go looking for, and a ramp is a thing you aim at
-    C.orange
-  );
-  wireform(
-    g,
-    bezier({ x: 404, y: 238 }, { x: 464, y: 312 }, { x: 462, y: 442 }, { x: 408, y: 520 }),
-    12,
-    C.teal
-  );
-  // a short return lane feeding the right inlane
-  wireform(g, bezier({ x: 408, y: 520 }, { x: 398, y: 548 }, { x: 388, y: 566 }, { x: 374, y: 584 }), 7, C.teal);
-}
-
-function wireform(g, path, halfWidth, color) {
-  const pts = samplePath(path, 40);
-
-  // A ramp painted flat on the felt is a stripe. The shadow under it — offset
-  // down-screen, the way everything else here casts — is the whole difference
-  // between a stripe and something the ball climbs.
-  g.save();
-  g.beginPath();
-  pts.forEach((q, i) => {
-    const x = q.x + q.nx * (halfWidth + 3);
-    const y = q.y + q.ny * (halfWidth + 3) + 9;
-    if (i === 0) g.moveTo(x, y);
-    else g.lineTo(x, y);
-  });
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const q = pts[i];
-    g.lineTo(q.x - q.nx * (halfWidth + 3), q.y - q.ny * (halfWidth + 3) + 9);
-  }
-  g.closePath();
-  g.fillStyle = 'rgba(4,5,12,0.5)';
-  g.fill();
-  g.restore();
-
-  const side = (sign) => {
-    g.beginPath();
-    pts.forEach((p, i) => {
-      const x = p.x + p.nx * halfWidth * sign;
-      const y = p.y + p.ny * halfWidth * sign;
-      if (i === 0) g.moveTo(x, y);
-      else g.lineTo(x, y);
-    });
-  };
-
-  // the floor of the ramp, shaded so it looks like it climbs
-  g.beginPath();
-  pts.forEach((p, i) => {
-    const x = p.x + p.nx * halfWidth;
-    const y = p.y + p.ny * halfWidth;
-    if (i === 0) g.moveTo(x, y);
-    else g.lineTo(x, y);
-  });
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i];
-    g.lineTo(p.x - p.nx * halfWidth, p.y - p.ny * halfWidth);
-  }
-  g.closePath();
-  const shade = g.createLinearGradient(0, 240, 0, 540);
-  shade.addColorStop(0, alpha(color, 0.42));
-  shade.addColorStop(1, alpha(color, 0.14));
-  g.fillStyle = shade;
-  g.fill();
-
-  // rungs
-  g.strokeStyle = alpha('#0b0b12', 0.55);
-  g.lineWidth = 2;
-  for (let i = 2; i < pts.length - 1; i += 3) {
-    const p = pts[i];
-    g.beginPath();
-    g.moveTo(p.x + p.nx * halfWidth, p.y + p.ny * halfWidth);
-    g.lineTo(p.x - p.nx * halfWidth, p.y - p.ny * halfWidth);
-    g.stroke();
-  }
-
-  // the two rails, each a dark line with a lit spine on top
-  for (const sign of [1, -1]) {
-    side(sign);
-    g.strokeStyle = '#0a0a11';
-    g.lineWidth = 5;
-    g.stroke();
-    side(sign);
-    g.strokeStyle = mix(color, '#ffffff', 0.35);
-    g.lineWidth = 2;
-    g.stroke();
-  }
-}
-
-/**
- * The metal guide rails. Three strokes each: a dark bed, a metallic body, and
- * a thin hot spine. That stack is the cheapest convincing chrome there is —
- * a single flat stroke always reads as a drawn line, never as a bar.
+ * What is left of the metalwork once the rest of it stood up.
+ *
+ * The lane guides, the two inner arcs, the target wall, the inlane dividers and
+ * the gate are all bent rod on a real table, and they are drawn as bent rod now
+ * — raised, with a shadow, in render/props.js. What stays printed here is only
+ * the shell: the cabinet's own side walls and the outer arch, which are the
+ * edges of the box and have no underside to see.
+ *
+ * Three strokes each: a dark bed, a metallic body, a thin hot spine. That stack
+ * is the cheapest convincing chrome there is — one flat stroke always reads as
+ * a drawn line, never as a bar.
  */
 function rails(g) {
-  const arcs = [
-    [262, 252, 248, PI, PI * 2, 8],
-    [262, 252, 214, PI * 1.06, PI * 1.94, 5],
-    [262, 252, 168, PI * 1.14, PI * 1.86, 4],
-  ];
-  for (const [cx, cy, r, a0, a1, w] of arcs) {
-    metalArc(g, cx, cy, r, a0, a1, w);
-  }
-
-  // lane guides under the dome
-  for (const [x, y0, y1] of [[136, 56, 140], [208, 30, 140], [280, 30, 140], [352, 56, 140]]) {
-    metalLine(g, x, y0, x, y1, 5);
-  }
-
-  // the shell the ball runs inside
+  metalArc(g, 262, 252, 248, PI, PI * 2, 8);
   metalLine(g, 14, 252, 14, 712, 6);
   metalLine(g, 510, 252, 510, 700, 6);
   metalLine(g, 476, 300, 476, 712, 6);
   metalLine(g, 476, 700, 510, 700, 6);
-
-  // the drop-target back wall
-  metalLine(g, 44, 310, 102, 442, 6);
-
-  // inlane dividers and the shoes
-  metalLine(g, 88, 545, 118, 640, 5);
-  metalLine(g, 118, 640, 154, 662, 5);
-  metalLine(g, 400, 545, 370, 640, 5);
-  metalLine(g, 370, 640, 334, 662, 5);
-
-  // the one-way gate into the lane
-  metalLine(g, 470, 298, 508, 278, 4);
 }
 
 function metalArc(g, cx, cy, r, a0, a1, w) {
@@ -598,11 +503,26 @@ function rosetteFace(g) {
 /** The unlit face of each lane insert: a milky window with a letter in it. */
 function insertFaces(g) {
   for (const ins of INSERTS) {
+    // the hole first, so the window sits in something
+    g.fillStyle = 'rgba(4,4,10,0.8)';
+    roundRect(g, ins.x - ins.w / 2 - 1.5, ins.y - ins.h / 2 - 1.5, ins.w + 3, ins.h + 3, 4);
+    g.fill();
     g.fillStyle = '#171b2e';
     roundRect(g, ins.x - ins.w / 2, ins.y - ins.h / 2, ins.w, ins.h, 3);
     g.fill();
-    g.strokeStyle = alpha(ins.color, 0.45);
+    // dark along the top lip and light along the bottom one: that pair is what
+    // says recessed rather than stuck on
+    g.strokeStyle = 'rgba(0,0,0,0.75)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(ins.x - ins.w / 2 + 2, ins.y - ins.h / 2 + 1);
+    g.lineTo(ins.x + ins.w / 2 - 2, ins.y - ins.h / 2 + 1);
+    g.stroke();
+    g.strokeStyle = alpha(ins.color, 0.55);
     g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(ins.x - ins.w / 2 + 2, ins.y + ins.h / 2 - 1);
+    g.lineTo(ins.x + ins.w / 2 - 2, ins.y + ins.h / 2 - 1);
     g.stroke();
     g.fillStyle = alpha(ins.color, 0.4);
     g.font = 'bold 11px "Segoe UI", system-ui, sans-serif';

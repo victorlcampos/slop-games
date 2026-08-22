@@ -67,18 +67,43 @@ export function gridSprite(cols, rows, pitch, color) {
   return c;
 }
 
-/** Paint the lit lamps of a composition at (x, y). */
+/**
+ * Paint the lit lamps of a composition at (x, y).
+ *
+ * The drawn result is cached, not just the bit pattern: a score fills five
+ * hundred lamps and drawing five hundred arcs every frame for a number that
+ * changes a few times a second is the same picture computed sixty times over.
+ */
+const painted = new Map();
+
 export function paintDots(ctx, bits, cols, rows, x, y, pitch, color, radius = 0.42) {
-  ctx.save();
-  ctx.fillStyle = color;
-  const r = pitch * radius;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      if (!bits[row * cols + col]) continue;
-      ctx.beginPath();
-      ctx.arc(x + (col + 0.5) * pitch, y + (row + 0.5) * pitch, r, 0, Math.PI * 2);
-      ctx.fill();
+  const key = `${cols}x${rows}@${pitch.toFixed(2)}:${color}:${hash(bits)}`;
+  let layer = painted.get(key);
+  if (!layer) {
+    layer = makeCanvas(Math.ceil(cols * pitch), Math.ceil(rows * pitch));
+    const g = layer.getContext('2d');
+    g.fillStyle = color;
+    const r = pitch * radius;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (!bits[row * cols + col]) continue;
+        g.beginPath();
+        g.arc((col + 0.5) * pitch, (row + 0.5) * pitch, r, 0, Math.PI * 2);
+        g.fill();
+      }
     }
+    if (painted.size > 40) painted.delete(painted.keys().next().value);
+    painted.set(key, layer);
   }
-  ctx.restore();
+  ctx.drawImage(layer, x, y);
+}
+
+/** Cheap and good enough to tell two dot patterns apart. */
+function hash(bits) {
+  let h = 2166136261;
+  for (let i = 0; i < bits.length; i++) {
+    h ^= bits[i];
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
 }

@@ -11,6 +11,7 @@
 import { C, RULES, MISSIONS, RANKS } from '../config.js';
 import { beat } from '../audio.js';
 import { dots, gridSprite, paintDots } from './dmd.js';
+import { makeCanvas } from './util.js';
 import { alpha, mix, glow, roundRect, circleA } from './util.js';
 
 const FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
@@ -20,9 +21,9 @@ const PITCH = 5; // the size a lamp wants to be, in logical pixels
 let grid = null;
 let gridKey = '';
 
-export function paintScore(ctx, game, layout, now, attract, t) {
+export function paintScore(ctx, game, layout, now, attract, t, k = 1) {
   if (layout.mode === 'upright') upright(ctx, game, layout, now, attract, t);
-  else beside(ctx, game, layout, now, attract, t);
+  else beside(ctx, game, layout, now, attract, t, k);
 }
 
 // ---------------------------------------------------------------- upright
@@ -31,7 +32,7 @@ function upright(ctx, game, layout, now, attract, t) {
   const { dmd, strip } = layout;
   const s = game.state;
 
-  display(ctx, game, dmd, now, attract, t);
+  display(ctx, game, dmd, now, attract, t, true);
 
   // one row: rank on the left, mission and its bar in the middle, ball and
   // multiplier on the right. On a phone this is the whole backglass.
@@ -85,29 +86,53 @@ function clip(ctx, text, maxW) {
 
 // ---------------------------------------------------------------- beside
 
-function beside(ctx, game, layout, now, attract, t) {
+/**
+ * The backglass beside the machine.
+ *
+ * Most of it is a picture of a box and never changes, and painting that box —
+ * two large gradient fills, a logo, a rule and half a dozen labels — was
+ * costing more per frame than the entire playfield. It is baked into a layer
+ * keyed by its size and by the words on it, so it is rebuilt when the window
+ * resizes or the flag changes, and blitted every other frame.
+ */
+let chrome = null;
+let chromeKey = '';
+
+function beside(ctx, game, layout, now, attract, t, k) {
   const { panel } = layout;
   const { state } = game;
   const x = panel.x;
   const w = panel.w;
-  const cx = x + w / 2;
-
-  cabinet(ctx, panel);
-  header(ctx, x, w, now, t);
-
-  const dmdBox = { x: x + 22, y: 116, w: w - 44, h: 232 };
-  display(ctx, game, dmdBox, now, attract, t);
-
   const yBase = 386;
+  const dmdBox = { x: x + 22, y: 116, w: w - 44, h: 232 };
+
+  const key = `${w}x${panel.h}@${k.toFixed(2)}:${t('panel.rank')}|${t('panel.mission')}|${t('panel.sub')}|${t('panel.freeplay')}`;
+  if (chromeKey !== key) {
+    chromeKey = key;
+    chrome = makeCanvas(Math.ceil(w * k), Math.ceil(panel.h * k));
+    const g = chrome.getContext('2d');
+    // absolute coordinates keep working inside the layer
+    g.setTransform(k, 0, 0, k, -x * k, -panel.y * k);
+    cabinet(g, panel);
+    header(g, x, w, t);
+    label(g, 'BALL', x + 26, yBase);
+    label(g, 'MULTIPLIER', x + w - 26, yBase, 'right');
+    label(g, t('panel.rank').toUpperCase(), x + 26, yBase + 56);
+    missionFrame(g, x, w, yBase + 106);
+    displayGlass(g, dmdBox, k);
+    g.textAlign = 'center';
+    g.font = `13px ${FONT}`;
+    g.fillStyle = alpha(C.dim, 0.9);
+    g.fillText(t('panel.freeplay'), x + w / 2, 694);
+  }
+  ctx.drawImage(chrome, x, panel.y, w, panel.h);
+
+  logoPulse(ctx, x, now);
+  display(ctx, game, dmdBox, now, attract, t);
   ballsAndMult(ctx, state, x, w, yBase);
   rankPlate(ctx, state, x, w, yBase + 56, t);
   missionCard(ctx, game, x, w, yBase + 106, t);
   equalizer(ctx, x, w, 662, now, attract);
-
-  ctx.textAlign = 'center';
-  ctx.font = `13px ${FONT}`;
-  ctx.fillStyle = alpha(C.dim, 0.9);
-  ctx.fillText(t('panel.freeplay'), cx, 694);
 }
 
 function cabinet(ctx, panel) {
@@ -127,10 +152,12 @@ function cabinet(ctx, panel) {
   ctx.stroke();
 }
 
-function header(ctx, x, w, now, t) {
-  glow(ctx, C.red, x + 54, 58, 56, 0.45 + 0.12 * Math.sin(now * 3));
+function logoPulse(ctx, x, now) {
+  glow(ctx, C.red, x + 54, 58, 44, 0.5 + 0.2 * Math.sin(now * 3), true);
   circleA(ctx, x + 54, 58, 25, mix(C.red, '#ffffff', 0.25), 4);
+}
 
+function header(ctx, x, w, t) {
   ctx.textAlign = 'left';
   ctx.font = `900 ${Math.min(40, (w - 120) / 4.6)}px ${FONT}`;
   const grad = ctx.createLinearGradient(0, 38, 0, 74);
@@ -147,7 +174,6 @@ function header(ctx, x, w, now, t) {
 }
 
 function ballsAndMult(ctx, state, x, w, y) {
-  label(ctx, 'BALL', x + 26, y);
   for (let i = 0; i < Math.max(state.balls, 0); i++) {
     const bx = x + 38 + i * 28;
     glow(ctx, C.blue, bx, y + 23, 20, 0.5);
@@ -161,7 +187,6 @@ function ballsAndMult(ctx, state, x, w, y) {
     ctx.fill();
   }
 
-  label(ctx, 'MULTIPLIER', x + w - 26, y, 'right');
   for (let m = 2; m <= RULES.maxMult; m++) {
     const lit = state.mult >= m;
     const bx = x + w - 38 - (RULES.maxMult - m) * 44;
@@ -174,11 +199,10 @@ function ballsAndMult(ctx, state, x, w, y) {
 }
 
 function rankPlate(ctx, state, x, w, y, t) {
-  label(ctx, t('panel.rank').toUpperCase(), x + 26, y);
   const name = t('rank.' + RANKS[state.rank]);
   ctx.textAlign = 'left';
   ctx.font = `800 25px ${FONT}`;
-  glow(ctx, C.purple, x + 28 + ctx.measureText(name).width / 2, y + 20, 80, 0.3);
+  glow(ctx, C.purple, x + 28 + ctx.measureText(name).width / 2, y + 20, 52, 0.35);
   ctx.fillStyle = mix(C.purple, '#ffffff', 0.3);
   ctx.fillText(name, x + 26, y + 30);
 
@@ -190,11 +214,7 @@ function rankPlate(ctx, state, x, w, y, t) {
   }
 }
 
-function missionCard(ctx, game, x, w, y, t) {
-  const s = game.state;
-  const m = MISSIONS[s.mission];
-  const goal = game.missionGoal();
-
+function missionFrame(ctx, x, w, y) {
   roundRect(ctx, x + 22, y, w - 44, 108, 12);
   const card = ctx.createLinearGradient(x, y, x, y + 108);
   card.addColorStop(0, 'rgba(36,40,59,0.7)');
@@ -204,6 +224,12 @@ function missionCard(ctx, game, x, w, y, t) {
   ctx.strokeStyle = alpha(C.green, 0.45);
   ctx.lineWidth = 1.5;
   ctx.stroke();
+}
+
+function missionCard(ctx, game, x, w, y, t) {
+  const s = game.state;
+  const m = MISSIONS[s.mission];
+  const goal = game.missionGoal();
 
   label(ctx, `${t('panel.mission')} ${s.missionsDone + 1}  ·  LV ${s.level}`, x + 38, y + 24);
   ctx.textAlign = 'left';
@@ -242,8 +268,7 @@ function equalizer(ctx, x, w, y, now, attract) {
       : 6 + 30 * Math.abs(Math.sin(ph * 2.7 + i)) * (0.35 + 0.65 * Math.abs(Math.sin(now * 9 + i)));
     const color = hues[i % hues.length];
     const bx = x + 38 + i * bw;
-    glow(ctx, color, bx + bw / 2 - 2, y - h / 2, bw * 1.6, 0.28);
-    ctx.fillStyle = alpha(color, 0.9);
+    ctx.fillStyle = alpha(color, 0.92);
     ctx.fillRect(bx, y - h, bw - 4, h);
   }
   ctx.fillStyle = alpha(C.line, 0.7);
@@ -259,25 +284,33 @@ function equalizer(ctx, x, w, y, now, attract) {
  * score, a status line and a sentence; the strip across the top of a phone has
  * room for the score, and the sentence goes underneath it in ordinary type.
  */
-function display(ctx, game, box, now, attract, t) {
+function dmdShape(box) {
   const cols = Math.max(24, Math.round(box.w / PITCH));
   const pitch = box.w / cols;
   const rows = Math.max(10, Math.floor(box.h / pitch));
-  const dh = rows * pitch;
+  return { cols, pitch, rows, dh: rows * pitch };
+}
 
+/** The unlit half of the display: its glass, and every dot it has, dark. */
+function displayGlass(ctx, box) {
+  const { cols, pitch, rows, dh } = dmdShape(box);
   roundRect(ctx, box.x - 9, box.y - 9, box.w + 18, dh + 18, 8);
   ctx.fillStyle = '#05060b';
   ctx.fill();
   ctx.strokeStyle = alpha(C.line, 0.9);
   ctx.lineWidth = 2;
   ctx.stroke();
-
   const gk = `${cols}x${rows}@${pitch.toFixed(2)}`;
   if (gridKey !== gk) {
     grid = gridSprite(cols, rows, pitch, 'rgba(122,162,247,0.07)');
     gridKey = gk;
   }
   ctx.drawImage(grid, box.x, box.y);
+}
+
+function display(ctx, game, box, now, attract, t, withGlass = false) {
+  const { cols, pitch, rows, dh } = dmdShape(box);
+  if (withGlass) displayGlass(ctx, box);
 
   const lines = ticker(game, now, attract, t, rows >= 30);
   const key = `${lines.score}|${lines.left}|${lines.msg}`;
@@ -310,10 +343,7 @@ function display(ctx, game, box, now, attract, t) {
     }
   });
 
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  glow(ctx, lines.color, box.x + box.w / 2, box.y + dh / 2, box.w * 0.6, 0.16);
-  ctx.restore();
+  glow(ctx, lines.color, box.x + box.w / 2, box.y + dh / 2, box.w * 0.34, 0.22);
   paintDots(ctx, bits, cols, rows, box.x, box.y, pitch, lines.color);
 
   const sheen = ctx.createLinearGradient(0, box.y, 0, box.y + dh);
