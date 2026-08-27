@@ -530,6 +530,11 @@ npm test             # the built file clears the catalog floor (section 6)
 ```
 
 The index **does not need editing**: it is generated from the `game.json` files.
+It opens newest-first and can be switched to A–Z in either language. “Added” is
+the author date of the first commit that introduced that game's `game.json`, not
+another metadata field to keep in sync; that is why the Pages workflow checks
+out the full Git history. Before a new game has its first commit, a local build
+temporarily uses the file's day so the create-build-test loop still works.
 
 ---
 

@@ -15,6 +15,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync }
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeCatalog } from './omarchy/build.mjs';
+import { sortCatalog } from './site/catalog.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const GAMES = join(ROOT, 'games');
@@ -71,6 +72,44 @@ const esc = (s) =>
 const both = (value, attr = '') =>
   `data-pt${attr && '-' + attr}="${esc(value.pt)}" data-en${attr && '-' + attr}="${esc(value.en)}"`;
 
+/**
+ * The day this game's metadata first entered Git. Author time survives a rebase,
+ * unlike committer time, and `--follow` reaches through a folder rename. A game
+ * being built before its first commit still needs to appear locally, so only
+ * that development-only case falls back to the metadata file's day on disk.
+ */
+function gameAddedOn(slug, file) {
+  try {
+    const history = execFileSync(
+      'git',
+      ['log', '--follow', '--diff-filter=A', '--format=%aI', '--', `games/${slug}/game.json`],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    )
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean);
+    // Git writes newest first. If a file was deleted and later restored, the
+    // last addition is the original day the game joined the catalog.
+    const first = history.at(-1);
+    if (first && /^\d{4}-\d{2}-\d{2}T/.test(first)) return first.slice(0, 10);
+  } catch {
+    /* an exported source archive has no .git directory */
+  }
+  return new Date(statSync(file).mtimeMs).toISOString().slice(0, 10);
+}
+
+function addedText(day) {
+  const [year, month, date] = day.split('-').map(Number);
+  const instant = new Date(Date.UTC(year, month - 1, date, 12));
+  const format = (locale) => new Intl.DateTimeFormat(locale, {
+    year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+  }).format(instant);
+  return {
+    pt: `Adicionado em ${format('pt-BR')}`,
+    en: `Added ${format('en-US')}`,
+  };
+}
+
 // ------------------------------------------------------------------ catalog
 const catalog = readdirSync(GAMES)
   .filter((slug) => {
@@ -81,7 +120,8 @@ const catalog = readdirSync(GAMES)
     }
   })
   .map((slug) => {
-    const meta = JSON.parse(readFileSync(join(GAMES, slug, 'game.json'), 'utf8'));
+    const file = join(GAMES, slug, 'game.json');
+    const meta = JSON.parse(readFileSync(file, 'utf8'));
     if (meta.slug !== slug) {
       throw new Error(`games/${slug}/game.json: the "slug" field says "${meta.slug}", it should say "${slug}"`);
     }
@@ -98,7 +138,7 @@ const catalog = readdirSync(GAMES)
     for (const tag of meta.tags || []) {
       if (!TAGS[tag]) throw new Error(`games/${slug}/game.json: unknown tag "${tag}" — add it to TAGS in build.mjs`);
     }
-    return meta;
+    return { ...meta, added: gameAddedOn(slug, file) };
   })
   .sort((a, b) => a.name.en.localeCompare(b.name.en, 'en'));
 
@@ -225,7 +265,7 @@ function writeServiceWorker(files) {
 }
 
 // -------------------------------------------------------------------- index
-const cards = catalog
+const cards = sortCatalog(catalog, 'recent', 'en')
   .map((game) => {
     const [text, generic, kind] = game.offline
       ? [UI.offline, UI.offlineHint, 'offline']
@@ -242,8 +282,12 @@ const cards = catalog
     const libs = game.libs.length
       ? `<span class="card__libs">${esc(game.libs.join(' · '))}</span>`
       : `<span class="card__libs" ${both(UI.noDeps)}>${esc(UI.noDeps.en)}</span>`;
-    return `        <a class="card" href="./${game.slug}/index.html">
-          <span class="card__emoji" aria-hidden="true">${game.emoji}</span>
+    const added = addedText(game.added);
+    return `        <a class="card" href="./${game.slug}/index.html" data-added="${game.added}" data-name-en="${esc(game.name.en)}" data-name-pt="${esc(game.name.pt)}">
+          <header class="card__head">
+            <span class="card__emoji" aria-hidden="true">${game.emoji}</span>
+            <time class="card__date" datetime="${game.added}" ${both(added)}>${esc(added.en)}</time>
+          </header>
           <h2 class="card__name" ${both(game.name)}>${esc(game.name.en)}</h2>
           <p class="card__desc" ${both(game.description)}>${esc(game.description.en)}</p>
           <ul class="card__tags">${tags}</ul>

@@ -10,10 +10,12 @@
 // What it can no longer say is "and it draws". That is the lap by hand before a
 // deploy — the one thing a machine with no graphics card was never honest about.
 
-import { scenario, check, run } from 'slopkit/testing';
+import { scenario, check, checkEqual, run } from 'slopkit/testing';
 import { missingKeys } from 'slopkit';
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { normalizeSort, sortCatalog } from '../site/catalog.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -134,6 +136,60 @@ scenario('the index lists every game, and each card points at a file that exists
     check(html.includes(esc(game.name.en)) && html.includes(esc(game.name.pt)),
       `${game.slug}: the index does not carry both of its names`);
   }
+});
+
+scenario('the index knows when every game joined, from Git rather than its metadata year', () => {
+  const html = readFileSync(path.join(DIST, 'index.html'), 'utf8');
+  const blocks = [...html.matchAll(/<a class="card"[^>]*>[\s\S]*?<\/a>/g)].map((match) => match[0]);
+  const cards = blocks.map((block) => ({
+    block,
+    slug: block.match(/href="\.\/([^/]+)\/index\.html"/)[1],
+    added: block.match(/data-added="([^"]+)"/)[1],
+  }));
+  check(cards.length === catalog.length, `${cards.length} dated cards for ${catalog.length} games`);
+
+  for (const card of cards) {
+    const history = execFileSync(
+      'git',
+      ['log', '--follow', '--diff-filter=A', '--format=%aI', '--', `games/${card.slug}/game.json`],
+      { cwd: ROOT, encoding: 'utf8' }
+    ).trim().split(/\r?\n/).filter(Boolean);
+    const expected = history.at(-1)?.slice(0, 10);
+    check(/^\d{4}-\d{2}-\d{2}$/.test(card.added), `${card.slug}: "${card.added}" is not an ISO day`);
+    check(card.added === expected,
+      `${card.slug}: card says ${card.added}, first commit says ${expected}`);
+    check(card.block.includes(`<time class="card__date" datetime="${expected}"`),
+      `${card.slug}: its Git day is data only — the player cannot see it`);
+  }
+
+  const days = cards.map((card) => card.added);
+  check(days.every((day, index) => index === 0 || days[index - 1] >= day),
+    `the first paint is not newest-first: ${days.join(', ')}`);
+  // Every published build runs in Actions, where a one-commit checkout would
+  // make all older addition dates disappear and trigger the local fallback.
+  const workflow = readFileSync(path.join(ROOT, '.github/workflows/pages.yml'), 'utf8');
+  check(/fetch-depth:\s*0/.test(workflow), 'CI checks out a shallow history, so it cannot date the games');
+});
+
+scenario('the catalog switches between recent and A–Z in the active language', () => {
+  const sample = [
+    { id: 'old-z', added: '2026-01-01', name: { en: 'Zebra', pt: 'Abelha' } },
+    { id: 'new-b', added: '2026-03-01', name: { en: 'Beta', pt: 'Beta' } },
+    { id: 'old-a', added: '2026-01-01', name: { en: 'Alpha', pt: 'Zebra' } },
+  ];
+  const ids = (items) => items.map((item) => item.id);
+  checkEqual(ids(sortCatalog(sample, 'recent', 'en')), ['new-b', 'old-a', 'old-z'],
+    'recent order did not use date then English name');
+  checkEqual(ids(sortCatalog(sample, 'alpha', 'en')), ['old-a', 'new-b', 'old-z'],
+    'English A–Z is out of order');
+  checkEqual(ids(sortCatalog(sample, 'alpha', 'pt')), ['old-z', 'new-b', 'old-a'],
+    'Portuguese A–Z did not follow the Portuguese names');
+  check(normalizeSort('anything') === 'recent', 'a damaged saved choice does not return to recent');
+
+  const html = readFileSync(path.join(DIST, 'index.html'), 'utf8');
+  check(/data-sort="recent"/.test(html) && /data-sort="alpha"/.test(html),
+    'the two sort choices never reached the page');
+  check(html.includes('slop:catalog-sort'), 'the catalog forgets the chosen order on reload');
 });
 
 scenario('the catalog is installable: a manifest, an icon and a scope over the games', () => {
