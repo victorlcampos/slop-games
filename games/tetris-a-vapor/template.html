@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111b19">
+<title>Steam Stack</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #f4e6c8;
+    --dim: #b8a78e;
+    --brass: #c88b42;
+    --brass-hi: #ffdc89;
+    --copper: #a44e2d;
+    --iron: #111a18;
+    --edge: rgba(242, 193, 111, 0.34);
+  }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    overflow: hidden;
+    background: #080c0c;
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    padding: max(0.8rem, env(safe-area-inset-top)) 0.9rem max(0.8rem, env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse 72% 65% at 50% 46%, rgba(8,14,13,0.2), rgba(4,7,7,0.83));
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+  .screen[hidden] { display: none; }
+
+  .machine {
+    position: relative;
+    width: min(660px, 100%);
+    padding: clamp(1rem, 3vw, 1.65rem);
+    text-align: center;
+    background:
+      linear-gradient(135deg, rgba(255,224,154,0.05), transparent 32%),
+      linear-gradient(145deg, rgba(59,68,61,0.96), rgba(20,26,24,0.98) 42%, rgba(55,35,25,0.98));
+    border: 3px solid var(--brass);
+    border-radius: 18px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.72), inset 0 0 0 5px #17130f, inset 0 0 0 7px rgba(255,218,143,0.18);
+  }
+  .machine::before, .machine::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    top: 11px;
+    background: radial-gradient(circle at 35% 30%, #fff1ad, #a86e2f 45%, #352116 80%);
+    box-shadow: 0 calc(100% + var(--rivet-span, 0px)) 0 #9a642d;
+  }
+  .machine::before { left: 12px; }
+  .machine::after { right: 12px; }
+
+  .kicker {
+    color: #79dbce;
+    font-size: clamp(0.66rem, 2vw, 0.78rem);
+    font-weight: 900;
+    letter-spacing: 0.28em;
+    margin-bottom: 0.28rem;
+  }
+
+  h1 {
+    color: var(--brass-hi);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2.2rem, 8vw, 4.4rem);
+    line-height: 0.92;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+    text-shadow: 0 4px 0 #6d361f, 0 0 28px rgba(255,185,79,0.25);
+  }
+  .tagline {
+    color: #e9c887;
+    font-family: Georgia, serif;
+    font-size: clamp(0.94rem, 2.6vw, 1.16rem);
+    font-weight: 700;
+    margin: 0.6rem auto 0.9rem;
+    max-width: 44ch;
+  }
+  .story {
+    color: var(--dim);
+    line-height: 1.48;
+    font-size: clamp(0.79rem, 2vw, 0.94rem);
+    max-width: 62ch;
+    margin: 0 auto 1rem;
+  }
+
+  .record {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.35rem;
+    margin-bottom: 1rem;
+    padding: 0.42rem 0.8rem;
+    border: 1px solid rgba(121,219,206,0.3);
+    border-radius: 999px;
+    background: rgba(7,15,14,0.52);
+    color: #c5dfd7;
+    font-size: 0.78rem;
+  }
+  .record b { color: #79dbce; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .controls {
+    margin: 0 auto 1.05rem;
+    padding: 0.68rem 0.85rem;
+    max-width: 570px;
+    border-left: 3px solid var(--copper);
+    border-right: 3px solid var(--copper);
+    background: rgba(5,9,9,0.34);
+    color: #c6b79e;
+    font-size: clamp(0.72rem, 1.8vw, 0.84rem);
+    line-height: 1.55;
+  }
+
+  .buttons { display: flex; justify-content: center; gap: 0.65rem; flex-wrap: wrap; }
+  .btn {
+    appearance: none;
+    border: 2px solid #24160e;
+    border-radius: 9px;
+    padding: 0.72rem 1.25rem;
+    background: linear-gradient(#ffdc89, #bd7435 68%, #8f4828);
+    color: #21130c;
+    box-shadow: 0 4px 0 #25130d, inset 0 1px 0 rgba(255,255,255,0.45);
+    font: 900 0.86rem system-ui, sans-serif;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #25130d; }
+  .btn.secondary {
+    color: var(--ink);
+    background: rgba(12,19,18,0.72);
+    border-color: #765334;
+    box-shadow: none;
+  }
+
+  .back-to-games { text-decoration: none; align-items: center; gap: 0.42rem; }
+  .back-to-games[hidden] { display: none; }
+  .back-to-games:not([hidden]) { display: inline-flex; }
+
+  .corner {
+    position: fixed;
+    z-index: 5;
+    top: max(0px, env(safe-area-inset-top));
+    right: 0;
+    display: flex;
+    gap: 0.38rem;
+    align-items: center;
+    padding: 0.5rem;
+  }
+  .icon {
+    min-width: 2.25rem;
+    min-height: 2.15rem;
+    padding: 0.3rem 0.48rem;
+    color: var(--ink);
+    background: rgba(10,17,16,0.78);
+    border: 1px solid #765334;
+    border-radius: 8px;
+    font: 800 1rem system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .icon[hidden] { display: none; }
+
+  .over-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(86px, 1fr));
+    gap: 0.55rem;
+    margin: 1rem 0;
+  }
+  .over-stat {
+    padding: 0.7rem 0.4rem;
+    border: 1px solid rgba(212,157,82,0.25);
+    background: rgba(7,12,11,0.45);
+    border-radius: 9px;
+  }
+  .over-stat b { display: block; color: var(--brass-hi); font: 900 clamp(1.35rem, 5vw, 2rem) ui-monospace, monospace; }
+  .over-stat span { display: block; color: var(--dim); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; }
+  #new-record { color: #79dbce; font-weight: 900; letter-spacing: 0.08em; margin-top: 0.85rem; }
+  #new-record[hidden] { display: none; }
+
+  .touchbar {
+    position: fixed;
+    z-index: 4;
+    left: 0;
+    right: 0;
+    bottom: max(0.3rem, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.28rem;
+    padding: 0 0.35rem;
+    pointer-events: auto;
+  }
+  .touchbar[hidden] { display: none; }
+  .touch {
+    min-width: 0;
+    height: clamp(3rem, 9vh, 4.1rem);
+    border: 2px solid #8d6134;
+    border-radius: 9px;
+    color: #ffe2a2;
+    background: linear-gradient(rgba(69,52,37,0.94), rgba(19,25,23,0.96));
+    box-shadow: inset 0 0 0 2px rgba(255,215,138,0.08), 0 4px 12px rgba(0,0,0,0.45);
+    font: 900 clamp(0.6rem, 2.4vw, 0.82rem) system-ui, sans-serif;
+    touch-action: none;
+  }
+  .touch strong { display: block; font-size: 1.25rem; line-height: 1; }
+  .touch:active, .touch.pressed { background: linear-gradient(#bd7435, #5f3421); transform: translateY(2px); }
+
+  @media (pointer: fine) {
+    .touchbar { display: none !important; }
+  }
+
+  @media (max-height: 650px) {
+    .machine { padding: 0.85rem 1rem; }
+    .story { margin-bottom: 0.65rem; }
+    .record, .controls { margin-bottom: 0.65rem; }
+    h1 { font-size: clamp(2rem, 7vh, 3.2rem); }
+  }
+
+  @media (max-width: 480px) {
+    .machine { padding: 1rem 0.78rem; }
+    .story { font-size: 0.77rem; }
+    .controls { font-size: 0.7rem; }
+    .over-stats { gap: 0.3rem; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="corner">
+    <span data-lang-picker></span>
+    <button class="icon" id="sound" type="button" title="Rock on">🎸</button>
+    <button class="icon" id="pause" type="button" title="Pause" hidden>Ⅱ</button>
+  </div>
+
+  <section class="screen" id="menu">
+    <div class="machine">
+      <p class="kicker" data-pt="FERRO · VAPOR · RIFFS" data-en="IRON · STEAM · RIFFS">IRON · STEAM · RIFFS</p>
+      <h1 data-pt="Pilha a Vapor" data-en="Steam Stack">Steam Stack</h1>
+      <p class="tagline"
+         data-pt="Alimente o motor. Esvazie as fileiras. Não deixe a pressão vencer."
+         data-en="Feed the engine. Vent the rows. Do not let the pressure win.">Feed the engine. Vent the rows. Do not let the pressure win.</p>
+      <p class="story"
+         data-pt="Sete moldes de latão caem pela fundição. Complete uma fileira e a caldeira a desmonta em faíscas, fumaça e um riff mais alto."
+         data-en="Seven brass moulds fall through the foundry. Complete a row and the boiler punches it apart in sparks, smoke and a louder riff.">Seven brass moulds fall through the foundry.</p>
+      <div class="record"><b data-pt="melhor turno" data-en="best pressure run">best pressure run</b><span id="best">No shift worked yet</span></div>
+      <div class="controls">
+        <span data-pt="← → movem · ↓ desce · Espaço despenca · Z/X giram · C guarda · P pausa"
+              data-en="← → move · ↓ soft drop · Space hard drop · Z/X rotate · C hold · P pause">← → move · ↓ soft drop · Space hard drop · Z/X rotate · C hold · P pause</span><br>
+        <span data-pt="No celular, os controles de latão ficam sob o tabuleiro."
+              data-en="On a phone, the brass controls stay under the board.">On a phone, the brass controls stay under the board.</span>
+      </div>
+      <div class="buttons">
+        <button class="btn" id="start" type="button" data-pt="Acender a caldeira" data-en="Fire the boiler">Fire the boiler</button>
+        <a class="btn secondary back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="over" hidden>
+    <div class="machine">
+      <p class="kicker" data-pt="FIM DO TURNO" data-en="END OF SHIFT">END OF SHIFT</p>
+      <h1 data-pt="A caldeira venceu" data-en="The boiler won">The boiler won</h1>
+      <p id="new-record" hidden data-pt="NOVO RECORDE DA FÁBRICA" data-en="NEW WORKS RECORD">NEW WORKS RECORD</p>
+      <div class="over-stats">
+        <div class="over-stat"><b id="over-score">0</b><span data-pt="pontos" data-en="score">score</span></div>
+        <div class="over-stat"><b id="over-lines">0</b><span data-pt="fileiras abertas" data-en="rows vented">rows vented</span></div>
+        <div class="over-stat"><b id="over-level">1</b><span data-pt="pressão" data-en="pressure">pressure</span></div>
+      </div>
+      <div class="buttons">
+        <button class="btn" id="again" type="button" data-pt="Acender de novo" data-en="Stoke it again">Stoke it again</button>
+        <button class="btn secondary" id="home" type="button" data-pt="Voltar à fundição" data-en="Foundry floor">Foundry floor</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="touchbar" id="touchbar" hidden>
+    <button class="touch" type="button" data-action="left"><strong>←</strong></button>
+    <button class="touch" type="button" data-action="down"><strong>↓</strong></button>
+    <button class="touch" type="button" data-action="right"><strong>→</strong></button>
+    <button class="touch" type="button" data-action="rotate"><strong>↻</strong><span data-pt="girar" data-en="rotate">rotate</span></button>
+    <button class="touch" type="button" data-action="drop"><strong>⇊</strong><span data-pt="cair" data-en="drop">drop</span></button>
+    <button class="touch" type="button" data-action="hold"><strong>▣</strong><span data-pt="guardar" data-en="hold">hold</span></button>
+  </div>
+
+<script>/*__APP__*/</script>
+</body>
+</html>

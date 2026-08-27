@@ -99,6 +99,19 @@ var GAMES = [
     }
   },
   {
+    "slug": "tetris-a-vapor",
+    "emoji": "⚙️",
+    "offline": true,
+    "name": {
+      "en": "Steam Stack",
+      "pt": "Pilha a Vapor"
+    },
+    "blurb": {
+      "en": "Stack seven brass moulds and blast complete rows into sparks while a synthesised rock trio follows the rising pressure.",
+      "pt": "Empilhe sete moldes de latão e exploda fileiras completas em faíscas enquanto um trio de rock sintetizado acompanha a pressão."
+    }
+  },
+  {
     "slug": "dez-classicos",
     "emoji": "♟️",
     "offline": true,
