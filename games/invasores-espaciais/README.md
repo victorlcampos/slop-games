@@ -1,4 +1,4 @@
-# 🕹️ Fliperama Neon · Neon Arcade
+# 🕹️ Clássicos do Arcade · Arcade Classics
 
 Seven arcade classics rebuilt from code behind one neon sign. Pick a machine —
 each keeps its own best score, in both languages.

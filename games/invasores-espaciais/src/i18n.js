@@ -4,7 +4,7 @@
 import { createI18n } from 'slopkit/i18n';
 
 export const dict = {
-  'game.title': { pt: 'Fliperama Neon', en: 'Neon Arcade' },
+  'game.title': { pt: 'Clássicos do Arcade', en: 'Arcade Classics' },
   'game.tagline': {
     pt: 'Sete clássicos, uma ficha. Escolha a máquina.',
     en: 'Seven classics, one token. Pick your machine.',
@@ -105,7 +105,7 @@ export const dict = {
   'wave.clear': { pt: 'Onda {n} eliminada!', en: 'Wave {n} cleared!' },
   'wave.next': { pt: 'Onda {n}', en: 'Wave {n}' },
 
-  'page.title': { pt: 'Fliperama Neon', en: 'Neon Arcade' },
+  'page.title': { pt: 'Clássicos do Arcade', en: 'Arcade Classics' },
 };
 
 export const i18n = createI18n({ game: 'invasores-espaciais', dict });

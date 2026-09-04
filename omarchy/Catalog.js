@@ -34,6 +34,19 @@ var GAMES = [
     }
   },
   {
+    "slug": "invasores-espaciais",
+    "emoji": "🕹️",
+    "offline": true,
+    "name": {
+      "en": "Arcade Classics",
+      "pt": "Clássicos do Arcade"
+    },
+    "blurb": {
+      "en": "Seven arcade classics, one neon sign: hold the swarm, eat the maze, break the wall, grow the snake, split the rocks, cross the road, beat the bounce.",
+      "pt": "Sete clássicos, um neon: segure o enxame, coma o labirinto, quebre o muro, cresça a cobra, parta as rochas, atravesse a rua, vença o rebate."
+    }
+  },
+  {
     "slug": "guerra-de-bandeiras",
     "emoji": "🚩",
     "offline": true,
@@ -83,19 +96,6 @@ var GAMES = [
     "blurb": {
       "en": "You get coins and a plot of ground: buy the walls, stack them how you like, and hide your crown somewhere you believe in.",
       "pt": "Você recebe moedas e um terreno: compre as paredes, empilhe como quiser e esconda a coroa onde você acredita."
-    }
-  },
-  {
-    "slug": "invasores-espaciais",
-    "emoji": "🕹️",
-    "offline": true,
-    "name": {
-      "en": "Neon Arcade",
-      "pt": "Fliperama Neon"
-    },
-    "blurb": {
-      "en": "Seven arcade classics, one neon sign: hold the swarm, eat the maze, break the wall, grow the snake, split the rocks, cross the road, beat the bounce.",
-      "pt": "Sete clássicos, um neon: segure o enxame, coma o labirinto, quebre o muro, cresça a cobra, parta as rochas, atravesse a rua, vença o rebate."
     }
   },
   {
