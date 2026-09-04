@@ -99,6 +99,19 @@ var GAMES = [
     }
   },
   {
+    "slug": "invasores-espaciais",
+    "emoji": "👾",
+    "offline": true,
+    "name": {
+      "en": "Space Invaders",
+      "pt": "Invasores Espaciais"
+    },
+    "blurb": {
+      "en": "The 1978 classic rebuilt from code: hold the line, pick off the descending swarm row by row, and nail the red saucer before it slips past.",
+      "pt": "O clássico de 1978 refeito em código: segure a linha, derrube o enxame fileira por fileira e acerte o disco vermelho antes que ele escape."
+    }
+  },
+  {
     "slug": "tetris-a-vapor",
     "emoji": "⚙️",
     "offline": true,
