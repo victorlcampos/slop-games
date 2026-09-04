@@ -19,5 +19,10 @@ export function isOver(state) {
 }
 
 export function draw(ctx, state, view) {
+  // behind the menu card the swarm is scenery: no HUD bleed through the card
+  if (view.menu) {
+    renderer.drawMenu(ctx, view.W, view.time, state);
+    return;
+  }
   renderer.draw(ctx, state, view.W, view.time, view.best, view.banner, view.bannerAlpha);
 }

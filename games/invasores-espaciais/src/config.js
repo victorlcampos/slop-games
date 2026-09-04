@@ -50,7 +50,9 @@ export const BOLT = {
 export const SAUCER = {
   w: 64,
   h: 26,
-  y: 84,
+  // the canvas HUD text sits below the DOM corner (top ~54, 20px tall), so
+  // the saucer lane lives under it — its belly clears the text band
+  y: 116,
   speed: 170,
   /** Seconds between saucer crossings, give or take the jitter. */
   period: 22,

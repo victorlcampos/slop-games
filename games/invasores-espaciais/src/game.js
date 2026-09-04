@@ -140,7 +140,9 @@ function loseLife(game, reason) {
 /** Start the next wave in place: swarm back, bunkers rebuilt, cannon kept. */
 export function nextWave(game) {
   game.wave += 1;
-  game.formation = createFormation(originX(game.playW), 140);
+  // same top as a fresh formation: the saucer lane moved down under the HUD,
+  // and the swarm followed it so the lane-to-swarm gap never changes
+  game.formation = createFormation(originX(game.playW), 172);
   game.shields = rebuildShields(game.playW);
   game.saucer = null;
   game.saucerClock = SAUCER.period * (0.5 + game.rand());

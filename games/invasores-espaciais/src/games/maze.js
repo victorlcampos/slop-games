@@ -12,9 +12,9 @@ import { field, hud, banner, makeStars, backdrop } from '../draw.js';
 
 export const COLS = 19;
 export const ROWS = 15;
-export const CELL = 44;
+export const CELL = 40;
 export const OX = (PLAY_W - COLS * CELL) / 2;
-export const OY = 34;
+export const OY = 70;
 
 export const MAP = [
   '###################',
@@ -22,7 +22,7 @@ export const MAP = [
   '#.##.###.#.###.##.#',
   '#o...............o#',
   '#.##.#.#####.#.##.#',
-  '#....#...#...#....#',
+  '#....#.......#....#',
   '####.#.#DDD#.#.####',
   '#....#.#   #.#....#',
   '####.#.#   #.#.####',
@@ -77,16 +77,21 @@ export function pelletCount() {
   return allPellets().size;
 }
 
-function speedOf(wave) {
+export function speedOf(wave) {
+  const player = 7.6 + wave * 0.3;
   return {
-    player: 7.6 + wave * 0.3,
-    ghost: 7.0 + wave * 0.35,
-    fright: 4.2,
+    player,
+    // the hunt quickens with the waves but never catches the eater: late
+    // mazes stay hard without turning into a footrace the player must lose
+    ghost: Math.min(7.0 + wave * 0.35, player - 0.3),
+    // edible but not free: clearly slower than the eater so a cornered shadow
+    // can be run down, fast enough that it takes real cornering to do it
+    fright: 4.8 + wave * 0.2,
     eyes: 12,
   };
 }
 
-function frightTime(wave) {
+export function frightTime(wave) {
   return Math.max(2, 7 - (wave - 1) * 0.8);
 }
 
@@ -161,7 +166,12 @@ function snap(a) {
  * shadow covers 0.2 cells a step and would otherwise stride past its turn.
  */
 function stepActor(a, speed, h, decide, solid) {
-  const win = Math.max(0.09, speed * h * 0.75);
+  // The window stays below one step of travel: if it ever covers a whole
+  // step, a slow actor snaps back to the center every frame and freezes in
+  // place (fright at 4.2 covers 0.07 tiles a step — a 0.09 floor would pin it
+  // forever while its skirt keeps wobbling, reading as "wandering"). The
+  // proportional half-window still catches fast turns: it spans 1.5 steps.
+  const win = Math.max(0.03, speed * h * 0.75);
   const tc = Math.round(a.c);
   const tr = Math.round(a.r);
   if (nearCenter(a, win)) {
@@ -180,17 +190,60 @@ function stepActor(a, speed, h, decide, solid) {
   a.r += dy * speed * h;
 }
 
-function ghostTarget(game, g) {
-  if (g.state === 'eyes') return [9, 6];
-  if (game.fright > 0) return null; // frightened: wander
-  if (game.mode === 'scatter') return CORNERS[g.name];
-  return [game.player.c, game.player.r];
+/**
+ * Chase targets, one personality per shadow. Scatter corners, the mode clock
+ * and the house timers above are untouched — this only decides where each
+ * ghost wants to be while the mode says 'chase'.
+ *
+ *   blinky — the player tile, direct chase.
+ *   pinky  — four tiles ahead of the eater's mouth, the ambush.
+ *   inky   — the flank: pivot two tiles ahead of the eater, mirrored across
+ *            blinky (classic vector play, kept to integers for the test).
+ *   clyde  — shy: chases until within ~8 tiles, then drifts home to his corner.
+ */
+export function chaseTarget(game, g) {
+  const p = game.player;
+  const pc = Math.round(p.c);
+  const pr = Math.round(p.r);
+  if (g.name === 'pinky') {
+    const [dx, dy] = DIRS[p.dir] || [0, 0];
+    return [pc + dx * 4, pr + dy * 4];
+  }
+  if (g.name === 'inky') {
+    const [dx, dy] = DIRS[p.dir] || [0, 0];
+    const px = pc + dx * 2;
+    const py = pr + dy * 2;
+    const b = game.ghosts.find((gh) => gh.name === 'blinky');
+    const bc = b ? Math.round(b.c) : pc;
+    const br = b ? Math.round(b.r) : pr;
+    return [2 * px - bc, 2 * py - br];
+  }
+  if (g.name === 'clyde') {
+    const d = Math.hypot(g.c - p.c, g.r - p.r);
+    if (d < 8) return CORNERS.clyde;
+    return [pc, pr];
+  }
+  return [pc, pr];
 }
 
-function chooseDir(game, g) {
+export function ghostTarget(game, g) {
+  if (g.state === 'eyes') return [9, 6];
+  if (g.state !== 'active') return CORNERS[g.name];
+  if (game.mode === 'scatter') return CORNERS[g.name];
+  return chaseTarget(game, g);
+}
+
+export function chooseDir(game, g) {
   const tc = Math.round(g.c);
   const tr = Math.round(g.r);
-  const target = ghostTarget(game, g);
+  // Frightened shadows flee: same intersection machinery, but the option that
+  // lands FARTHEST from the player tile wins. Eyes never flee (they are not
+  // 'active'), the no-reverse rule still holds, and ties keep first-best so
+  // the run stays deterministic — randomness only ever enters via game.rand.
+  const frightened = game.fright > 0 && g.state === 'active';
+  const target = frightened
+    ? [Math.round(game.player.c), Math.round(game.player.r)]
+    : ghostTarget(game, g);
   // the door only opens for eyes coming home — the hunt never walks back in
   const solid = (c, r) => !walkable(c, r, true, g.state === 'eyes');
   const options = Object.keys(DIRS).filter((d) => {
@@ -199,13 +252,12 @@ function chooseDir(game, g) {
     return !solid(tc + dx, tr + dy);
   });
   if (!options.length) return OPP[g.dir];
-  if (!target) return options[Math.floor(game.rand() * options.length)];
   let best = options[0];
-  let bestD = Infinity;
+  let bestD = frightened ? -Infinity : Infinity;
   for (const d of options) {
     const [dx, dy] = DIRS[d];
     const dist = (tc + dx - target[0]) ** 2 + (tr + dy - target[1]) ** 2;
-    if (dist < bestD) { bestD = dist; best = d; }
+    if (frightened ? dist > bestD : dist < bestD) { bestD = dist; best = d; }
   }
   return best;
 }
@@ -315,7 +367,8 @@ export function update(game, h, input = {}) {
     }
   }
 
-  // teeth meet
+  // teeth meet — 0.6 tiles reads slightly forgiving next to the drawn bodies
+  // (mouth 0.38 + shadow 0.36 = 0.74), which is the point: a graze is a miss
   for (const g of game.ghosts) {
     if (g.state !== 'active') continue;
     const d = Math.hypot(g.c - p.c, g.r - p.r);
@@ -378,20 +431,29 @@ export function draw(ctx, game, view) {
           ctx.fillRect(px - 2, py - 2, 4, 4);
         } else if (game.pellets.has(c + ',' + r + ':P')) {
           const [px, py] = cellXY(c, r);
-          const pulse = 5 + 2 * Math.sin(view.time * 6);
+          const pulse = 6 + 2.5 * Math.sin(view.time * 6);
           ctx.fillStyle = '#ffd88a';
           ctx.beginPath();
           ctx.arc(px, py, pulse, 0, Math.PI * 2);
           ctx.fill();
+          // a faint halo, same fill — no new colour, no allocation
+          ctx.globalAlpha = 0.22;
+          ctx.beginPath();
+          ctx.arc(px, py, pulse + 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
         }
       }
     }
 
-    // the eater, mid-chomp
+    // the eater, mid-chomp — deflating to a pop while dying
     const [px, py] = cellXY(game.player.c, game.player.r);
-    const pr = CELL * 0.38;
     const dying = game.dying > 0;
-    const mouth = dying ? (1.2 - game.dying) * 2.4 : Math.abs(Math.sin(view.time * 12)) * 0.32;
+    const deathT = dying ? 1 - game.dying / 1.2 : 0;
+    const pr = CELL * 0.38 * (dying ? Math.max(0.06, 1 - deathT * 0.94) : 1);
+    const mouth = dying
+      ? 0.25 + deathT * 1.35
+      : Math.abs(Math.sin(view.time * 13)) * 0.38;
     const [pdx, pdy] = DIRS[game.player.dir] || [1, 0];
     const ang = Math.atan2(pdy, pdx);
     ctx.fillStyle = '#ffee00';
@@ -412,9 +474,10 @@ export function draw(ctx, game, view) {
         continue;
       }
       const frightened = game.fright > 0;
-      const flash = frightened && game.fright < 2 && Math.floor(view.time * 6) % 2 === 0;
+      // last two seconds blink white at 8 Hz — the hurry-up players can hear
+      const flash = frightened && game.fright < 2 && Math.floor(view.time * 8) % 2 === 0;
       const [gx, gy] = cellXY(g.c, g.r);
-      paintGhostBody(ctx, gx, gy, frightened ? (flash ? '#ffffff' : '#2222ff') : COLOURS[g.name], view.time, g.dir);
+      paintGhostBody(ctx, gx, gy, frightened ? (flash ? '#ffffff' : '#2222ff') : COLOURS[g.name], view.time, g.dir, frightened);
       if (!frightened) paintEyes(ctx, gx, gy, g.dir);
       else paintFrightFace(ctx, gx, gy);
     }
@@ -434,14 +497,17 @@ export function draw(ctx, game, view) {
       ctx.textAlign = 'center';
       ctx.font = '800 30px system-ui, sans-serif';
       ctx.fillStyle = '#ffee00';
+      // breathe instead of sitting flat — one sin, no allocation
+      ctx.globalAlpha = 0.65 + 0.35 * Math.sin(view.time * 5);
       ctx.fillText(t('maze.ready'), OX + (COLS * CELL) / 2, OY + ROWS * CELL + 26);
+      ctx.globalAlpha = 1;
       ctx.textAlign = 'left';
     }
   });
   banner(ctx, view.W, view.banner, view.bannerAlpha);
 }
 
-function paintGhostBody(ctx, x, y, colour, time, dir) {
+function paintGhostBody(ctx, x, y, colour, time, dir, scared) {
   const r = CELL * 0.36;
   ctx.fillStyle = colour;
   ctx.beginPath();
@@ -449,12 +515,13 @@ function paintGhostBody(ctx, x, y, colour, time, dir) {
   ctx.fill();
   ctx.fillRect(x - r, y - r * 0.2, r * 2, r * 1.1);
   const waves = 4;
-  const wobble = Math.sin(time * 10 + x) * 1.5;
+  // skirt wobble; frightened shadows shiver instead — faster, shallower shakes
+  const wobble = Math.sin(time * (scared ? 18 : 10) + x) * (scared ? 2.4 : 1.8);
   ctx.beginPath();
   ctx.moveTo(x - r, y + r * 0.9);
   for (let i = 0; i <= waves; i++) {
     const wx = x - r + (i / waves) * r * 2;
-    ctx.lineTo(wx, y + r * 0.9 - (i % 2 === 0 ? 3 : 0) + wobble * 0.3);
+    ctx.lineTo(wx, y + r * 0.9 - (i % 2 === 0 ? 4 : 0) + wobble * 0.5);
   }
   ctx.lineTo(x + r, y - r * 0.2);
   ctx.closePath();

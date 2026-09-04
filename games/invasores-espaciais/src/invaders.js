@@ -22,9 +22,10 @@ export function totalInvaders() {
 
 /**
  * A fresh formation for a wave. `originX` centers the grid on the playfield;
- * `top` is the y of the first row.
+ * `top` is the y of the first row. It sits one saucer-gap below the saucer
+ * lane, which itself sits below the canvas HUD under the DOM corner.
  */
-export function createFormation(originX, top = 140) {
+export function createFormation(originX, top = 172) {
   const alive = [];
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {

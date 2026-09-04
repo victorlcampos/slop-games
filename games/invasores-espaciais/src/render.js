@@ -104,6 +104,11 @@ export function breedFrame(breed, frame) {
   return BREEDS[breed][frame & 1];
 }
 
+// The DOM corner (language flags + sound button, ~110px wide, ~44px tall)
+// hangs over the canvas top-right, so the canvas HUD lives under it: text
+// top at HUD_Y clears the corner instead of fighting it for the same pixels.
+export const HUD_Y = 54;
+
 // ------------------------------------------------------------------ the rest
 
 const CANNON = [
@@ -148,18 +153,35 @@ export function createRenderer() {
     g.addColorStop(1, '#0a1410');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
+    // two depths for free: the bigger (nearer) stars drift down faster, so
+    // the sky recedes while the swarm descends to meet the cannon
     for (const s of stars) {
       const tw = 0.35 + 0.65 * Math.abs(Math.sin(time * 0.8 + s.p));
+      const yy = (((s.y * H + time * (3 + s.r * 5)) % H) + H) % H;
       ctx.globalAlpha = tw;
       ctx.fillStyle = '#cfe8ff';
-      ctx.fillRect(s.x * W, s.y * H, s.r, s.r);
+      ctx.fillRect(s.x * W, yy, s.r, s.r);
     }
     ctx.globalAlpha = 1;
+    // the cabinet vignette, same glass as the other six machines
+    const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, H * 0.78);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.34)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
   }
 
-  function ground(ctx, W) {
+  function ground(ctx, W, time) {
+    const gy = PLAYER.y + PLAYER.h / 2 + 24;
+    // the line the cannon defends breathes a little — a gradient sigh above
+    // it, so the eye knows where the invasion must not reach
+    const glow = ctx.createLinearGradient(0, gy - 30, 0, gy);
+    glow.addColorStop(0, 'rgba(47,174,92,0)');
+    glow.addColorStop(1, `rgba(47,174,92,${0.1 + 0.04 * Math.sin(time * 2)})`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, gy - 30, W, 30);
     ctx.fillStyle = '#2fae5c';
-    ctx.fillRect(0, PLAYER.y + PLAYER.h / 2 + 24, W, 3);
+    ctx.fillRect(0, gy, W, 3);
   }
 
   function frame(ctx, game, W, time) {
@@ -189,20 +211,56 @@ export function createRenderer() {
 
     for (const inv of game.formation.list) {
       const colour = inv.row === 0 ? '#8fd0ff' : inv.row <= 2 ? '#7dff8a' : '#e8ff7d';
+      // the march leans into its step and bobs on the way down — a grid that
+      // walks reads as alive, a grid that slides reads as a spreadsheet
+      const bob = Math.sin(time * 3 + inv.x * 0.02) * 2;
+      ctx.save();
+      ctx.translate(inv.x, inv.y + bob);
+      ctx.rotate(game.formation.dir * 0.07);
       drawMap(ctx, breedFrame(breedOf(inv.row), game.formation.frame),
-        inv.x, inv.y, INVADER_W, INVADER_H, colour);
+        0, 0, INVADER_W, INVADER_H, colour);
+      ctx.restore();
     }
 
     if (game.saucer) {
-      drawMap(ctx, SAUCER_MAP, game.saucer.x, SAUCER.y, SAUCER.w, SAUCER.h, '#ff5a5a');
+      // a wobbling crossing, banked into its run, engine flickering under it
+      const sx = game.saucer.x;
+      const sy = SAUCER.y + Math.sin(time * 7) * 4;
+      ctx.globalAlpha = 0.5 + 0.3 * Math.sin(time * 30);
+      ctx.fillStyle = '#ffb35a';
+      const flick = 6 + 2 * Math.sin(time * 30);
+      ctx.fillRect(sx - flick / 2, sy + SAUCER.h / 2 - 2, flick, 4);
+      ctx.globalAlpha = 1;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(Math.cos(time * 7) * 0.1 * game.saucer.dir);
+      drawMap(ctx, SAUCER_MAP, 0, 0, SAUCER.w, SAUCER.h, '#ff5a5a');
+      // running lights chase along the rim, symmetric so the bank never skews them
+      for (let i = -2; i <= 2; i++) {
+        const on = (Math.floor(time * 6) + i) % 2 === 0;
+        ctx.globalAlpha = on ? 1 : 0.25;
+        ctx.fillStyle = '#ffd88a';
+        ctx.fillRect(i * 12 - 2, 1, 4, 4);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
     }
 
-    ctx.fillStyle = '#ffffff';
-    for (const s of game.shots) ctx.fillRect(s.x, s.y, SHOT.w, SHOT.h);
+    for (const s of game.shots) {
+      // a faint halo around the shell so the one shot you own reads at speed
+      ctx.fillStyle = 'rgba(125,255,138,0.25)';
+      ctx.fillRect(s.x - 2, s.y - 2, SHOT.w + 4, SHOT.h + 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(s.x, s.y, SHOT.w, SHOT.h);
+    }
 
     const zig = Math.floor(time * 11) % 2;
     for (const b of game.bolts) {
+      // a soft halo first so the bolt warns before it arrives
+      ctx.globalAlpha = 0.3;
       ctx.fillStyle = '#ffd88a';
+      ctx.fillRect(b.x - 1, b.y - 1, BOLT.w + 2, BOLT.h + 2);
+      ctx.globalAlpha = 1;
       const dx = zig ? 2 : -2;
       ctx.fillRect(b.x, b.y, BOLT.w, BOLT.h / 3);
       ctx.fillRect(b.x + dx, b.y + BOLT.h / 3, BOLT.w, BOLT.h / 3);
@@ -212,13 +270,27 @@ export function createRenderer() {
     // the cannon blinks while it is getting back on its feet
     const blink = game.invuln > 0 && Math.floor(time * 8) % 2 === 0;
     if (!blink && !game.over) {
+      // a pool of light the cannon carries with it, tying it to the line
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = '#7dff8a';
+      ctx.fillRect(game.player.x - 34, PLAYER.y + PLAYER.h / 2 + 6, 68, 18);
+      ctx.globalAlpha = 1;
       drawMap(ctx, CANNON, game.player.x, PLAYER.y, PLAYER.w, PLAYER.h, '#7dff8a');
     }
 
     for (const p of game.particles) {
-      ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
+      // debris flies as streaks along its own velocity, not as square snow —
+      // the crater reads in the smear, the colour in the ember at its head
+      const fade = Math.max(0, 1 - p.age / p.life);
+      ctx.globalAlpha = fade;
+      ctx.strokeStyle = p.colour;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.035, p.y - p.vy * 0.035);
+      ctx.stroke();
       ctx.fillStyle = p.colour;
-      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+      ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
     }
     ctx.globalAlpha = 1;
   }
@@ -228,11 +300,11 @@ export function createRenderer() {
     ctx.fillStyle = '#d6f4d6';
     ctx.font = '700 20px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${t('hud.score')}: ${game.score}`, 16, 12);
+    ctx.fillText(`${t('hud.score')}: ${game.score}`, 16, HUD_Y);
     ctx.textAlign = 'center';
-    ctx.fillText(`${t('hud.wave')}: ${game.wave}`, W / 2, 12);
+    ctx.fillText(`${t('hud.wave')}: ${game.wave}`, W / 2, HUD_Y);
     ctx.textAlign = 'right';
-    ctx.fillText(`${t('hud.best')}: ${best}`, W - 16, 12);
+    ctx.fillText(`${t('hud.best')}: ${best}`, W - 16, HUD_Y);
     // lives as little cannons, bottom-left above the ground line
     ctx.fillStyle = '#7dff8a';
     for (let i = 0; i < game.lives; i++) {
@@ -260,7 +332,7 @@ export function createRenderer() {
     /** Paint the full scene; `bannerText`/`bannerAlpha` overlay a wave message. */
     draw(ctx, game, W, time, best, bannerText, bannerAlpha) {
       backdrop(ctx, W, time);
-      ground(ctx, W);
+      ground(ctx, W, time);
       frame(ctx, game, W, time);
       // the ground line above was screen-space; the world draws its own below
       hud(ctx, game, W, best);
@@ -269,7 +341,7 @@ export function createRenderer() {
     /** The menu keeps the starfield alive behind the card, with a still swarm. */
     drawMenu(ctx, W, time, game) {
       backdrop(ctx, W, time);
-      ground(ctx, W);
+      ground(ctx, W, time);
       frame(ctx, game, W, time);
     },
     /** Screen x → playfield x for the pointer mapping. Must match `frame`. */

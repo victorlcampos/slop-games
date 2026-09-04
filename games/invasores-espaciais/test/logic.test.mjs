@@ -17,7 +17,7 @@ import {
   createGame, update, drain, nextWave, boltInterval, originX,
 } from '../src/game.js';
 import { dict } from '../src/i18n.js';
-import { createRenderer, breedOf, breedFrame } from '../src/render.js';
+import { createRenderer, breedOf, breedFrame, HUD_Y } from '../src/render.js';
 
 const H = 1 / 60;
 /** Deterministic: the middle of every distribution. */
@@ -53,14 +53,16 @@ scenario('the march steps sideways until a wall drops it and turns it', () => {
   checkEqual(f.list[0].x, x0 + STEP_X, `one step moved ${f.list[0].x - x0}, not ${STEP_X}`);
   check(f.frame !== frame0, 'the legs did not shuffle on the step');
 
-  // walk it into the right wall
+  // walk it into the right wall (snapshot the top: the lane heights are the
+  // config's business, the test only holds the drop to account)
+  const topBefore = Math.min(...f.list.map((v) => v.y));
   let drops = 0;
   for (let i = 0; i < 200 && drops === 0; i++) {
     if (tick() === 'drop') drops++;
   }
   checkEqual(drops, 1, 'the wall never turned the march');
   checkEqual(f.dir, -1, 'the march did not reverse after the drop');
-  for (const inv of f.list) check(inv.y >= 140 + STEP_Y, 'a row stayed behind on the drop');
+  for (const inv of f.list) check(inv.y >= topBefore + STEP_Y, 'a row stayed behind on the drop');
   const yAfter = f.list[0].y;
   const xAfter = f.list[0].x;
   checkEqual(tick(), 'step', 'the reversed march does not step on');
@@ -292,6 +294,46 @@ scenario('spraying at the saucer talks the price down', () => {
   check(kill.pay < SAUCER.pay[0], `six misses still paid the full ${kill.pay}`);
 });
 
+// ------------------------------------------------------------------ the lanes
+
+scenario('the HUD ducks under the DOM corner and the lanes keep their gaps', () => {
+  // the corner is ~110px wide, ~44px tall: the text top clears it outright
+  check(HUD_Y >= 50, `the HUD text top sits at ${HUD_Y}, behind the DOM corner`);
+  // the 20px text band ends before the saucer's belly begins
+  check(SAUCER.y - SAUCER.h / 2 > HUD_Y + 24,
+    `the saucer lane (belly at ${SAUCER.y - SAUCER.h / 2}) flies through the score text`);
+  // the swarm followed the saucer down: the lane-to-swarm gap never changed
+  const f = createFormation(originX(PLAY_W));
+  const top = Math.min(...f.list.map((v) => v.y));
+  const gap = (top - INVADER_H / 2) - (SAUCER.y + SAUCER.h / 2);
+  check(Math.abs(gap - 28) < 1e-9, `the lane-to-swarm gap is ${gap}, not 28`);
+  // wave 2 comes down at the same height as wave 1
+  const game = createGame({ playW: PLAY_W, rand: HALF });
+  nextWave(game);
+  const top2 = Math.min(...game.formation.list.map((v) => v.y));
+  checkEqual(top2, top, 'the second wave came down at a different height');
+  // the deadline still allows a fair march: eight drops or more from fresh
+  const lowest = Math.max(...f.list.map((v) => v.y)) + INVADER_H / 2;
+  const drops = Math.floor((DEADLINE_Y - lowest) / STEP_Y);
+  check(drops >= 8, `a fresh wave breaches after ${drops} drops`);
+});
+
+scenario('cover is the game: bunkers hold, open sky kills', () => {
+  // tucked under a bunker, silent and still: the line holds the whole spell
+  const dug = createGame({ playW: PLAY_W, rand: HALF });
+  dug.player.x = dug.shields[0].x + dug.shields[0].w / 2;
+  for (let t = 0; t < 45; t += H) update(dug, H, {});
+  check(!dug.over, '45 s under a bunker ended the run anyway');
+  checkEqual(dug.lives, PLAYER.lives, 'cover cost a life');
+  // the same cannon in the open, under the same sky: the guns find it fast
+  const open = createGame({ playW: PLAY_W, rand: HALF });
+  open.shields.forEach((s) => s.cells.forEach((row) => row.fill(false)));
+  open.player.x = PLAY_W / 2;
+  for (let t = 0; t < 45 && !open.over; t += H) update(open, H, {});
+  check(open.over, '45 s standing in the open ended nothing');
+  checkEqual(open.overReason, 'shot', `the open field killed by "${open.overReason}", not by fire`);
+});
+
 // ------------------------------------------------------------------ the words
 
 scenario('everything the player reads exists in both languages', () => {
@@ -335,6 +377,13 @@ scenario('the whole scene draws, and the pointer maps back onto the field', () =
   const ctx = headlessContext();
   renderer.draw(ctx, game, 1280, 1.5, 999, 'Onda 1', 1);   // must not throw
   renderer.drawMenu(ctx, 1280, 1.5, game);                  // must not throw
+  // the juice branches: a wobbling saucer, fresh debris, a blinking cannon
+  game.saucer = { x: PLAY_W / 2, dir: 1, shotsSince: 0 };
+  game.particles.push({ x: 400, y: 400, vx: 60, vy: -120, life: 0.8, age: 0.1, colour: '#ff5a5a' });
+  game.bolts.push({ x: 300, y: 300, vx: 0, vy: BOLT.speed });
+  game.invuln = 1;
+  for (const t of [0, 0.7, 2.3]) renderer.draw(ctx, game, 1280, t, 999, '', 0);
+  renderer.draw(ctx, game, 500, 1.1, 999, 'Onda 1', 1);     // narrow: the field shrinks
   // wide: the field sits 1:1, centered
   checkEqual(renderer.toPlayfield(160 + 100, 1280), 100, 'the wide mapping shifted');
   // narrow: the field shrinks and the finger follows it

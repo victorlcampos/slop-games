@@ -245,7 +245,7 @@ createLoop({
       });
     } else {
       loadGame('swarm').draw(ctx, idleSwarm(), {
-        time, W: vp.W, best: 0, banner: '', bannerAlpha: 0,
+        time, W: vp.W, best: 0, banner: '', bannerAlpha: 0, menu: true,
       });
     }
   },

@@ -46,6 +46,12 @@ export function backdrop(ctx, W, time, seedStars) {
     ctx.fillRect(s.x * W, s.y * H, s.r, s.r);
   }
   ctx.globalAlpha = 1;
+  // the cabinet vignette: darkened corners over every machine, same arcade
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, H * 0.78);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.34)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
 }
 
 /** Deterministic starfield: the same sky every run, twinkling by time. */
@@ -59,21 +65,23 @@ export function makeStars(seed, n = 110) {
   return stars;
 }
 
-/** Small translated HUD line, top-left; the wave counter centers itself. */
+/** Small translated HUD line. It sits below the DOM corner (flags + sound,
+ *  ~44 px tall, painted by the page over the canvas), with a dark outline so
+ *  it reads over starfields, rivers and rock alike. */
 export function hud(ctx, W, left, center, right) {
   ctx.textBaseline = 'top';
   ctx.font = '700 20px system-ui, sans-serif';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(4,4,10,0.85)';
   ctx.fillStyle = '#d6f4d6';
-  ctx.textAlign = 'left';
-  ctx.fillText(left, 16, 12);
-  if (center) {
-    ctx.textAlign = 'center';
-    ctx.fillText(center, W / 2, 12);
-  }
-  if (right) {
-    ctx.textAlign = 'right';
-    ctx.fillText(right, W - 16, 12);
-  }
+  const line = (text, x, align) => {
+    ctx.textAlign = align;
+    ctx.strokeText(text, x, 54);
+    ctx.fillText(text, x, 54);
+  };
+  line(left, 16, 'left');
+  if (center) line(center, W / 2, 'center');
+  if (right) line(right, W - 16, 'right');
   ctx.textAlign = 'left';
 }
 

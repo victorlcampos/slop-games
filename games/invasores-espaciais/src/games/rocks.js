@@ -13,6 +13,19 @@ const PAY = { 3: 20, 2: 50, 1: 100 };
 const BULLET_SPEED = 640;
 const BULLET_LIFE = 0.9;
 const FIRE_GAP = 0.18;
+// second-generation rocks stay outrunnable: about half the ship's terminal
+// velocity, so a fast pebble pressures but never outruns a burning ship.
+const CHILD_SPEED_CAP = 240;
+// sparks are bounded: a full shatter plus a death burst never fills this.
+const MAX_PARTICLES = 400;
+
+// the saucer: a classic crossing pest, meaner waves call it back sooner.
+const SAUCER_R = 24;
+const SAUCER_LIFE = 12;
+const SBOLT_SPEED = 250;
+const SBOLT_LIFE = 3;
+const SBOLT_GAP = 1.3;
+const SBOLT_MAX = 3;
 
 /** Rocks on wave n: four to open, one more per wave, never a crowd. */
 export function rockCount(wave) {
@@ -20,7 +33,23 @@ export function rockCount(wave) {
 }
 
 export function rockSpeed(wave, rand) {
-  return 40 + wave * 9 + rand() * 50;
+  // the ramp plateaus past wave 7: sims show ~5s survival standing still at
+  // wave 6 already, so the tail buys heat nobody can answer, only numbers.
+  return 40 + Math.min(wave, 7) * 9 + rand() * 50;
+}
+
+/** Saucer crossings: every ~15s on wave 1, every 6s once the belt boils. */
+export function saucerPeriod(wave) {
+  return Math.max(6, 17 - wave * 1.5);
+}
+
+export function saucerSpeed(wave) {
+  return Math.min(200, 130 + wave * 8);
+}
+
+/** Cracking the saucer: 200 on wave 1, 300 once wave 6 calls it in. */
+export function saucerPay(wave) {
+  return Math.min(300, 200 + (wave - 1) * 20);
 }
 
 export function create(rand = Math.random) {
@@ -38,7 +67,12 @@ export function create(rand = Math.random) {
     cooldown: 0,
     invuln: 0,
     clearT: 0,
+    particles: [],
+    saucer: null,
+    sbolts: [],
+    saucerT: 0,
   };
+  game.saucerT = saucerPeriod(1) + game.rand() * 4;
   spawnRocks(game);
   return game;
 }
@@ -102,14 +136,21 @@ function wrap(o) {
 
 function split(game, rock) {
   game.score += PAY[rock.size];
+  burst(game, rock.x, rock.y, 4 + rock.size * 4, ['#c9b89a', '#efe3cc', '#ff9955'],
+    60, 220, 0.4, 0.9, rock.vx, rock.vy);
   if (rock.size > 1) {
     for (let i = 0; i < 2; i++) {
       const a = game.rand() * Math.PI * 2;
-      const sp = rockSpeed(game.wave, game.rand) * 1.3;
+      const sp = rockSpeed(game.wave, game.rand) * 1.2;
+      let vx = rock.vx * 0.4 + Math.cos(a) * sp;
+      let vy = rock.vy * 0.4 + Math.sin(a) * sp;
+      // the inherited drift plus a fresh kick compounds over generations;
+      // cap the tail so wave 9 pebbles stay dodgeable, not hitscan.
+      const v = Math.hypot(vx, vy);
+      if (v > CHILD_SPEED_CAP) { vx *= CHILD_SPEED_CAP / v; vy *= CHILD_SPEED_CAP / v; }
       game.rocks.push({
         x: rock.x, y: rock.y,
-        vx: rock.vx * 0.4 + Math.cos(a) * sp,
-        vy: rock.vy * 0.4 + Math.sin(a) * sp,
+        vx, vy,
         size: rock.size - 1,
         spin: (game.rand() - 0.5) * 2.4,
         rot: game.rand() * Math.PI * 2,
@@ -122,11 +163,89 @@ function split(game, rock) {
   }
 }
 
+// Sparks, debris and blast clouds: pure numbers until draw() reads them.
+function burst(game, x, y, n, colors, vMin, vMax, lifeMin, lifeMax, baseVx = 0, baseVy = 0) {
+  for (let i = 0; i < n; i++) {
+    const a = game.rand() * Math.PI * 2;
+    const sp = vMin + game.rand() * (vMax - vMin);
+    game.particles.push({
+      x, y,
+      vx: baseVx * 0.5 + Math.cos(a) * sp,
+      vy: baseVy * 0.5 + Math.sin(a) * sp,
+      life: lifeMin + game.rand() * (lifeMax - lifeMin),
+      max: lifeMax,
+      color: colors[(game.rand() * colors.length) | 0],
+      size: 2 + game.rand() * 3,
+    });
+  }
+  // a long fight sheds thousands; keep the tail, drop the history.
+  if (game.particles.length > MAX_PARTICLES) {
+    game.particles.splice(0, game.particles.length - MAX_PARTICLES);
+  }
+}
+
+function stepParticles(game, h) {
+  for (const p of game.particles) {
+    p.x += p.vx * h;
+    p.y += p.vy * h;
+    p.vx *= 1 - 1.6 * h;
+    p.vy *= 1 - 1.6 * h;
+    p.life -= h;
+    wrap(p);
+  }
+  game.particles = game.particles.filter((p) => p.life > 0);
+}
+
+function spawnSaucer(game) {
+  const dir = game.rand() < 0.5 ? 1 : -1;
+  game.saucer = {
+    x: dir === 1 ? -40 : PLAY_W + 40,
+    y: 120 + game.rand() * (H - 280),
+    vx: dir * saucerSpeed(game.wave) * (0.9 + game.rand() * 0.2),
+    fireT: 1,
+    life: SAUCER_LIFE,
+  };
+  emit(game, 'saucer');
+}
+
+function saucerShoot(game) {
+  const u = game.saucer;
+  const s = game.ship;
+  const dx = s.x - u.x;
+  const dy = s.y - u.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  // partial lead with a shaky hand: answering requires moving, not luck.
+  const t = Math.min(dist / SBOLT_SPEED, 1);
+  const aim = Math.atan2(dy + s.vy * t * 0.6, dx + s.vx * t * 0.6)
+    + (game.rand() - 0.5) * 0.3;
+  game.sbolts.push({
+    x: u.x, y: u.y,
+    vx: Math.cos(aim) * SBOLT_SPEED,
+    vy: Math.sin(aim) * SBOLT_SPEED,
+    life: SBOLT_LIFE,
+  });
+  emit(game, 'shoot');
+}
+
+function killSaucer(game, pay) {
+  const u = game.saucer;
+  game.saucer = null;
+  game.saucerT = saucerPeriod(game.wave) + game.rand() * 4;
+  burst(game, u.x, u.y, 24, ['#ff5a7a', '#ffb066', '#ffffff'], 60, 300, 0.4, 1, u.vx, 0);
+  if (pay > 0) {
+    game.score += pay;
+    emit(game, 'saucerKill', { pay });
+  }
+}
+
 function killShip(game) {
   game.lives -= 1;
   game.invuln = 3;
+  burst(game, game.ship.x, game.ship.y, 46, ['#7dff8a', '#ff9955', '#ffffff'],
+    40, 320, 0.5, 1.2, game.ship.vx, game.ship.vy);
   // the blast clears the neighbourhood, so the respawn is never a trap
   game.rocks = game.rocks.filter((r) => Math.hypot(r.x - game.ship.x, r.y - game.ship.y) > 150);
+  game.sbolts = game.sbolts.filter((b) => Math.hypot(b.x - game.ship.x, b.y - game.ship.y) > 150);
   game.ship.x = PLAY_W / 2;
   game.ship.y = H / 2;
   game.ship.vx = 0;
@@ -140,12 +259,17 @@ function killShip(game) {
 }
 
 export function update(game, h, input = {}) {
-  if (game.over) return;
+  // the blast cloud outlives the run: the game-over card rises over debris.
+  if (game.over) { stepParticles(game, h); return; }
+  stepParticles(game, h);
   if (game.clearT > 0) {
     game.clearT -= h;
     if (game.clearT <= 0) {
       game.wave += 1;
       game.bullets.length = 0;
+      game.sbolts.length = 0;
+      game.saucer = null;
+      game.saucerT = saucerPeriod(game.wave) + game.rand() * 4;
       spawnRocks(game);
       emit(game, 'banner', { text: t('wave.next', { n: game.wave }) });
       emit(game, 'wave');
@@ -169,6 +293,12 @@ export function update(game, h, input = {}) {
   s.x += s.vx * h;
   s.y += s.vy * h;
   wrap(s);
+  if (game.thrusting && !game.over) {
+    // one spark a step: 60 a second, each living ~0.3s, a short comet tail.
+    const back = s.a + Math.PI;
+    burst(game, s.x + Math.cos(back) * 14, s.y + Math.sin(back) * 14, 1,
+      ['#ff9955', '#ffcc66', '#ff6622'], 40, 140, 0.2, 0.4, s.vx, s.vy);
+  }
 
   game.cooldown -= h;
   game.invuln -= h;
@@ -198,9 +328,43 @@ export function update(game, h, input = {}) {
     wrap(r);
   }
 
-  // bullets split rocks
+  // the saucer keeps its own appointment: one crossing at a time, then gone.
+  if (!game.saucer) {
+    game.saucerT -= h;
+    if (game.saucerT <= 0) spawnSaucer(game);
+  } else {
+    const u = game.saucer;
+    u.x += u.vx * h;
+    wrap(u);
+    u.life -= h;
+    if (u.life <= 0) {
+      game.saucer = null;
+      game.saucerT = saucerPeriod(game.wave) + game.rand() * 4;
+    } else {
+      u.fireT -= h;
+      if (u.fireT <= 0 && game.sbolts.length < SBOLT_MAX) {
+        saucerShoot(game);
+        u.fireT = SBOLT_GAP + game.rand() * 0.5;
+      }
+    }
+  }
+
+  for (const b of game.sbolts) {
+    b.x += b.vx * h;
+    b.y += b.vy * h;
+    b.life -= h;
+    if (b.life <= 0) b.dead = true;
+    wrap(b);
+  }
+
+  // bullets split rocks — and crack saucers
   for (const b of game.bullets) {
     if (b.life <= 0) { b.dead = true; continue; }
+    if (game.saucer && Math.hypot(b.x - game.saucer.x, b.y - game.saucer.y) < SAUCER_R + 2) {
+      b.dead = true;
+      killSaucer(game, saucerPay(game.wave));
+      continue;
+    }
     for (const r of game.rocks) {
       if (Math.hypot(b.x - r.x, b.y - r.y) < SIZES[r.size]) {
         b.dead = true;
@@ -213,6 +377,18 @@ export function update(game, h, input = {}) {
   game.bullets = game.bullets.filter((b) => !b.dead);
   game.rocks = game.rocks.filter((r) => !r.dead);
 
+  // saucer bolts die on rocks, kill on ships — the mirror of the above.
+  for (const b of game.sbolts) {
+    if (b.dead) continue;
+    for (const r of game.rocks) {
+      if (Math.hypot(b.x - r.x, b.y - r.y) < SIZES[r.size]) {
+        b.dead = true;
+        break;
+      }
+    }
+  }
+  game.sbolts = game.sbolts.filter((b) => !b.dead);
+
   // rocks split ships
   if (game.invuln <= 0) {
     for (const r of game.rocks) {
@@ -220,6 +396,23 @@ export function update(game, h, input = {}) {
         killShip(game);
         break;
       }
+    }
+    // bolts and hulls, same grace period as the rocks
+    if (!game.over) {
+      for (const b of game.sbolts) {
+        if (Math.hypot(s.x - b.x, s.y - b.y) < 12) {
+          b.dead = true;
+          killShip(game);
+          break;
+        }
+      }
+      game.sbolts = game.sbolts.filter((b) => !b.dead);
+    }
+    if (!game.over && game.saucer
+      && Math.hypot(s.x - game.saucer.x, s.y - game.saucer.y) < SAUCER_R + 10) {
+      // ramming the pest: no payout, just the wreck and the blast
+      killSaucer(game, 0);
+      killShip(game);
     }
     if (game.over) return;
   }
@@ -247,6 +440,27 @@ function rockPath(ctx, r) {
   ctx.closePath();
 }
 
+function drawSaucer(ctx, u, time) {
+  // the classic pest: a dome riding a disc, three lights chasing its rim
+  ctx.strokeStyle = '#ff5a7a';
+  ctx.fillStyle = '#3a1420';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(u.x, u.y + 4, SAUCER_R, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(u.x, u.y - 4, 11, 8, 0, Math.PI, 0);
+  ctx.stroke();
+  ctx.fillStyle = '#ff8aa0';
+  for (let i = 0; i < 3; i++) {
+    const a = time * 6 + (i / 3) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(u.x + Math.cos(a) * 15, u.y + 4 + Math.sin(a) * 5, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 export function draw(ctx, game, view) {
   backdrop(ctx, view.W, view.time, stars);
   hud(ctx, view.W,
@@ -264,6 +478,23 @@ export function draw(ctx, game, view) {
     for (const b of game.bullets) {
       ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
     }
+    // saucer bolts: slow, red, few — seen in time to sidestep
+    ctx.fillStyle = '#ff5a7a';
+    for (const b of game.sbolts) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (game.saucer) {
+      drawSaucer(ctx, game.saucer, view.time);
+    }
+    // sparks ride under the ship: the living outshine the debris
+    for (const p of game.particles) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.max));
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
     // the ship blinks back into existence
     const blink = game.invuln > 0 && Math.floor(view.time * 8) % 2 === 0;
     if (!blink && !game.over) {
