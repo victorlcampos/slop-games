@@ -1,12 +1,12 @@
 {
   "name": "invasores-espaciais",
-  "version": "1.0.0",
-  "description": "A Space Invaders homage: one cannon, a descending swarm, four bunkers and a red saucer.",
+  "version": "2.0.0",
+  "description": "Seven arcade classics rebuilt from code behind one neon sign.",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node test/logic.test.mjs"
+    "test": "node test/logic.test.mjs && node test/maze.test.mjs && node test/blocks.test.mjs && node test/snake.test.mjs && node test/rocks.test.mjs && node test/hopper.test.mjs && node test/bounce.test.mjs && node test/shell.test.mjs"
   },
   "license": "MIT",
   "dependencies": {

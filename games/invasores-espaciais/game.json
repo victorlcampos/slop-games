@@ -1,13 +1,13 @@
 {
   "slug": "invasores-espaciais",
   "name": {
-    "en": "Space Invaders",
-    "pt": "Invasores Espaciais"
+    "en": "Neon Arcade",
+    "pt": "Fliperama Neon"
   },
-  "emoji": "👾",
+  "emoji": "🕹️",
   "description": {
-    "en": "The 1978 classic rebuilt from code: hold the line, pick off the descending swarm row by row, and nail the red saucer before it slips past.",
-    "pt": "O clássico de 1978 refeito em código: segure a linha, derrube o enxame fileira por fileira e acerte o disco vermelho antes que ele escape."
+    "en": "Seven arcade classics, one neon sign: hold the swarm, eat the maze, break the wall, grow the snake, split the rocks, cross the road, beat the bounce.",
+    "pt": "Sete clássicos, um neon: segure o enxame, coma o labirinto, quebre o muro, cresça a cobra, parta as rochas, atravesse a rua, vença o rebate."
   },
   "tags": ["2d", "arcade", "remake"],
   "libs": [],

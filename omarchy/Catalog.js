@@ -86,6 +86,19 @@ var GAMES = [
     }
   },
   {
+    "slug": "invasores-espaciais",
+    "emoji": "🕹️",
+    "offline": true,
+    "name": {
+      "en": "Neon Arcade",
+      "pt": "Fliperama Neon"
+    },
+    "blurb": {
+      "en": "Seven arcade classics, one neon sign: hold the swarm, eat the maze, break the wall, grow the snake, split the rocks, cross the road, beat the bounce.",
+      "pt": "Sete clássicos, um neon: segure o enxame, coma o labirinto, quebre o muro, cresça a cobra, parta as rochas, atravesse a rua, vença o rebate."
+    }
+  },
+  {
     "slug": "skifree3d",
     "emoji": "⛷️",
     "offline": true,
@@ -96,19 +109,6 @@ var GAMES = [
     "blurb": {
       "en": "A 3D take on SkiFree from 1991.",
       "pt": "Releitura em 3D do SkiFree de 1991."
-    }
-  },
-  {
-    "slug": "invasores-espaciais",
-    "emoji": "👾",
-    "offline": true,
-    "name": {
-      "en": "Space Invaders",
-      "pt": "Invasores Espaciais"
-    },
-    "blurb": {
-      "en": "The 1978 classic rebuilt from code: hold the line, pick off the descending swarm row by row, and nail the red saucer before it slips past.",
-      "pt": "O clássico de 1978 refeito em código: segure a linha, derrube o enxame fileira por fileira e acerte o disco vermelho antes que ele escape."
     }
   },
   {

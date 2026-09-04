@@ -4,42 +4,108 @@
 import { createI18n } from 'slopkit/i18n';
 
 export const dict = {
-  'game.title': { pt: 'Invasores Espaciais', en: 'Space Invaders' },
+  'game.title': { pt: 'Fliperama Neon', en: 'Neon Arcade' },
   'game.tagline': {
-    pt: 'Eles descem. Você segura a linha.',
-    en: 'They descend. You hold the line.',
+    pt: 'Sete clássicos, uma ficha. Escolha a máquina.',
+    en: 'Seven classics, one token. Pick your machine.',
   },
 
-  'menu.defend': { pt: 'Defender', en: 'Defend' },
-  'menu.again': { pt: 'De novo', en: 'Again' },
+  'menu.pick': { pt: 'Escolha a máquina', en: 'Pick your machine' },
+  'menu.best': { pt: 'recorde', en: 'best' },
   'menu.controls': {
-    pt: 'Setas ou A/D para mover · espaço, J ou Z para atirar · M silencia',
-    en: 'Arrows or A/D to move · space, J or Z to fire · M mutes',
+    pt: 'Setas ou A/D movem · espaço atira · M silencia · no celular arraste ou deslize',
+    en: 'Arrows or A/D move · space fires · M mutes · drag or swipe on a phone',
   },
-  'menu.touch': {
-    pt: 'No celular arraste para mover — a nave atira sozinha enquanto o dedo está na tela',
-    en: 'On a phone drag to move — the cannon fires on its own while your finger is down',
+  'menu.back': { pt: 'Máquinas', en: 'Machines' },
+  'menu.again': { pt: 'De novo', en: 'Again' },
+
+  'games.swarm.name': { pt: 'Enxame Estelar', en: 'Star Swarm' },
+  'games.swarm.desc': {
+    pt: 'Segure a linha contra o enxame que desce.',
+    en: 'Hold the line against the descending swarm.',
+  },
+  'games.swarm.controls': {
+    pt: '←/→ ou A/D movem · espaço atira',
+    en: '←/→ or A/D to move · space to fire',
+  },
+
+  'games.maze.name': { pt: 'Labirinto Faminto', en: 'Hungry Maze' },
+  'games.maze.desc': {
+    pt: 'Coma tudo, desvie das sombras, vire o jogo com a pílula.',
+    en: 'Eat it all, dodge the shadows, turn the tables with the pill.',
+  },
+  'games.maze.controls': {
+    pt: 'Setas ou WASD viram · deslize o dedo para virar',
+    en: 'Arrows or WASD to turn · swipe to turn',
+  },
+
+  'games.blocks.name': { pt: 'Quebra-Blocos', en: 'Block Breaker' },
+  'games.blocks.desc': {
+    pt: 'Rebata a bola e derrube o muro, fileira por fileira.',
+    en: 'Bounce the ball and take the wall down, row by row.',
+  },
+  'games.blocks.controls': {
+    pt: '←/→ ou A/D movem a raquete · arraste no celular',
+    en: '←/→ or A/D to move the paddle · drag on a phone',
+  },
+
+  'games.snake.name': { pt: 'Cobra Neon', en: 'Neon Snake' },
+  'games.snake.desc': {
+    pt: 'Coma, cresça e não morda a si mesma.',
+    en: 'Eat, grow, and do not bite yourself.',
+  },
+  'games.snake.controls': {
+    pt: 'Setas ou WASD viram · deslize o dedo para virar',
+    en: 'Arrows or WASD to turn · swipe to turn',
+  },
+
+  'games.rocks.name': { pt: 'Cinturão de Asteroides', en: 'Asteroid Belt' },
+  'games.rocks.desc': {
+    pt: 'Gire, acelere e parta as rochas antes que elas partam você.',
+    en: 'Turn, burn and split the rocks before they split you.',
+  },
+  'games.rocks.controls': {
+    pt: '←/→ giram · ↑ acelera · espaço atira',
+    en: '←/→ to turn · ↑ to thrust · space to fire',
+  },
+
+  'games.hopper.name': { pt: 'Travessia', en: 'Hop Across' },
+  'games.hopper.desc': {
+    pt: 'Rua, rio e pressa: chegue ao outro lado.',
+    en: 'Road, river and hurry: reach the other side.',
+  },
+  'games.hopper.controls': {
+    pt: 'Setas pulam para o lado · deslize para pular',
+    en: 'Arrows hop · swipe to hop',
+  },
+
+  'games.bounce.name': { pt: 'Rebate Neon', en: 'Neon Bounce' },
+  'games.bounce.desc': {
+    pt: 'Você contra a máquina: devolva tudo.',
+    en: 'You against the machine: return everything.',
+  },
+  'games.bounce.controls': {
+    pt: '↑/↓ ou W/S movem · arraste no celular',
+    en: '↑/↓ or W/S to move · drag on a phone',
   },
 
   'hud.score': { pt: 'pontos', en: 'score' },
   'hud.wave': { pt: 'onda', en: 'wave' },
+  'hud.level': { pt: 'nível', en: 'level' },
   'hud.lives': { pt: 'vidas', en: 'lives' },
   'hud.best': { pt: 'recorde', en: 'best' },
 
-  'over.title': { pt: 'A invasão passou', en: 'The invasion broke through' },
   'over.score': { pt: 'Pontos', en: 'Score' },
-  'over.wave': { pt: 'Onda', en: 'Wave' },
-  'over.killed': { pt: 'Invasores', en: 'Invaders' },
   'over.record': { pt: 'Novo recorde!', en: 'New record!' },
   'over.best': { pt: 'recorde', en: 'best' },
-  'over.breach': { pt: 'O enxame cruzou a linha.', en: 'The swarm crossed the line.' },
-  'over.shot': { pt: 'O canhão foi atingido.', en: 'The cannon went down.' },
-  'over.rammed': { pt: 'O enxame chegou ao canhão.', en: 'The swarm reached the cannon.' },
+
+  'maze.ready': { pt: 'Preparar!', en: 'Ready!' },
+  'maze.clear': { pt: 'Labirinto limpo!', en: 'Maze cleared!' },
 
   'wave.clear': { pt: 'Onda {n} eliminada!', en: 'Wave {n} cleared!' },
   'wave.next': { pt: 'Onda {n}', en: 'Wave {n}' },
 
-  'page.title': { pt: 'Invasores Espaciais', en: 'Space Invaders' },
+  'page.title': { pt: 'Fliperama Neon', en: 'Neon Arcade' },
 };
 
 export const i18n = createI18n({ game: 'invasores-espaciais', dict });

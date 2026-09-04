@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#07070f">
-<title>Space Invaders</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
+<title>Neon Arcade</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕹️</text></svg>">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -32,42 +32,55 @@
     touch-action: none;
   }
 
-  /* Every card sits over the canvas, which keeps painting the starfield behind it. */
+  /* Every card sits over the canvas, which keeps painting the arcade behind it. */
   .card {
     position: fixed;
     inset: 0;
     display: grid;
     place-items: center;
     padding: 4vh 6vw;
-    background: radial-gradient(ellipse 80% 70% at 50% 40%, rgba(7,7,15,0.68) 0%, rgba(4,4,10,0.94) 78%);
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, rgba(7,7,15,0.66) 0%, rgba(4,4,10,0.93) 78%);
     text-align: center;
     z-index: 3;
+    overflow-y: auto;
   }
   .card[hidden] { display: none; }
 
-  .inner { max-width: 44rem; }
+  .inner { max-width: 46rem; width: 100%; }
 
   h1 {
-    font-size: clamp(2rem, 6vw, 3.4rem);
+    font-size: clamp(1.8rem, 5.5vw, 3rem);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #7dff8a;
     text-shadow: 0 3px 0 #0a4d1e, 0 0 30px rgba(80,255,120,0.25);
   }
 
-  .tagline { color: #a8d8b0; margin: 0.5rem 0 1.4rem; font-size: clamp(0.95rem, 2.2vw, 1.15rem); }
+  .tagline { color: #a8d8b0; margin: 0.4rem 0 1.2rem; font-size: clamp(0.9rem, 2.2vw, 1.1rem); }
 
-  .story {
-    text-align: left;
+  /* The seven machines: name, one-line pitch, and the house best. */
+  #pick {
     display: grid;
-    gap: 0.5rem;
-    margin: 0 auto 1.4rem;
-    max-width: 38rem;
-    color: #9dc4a4;
-    font-size: clamp(0.85rem, 1.9vw, 1rem);
-    line-height: 1.5;
+    gap: 0.55rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    margin-bottom: 1.2rem;
+    text-align: left;
   }
-  .story p::before { content: "▸ "; color: #3f7a4a; }
+  .machine {
+    font: inherit;
+    color: #d6f4d6;
+    background: rgba(20,34,22,0.85);
+    border: 2px solid #3f7a4a;
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+    cursor: pointer;
+    display: grid;
+    gap: 0.15rem;
+  }
+  .machine:active { transform: translateY(2px); }
+  .machine b { color: #7dff8a; letter-spacing: 0.03em; }
+  .machine span { font-size: 0.82rem; color: #9dc4a4; line-height: 1.35; }
+  .machine em { font-style: normal; font-size: 0.75rem; color: #6f9a78; }
 
   .btnrow { display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; }
 
@@ -134,14 +147,14 @@
 
   #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #6f9a78; z-index: 5; }
   /* `hidden` loses to `display: grid` — without this the line stays on screen
-     for the whole run, in the middle of the starfield */
+     for the whole run, in the middle of the arcade */
   #boot[hidden] { display: none; }
 </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
 
-  <div id="boot" data-pt="abrindo o espaço…" data-en="opening space…">opening space…</div>
+  <div id="boot" data-pt="ligando as máquinas…" data-en="warming up the machines…">warming up the machines…</div>
 
   <div class="corner">
     <span data-lang-picker></span>
@@ -150,48 +163,35 @@
 
   <div class="card" id="menu">
     <div class="inner">
-      <h1 data-pt="Invasores Espaciais" data-en="Space Invaders">Space Invaders</h1>
+      <h1 data-pt="Fliperama Neon" data-en="Neon Arcade">Neon Arcade</h1>
       <p class="tagline"
-         data-pt="Eles descem. Você segura a linha."
-         data-en="They descend. You hold the line.">They descend. You hold the line.</p>
+         data-pt="Sete clássicos, uma ficha. Escolha a máquina."
+         data-en="Seven classics, one token. Pick your machine.">Seven classics, one token. Pick your machine.</p>
 
-      <div class="story">
-        <p data-pt="Onze por fileira, cinco fileiras — e cada passo é mais rápido que o anterior."
-           data-en="Eleven across, five deep — and every step is faster than the last.">Eleven across, five deep — and every step is faster than the last.</p>
-        <p data-pt="A fileira de baixo vale 10, a de cima vale 30. O disco vermelho vale até 300, se você for rápido."
-           data-en="The bottom row is worth 10, the top is worth 30. The red saucer pays up to 300, if you are quick.">The bottom row is worth 10, the top is worth 30.</p>
-        <p data-pt="Os bunkers aguentam alguns tiros — dos dois lados. Não atire no próprio teto."
-           data-en="The bunkers take a few hits — from both sides. Mind your own ceiling.">The bunkers take a few hits — from both sides.</p>
-      </div>
+      <div id="pick"></div>
 
       <div class="btnrow">
-        <button class="btn" id="btn-start" data-pt="Defender" data-en="Defend">Defend</button>
         <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
       </div>
 
       <p class="foot">
-        <span data-pt="Setas ou A/D para mover · espaço, J ou Z para atirar · M silencia"
-              data-en="Arrows or A/D to move · space, J or Z to fire · M mutes">Arrows or A/D to move · space, J or Z to fire · M mutes</span><br>
-        <span data-pt="No celular arraste para mover — a nave atira sozinha enquanto o dedo está na tela"
-              data-en="On a phone drag to move — the cannon fires on its own while your finger is down">On a phone drag to move.</span>
+        <span data-pt="Setas ou A/D movem · espaço atira · M silencia · no celular arraste ou deslize"
+              data-en="Arrows or A/D move · space fires · M mutes · drag or swipe on a phone">Arrows or A/D move · space fires · M mutes · drag or swipe on a phone</span>
       </p>
     </div>
   </div>
 
   <div class="card" id="over" hidden>
     <div class="inner">
-      <h1 data-pt="A invasão passou" data-en="The invasion broke through">The invasion broke through</h1>
+      <h1 id="o-title">Neon Arcade</h1>
       <p class="record" id="o-record" hidden data-pt="Novo recorde!" data-en="New record!">New record!</p>
       <div class="stats">
         <div class="stat"><b id="o-score">0</b><span data-pt="pontos" data-en="score">score</span></div>
-        <div class="stat"><b id="o-wave">1</b><span data-pt="onda" data-en="wave">wave</span></div>
-        <div class="stat"><b id="o-killed">0</b><span data-pt="invasores" data-en="invaders">invaders</span></div>
+        <div class="stat"><b id="o-best">0</b><span data-pt="recorde" data-en="best">best</span></div>
       </div>
-      <p class="foot" style="margin-bottom:1rem">
-        <span data-pt="recorde" data-en="best">best</span>: <span id="o-best">0</span>
-      </p>
       <div class="btnrow">
         <button class="btn" id="btn-again" data-pt="De novo" data-en="Again">Again</button>
+        <button class="btn ghost" id="btn-menu" data-pt="Máquinas" data-en="Machines">Machines</button>
         <a class="btn ghost back-to-games" data-back-to-catalog data-t="slop.backToCatalog" hidden></a>
       </div>
     </div>

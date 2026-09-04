@@ -1,40 +1,53 @@
-# 👾 Invasores Espaciais · Space Invaders
+# 🕹️ Fliperama Neon · Neon Arcade
 
-The 1978 classic rebuilt from code. One cannon, a swarm that descends one step
-at a time and gets faster with every kill, four bunkers that crumble from both
-sides, and a red saucer that pays up to 300 points if you are quick.
+Seven arcade classics rebuilt from code behind one neon sign. Pick a machine —
+each keeps its own best score, in both languages.
 
 ```bash
 npm run build --workspace games/invasores-espaciais   # dist/index.html, one file
 npm test --workspace games/invasores-espaciais        # scenarios, in Node
 ```
 
+## The machines
+
+| | | |
+|---|---|---|
+| ⭐ **Enxame Estelar · Star Swarm** | the Space Invaders homage | hold the line against the descending swarm; the red saucer pays 300 for a snap shot |
+| 🟡 **Labirinto Faminto · Hungry Maze** | the Pac-Man homage | eat every pellet while four shadows hunt you; the power pill turns the tables, 200·2ⁿ a ghost |
+| 🧱 **Quebra-Blocos · Block Breaker** | the Breakout homage | the paddle's edge is the aim; higher rows pay more |
+| 🐍 **Cobra Neon · Neon Snake** | the Snake homage | eat, grow, do not bite yourself; every fifth meal hides a 50-point bonus |
+| 🪨 **Cinturão de Asteroides · Asteroid Belt** | the Asteroids homage | Newtonian drift on a toroidal field; big rocks split in two |
+| 🐸 **Travessia · Hop Across** | the Frogger homage | five lanes of traffic, four of river, five bays; fill them all |
+| 🏓 **Rebate Neon · Neon Bounce** | the Pong homage | you against the machine; every return pays, every ball past it pays 100 |
+
+No trademarked name made the trip: the marquee says Star Swarm, not Space
+Invaders; Hungry Maze, not Pac-Man; and so on down the row.
+
 ## Controls
 
-**←/→** or **A/D** move · **space**, **J** or **Z** fires · **M** mutes.
-Enter starts from the menu and from the game-over card.
-
-On a phone drag anywhere to move — the cannon fires on its own while your
-finger is down.
+Keyboard everywhere: arrows or WASD move, space fires. On a phone each cabinet
+has its own deal: drag aims the cannon and the paddle, either half of the
+screen turns the ship (the engine burns on its own), and everywhere else a
+swipe steers while a tap fires. **M** mutes, **Esc** walks back to the machines.
 
 ## What is interesting about it
 
-- **The march is a timer, not a speed.** The swarm steps sideways on a clock
-  that ticks faster as invaders die and as waves pass — one survivor crosses
-  the screen in under two seconds. Edge contact drops the whole formation a
-  row and reverses it, exactly like the original.
-- **Shields are damage grids, not hit points.** Each bunker is a grid of cells
-  and every bolt chews a crater out of it, from whichever side it arrived.
-  Your own shots eat your own ceiling.
-- **The saucer pays for aim.** It crosses on its own timer; the payout grows
-  the fewer shots you needed since it appeared — snap shots pay 300.
-- **Nothing here is an image.** The three invader breeds are pixel maps drawn
-  rect by rect (with a two-frame leg shuffle), the cannon, bunkers, saucer and
-  every sound are synthesised at runtime.
+- **One shell, seven cabinets.** Every machine speaks the same protocol
+  (`create/update/draw/drain/isOver` in `src/registry.js`), so the menu, the
+  loop, the save and the language picker never learn any game's rules.
+- **The save backfills.** One best per machine under a single key; a save from
+  the swarm-only days migrates its score instead of breaking, and a machine
+  added tomorrow loads as zero.
+- **The maze is the real thing.** Tile-center turning, scatter/chase clocks,
+  release timers, frightened reversals, eyes that fly home — all of it pure
+  simulation, played by the tests in Node.
+- **Nothing here is an image.** Pixel-breed invaders, a chomping circle, wavy
+  ghosts, vector rocks, the frog — all drawn or synthesised at runtime.
 
 ## Tests
 
-All of it runs in Node, with no browser: the march (step, drop, reverse,
-acceleration), the firing discipline (one cannon shot at a time), the shield
-craters, the scoring table, the saucer payout, the defeat lines, and both
-languages.
+All of it runs in Node, with no browser: each machine gets its own file —
+the march and the firing discipline, the ghost AI and the fright chain, the
+paddle geometry, the growth and the bite, the splitting rocks, the traffic
+and the logs, the rally pace — plus the shell (seven machines, two languages,
+an old save that still opens).
